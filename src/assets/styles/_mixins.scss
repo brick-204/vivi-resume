@@ -1,0 +1,325 @@
+@use 'variables' as *;
+
+// ==================== 响应式断点 ====================
+@mixin mobile {
+  @media (max-width: 768px) {
+    @content;
+  }
+}
+
+@mixin tablet {
+  @media (max-width: 1024px) {
+    @content;
+  }
+}
+
+@mixin desktop {
+  @media (min-width: 1025px) {
+    @content;
+  }
+}
+
+// ==================== Flex 布局 ====================
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+// ==================== 玻璃拟态 ====================
+@mixin glass {
+  background: $bg-glass;
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid $border-glass;
+  border-radius: $radius-xl;
+}
+
+@mixin glass-hover {
+  background: $bg-glass-hover;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+@mixin glass-card {
+  @include glass;
+  padding: $spacing-lg;
+  transition: all $transition-base;
+
+  &:hover {
+    @include glass-hover;
+  }
+}
+
+// ==================== 光晕效果 ====================
+@mixin glow($color, $intensity: 0.3) {
+  box-shadow: 0 0 20px rgba($color, $intensity),
+              0 0 40px rgba($color, $intensity * 0.5);
+}
+
+@mixin glow-border($color, $intensity: 0.3) {
+  border: 1px solid rgba($color, $intensity);
+  box-shadow: 0 0 15px rgba($color, $intensity * 0.3),
+              inset 0 0 15px rgba($color, $intensity * 0.1);
+}
+
+// ==================== 卡片样式 ====================
+@mixin card {
+  background: $bg-glass;
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid $border-glass;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-md;
+  transition: all $transition-base;
+
+  &:hover {
+    background: $bg-glass-hover;
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: $shadow-lg;
+  }
+}
+
+@mixin card-colorful($color) {
+  @include card;
+  border-left: 3px solid $color;
+
+  &:hover {
+    box-shadow: $shadow-lg, 0 0 20px rgba($color, 0.15);
+  }
+}
+
+// ==================== 按钮样式 ====================
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-lg;
+  border-radius: $radius-lg;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-base;
+  border: none;
+  letter-spacing: 0.02em;
+  font-family: $font-family;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $primary-gradient;
+  color: $text-white;
+  box-shadow: $shadow-primary, $shadow-glow-primary;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(124, 92, 252, 0.4), 0 0 50px rgba(124, 92, 252, 0.2);
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background: $bg-glass;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: $text-primary;
+  border: 1px solid $border-glass;
+
+  &:hover:not(:disabled) {
+    background: $bg-glass-hover;
+    border-color: $primary-color;
+    color: $text-white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(124, 92, 252, 0.2);
+  }
+}
+
+@mixin button-ghost {
+  @include button-base;
+  background: transparent;
+  color: $text-secondary;
+  border: 1px solid transparent;
+
+  &:hover:not(:disabled) {
+    background: $bg-glass;
+    color: $text-primary;
+    border-color: $border-glass;
+  }
+}
+
+// ==================== 输入框样式 ====================
+@mixin input-base {
+  width: 100%;
+  padding: $spacing-md;
+  border: 1px solid $border-glass;
+  border-radius: $radius-lg;
+  font-size: $font-size-sm;
+  color: $text-primary;
+  background: $bg-glass;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all $transition-base;
+  font-family: $font-family;
+
+  &::placeholder {
+    color: $text-light;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $primary-color;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15),
+                0 0 20px rgba(124, 92, 252, 0.1);
+  }
+
+  &:disabled {
+    background: rgba(255, 255, 255, 0.02);
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+// ==================== 滚动条 ====================
+@mixin scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: $radius-full;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+// ==================== 文字截断 ====================
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-ellipsis: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin text-ellipsis-lines($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// ==================== 装饰元素 ====================
+@mixin gradient-text {
+  background: $primary-gradient;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@mixin glass-effect {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+// ==================== 流动光球 ====================
+@mixin orb($size, $color, $top, $left, $blur: 80px) {
+  position: absolute;
+  width: $size;
+  height: $size;
+  border-radius: 50%;
+  background: $color;
+  filter: blur($blur);
+  opacity: 0.5;
+  top: $top;
+  left: $left;
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+
+// ==================== 动画 ====================
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(20px, -30px) scale(1.05);
+  }
+  50% {
+    transform: translate(-10px, 20px) scale(0.95);
+  }
+  75% {
+    transform: translate(-20px, -10px) scale(1.02);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@mixin animate-slide-up($delay: 0s) {
+  animation: slide-up 0.6s ease forwards;
+  animation-delay: $delay;
+  opacity: 0;
+}
+
+@mixin animate-fade-in($delay: 0s) {
+  animation: fade-in 0.4s ease forwards;
+  animation-delay: $delay;
+  opacity: 0;
+}

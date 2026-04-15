@@ -1,0 +1,105 @@
+import type { Resume } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER } from '@/types/resume'
+
+// 用于模板画廊预览的示例简历数据
+export const sampleResume: Resume = {
+  id: 'sample',
+  title: '示例简历',
+  templateId: 'sidebar',
+  basicInfo: {
+    name: '张明',
+    title: '高级前端工程师',
+    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4',
+    email: 'zhangming@email.com',
+    phone: '138-0000-1234',
+    location: '北京市',
+    website: 'github.com/zhangming',
+    summary: '拥有 6 年前端开发经验，精通 Vue、React 等主流框架，具备丰富的大型项目架构设计能力。热衷于技术创新和团队协作，主导过多个百万级用户产品的前端架构设计与性能优化。'
+  },
+  workExperience: [
+    {
+      id: 'w1',
+      company: '字节跳动',
+      position: '高级前端工程师',
+      startDate: '2021-03',
+      endDate: '至今',
+      description: '负责核心业务线的前端架构设计和团队技术规划，主导微前端架构落地，推动前端工程化建设。',
+      highlights: [
+        '主导微前端架构设计，将单体应用拆分为 8 个独立模块，部署效率提升 60%',
+        '建立前端监控体系，页面性能指标提升 40%，首屏加载时间降至 1.2s',
+        '带领 5 人前端团队，制定代码规范和 Code Review 流程，Bug 率降低 35%'
+      ]
+    },
+    {
+      id: 'w2',
+      company: '阿里巴巴',
+      position: '前端工程师',
+      startDate: '2018-07',
+      endDate: '2021-02',
+      description: '参与电商平台核心模块开发，负责性能优化和组件库建设。',
+      highlights: [
+        '开发通用组件库，覆盖 50+ 业务组件，被 3 个事业部复用',
+        '优化商品详情页渲染性能，LCP 从 3.5s 降至 1.8s'
+      ]
+    }
+  ],
+  education: [
+    {
+      id: 'e1',
+      school: '北京大学',
+      degree: '本科',
+      major: '计算机科学与技术',
+      startDate: '2014-09',
+      endDate: '2018-06',
+      description: 'GPA 3.8/4.0，获国家奖学金，ACM 校赛银牌'
+    }
+  ],
+  projects: [
+    {
+      id: 'p1',
+      name: '智能数据可视化平台',
+      role: '前端负责人',
+      startDate: '2022-01',
+      endDate: '2023-06',
+      description: '基于 Vue 3 + TypeScript 的数据可视化平台，支持拖拽式报表设计，服务 200+ 内部团队。',
+      highlights: [
+        '设计拖拽式报表编辑器，支持 20+ 图表类型',
+        '实现自定义数据源接入，兼容 REST API 和 WebSocket 实时推送'
+      ],
+      technologies: ['Vue 3', 'TypeScript', 'ECharts', 'Pinia']
+    },
+    {
+      id: 'p2',
+      name: '跨端组件库',
+      role: '核心开发者',
+      startDate: '2021-06',
+      endDate: '2022-12',
+      description: '设计并开发跨端 UI 组件库，覆盖 Web、小程序、React Native 三端，组件覆盖率达 95%。',
+      highlights: [
+        '设计跨端主题系统，一套样式适配三端',
+        '编写完善的单元测试，覆盖率 90%+'
+      ],
+      technologies: ['React', 'Vue', 'Storybook', 'Jest']
+    }
+  ],
+  skills: [
+    { id: 's1', name: 'Vue / React', level: 5, category: '框架' },
+    { id: 's2', name: 'TypeScript', level: 5, category: '语言' },
+    { id: 's3', name: 'Node.js', level: 4, category: '后端' },
+    { id: 's4', name: '性能优化', level: 4, category: '工程化' },
+    { id: 's5', name: 'CI/CD', level: 3, category: 'DevOps' }
+  ],
+  languages: [
+    { id: 'l1', name: '中文', level: '母语' },
+    { id: 'l2', name: '英语', level: '流利' },
+    { id: 'l3', name: '日语', level: '基础' }
+  ],
+  selfEvaluation: '具备扎实的前端技术功底和良好的产品思维，善于从用户角度思考问题。在团队中担任技术导师角色，帮助团队成员成长。持续关注前沿技术发展，积极参与开源社区贡献。',
+  sectionOrder: [...DEFAULT_SECTION_ORDER],
+  hiddenSections: [],
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:00.000Z'
+}
+
+// 获取示例数据的深拷贝，防止意外修改原始数据
+export const getSampleResume = (): Resume => JSON.parse(JSON.stringify(sampleResume))

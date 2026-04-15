@@ -1,0 +1,11 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// ==================== 全局样式 ====================
+
+// 简历预览样式
+.resume-preview {
+  background: #ffffff;
+  min-height: 100%;
+  @include scrollbar;
+}

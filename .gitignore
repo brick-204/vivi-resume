@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+# 测试文件
+test_*.py
+test_screenshots/
+
+.claude/
