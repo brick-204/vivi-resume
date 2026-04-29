@@ -38,7 +38,7 @@ src/
 │   │   ├── sections/    # 各模块编辑组件
 │   │   └── AddSectionModal.vue  # 添加模块弹窗
 │   ├── preview/         # 预览组件（ResumeDocument、ResumePreview）
-│   └── template/        # 模板相关组件（TemplateCard、TemplateSelector）
+│   └── template/        # 模板相关组件（TemplateCard）
 ├── config/
 │   ├── templates.ts     # 模板配置（6 种模板样式定义）
 │   └── sampleData.ts    # 示例简历数据
