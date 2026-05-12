@@ -78,6 +78,8 @@ const scaleStyle = computed(() => ({
   transition: all $transition-base;
   border: 2px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
 
   &:hover {
     transform: translateY(-4px);
@@ -96,7 +98,8 @@ const scaleStyle = computed(() => ({
 
   &__preview {
     width: 100%;
-    aspect-ratio: 800 / 1050;
+    height: 360px;
+    flex-shrink: 0;
     overflow: hidden;
     position: relative;
     background: #ffffff;
@@ -118,19 +121,23 @@ const scaleStyle = computed(() => ({
     background: rgba($bg-primary, 0.6);
     backdrop-filter: blur(10px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   &__name {
-    font-size: $font-size-sm;
+    font-size: $font-size-md;
     font-weight: 600;
     color: $text-primary;
     margin-bottom: $spacing-xs;
   }
 
   &__desc {
-    font-size: $font-size-xs;
+    font-size: $font-size-sm;
     color: $text-secondary;
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
   &__check {
@@ -149,6 +156,57 @@ const scaleStyle = computed(() => ({
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+// 响应式适配
+@include tablet {
+  .template-card {
+    &__preview {
+      height: 300px;
+    }
+
+    &__info {
+      padding: $spacing-sm $spacing-md;
+    }
+
+    &__name {
+      font-size: $font-size-sm;
+    }
+
+    &__desc {
+      font-size: $font-size-xs;
+    }
+  }
+}
+
+@include mobile {
+  .template-card {
+    &__preview {
+      height: 280px;
+    }
+
+    &__info {
+      padding: $spacing-sm $spacing-md;
+    }
+
+    &__name {
+      font-size: $font-size-sm;
+    }
+
+    &__desc {
+      font-size: $font-size-xs;
+    }
+
+    &__check {
+      top: $spacing-xs;
+      right: $spacing-xs;
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
   }
 }
 </style>

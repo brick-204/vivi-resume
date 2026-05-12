@@ -119,10 +119,13 @@ const applyTemplate = () => {
   &__grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: $spacing-lg;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-auto-rows: min-content;
+    gap: $spacing-xl;
     padding: $spacing-xl;
+    padding-bottom: $spacing-3xl;
     overflow-y: auto;
+    align-content: start;
     @include scrollbar;
   }
 }
@@ -155,12 +158,26 @@ const applyTemplate = () => {
 }
 
 // 响应式
+@include tablet {
+  .templates-view {
+    &__grid {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: $spacing-md;
+      padding: $spacing-lg;
+    }
+  }
+}
+
 @include mobile {
   .templates-view {
     &__grid {
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      grid-template-columns: 1fr;
       padding: $spacing-md;
       gap: $spacing-md;
+    }
+
+    &__header {
+      padding: $spacing-sm $spacing-md;
     }
   }
 }
