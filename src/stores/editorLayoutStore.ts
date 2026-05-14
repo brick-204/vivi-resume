@@ -5,19 +5,19 @@ import { ref, computed } from 'vue'
 const LAYOUT_CONFIG = {
   // 最小宽度
   MIN_NAV_WIDTH: 48,        // 收缩后的图标列宽度
-  MIN_NAV_EXPANDED: 160,    // 展开后的最小宽度
-  MIN_EDITOR_WIDTH: 300,    // 编辑区最小宽度
-  MAX_NAV_WIDTH: 280,       // 导航栏最大宽度
-  MAX_EDITOR_WIDTH: 600,    // 编辑区最大宽度
+  MIN_NAV_EXPANDED: 200,    // 展开后的最小宽度
+  MIN_EDITOR_WIDTH: 550,    // 编辑区最小宽度
+  MAX_NAV_WIDTH: 320,       // 导航栏最大宽度
+  MAX_EDITOR_WIDTH: 800,    // 编辑区最大宽度
   MIN_PREVIEW_WIDTH: 400,   // 预览区最小宽度
 
   // 默认宽度
   DEFAULT_NAV_WIDTH: 200,   // 导航栏默认宽度
-  DEFAULT_EDITOR_WIDTH: 420,// 编辑区默认宽度
+  DEFAULT_EDITOR_WIDTH: 550,// 编辑区默认宽度
 
   // 本地存储键
   STORAGE_KEY: 'vivi-editor-layout',
-  STORAGE_VERSION: 1        // 版本号，用于数据迁移
+  STORAGE_VERSION: 2        // 版本号，用于数据迁移
 }
 
 export const useEditorLayoutStore = defineStore('editorLayout', () => {
@@ -54,18 +54,26 @@ export const useEditorLayoutStore = defineStore('editorLayout', () => {
 
   // 设置导航栏宽度（带边界约束）
   const setNavWidth = (width: number) => {
-    navWidth.value = Math.max(
+    const clamped = Math.max(
       LAYOUT_CONFIG.MIN_NAV_EXPANDED,
       Math.min(LAYOUT_CONFIG.MAX_NAV_WIDTH, width)
     )
+    if (navWidth.value !== clamped) {
+      navWidth.value = clamped
+    }
   }
 
   // 设置编辑区宽度（带边界约束）
   const setEditorWidth = (width: number) => {
-    editorWidth.value = Math.max(
+    // 直接赋值，避免重复计算
+    const clamped = Math.max(
       LAYOUT_CONFIG.MIN_EDITOR_WIDTH,
       Math.min(LAYOUT_CONFIG.MAX_EDITOR_WIDTH, width)
     )
+    // 只有值变化时才更新
+    if (editorWidth.value !== clamped) {
+      editorWidth.value = clamped
+    }
   }
 
   // 切换导航栏收缩状态

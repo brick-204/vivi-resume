@@ -48,12 +48,13 @@
       <!-- 第一列：模块导航栏 -->
       <aside
         class="editor-body__nav"
-        :style="{ width: layoutStore.actualNavWidth + 'px' }"
+        :class="{ 'editor-body__nav--collapsed': layoutStore.navCollapsed }"
+        :style="{ width: layoutStore.navCollapsed ? '48px' : layoutStore.navWidth + 'px' }"
       >
         <SectionNavigator @click-section="handleClickSection" />
       </aside>
 
-      <!-- 拖拽手柄 1 -->
+      <!-- 第一列拖拽手柄 -->
       <ResizeHandle
         v-if="!layoutStore.navCollapsed"
         @resize="handleNavResize"
@@ -71,7 +72,7 @@
         </aside>
       </Transition>
 
-      <!-- 拖拽手柄 2 -->
+      <!-- 第二列拖拽手柄 -->
       <ResizeHandle
         v-if="!layoutStore.editorCollapsed"
         @resize="handleEditorResize"
@@ -327,12 +328,18 @@ onMounted(() => {
 
   &__nav {
     flex-shrink: 0;
+    min-width: 200px;
     background: rgba($bg-primary, 0.6);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid $border-glass;
     overflow: hidden;
+    will-change: width;
     transition: width 0.25s ease;
+
+    &--collapsed {
+      min-width: 48px;
+    }
   }
 
   &__editor {
@@ -342,6 +349,7 @@ onMounted(() => {
     -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid $border-glass;
     overflow: hidden;
+    will-change: width;
   }
 
   &__preview {

@@ -21,7 +21,10 @@ const emit = defineEmits<{
 }>()
 
 const isDragging = ref(false)
+const isMounted = ref(true)
 let startX = 0
+let rafId: number | null = null
+let pendingDelta = 0
 
 const handleMouseDown = (e: MouseEvent) => {
   e.preventDefault()
@@ -34,15 +37,37 @@ const handleMouseDown = (e: MouseEvent) => {
   document.body.style.userSelect = 'none'
 }
 
+const flushDelta = () => {
+  if (!isMounted.value) return
+  if (pendingDelta !== 0) {
+    emit('resize', pendingDelta)
+    pendingDelta = 0
+  }
+  rafId = null
+}
+
 const handleMouseMove = (e: MouseEvent) => {
-  if (!isDragging.value) return
+  if (!isDragging.value || !isMounted.value) return
+
   const delta = e.clientX - startX
-  emit('resize', delta)
-  startX = e.clientX // 更新起点，实现连续拖拽
+  startX = e.clientX
+  pendingDelta += delta
+
+  // 使用 requestAnimationFrame 合并多次更新
+  if (rafId === null) {
+    rafId = requestAnimationFrame(flushDelta)
+  }
 }
 
 const handleMouseUp = () => {
-  if (!isDragging.value) return
+  if (!isDragging.value || !isMounted.value) return
+
+  // 确保最后的 delta 被处理
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+  flushDelta()
 
   isDragging.value = false
   emit('resizeEnd')
@@ -69,8 +94,12 @@ const handleKeyDown = (e: KeyboardEvent) => {
 }
 
 onUnmounted(() => {
+  isMounted.value = false
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+  }
 })
 </script>
 

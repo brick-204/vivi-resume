@@ -252,6 +252,8 @@ const handleDragEnd = () => {
   &__icon {
     flex-shrink: 0;
     display: flex;
+    align-items: center;
+    justify-content: center;
     color: $text-secondary;
   }
 
