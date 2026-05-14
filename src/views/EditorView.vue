@@ -43,11 +43,42 @@
       </div>
     </header>
 
-    <!-- 主体 -->
+    <!-- 主体 - 三列布局 -->
     <main class="editor-body">
-      <aside class="editor-body__panel">
-        <EditorPanel ref="editorPanelRef" @click-tab="handleClickTab" />
+      <!-- 第一列：模块导航栏 -->
+      <aside
+        class="editor-body__nav"
+        :style="{ width: layoutStore.actualNavWidth + 'px' }"
+      >
+        <SectionNavigator @click-section="handleClickSection" />
       </aside>
+
+      <!-- 拖拽手柄 1 -->
+      <ResizeHandle
+        v-if="!layoutStore.navCollapsed"
+        @resize="handleNavResize"
+        @resize-end="layoutStore.saveLayout"
+      />
+
+      <!-- 第二列：模块编辑区 -->
+      <Transition name="slide-left">
+        <aside
+          v-if="!layoutStore.editorCollapsed"
+          class="editor-body__editor"
+          :style="{ width: layoutStore.editorWidth + 'px' }"
+        >
+          <SectionEditor />
+        </aside>
+      </Transition>
+
+      <!-- 拖拽手柄 2 -->
+      <ResizeHandle
+        v-if="!layoutStore.editorCollapsed"
+        @resize="handleEditorResize"
+        @resize-end="layoutStore.saveLayout"
+      />
+
+      <!-- 第三列：简历预览区 -->
       <section class="editor-body__preview">
         <!-- 背景光晕 -->
         <div class="preview__bg">
@@ -66,15 +97,18 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { exportToPDF, downloadJSON } from '@/utils/export'
-import EditorPanel from '@/components/editor/EditorPanel.vue'
+import SectionNavigator from '@/components/editor/SectionNavigator.vue'
+import SectionEditor from '@/components/editor/SectionEditor.vue'
+import ResizeHandle from '@/components/common/ResizeHandle.vue'
 import ResumePreview from '@/components/preview/ResumePreview.vue'
 
 const route = useRoute()
 const router = useRouter()
 const store = useResumeStore()
+const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
-const editorPanelRef = ref<InstanceType<typeof EditorPanel>>()
 
 const resumeTitle = computed({
   get: () => store.currentResume?.title || '',
@@ -85,13 +119,20 @@ const saveTitle = () => {
   store.saveCurrentResume()
 }
 
-const handleClickSection = (tabId: string) => {
-  editorPanelRef.value?.switchTab(tabId)
+// 点击预览区模块时，左侧导航切换到对应模块
+const handleClickSection = (sectionId: string) => {
+  layoutStore.setActiveSection(sectionId)
+  layoutStore.expandEditor()
 }
 
-// 点击左侧编辑区模块时，右侧预览区滚动到对应模块
-const handleClickTab = (tabId: string) => {
-  previewRef.value?.scrollToSection(tabId)
+// 拖拽调节导航栏宽度
+const handleNavResize = (delta: number) => {
+  layoutStore.setNavWidth(layoutStore.navWidth + delta)
+}
+
+// 拖拽调节编辑区宽度
+const handleEditorResize = (delta: number) => {
+  layoutStore.setEditorWidth(layoutStore.editorWidth + delta)
 }
 
 const goToTemplates = () => {
@@ -278,29 +319,55 @@ onMounted(() => {
   }
 }
 
-// 主体
+// 主体 - 三列布局
 .editor-body {
   flex: 1;
   display: flex;
   overflow: hidden;
 
-  &__panel {
-    width: $editor-panel-width;
+  &__nav {
     flex-shrink: 0;
     background: rgba($bg-primary, 0.6);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid $border-glass;
+    overflow: hidden;
+    transition: width 0.25s ease;
+  }
+
+  &__editor {
+    flex-shrink: 0;
+    background: rgba($bg-primary, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-right: 1px solid $border-glass;
+    overflow: hidden;
   }
 
   &__preview {
     flex: 1;
+    min-width: 400px;
     background: $bg-secondary;
     padding: $spacing-xl;
     overflow-y: auto;
     position: relative;
     @include scrollbar;
   }
+}
+
+// 编辑区滑入滑出动画
+.slide-left-enter-active,
+.slide-left-leave-active {
+  transition: all 0.25s ease;
+}
+
+.slide-left-enter-from,
+.slide-left-leave-to {
+  width: 0 !important;
+  opacity: 0;
+  margin-left: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 // 预览背景光晕

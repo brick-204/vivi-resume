@@ -36,6 +36,7 @@
 
 <script setup lang="ts">
 import { SECTION_CONFIG } from '@/types/resume'
+import { iconMap } from '@/components/icons/SectionIcons'
 
 defineProps<{
   hiddenSections: string[]
@@ -45,68 +46,6 @@ defineEmits<{
   close: []
   add: [sectionId: string]
 }>()
-
-// Icon components
-const MessageIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M3 4H13C13.5523 4 14 4.44772 14 5V10C14 10.5523 13.5523 11 13 11H5L2 13V5C2 4.44772 2.44772 4 3 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M5 7H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-  </svg>`
-}
-
-const BriefcaseIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <rect x="2" y="5" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.5"/>
-    <path d="M5 5V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V5" stroke="currentColor" stroke-width="1.5"/>
-    <path d="M8 9H8.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-  </svg>`
-}
-
-const EducationIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M2 6L8 3L14 6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M2 6V10L8 13L14 10V6" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M8 13V9" stroke="currentColor" stroke-width="1.5"/>
-    <circle cx="8" cy="7.5" r="1.5" stroke="currentColor" stroke-width="1"/>
-  </svg>`
-}
-
-const RocketIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M8 2L11 5L11.5 10L8 13L4.5 10L5 5L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-    <path d="M8 6V6.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    <path d="M4 13L3 14M12 13L13 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-  </svg>`
-}
-
-const ZapIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M9 2L4 9H7L6 14L12 7H9L9 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-  </svg>`
-}
-
-const GlobeIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
-    <path d="M2 8H14M8 2C5.5 4.5 5.5 11.5 8 14M8 2C10.5 4.5 10.5 11.5 8 14" stroke="currentColor" stroke-width="1.5"/>
-  </svg>`
-}
-
-const StarIcon = {
-  template: `<svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <path d="M8 1L10 5.5L15 6L11.5 9.5L12.5 15L8 12L3.5 15L4.5 9.5L1 6L6 5.5L8 1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-  </svg>`
-}
-
-const iconMap: Record<string, any> = {
-  summary: MessageIcon,
-  work: BriefcaseIcon,
-  education: EducationIcon,
-  projects: RocketIcon,
-  skills: ZapIcon,
-  languages: GlobeIcon,
-  evaluation: StarIcon
-}
 </script>
 
 <style lang="scss" scoped>

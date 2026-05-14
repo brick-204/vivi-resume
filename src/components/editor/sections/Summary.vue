@@ -31,12 +31,13 @@ import BaseTextarea from '@/components/common/BaseTextarea.vue'
 const store = useResumeStore()
 
 const summary = computed({
-  get: () => store.currentResume?.basicInfo.summary || '',
+  get: () => store.currentResume?.basicInfo?.summary || '',
   set: (value) => {
-    const currentBasicInfo = store.currentResume?.basicInfo || {}
-    store.updateCurrentResume({
-      basicInfo: { ...currentBasicInfo, summary: value }
-    })
+    if (store.currentResume) {
+      store.updateCurrentResume({
+        basicInfo: { ...store.currentResume.basicInfo, summary: value }
+      })
+    }
   }
 })
 </script>
