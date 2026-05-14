@@ -50,13 +50,6 @@ export interface SkillItem {
   content: string  // 技能内容，支持多行
 }
 
-// 语言能力
-export interface LanguageItem {
-  id: string
-  name: string
-  level: string // 例如：母语、流利、熟练、基础
-}
-
 // 简历完整数据
 export interface Resume {
   id: string
@@ -67,7 +60,6 @@ export interface Resume {
   education: EducationItem[]
   projects: ProjectItem[]
   skills: SkillItem[]
-  languages: LanguageItem[]
   selfEvaluation: string
   sectionOrder: string[]  // 模块显示顺序
   hiddenSections: string[]  // 已隐藏/删除的模块
@@ -77,12 +69,12 @@ export interface Resume {
 
 // 默认模块顺序
 export const DEFAULT_SECTION_ORDER = [
-  'basic', 'summary', 'work', 'education', 'projects', 'skills', 'languages', 'evaluation'
+  'basic', 'summary', 'work', 'education', 'projects', 'skills', 'evaluation'
 ]
 
 // 可配置的模块（basic 不可删除/隐藏）
 export const CONFIGURABLE_SECTIONS = [
-  'summary', 'work', 'education', 'projects', 'skills', 'languages', 'evaluation'
+  'summary', 'work', 'education', 'projects', 'skills', 'evaluation'
 ]
 
 // 模块配置信息
@@ -93,7 +85,6 @@ export const SECTION_CONFIG: Record<string, { label: string; icon: string }> = {
   education: { label: '教育经历', icon: 'education' },
   projects: { label: '项目经验', icon: 'rocket' },
   skills: { label: '技能', icon: 'zap' },
-  languages: { label: '语言', icon: 'globe' },
   evaluation: { label: '自我评价', icon: 'star' }
 }
 
@@ -118,7 +109,6 @@ export const createEmptyResume = (): Resume => {
     education: [],
     projects: [],
     skills: [],
-    languages: [],
     selfEvaluation: '',
     sectionOrder: [...DEFAULT_SECTION_ORDER],
     hiddenSections: [],

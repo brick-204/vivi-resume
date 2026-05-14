@@ -69,7 +69,6 @@
       <Education v-else-if="activeTab === 'education'" />
       <Projects v-else-if="activeTab === 'projects'" />
       <Skills v-else-if="activeTab === 'skills'" />
-      <Languages v-else-if="activeTab === 'languages'" />
       <SelfEvaluation v-else-if="activeTab === 'evaluation'" />
     </div>
   </div>
@@ -85,7 +84,6 @@ import WorkExperience from './sections/WorkExperience.vue'
 import Education from './sections/Education.vue'
 import Projects from './sections/Projects.vue'
 import Skills from './sections/Skills.vue'
-import Languages from './sections/Languages.vue'
 import SelfEvaluation from './sections/SelfEvaluation.vue'
 import AddSectionModal from './AddSectionModal.vue'
 

@@ -77,7 +77,6 @@ const applyTemplate = () => {
       education: sampleData.education,
       projects: sampleData.projects,
       skills: sampleData.skills,
-      languages: sampleData.languages,
       selfEvaluation: sampleData.selfEvaluation
     })
   } else {

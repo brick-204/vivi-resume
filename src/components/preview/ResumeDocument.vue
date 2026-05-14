@@ -86,21 +86,6 @@
         </div>
         <div v-else class="sidebar__empty-hint">请添加技能...</div>
       </div>
-
-      <!-- 语言能力 -->
-      <div v-if="isSectionVisible('languages')" class="sidebar__languages">
-        <div class="sidebar__section-title">
-          <span class="sidebar__section-line"></span>
-          语言能力
-        </div>
-        <div v-if="resume.languages?.length" class="sidebar__language-list">
-          <div v-for="item in resume.languages" :key="item.id" class="sidebar__language-item">
-            <span class="sidebar__language-name">{{ item.name }}</span>
-            <span class="sidebar__language-level">{{ item.level }}</span>
-          </div>
-        </div>
-        <div v-else class="sidebar__empty-hint">请添加语言...</div>
-      </div>
     </aside>
 
     <!-- 右侧主内容区 -->
@@ -416,23 +401,6 @@
         <p v-else class="section__placeholder">请添加技能...</p>
       </section>
 
-      <!-- 语言 -->
-      <section v-if="sectionId === 'languages'" class="resume__section" data-section="languages" @click="$emit('click-section', 'languages')">
-        <h2 class="section__title">
-          <span class="section__icon section__icon--lang"></span>
-          语言能力
-        </h2>
-        <template v-if="resume.languages?.length">
-          <div class="languages-grid">
-            <div v-for="item in resume.languages" :key="item.id" class="language-row">
-              <span class="language-row__name">{{ item.name }}</span>
-              <span class="language-row__level">{{ item.level }}</span>
-            </div>
-          </div>
-        </template>
-        <p v-else class="section__placeholder">请添加语言...</p>
-      </section>
-
       <!-- 自我评价 -->
       <section v-if="sectionId === 'evaluation'" class="resume__section" data-section="evaluation" @click="$emit('click-section', 'evaluation')">
         <h2 class="section__title">
@@ -473,9 +441,9 @@ const contentSections = computed(() => {
   return visibleSections.value.filter(id => id !== 'basic')
 })
 
-// sidebar 模板的内容模块顺序（排除 basic、skills、languages，它们在左侧边栏）
+// sidebar 模板的内容模块顺序（排除 basic、skills，它们在左侧边栏）
 const sidebarContentSections = computed(() => {
-  return visibleSections.value.filter(id => !['basic', 'skills', 'languages'].includes(id))
+  return visibleSections.value.filter(id => !['basic', 'skills'].includes(id))
 })
 
 // 检查模块是否可见
@@ -1298,33 +1266,6 @@ const formatDate = (date: string) => {
   color: #1e3a5f;
   line-height: 1.8;
   white-space: pre-wrap;
-}
-
-// 语言
-.sidebar__language-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sidebar__language-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 11px;
-}
-
-.sidebar__language-name {
-  color: #1e3a5f;
-  font-weight: 600;
-}
-
-.sidebar__language-level {
-  color: #3b6ba5;
-  font-size: 10px;
-  padding: 1px 8px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 10px;
 }
 
 // 右侧主内容区
