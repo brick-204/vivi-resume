@@ -44,12 +44,10 @@ export interface ProjectItem {
   technologies: string[]
 }
 
-// 技能
+// 技能（改为纯文本，用户自由列举）
 export interface SkillItem {
   id: string
-  name: string
-  level: number // 1-5
-  category: string
+  content: string  // 技能内容，支持多行
 }
 
 // 语言能力

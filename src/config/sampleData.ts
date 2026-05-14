@@ -83,11 +83,16 @@ export const sampleResume: Resume = {
     }
   ],
   skills: [
-    { id: 's1', name: 'Vue / React', level: 5, category: '框架' },
-    { id: 's2', name: 'TypeScript', level: 5, category: '语言' },
-    { id: 's3', name: 'Node.js', level: 4, category: '后端' },
-    { id: 's4', name: '性能优化', level: 4, category: '工程化' },
-    { id: 's5', name: 'CI/CD', level: 3, category: 'DevOps' }
+    {
+      id: 'skills-text',
+      content: `Vue / React - 精通
+TypeScript - 精通
+Node.js - 熟练
+性能优化 - 熟练
+CI/CD - 掌握
+Webpack / Vite - 熟练
+Git - 熟练`
+    }
   ],
   languages: [
     { id: 'l1', name: '中文', level: '母语' },

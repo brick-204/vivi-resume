@@ -81,16 +81,8 @@
           <span class="sidebar__section-line"></span>
           专业技能
         </div>
-        <div v-if="resume.skills.length" class="sidebar__skill-list">
-          <div v-for="item in resume.skills" :key="item.id" class="sidebar__skill-item">
-            <span class="sidebar__skill-name">{{ item.name }}</span>
-            <div class="sidebar__skill-bar">
-              <div
-                class="sidebar__skill-fill"
-                :style="{ width: (item.level / 5 * 100) + '%' }"
-              ></div>
-            </div>
-          </div>
+        <div v-if="getSkillsContent" class="sidebar__skill-text">
+          {{ getSkillsContent }}
         </div>
         <div v-else class="sidebar__empty-hint">请添加技能...</div>
       </div>
@@ -420,16 +412,7 @@
           <span class="section__icon section__icon--skill"></span>
           技能
         </h2>
-        <template v-if="resume.skills.length">
-          <div class="skills-grid">
-            <div v-for="item in resume.skills" :key="item.id" class="skill-row">
-              <span class="skill-row__name">{{ item.name }}</span>
-              <div class="skill-row__bar">
-                <div class="skill-row__fill" :style="{ width: (item.level / 5 * 100) + '%' }"></div>
-              </div>
-            </div>
-          </div>
-        </template>
+        <p v-if="getSkillsContent" class="section__text">{{ getSkillsContent }}</p>
         <p v-else class="section__placeholder">请添加技能...</p>
       </section>
 
@@ -523,6 +506,11 @@ const sidebarCSSVars = computed(() => {
     '--sidebar-text': t.style.sidebarTextColor || '#1e3a5f',
     '--sidebar-accent': t.style.accentColor
   }
+})
+
+// 获取技能文本内容
+const getSkillsContent = computed(() => {
+  return props.resume.skills?.[0]?.content || ''
 })
 
 const formatDate = (date: string) => {
@@ -839,36 +827,6 @@ const formatDate = (date: string) => {
 }
 
 // 技能
-.skills-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: $spacing-md;
-}
-
-.skill-row {
-  &__name {
-    display: block;
-    font-size: $font-size-xs;
-    font-weight: 600;
-    color: var(--t-text);
-    margin-bottom: $spacing-xs;
-  }
-
-  &__bar {
-    height: 6px;
-    background: #e8e8f0;
-    border-radius: $radius-full;
-    overflow: hidden;
-  }
-
-  &__fill {
-    height: 100%;
-    background: var(--t-accent);
-    border-radius: $radius-full;
-    transition: width 0.3s ease;
-  }
-}
-
 // ==================== Classic 模版 ====================
 .resume--classic {
   .resume__header {
@@ -1335,36 +1293,11 @@ const formatDate = (date: string) => {
 }
 
 // 技能
-.sidebar__skill-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar__skill-item {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.sidebar__skill-name {
+.sidebar__skill-text {
   font-size: 11px;
-  font-weight: 600;
   color: #1e3a5f;
-}
-
-.sidebar__skill-bar {
-  height: 5px;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.sidebar__skill-fill {
-  height: 100%;
-  background: #3b82f6;
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  line-height: 1.8;
+  white-space: pre-wrap;
 }
 
 // 语言
