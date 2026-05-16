@@ -3,27 +3,14 @@
     <div class="section__header">
       <h3 class="section__title">
         <span class="title__icon">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M9 2L13 6L13.5 12L9 16L4.5 12L5 6L9 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-            <circle cx="9" cy="9" r="2" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
+          <Icon :icon="ROCKET_ICON" :width="18" :height="18" />
         </span>
         项目经验
       </h3>
-      <button class="add-btn" @click="addItem">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M7 2V12M2 7H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        添加
-      </button>
     </div>
 
     <div v-if="items.length === 0" class="section__empty">
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <rect x="4" y="4" width="24" height="24" rx="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"/>
-        <path d="M10 13H22M10 18H18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      <span>暂无项目经验，点击上方按钮添加</span>
+      <span>暂无项目经验，点击下方按钮添加</span>
     </div>
 
     <div v-else class="section__list">
@@ -31,9 +18,7 @@
         <div class="card__header">
           <span class="card__name">{{ item.name || '未填写项目名称' }}</span>
           <button class="card__delete" @click="deleteItem(item.id)">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 4H11M5 4V3C5 2.44772 5.44772 2 6 2H8C8.55228 2 9 2.44772 9 3V4M6 6V10M8 6V10M4 4L5 11H9L10 4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <Icon :icon="TRASH_ICON" :width="16" :height="16" />
           </button>
         </div>
         <div class="card__form">
@@ -74,6 +59,8 @@ import { computed, ref } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { generateId } from '@/types/resume'
 import type { ProjectItem } from '@/types/resume'
+import { TRASH_ICON, ROCKET_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
 
@@ -117,6 +104,8 @@ const addTech = (item: ProjectItem) => {
 const removeTech = (item: ProjectItem, index: number) => {
   item.technologies.splice(index, 1)
 }
+
+defineExpose({ addItem })
 </script>
 
 <style lang="scss" scoped>
@@ -178,31 +167,6 @@ const removeTech = (item: ProjectItem, index: number) => {
   color: $secondary-light;
 }
 
-.add-btn {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-sm $spacing-md;
-  background: $bg-glass;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: $secondary-light;
-  border: 1px solid rgba($secondary-color, 0.3);
-  border-radius: $radius-lg;
-  font-size: $font-size-sm;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all $transition-fast;
-  font-family: $font-family;
-
-  &:hover {
-    background: rgba($secondary-color, 0.2);
-    border-color: $secondary-color;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba($secondary-color, 0.2);
-  }
-}
-
 .project-card {
   @include glass;
   padding: $spacing-lg;
@@ -226,19 +190,19 @@ const removeTech = (item: ProjectItem, index: number) => {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     background: transparent;
-    color: $text-light;
-    border: 1px solid transparent;
+    color: $error-color;
+    border: none;
     border-radius: $radius-md;
     cursor: pointer;
+    margin-left: auto;
+    flex-shrink: 0;
     transition: all $transition-fast;
 
     &:hover {
       background: rgba($error-color, 0.15);
-      border-color: rgba($error-color, 0.3);
-      color: $error-color;
     }
   }
 

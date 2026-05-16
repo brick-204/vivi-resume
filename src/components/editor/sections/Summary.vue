@@ -2,10 +2,7 @@
   <div class="section summary">
     <h3 class="section__title">
       <span class="title__icon">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M3 4H15C15.5523 4 16 4.44772 16 5V10C16 10.5523 15.5523 11 15 11H5L2 13V5C2 4.44772 2.44772 4 3 4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M5 7H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
+        <Icon :icon="MESSAGE_ICON" :width="18" :height="18" />
       </span>
       个人简介
     </h3>
@@ -26,6 +23,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { MESSAGE_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
 
 const store = useResumeStore()

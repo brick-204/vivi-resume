@@ -9,7 +9,8 @@
         :class="{
           'nav-item--active': activeSectionId === item.id,
           'nav-item--dragging': draggingIndex === index,
-          'nav-item--basic': item.id === 'basic'
+          'nav-item--basic': item.id === 'basic',
+          'nav-item--hidden': !item.visible
         }"
         :draggable="item.id !== 'basic'"
         @click="handleSelect(item.id)"
@@ -18,62 +19,67 @@
         @drop="handleDrop(index, $event)"
         @dragend="handleDragEnd"
       >
-        <span class="nav-item__icon">
-          <component :is="item.iconComponent" />
-        </span>
-        <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
         <!-- 拖拽手柄 -->
         <span
           v-if="!isCollapsed && item.id !== 'basic'"
           class="nav-item__drag-handle"
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-            <circle cx="2" cy="2" r="1"/>
-            <circle cx="8" cy="2" r="1"/>
-            <circle cx="2" cy="5" r="1"/>
-            <circle cx="8" cy="5" r="1"/>
-            <circle cx="2" cy="8" r="1"/>
-            <circle cx="8" cy="8" r="1"/>
-          </svg>
+          <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
         </span>
-        <!-- 删除按钮 -->
+        <span class="nav-item__icon">
+          <Icon :icon="item.icon" :width="16" :height="16" />
+        </span>
+        <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
+        <button
+          v-if="!isCollapsed && item.id !== 'basic'"
+          class="nav-item__hide"
+          @click.stop="handleToggleVisible(item.id)"
+        >
+          <Icon :icon="item.visible ? EYE_ICON : EYE_OFF_ICON" :width="20" :height="20" />
+        </button>
         <button
           v-if="!isCollapsed && item.id !== 'basic'"
           class="nav-item__remove"
-          @click.stop="removeSection(item.id)"
+          @click.stop="confirmRemove(item.id)"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M2 3H10M4.5 3V2C4.5 1.72386 4.72386 1.5 5 1.5H7C7.27614 1.5 7.5 1.72386 7.5 2V3M5 5.5V8M7 5.5V8M3.5 3L4 10H8L8.5 3" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <Icon :icon="TRASH_ICON" :width="20" :height="20" />
         </button>
       </div>
     </div>
 
     <!-- 添加模块按钮 -->
-    <button class="navigator__add" @click="showAddModal = true">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M7 2V12M2 7H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
+    <button v-if="hiddenSections.length" class="navigator__add" @click="showAddModal = true">
+      <Icon :icon="PLUS_ICON" :width="14" :height="14" />
       <span v-if="!isCollapsed">添加模块</span>
     </button>
 
     <!-- 收缩/展开按钮 -->
     <button class="navigator__collapse" @click="toggleCollapse">
-      <svg v-if="isCollapsed" width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M5 3L9 7L5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <svg v-else width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M9 3L5 7L9 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <Icon :icon="isCollapsed ? COLLAPSE_RIGHT_ICON : COLLAPSE_LEFT_ICON" :width="14" :height="14" />
     </button>
 
     <!-- 添加模块弹窗 -->
     <AddSectionModal
-      v-if="showAddModal"
+      :visible="showAddModal"
       :hidden-sections="hiddenSections"
       @close="showAddModal = false"
       @add="handleAddSection"
     />
+
+    <!-- 删除确认弹窗 -->
+    <BaseModal
+      v-if="removeConfirmId"
+      :visible="true"
+      title="删除模块"
+      size="sm"
+      @close="removeConfirmId = null"
+    >
+      <p class="confirm-text">确定要删除「{{ SECTION_CONFIG[removeConfirmId]?.label }}」模块吗？删除后可通过「添加模块」恢复。</p>
+      <template #footer>
+        <BaseButton variant="secondary" size="sm" @click="removeConfirmId = null">取消</BaseButton>
+        <BaseButton variant="danger" size="sm" @click="removeSection(removeConfirmId!)">删除</BaseButton>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -82,8 +88,11 @@ import { computed, ref, watch } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { SECTION_CONFIG } from '@/types/resume'
-import { iconMap } from '@/components/icons/SectionIcons'
+import { iconMap, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import AddSectionModal from './AddSectionModal.vue'
+import BaseModal from '@/components/common/BaseModal.vue'
+import BaseButton from '@/components/common/BaseButton.vue'
 
 const resumeStore = useResumeStore()
 const layoutStore = useEditorLayoutStore()
@@ -95,10 +104,12 @@ const emit = defineEmits<{
 // 可见模块列表
 const visibleSections = computed(() => {
   const order = resumeStore.getSectionOrder()
+  const hidden = resumeStore.currentResume?.hiddenSections || []
   return order.map(id => ({
     id,
     label: SECTION_CONFIG[id]?.label || id,
-    iconComponent: iconMap[id]
+    icon: iconMap[id],
+    visible: !hidden.includes(id)
   }))
 })
 
@@ -116,6 +127,14 @@ const isCollapsed = computed(() => layoutStore.navCollapsed)
 
 // 弹窗状态
 const showAddModal = ref(false)
+
+// 所有模块都添加完后自动关闭弹窗
+watch(hiddenSections, (val) => {
+  if (val.length === 0) showAddModal.value = false
+})
+
+// 删除确认状态
+const removeConfirmId = ref<string | null>(null)
 
 // 拖拽状态
 const draggingIndex = ref<number | null>(null)
@@ -145,13 +164,30 @@ const handleAddSection = (sectionId: string) => {
   resumeStore.addSection(sectionId)
   layoutStore.setActiveSection(sectionId)
   layoutStore.expandEditor()
-  showAddModal.value = false
+}
+
+// 确认删除
+const confirmRemove = (sectionId: string) => {
+  if (sectionId === 'basic') return
+  removeConfirmId.value = sectionId
+}
+
+// 切换模块可见性
+const handleToggleVisible = (sectionId: string) => {
+  if (sectionId === 'basic') return
+  const hidden = resumeStore.currentResume?.hiddenSections || []
+  if (hidden.includes(sectionId)) {
+    resumeStore.showSection(sectionId)
+  } else {
+    resumeStore.hideSection(sectionId)
+  }
 }
 
 // 删除模块
 const removeSection = (sectionId: string) => {
   if (sectionId === 'basic') return
   resumeStore.removeSection(sectionId)
+  removeConfirmId.value = null
   // 如果删除的是当前选中的，切换到第一个
   if (activeSectionId.value === sectionId) {
     layoutStore.setActiveSection(visibleSections.value[0]?.id || 'basic')
@@ -280,13 +316,13 @@ const handleDragEnd = () => {
     }
   }
 
-  &__remove {
+  &__hide {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     background: transparent;
     border: none;
     border-radius: $radius-sm;
@@ -296,8 +332,28 @@ const handleDragEnd = () => {
     transition: all 0.15s;
 
     &:hover {
+      background: $bg-glass-hover;
+      color: $primary-light;
+    }
+  }
+
+  &__remove {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: none;
+    border-radius: $radius-sm;
+    color: $error-color;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.15s;
+
+    &:hover {
       background: rgba($error-color, 0.15);
-      color: $error-color;
     }
   }
 
@@ -305,6 +361,7 @@ const handleDragEnd = () => {
     background: $bg-glass;
 
     .nav-item__drag-handle,
+    .nav-item__hide,
     .nav-item__remove {
       opacity: 1;
     }
@@ -325,11 +382,11 @@ const handleDragEnd = () => {
     }
 
     .nav-item__remove {
-      color: rgba(255, 255, 255, 0.6);
+      color: rgba(255, 255, 255, 0.7);
 
       &:hover {
         background: rgba(255, 255, 255, 0.2);
-        color: $text-white;
+        color: #ff6b6b;
       }
     }
   }
@@ -342,6 +399,14 @@ const handleDragEnd = () => {
   &--basic {
     .nav-item__drag-handle {
       display: none;
+    }
+  }
+
+  &--hidden {
+    .nav-item__icon,
+    .nav-item__label {
+      opacity: 0.4;
+      text-decoration: line-through;
     }
   }
 }
@@ -386,5 +451,12 @@ const handleDragEnd = () => {
     background: $bg-glass-hover;
     color: $text-primary;
   }
+}
+
+.confirm-text {
+  color: $text-secondary;
+  font-size: $font-size-sm;
+  line-height: 1.6;
+  margin: 0;
 }
 </style>

@@ -2,10 +2,7 @@
   <div class="section basic-info">
     <h3 class="section__title">
       <span class="title__icon">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <circle cx="9" cy="6" r="3.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M3 16C3 12.5 5.5 10 9 10C12.5 10 15 12.5 15 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
+        <Icon :icon="USER_ICON" :width="18" :height="18" />
       </span>
       基本信息
     </h3>
@@ -17,25 +14,17 @@
           <div class="photo-field__preview">
             <img v-if="basicInfo.photo" :src="basicInfo.photo" alt="头像预览" />
             <div v-else class="photo-field__placeholder">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
+              <Icon :icon="ACCOUNT_ICON" :width="28" :height="28" />
             </div>
           </div>
           <div class="photo-field__actions">
             <label class="upload-btn">
               <input type="file" accept="image/*" @change="handlePhotoUpload" hidden />
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2V10M8 2L5 5M8 2L11 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
+              <Icon :icon="UPLOAD_ICON" :width="16" :height="16" />
               上传图片
             </label>
             <button v-if="basicInfo.photo" class="clear-btn" @click="clearPhoto">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              </svg>
+              <Icon :icon="CLOSE_ICON" :width="14" :height="14" />
               清除
             </button>
           </div>
@@ -81,6 +70,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { USER_ICON, ACCOUNT_ICON, UPLOAD_ICON, CLOSE_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 
 const store = useResumeStore()

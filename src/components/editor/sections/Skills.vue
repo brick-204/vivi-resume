@@ -3,9 +3,7 @@
     <div class="section__header">
       <h3 class="section__title">
         <span class="title__icon">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M10 2L5 9H8L7 16L14 8H10L10 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          </svg>
+          <Icon :icon="ZAP_ICON" :width="18" :height="18" />
         </span>
         技能
       </h3>
@@ -24,6 +22,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { ZAP_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
 
 const store = useResumeStore()

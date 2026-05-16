@@ -18,6 +18,8 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+
 defineProps<{
   visible: boolean
   title?: string
@@ -31,6 +33,13 @@ const emit = defineEmits<{
 const close = () => {
   emit('close')
 }
+
+const onKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') close()
+}
+
+onMounted(() => document.addEventListener('keydown', onKeydown))
+onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
 <style lang="scss" scoped>

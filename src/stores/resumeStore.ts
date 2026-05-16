@@ -127,11 +127,10 @@ export const useResumeStore = defineStore('resume', () => {
   // 获取当前模块顺序（如果没有则使用默认顺序）
   const getSectionOrder = (): string[] => {
     const order = currentResume.value?.sectionOrder
-    const hidden = currentResume.value?.hiddenSections || []
     if (!order || order.length === 0) {
-      return DEFAULT_SECTION_ORDER.filter(id => !hidden.includes(id))
+      return [...DEFAULT_SECTION_ORDER]
     }
-    return order.filter(id => !hidden.includes(id))
+    return [...order]
   }
 
   // 更新模块顺序
@@ -146,11 +145,25 @@ export const useResumeStore = defineStore('resume', () => {
       newOrder = ['basic', ...newOrder]
     }
 
-    // 移除隐藏的模块
-    const hidden = currentResume.value.hiddenSections || []
-    newOrder = newOrder.filter(id => !hidden.includes(id))
-
     updateCurrentResume({ sectionOrder: newOrder })
+    saveCurrentResume()
+  }
+
+  // 隐藏模块（保留排序位置）
+  const hideSection = (sectionId: string) => {
+    if (!currentResume.value || sectionId === 'basic') return
+    const hidden = currentResume.value.hiddenSections || []
+    if (!hidden.includes(sectionId)) {
+      updateCurrentResume({ hiddenSections: [...hidden, sectionId] })
+      saveCurrentResume()
+    }
+  }
+
+  // 显示模块
+  const showSection = (sectionId: string) => {
+    if (!currentResume.value) return
+    const hidden = currentResume.value.hiddenSections || []
+    updateCurrentResume({ hiddenSections: hidden.filter(id => id !== sectionId) })
     saveCurrentResume()
   }
 
@@ -159,11 +172,9 @@ export const useResumeStore = defineStore('resume', () => {
     if (!currentResume.value || sectionId === 'basic') return
 
     const currentOrder = currentResume.value.sectionOrder || [...DEFAULT_SECTION_ORDER]
-    const hidden = currentResume.value.hiddenSections || []
 
     updateCurrentResume({
-      sectionOrder: currentOrder.filter(id => id !== sectionId),
-      hiddenSections: [...hidden, sectionId]
+      sectionOrder: currentOrder.filter(id => id !== sectionId)
     })
     saveCurrentResume()
   }
@@ -221,6 +232,8 @@ export const useResumeStore = defineStore('resume', () => {
     updateSectionOrder,
     removeSection,
     addSection,
+    hideSection,
+    showSection,
     isSectionVisible,
     getHiddenSections
   }

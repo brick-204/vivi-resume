@@ -1,38 +1,37 @@
 <template>
   <div class="section-editor">
-    <!-- 头部 -->
-    <div class="editor__header">
-      <h3 class="editor__title">
-        <span class="editor__icon">
-          <component :is="currentIcon" />
-        </span>
-        {{ currentTitle }}
-      </h3>
-      <button class="editor__collapse-btn" @click="handleCollapse">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M11 3L7 7L11 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
-    </div>
-
     <!-- 内容区 -->
     <div class="editor__content">
       <BasicInfo v-if="activeSectionId === 'basic'" />
       <Summary v-else-if="activeSectionId === 'summary'" />
-      <WorkExperience v-else-if="activeSectionId === 'work'" />
-      <Education v-else-if="activeSectionId === 'education'" />
-      <Projects v-else-if="activeSectionId === 'projects'" />
+      <WorkExperience v-else-if="activeSectionId === 'work'" ref="workRef" />
+      <Education v-else-if="activeSectionId === 'education'" ref="educationRef" />
+      <Projects v-else-if="activeSectionId === 'projects'" ref="projectsRef" />
       <Skills v-else-if="activeSectionId === 'skills'" />
       <SelfEvaluation v-else-if="activeSectionId === 'evaluation'" />
+
+      <!-- 添加按钮，随内容滚动 -->
+      <button v-if="canAdd" class="editor__add-btn" @click="handleAdd">
+        <Icon :icon="PLUS_ICON" :width="14" :height="14" />
+        <span>添加</span>
+      </button>
+    </div>
+
+    <!-- 底部收缩按钮 -->
+    <div class="editor__footer">
+      <button class="editor__collapse-btn" @click="handleCollapse">
+        <Icon :icon="COLLAPSE_EDITOR_ICON" :width="14" :height="14" />
+        <span>收起编辑区</span>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
-import { SECTION_CONFIG } from '@/types/resume'
-import { iconMap, UserIcon } from '@/components/icons/SectionIcons'
+import { PLUS_ICON, COLLAPSE_EDITOR_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import BasicInfo from './sections/BasicInfo.vue'
 import Summary from './sections/Summary.vue'
 import WorkExperience from './sections/WorkExperience.vue'
@@ -43,18 +42,24 @@ import SelfEvaluation from './sections/SelfEvaluation.vue'
 
 const layoutStore = useEditorLayoutStore()
 
+const workRef = ref<InstanceType<typeof WorkExperience>>()
+const educationRef = ref<InstanceType<typeof Education>>()
+const projectsRef = ref<InstanceType<typeof Projects>>()
+
 // 当前选中模块
 const activeSectionId = computed(() => layoutStore.activeSectionId)
 
-// 当前标题
-const currentTitle = computed(() => {
-  return SECTION_CONFIG[activeSectionId.value]?.label || '编辑'
-})
+// 是否可添加条目
+const canAdd = computed(() => ['work', 'education', 'projects'].includes(activeSectionId.value))
 
-// 当前图标
-const currentIcon = computed(() => {
-  return iconMap[activeSectionId.value] || UserIcon
-})
+// 添加条目
+const handleAdd = async () => {
+  await nextTick()
+  const sectionId = activeSectionId.value
+  if (sectionId === 'work') workRef.value?.addItem()
+  else if (sectionId === 'education') educationRef.value?.addItem()
+  else if (sectionId === 'projects') projectsRef.value?.addItem()
+}
 
 // 收缩编辑区
 const handleCollapse = () => {
@@ -71,54 +76,64 @@ const handleCollapse = () => {
   backdrop-filter: blur(16px);
 }
 
-.editor__header {
+.editor__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  @include scrollbar;
+}
+
+.editor__add-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: $spacing-md $spacing-lg;
-  border-bottom: 1px solid $border-glass;
+  justify-content: center;
+  gap: $spacing-xs;
+  margin-top: $spacing-lg;
+  padding: $spacing-sm $spacing-md;
+  background: $bg-glass;
+  border: 1px dashed $border-glass;
+  border-radius: $radius-lg;
+  color: $text-light;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: $font-size-sm;
+  font-family: $font-family;
+
+  &:hover {
+    border-color: $primary-color;
+    color: $primary-light;
+    background: rgba($primary-color, 0.1);
+  }
+}
+
+.editor__footer {
   flex-shrink: 0;
-}
-
-.editor__title {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  font-size: $font-size-lg;
-  font-weight: 700;
-  color: $text-primary;
-  margin: 0;
-}
-
-.editor__icon {
-  display: flex;
-  color: $primary-light;
+  padding: $spacing-sm $spacing-lg;
+  border-top: 1px solid $border-glass;
 }
 
 .editor__collapse-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: $spacing-xs;
+  width: 100%;
+  padding: $spacing-sm;
   background: $bg-glass;
   border: 1px solid $border-glass;
   border-radius: $radius-md;
   color: $text-secondary;
   cursor: pointer;
   transition: all 0.15s;
+  font-size: $font-size-sm;
+  font-family: $font-family;
 
   &:hover {
     background: $bg-glass-hover;
     color: $text-primary;
     border-color: $primary-color;
   }
-}
-
-.editor__content {
-  flex: 1;
-  overflow-y: auto;
-  padding: $spacing-lg;
-  @include scrollbar;
 }
 </style>

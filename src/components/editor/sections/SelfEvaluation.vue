@@ -2,10 +2,7 @@
   <div class="section self-evaluation">
     <h3 class="section__title">
       <span class="title__icon">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M3 5H15C15.5523 5 16 5.44772 16 6V11C16 11.5523 15.5523 12 15 12H6L3 14V6C3 5.44772 3.44772 5 3 5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M6 8H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
+        <Icon :icon="STAR_ICON" :width="18" :height="18" />
       </span>
       自我评价
     </h3>
@@ -16,11 +13,7 @@
         :rows="8"
       />
       <div class="section__tip">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2"/>
-          <path d="M8 5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="8" cy="11" r="0.5" fill="currentColor"/>
-        </svg>
+        <Icon :icon="INFO_ICON" :width="16" :height="16" />
         <span>提示：写 3-5 点核心优势，突出与目标岗位的匹配度</span>
       </div>
     </div>
@@ -30,6 +23,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { STAR_ICON, INFO_ICON } from '@/components/icons/SectionIcons'
+import { Icon } from '@iconify/vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
 
 const store = useResumeStore()
