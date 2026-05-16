@@ -50,6 +50,12 @@ export const useEditorLayoutStore = defineStore('editorLayout', () => {
     return editorCollapsed.value ? 0 : editorWidth.value
   })
 
+  // 边界状态
+  const navAtMin = computed(() => navWidth.value <= LAYOUT_CONFIG.MIN_NAV_EXPANDED)
+  const navAtMax = computed(() => navWidth.value >= LAYOUT_CONFIG.MAX_NAV_WIDTH)
+  const editorAtMin = computed(() => editorWidth.value <= LAYOUT_CONFIG.MIN_EDITOR_WIDTH)
+  const editorAtMax = computed(() => editorWidth.value >= LAYOUT_CONFIG.MAX_EDITOR_WIDTH)
+
   // ========== 方法 ==========
 
   // 设置导航栏宽度（带边界约束）
@@ -156,6 +162,18 @@ export const useEditorLayoutStore = defineStore('editorLayout', () => {
     }
   }
 
+  // 重置导航栏宽度到默认值
+  const resetNavWidth = () => {
+    navWidth.value = LAYOUT_CONFIG.DEFAULT_NAV_WIDTH
+    saveLayout()
+  }
+
+  // 重置编辑区宽度到默认值
+  const resetEditorWidth = () => {
+    editorWidth.value = LAYOUT_CONFIG.DEFAULT_EDITOR_WIDTH
+    saveLayout()
+  }
+
   // 初始化加载
   loadLayout()
 
@@ -175,6 +193,10 @@ export const useEditorLayoutStore = defineStore('editorLayout', () => {
     // 计算属性
     actualNavWidth,
     actualEditorWidth,
+    navAtMin,
+    navAtMax,
+    editorAtMin,
+    editorAtMax,
 
     // 方法
     setNavWidth,
@@ -186,6 +208,8 @@ export const useEditorLayoutStore = defineStore('editorLayout', () => {
     saveLayout,
     loadLayout,
     handleWindowResize,
+    resetNavWidth,
+    resetEditorWidth,
 
     // 常量（暴露给组件使用）
     config: LAYOUT_CONFIG

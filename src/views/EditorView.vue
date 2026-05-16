@@ -57,8 +57,11 @@
       <!-- 第一列拖拽手柄 -->
       <ResizeHandle
         v-if="!layoutStore.navCollapsed"
+        :at-min="layoutStore.navAtMin"
+        :at-max="layoutStore.navAtMax"
         @resize="handleNavResize"
         @resize-end="layoutStore.saveLayout"
+        @reset="layoutStore.resetNavWidth"
       />
 
       <!-- 第二列：模块编辑区 -->
@@ -75,8 +78,11 @@
       <!-- 第二列拖拽手柄 -->
       <ResizeHandle
         v-if="!layoutStore.editorCollapsed"
+        :at-min="layoutStore.editorAtMin"
+        :at-max="layoutStore.editorAtMax"
         @resize="handleEditorResize"
         @resize-end="layoutStore.saveLayout"
+        @reset="layoutStore.resetEditorWidth"
       />
 
       <!-- 第三列：简历预览区 -->
@@ -335,7 +341,6 @@ onMounted(() => {
     border-right: 1px solid $border-glass;
     overflow: hidden;
     will-change: width;
-    transition: width 0.25s ease;
 
     &--collapsed {
       min-width: 48px;
