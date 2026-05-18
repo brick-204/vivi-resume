@@ -18,7 +18,7 @@
 <script setup lang="ts">
 defineProps<{
   label?: string
-  type?: 'text' | 'email' | 'tel' | 'url' | 'date'
+  type?: 'text' | 'email' | 'tel' | 'url' | 'date' | 'month'
   placeholder?: string
   modelValue?: string
   disabled?: boolean

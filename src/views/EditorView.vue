@@ -126,10 +126,11 @@ const saveTitle = () => {
   store.saveCurrentResume()
 }
 
-// 点击预览区模块时，左侧导航切换到对应模块
+// 点击导航或预览区模块时，同步激活状态并滚动预览
 const handleClickSection = (sectionId: string) => {
   layoutStore.setActiveSection(sectionId)
   layoutStore.expandEditor()
+  previewRef.value?.scrollToSection(sectionId)
 }
 
 // 拖拽调节导航栏宽度

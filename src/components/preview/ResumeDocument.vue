@@ -115,7 +115,7 @@
                   <h3 class="main__entry-title">{{ item.position }}</h3>
                   <p class="main__entry-subtitle">{{ item.company }}</p>
                 </div>
-                <span class="main__entry-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+                <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
               <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
               <ul v-if="item.highlights?.length" class="main__entry-highlights">
@@ -145,7 +145,7 @@
                   <h3 class="main__entry-title">{{ item.school }}</h3>
                   <p class="main__entry-subtitle">{{ item.degree }} · {{ item.major }}</p>
                 </div>
-                <span class="main__entry-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+                <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
               <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
             </div>
@@ -172,7 +172,7 @@
                   <h3 class="main__entry-title">{{ item.name }}</h3>
                   <p class="main__entry-subtitle">{{ item.role }}</p>
                 </div>
-                <span class="main__entry-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+                <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
               <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
               <ul v-if="item.highlights?.length" class="main__entry-highlights">
@@ -298,7 +298,7 @@
                   <h3 class="entry__title">{{ item.position }}</h3>
                   <p class="entry__subtitle">{{ item.company }}</p>
                 </div>
-                <span class="entry__date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
               <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
               <ul v-if="item.highlights?.length" class="entry__highlights">
@@ -335,7 +335,7 @@
                   <h3 class="entry__title">{{ item.school }}</h3>
                   <p class="entry__subtitle">{{ item.degree }} · {{ item.major }}</p>
                 </div>
-                <span class="entry__date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
               <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
             </div>
@@ -369,7 +369,7 @@
                   <h3 class="entry__title">{{ item.name }}</h3>
                   <p class="entry__subtitle">{{ item.role }}</p>
                 </div>
-                <span class="entry__date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
               <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
               <ul v-if="item.highlights?.length" class="entry__highlights">
@@ -483,8 +483,18 @@ const getSkillsContent = computed(() => {
 
 const formatDate = (date: string) => {
   if (!date) return ''
+  if (date === '至今') return '至今'
   const d = new Date(date)
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const formatDateRange = (startDate: string, endDate: string) => {
+  const start = formatDate(startDate)
+  const end = formatDate(endDate)
+  if (start && end) return `${start} - ${end}`
+  if (start) return start
+  if (end) return end
+  return ''
 }
 </script>
 

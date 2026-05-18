@@ -38,6 +38,27 @@
 }
 
 // ==================== 玻璃拟态 ====================
+@mixin date-field {
+  .date-field {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+
+    &__present {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      user-select: none;
+
+      input[type="checkbox"] {
+        cursor: pointer;
+      }
+    }
+  }
+}
+
 @mixin glass {
   background: $bg-glass;
   backdrop-filter: blur(20px) saturate(1.8);

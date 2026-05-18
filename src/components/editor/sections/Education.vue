@@ -28,8 +28,14 @@
             <BaseInput v-model="item.major" label="专业" placeholder="请输入专业" />
           </div>
           <div class="form__row">
-            <BaseInput v-model="item.startDate" label="开始时间" type="date" />
-            <BaseInput v-model="item.endDate" label="结束时间" type="date" />
+            <BaseInput v-model="item.startDate" label="开始时间" type="month" />
+            <div class="date-field">
+              <BaseInput :model-value="item.endDate === '至今' ? '' : item.endDate" @update:model-value="item.endDate = $event" label="结束时间" type="month" :disabled="item.endDate === '至今'" />
+              <div class="date-field__present">
+                <input type="checkbox" :checked="item.endDate === '至今'" @change="item.endDate = ($event.target as HTMLInputElement).checked ? '至今' : ''" />
+                至今
+              </div>
+            </div>
           </div>
           <BaseTextarea v-model="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" />
         </div>
@@ -192,4 +198,6 @@ defineExpose({ addItem })
     grid-template-columns: 1fr;
   }
 }
+
+@include date-field;
 </style>
