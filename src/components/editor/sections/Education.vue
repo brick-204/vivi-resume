@@ -1,5 +1,5 @@
 <template>
-  <div class="section education">
+  <div class="section">
     <div class="section__header">
       <h3 class="section__title">
         <span class="title__icon">
@@ -14,11 +14,11 @@
     </div>
 
     <div v-else class="section__list">
-      <div v-for="item in items" :key="item.id" class="education-card">
+      <div v-for="item in items" :key="item.id" class="card">
         <div class="card__header">
           <span class="card__school">{{ item.school || '未填写学校' }}</span>
-          <button class="card__delete" @click="deleteItem(item.id)">
-            <Icon :icon="TRASH_ICON" :width="16" :height="16" />
+          <button class="card__delete" aria-label="删除" @click="deleteItem(item.id)">
+            <Icon :icon="TRASH_ICON" :width="20" :height="20" />
           </button>
         </div>
         <div class="card__form">
@@ -138,7 +138,7 @@ defineExpose({ addItem })
   color: $accent-light;
 }
 
-.education-card {
+.card {
   @include glass;
   padding: $spacing-lg;
   border-left: 3px solid $accent-color;
@@ -161,16 +161,15 @@ defineExpose({ addItem })
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     background: transparent;
     color: $error-color;
     border: none;
     border-radius: $radius-md;
     cursor: pointer;
-    margin-left: auto;
-    flex-shrink: 0;
     transition: all $transition-fast;
+    flex-shrink: 0;
 
     &:hover {
       background: rgba($error-color, 0.15);

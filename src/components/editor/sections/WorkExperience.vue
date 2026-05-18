@@ -1,5 +1,5 @@
 <template>
-  <div class="section work-experience">
+  <div class="section">
     <div class="section__header">
       <h3 class="section__title">
         <span class="title__icon">
@@ -14,26 +14,43 @@
     </div>
 
     <div v-else class="section__list">
-      <div v-for="item in items" :key="item.id" class="experience-card">
+      <div v-for="item in items" :key="item.id" class="card">
         <div class="card__header">
           <div class="card__info">
-            <span class="card__position">{{ item.position || '未填写职位' }}</span>
-            <span class="card__company">@ {{ item.company || '未填写公司' }}</span>
+            <span class="card__position">{{
+              item.position || "未填写职位"
+            }}</span>
+            <span class="card__company"
+              >@ {{ item.company || "未填写公司" }}</span
+            >
           </div>
-          <button class="card__delete" @click="deleteItem(item.id)">
-            <Icon :icon="TRASH_ICON" :width="16" :height="16" />
+          <button class="card__delete" aria-label="删除" @click="deleteItem(item.id)">
+            <Icon :icon="TRASH_ICON" :width="20" :height="20" />
           </button>
         </div>
         <div class="card__form">
           <div class="form__row">
-            <BaseInput v-model="item.company" label="公司名称" placeholder="请输入公司名称" />
-            <BaseInput v-model="item.position" label="职位" placeholder="请输入职位" />
+            <BaseInput
+              v-model="item.company"
+              label="公司名称"
+              placeholder="请输入公司名称"
+            />
+            <BaseInput
+              v-model="item.position"
+              label="职位"
+              placeholder="请输入职位"
+            />
           </div>
           <div class="form__row">
             <BaseInput v-model="item.startDate" label="开始时间" type="date" />
             <BaseInput v-model="item.endDate" label="结束时间" type="date" />
           </div>
-          <BaseTextarea v-model="item.description" label="工作描述" placeholder="描述你的主要职责和成就..." :rows="3" />
+          <BaseTextarea
+            v-model="item.description"
+            label="工作描述"
+            placeholder="描述你的主要职责和成就..."
+            :rows="3"
+          />
         </div>
       </div>
     </div>
@@ -41,48 +58,47 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useResumeStore } from '@/stores/resumeStore'
-import { generateId } from '@/types/resume'
-import type { WorkItem } from '@/types/resume'
-import { TRASH_ICON, BRIEFCASE_ICON } from '@/components/icons/SectionIcons'
-import { Icon } from '@iconify/vue'
-import BaseInput from '@/components/common/BaseInput.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import { computed } from "vue";
+import { useResumeStore } from "@/stores/resumeStore";
+import { generateId } from "@/types/resume";
+import type { WorkItem } from "@/types/resume";
+import { TRASH_ICON, BRIEFCASE_ICON } from "@/components/icons/SectionIcons";
+import { Icon } from "@iconify/vue";
+import BaseInput from "@/components/common/BaseInput.vue";
+import BaseTextarea from "@/components/common/BaseTextarea.vue";
 
-const store = useResumeStore()
+const store = useResumeStore();
 
 const items = computed({
   get: () => store.currentResume?.workExperience || [],
-  set: (value) => store.updateCurrentResume({ workExperience: value })
-})
+  set: (value) => store.updateCurrentResume({ workExperience: value }),
+});
 
 const addItem = () => {
   const newItem: WorkItem = {
     id: generateId(),
-    company: '',
-    position: '',
-    startDate: '',
-    endDate: '',
-    description: '',
-    highlights: []
-  }
+    company: "",
+    position: "",
+    startDate: "",
+    endDate: "",
+    description: "",
+    highlights: [],
+  };
   store.updateCurrentResume({
-    workExperience: [...items.value, newItem]
-  })
-}
+    workExperience: [...items.value, newItem],
+  });
+};
 
 const deleteItem = (id: string) => {
   store.updateCurrentResume({
-    workExperience: items.value.filter(item => item.id !== id)
-  })
-}
+    workExperience: items.value.filter((item) => item.id !== id),
+  });
+};
 
-defineExpose({ addItem })
+defineExpose({ addItem });
 </script>
 
 <style lang="scss" scoped>
-
 .section {
   &__header {
     display: flex;
@@ -93,7 +109,7 @@ defineExpose({ addItem })
     position: relative;
 
     &::after {
-      content: '';
+      content: "";
       position: absolute;
       bottom: 0;
       left: 0;
@@ -140,7 +156,7 @@ defineExpose({ addItem })
   color: $primary-light;
 }
 
-.experience-card {
+.card {
   @include glass;
   padding: $spacing-lg;
   border-left: 3px solid $primary-color;
@@ -174,16 +190,15 @@ defineExpose({ addItem })
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     background: transparent;
     color: $error-color;
     border: none;
     border-radius: $radius-md;
     cursor: pointer;
-    margin-left: auto;
-    flex-shrink: 0;
     transition: all $transition-fast;
+    flex-shrink: 0;
 
     &:hover {
       background: rgba($error-color, 0.15);
