@@ -95,6 +95,7 @@ Git - 熟练`
     }
   ],
   selfEvaluation: '具备扎实的前端技术功底和良好的产品思维，善于从用户角度思考问题。在团队中担任技术导师角色，帮助团队成员成长。持续关注前沿技术发展，积极参与开源社区贡献。',
+  sectionTitles: {},
   sectionOrder: [...DEFAULT_SECTION_ORDER],
   hiddenSections: [],
   createdAt: '2024-01-01T00:00:00.000Z',

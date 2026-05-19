@@ -64,7 +64,8 @@ export interface Resume {
   projects: ProjectItem[]
   skills: SkillItem[]
   selfEvaluation: string
-  sectionOrder: string[]  // 模块显示顺序
+  sectionOrder: string[]
+  sectionTitles: Record<string, string>  // 自定义模块标题
   hiddenSections: string[]  // 已隐藏/删除的模块
   createdAt: string
   updatedAt: string
@@ -113,6 +114,7 @@ export const createEmptyResume = (): Resume => {
     projects: [],
     skills: [],
     selfEvaluation: '',
+    sectionTitles: {},
     sectionOrder: [...DEFAULT_SECTION_ORDER],
     hiddenSections: [],
     createdAt: now,
@@ -121,6 +123,20 @@ export const createEmptyResume = (): Resume => {
 }
 
 // 生成唯一 ID
+export const DEFAULT_SECTION_TITLES: Record<string, string> = {
+  summary: '个人简介',
+  work: '工作经历',
+  education: '教育经历',
+  projects: '项目经验',
+  skills: '专业技能',
+  evaluation: '自我评价',
+}
+
+export const getSectionTitle = (resume: Resume | undefined | null, sectionId: string): string => {
+  if (!resume) return DEFAULT_SECTION_TITLES[sectionId] || sectionId
+  return resume.sectionTitles?.[sectionId] || DEFAULT_SECTION_TITLES[sectionId] || sectionId
+}
+
 export const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2)
 }

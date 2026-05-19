@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="BRIEFCASE_ICON" :width="18" :height="18" />
         </span>
-        工作经历
+        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'work')" @keydown.enter.prevent @blur="saveTitle($event, 'work')"></span>
       </h3>
     </div>
 
@@ -80,6 +80,7 @@
 import { computed, ref } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { generateId } from "@/types/resume";
+import { useSectionTitle } from "@/composables/useSectionTitle";
 import type { WorkItem } from "@/types/resume";
 import { TRASH_ICON, BRIEFCASE_ICON, EYE_ICON, EYE_OFF_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
@@ -88,6 +89,7 @@ import BaseTextarea from "@/components/common/BaseTextarea.vue";
 import BaseModal from "@/components/common/BaseModal.vue";
 
 const store = useResumeStore();
+const { saveTitle, getSectionTitle } = useSectionTitle();
 const confirmDeleteId = ref<string | null>(null);
 
 const items = computed({
@@ -247,4 +249,5 @@ defineExpose({ addItem });
 @include date-field;
 @include card-actions;
 @include modal-btn;
+@include editable-title;
 </style>

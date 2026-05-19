@@ -121,6 +121,23 @@
   }
 }
 
+@mixin editable-title {
+  .section__title-text {
+    outline: none;
+    cursor: text;
+    border-bottom: 1px dashed transparent;
+    transition: border-color $transition-fast;
+
+    &:hover {
+      border-bottom-color: rgba($text-secondary, 0.3);
+    }
+
+    &:focus {
+      border-bottom-color: $primary-color;
+    }
+  }
+}
+
 @mixin glass {
   background: $bg-glass;
   backdrop-filter: blur(20px) saturate(1.8);

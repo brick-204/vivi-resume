@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="ZAP_ICON" :width="18" :height="18" />
         </span>
-        技能
+        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'skills')" @keydown.enter.prevent @blur="saveTitle($event, 'skills')"></span>
       </h3>
     </div>
 
@@ -22,11 +22,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useSectionTitle } from '@/composables/useSectionTitle'
 import { ZAP_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
 
 const store = useResumeStore()
+const { saveTitle, getSectionTitle } = useSectionTitle()
 
 const content = computed({
   get: () => store.currentResume?.skills?.[0]?.content || '',

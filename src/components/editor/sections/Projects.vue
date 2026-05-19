@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="ROCKET_ICON" :width="18" :height="18" />
         </span>
-        项目经验
+        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'projects')" @keydown.enter.prevent @blur="saveTitle($event, 'projects')"></span>
       </h3>
     </div>
 
@@ -96,6 +96,7 @@
 import { computed, ref } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { generateId } from "@/types/resume";
+import { useSectionTitle } from "@/composables/useSectionTitle";
 import type { ProjectItem } from "@/types/resume";
 import { TRASH_ICON, ROCKET_ICON, EYE_ICON, EYE_OFF_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
@@ -104,6 +105,7 @@ import BaseTextarea from "@/components/common/BaseTextarea.vue";
 import BaseModal from "@/components/common/BaseModal.vue";
 
 const store = useResumeStore();
+const { saveTitle, getSectionTitle } = useSectionTitle();
 const newTech = ref("");
 const confirmDeleteId = ref<string | null>(null);
 
@@ -265,6 +267,7 @@ defineExpose({ addItem });
 @include date-field;
 @include card-actions;
 @include modal-btn;
+@include editable-title;
 
 .tech-section {
   margin-top: $spacing-sm;

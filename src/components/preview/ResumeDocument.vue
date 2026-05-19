@@ -79,7 +79,7 @@
       <div v-if="isSectionVisible('skills')" class="sidebar__skills">
         <div class="sidebar__section-title">
           <span class="sidebar__section-line"></span>
-          专业技能
+          {{ getSectionTitle(resume, 'skills') }}
         </div>
         <div v-if="getSkillsContent" class="sidebar__skill-text">
           {{ getSkillsContent }}
@@ -96,7 +96,7 @@
         <section v-if="sectionId === 'summary'" class="sidebar__section" data-section="summary" @click="$emit('click-section', 'summary')">
           <h2 class="main__section-title">
             <span class="main__section-icon"></span>
-            个人简介
+            {{ getSectionTitle(resume, 'summary') }}
           </h2>
           <p v-if="resume.basicInfo.summary" class="main__section-text">{{ resume.basicInfo.summary }}</p>
           <p v-else class="main__section-placeholder">请填写个人简介...</p>
@@ -106,7 +106,7 @@
         <section v-if="sectionId === 'work'" class="sidebar__section" data-section="work" @click="$emit('click-section', 'work')">
           <h2 class="main__section-title">
             <span class="main__section-icon"></span>
-            工作经历
+            {{ getSectionTitle(resume, 'work') }}
           </h2>
           <div v-if="resume.workExperience.filter(i => !i.hidden).length">
             <div v-for="item in resume.workExperience.filter(i => !i.hidden)" :key="item.id" class="main__entry">
@@ -136,7 +136,7 @@
         <section v-if="sectionId === 'education'" class="sidebar__section" data-section="education" @click="$emit('click-section', 'education')">
           <h2 class="main__section-title">
             <span class="main__section-icon"></span>
-            教育经历
+            {{ getSectionTitle(resume, 'education') }}
           </h2>
           <div v-if="resume.education.filter(i => !i.hidden).length">
             <div v-for="item in resume.education.filter(i => !i.hidden)" :key="item.id" class="main__entry">
@@ -163,7 +163,7 @@
         <section v-if="sectionId === 'projects'" class="sidebar__section" data-section="projects" @click="$emit('click-section', 'projects')">
           <h2 class="main__section-title">
             <span class="main__section-icon"></span>
-            项目经验
+            {{ getSectionTitle(resume, 'projects') }}
           </h2>
           <div v-if="resume.projects.filter(i => !i.hidden).length">
             <div v-for="item in resume.projects.filter(i => !i.hidden)" :key="item.id" class="main__entry">
@@ -196,7 +196,7 @@
         <section v-if="sectionId === 'evaluation'" class="sidebar__section" data-section="evaluation" @click="$emit('click-section', 'evaluation')">
           <h2 class="main__section-title">
             <span class="main__section-icon"></span>
-            自我评价
+            {{ getSectionTitle(resume, 'evaluation') }}
           </h2>
           <p v-if="resume.selfEvaluation" class="main__section-text">{{ resume.selfEvaluation }}</p>
           <p v-else class="main__section-placeholder">请填写自我评价...</p>
@@ -274,7 +274,7 @@
       <section v-if="sectionId === 'summary'" class="resume__section" data-section="summary" @click="$emit('click-section', 'summary')">
         <h2 class="section__title">
           <span class="section__icon section__icon--intro"></span>
-          个人简介
+          {{ getSectionTitle(resume, 'summary') }}
         </h2>
         <p v-if="resume.basicInfo.summary" class="section__text">{{ resume.basicInfo.summary }}</p>
         <p v-else class="section__placeholder">请填写个人简介...</p>
@@ -284,7 +284,7 @@
       <section v-if="sectionId === 'work'" class="resume__section" data-section="work" @click="$emit('click-section', 'work')">
         <h2 class="section__title">
           <span class="section__icon section__icon--work"></span>
-          工作经历
+          {{ getSectionTitle(resume, 'work') }}
         </h2>
         <template v-if="resume.workExperience.filter(i => !i.hidden).length">
           <div v-for="item in resume.workExperience.filter(i => !i.hidden)" :key="item.id" class="entry">
@@ -321,7 +321,7 @@
       <section v-if="sectionId === 'education'" class="resume__section" data-section="education" @click="$emit('click-section', 'education')">
         <h2 class="section__title">
           <span class="section__icon section__icon--edu"></span>
-          教育经历
+          {{ getSectionTitle(resume, 'education') }}
         </h2>
         <template v-if="resume.education.filter(i => !i.hidden).length">
           <div v-for="item in resume.education.filter(i => !i.hidden)" :key="item.id" class="entry">
@@ -355,7 +355,7 @@
       <section v-if="sectionId === 'projects'" class="resume__section" data-section="projects" @click="$emit('click-section', 'projects')">
         <h2 class="section__title">
           <span class="section__icon section__icon--project"></span>
-          项目经验
+          {{ getSectionTitle(resume, 'projects') }}
         </h2>
         <template v-if="resume.projects.filter(i => !i.hidden).length">
           <div v-for="item in resume.projects.filter(i => !i.hidden)" :key="item.id" class="entry">
@@ -395,7 +395,7 @@
       <section v-if="sectionId === 'skills'" class="resume__section" data-section="skills" @click="$emit('click-section', 'skills')">
         <h2 class="section__title">
           <span class="section__icon section__icon--skill"></span>
-          技能
+          {{ getSectionTitle(resume, 'skills') }}
         </h2>
         <p v-if="getSkillsContent" class="section__text">{{ getSkillsContent }}</p>
         <p v-else class="section__placeholder">请添加技能...</p>
@@ -405,7 +405,7 @@
       <section v-if="sectionId === 'evaluation'" class="resume__section" data-section="evaluation" @click="$emit('click-section', 'evaluation')">
         <h2 class="section__title">
           <span class="section__icon section__icon--eval"></span>
-          自我评价
+          {{ getSectionTitle(resume, 'evaluation') }}
         </h2>
         <p v-if="resume.selfEvaluation" class="section__text">{{ resume.selfEvaluation }}</p>
         <p v-else class="section__placeholder">请填写自我评价...</p>
@@ -418,7 +418,7 @@
 import { computed } from 'vue'
 import type { Resume } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
-import { DEFAULT_SECTION_ORDER } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER, getSectionTitle } from '@/types/resume'
 
 const props = defineProps<{
   resume: Resume

@@ -74,7 +74,7 @@
       size="sm"
       @close="removeConfirmId = null"
     >
-      <p class="confirm-text">确定要删除「{{ SECTION_CONFIG[removeConfirmId]?.label }}」模块吗？删除后可通过「添加模块」恢复。</p>
+      <p class="confirm-text">确定要删除「{{ removeConfirmId && resumeStore.currentResume ? getSectionTitle(resumeStore.currentResume, removeConfirmId) : '' }}」模块吗？删除后可通过「添加模块」恢复。</p>
       <template #footer>
         <BaseButton variant="secondary" size="sm" @click="removeConfirmId = null">取消</BaseButton>
         <BaseButton variant="danger" size="sm" @click="removeSection(removeConfirmId!)">删除</BaseButton>
@@ -87,7 +87,7 @@
 import { computed, ref, watch } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
-import { SECTION_CONFIG } from '@/types/resume'
+import { SECTION_CONFIG, getSectionTitle } from '@/types/resume'
 import { iconMap, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import AddSectionModal from './AddSectionModal.vue'
@@ -105,9 +105,10 @@ const emit = defineEmits<{
 const visibleSections = computed(() => {
   const order = resumeStore.getSectionOrder()
   const hidden = resumeStore.currentResume?.hiddenSections || []
+  const resume = resumeStore.currentResume
   return order.map(id => ({
     id,
-    label: SECTION_CONFIG[id]?.label || id,
+    label: resume ? getSectionTitle(resume, id) : (SECTION_CONFIG[id]?.label || id),
     icon: iconMap[id],
     visible: !hidden.includes(id)
   }))

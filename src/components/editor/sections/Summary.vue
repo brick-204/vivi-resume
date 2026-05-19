@@ -4,7 +4,7 @@
       <span class="title__icon">
         <Icon :icon="MESSAGE_ICON" :width="18" :height="18" />
       </span>
-      个人简介
+      <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'summary')" @keydown.enter.prevent @blur="saveTitle($event, 'summary')"></span>
     </h3>
     <div class="section__form">
       <BaseTextarea
@@ -23,11 +23,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useSectionTitle } from '@/composables/useSectionTitle'
 import { MESSAGE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
 
 const store = useResumeStore()
+const { saveTitle, getSectionTitle } = useSectionTitle()
 
 const summary = computed({
   get: () => store.currentResume?.basicInfo?.summary || '',
@@ -82,4 +84,6 @@ const summary = computed({
   display: flex;
   color: $primary-light;
 }
+
+@include editable-title;
 </style>
