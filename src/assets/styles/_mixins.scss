@@ -59,6 +59,31 @@
   }
 }
 
+@mixin card-drag {
+  .card__drag-handle {
+    display: flex;
+    justify-content: center;
+    color: $text-light;
+    opacity: 0;
+    transition: opacity 0.15s;
+    cursor: grab;
+    padding: 0 $spacing-xs;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .card:hover .card__drag-handle {
+    opacity: 1;
+  }
+
+  .card--dragging {
+    opacity: 0.5;
+    border: 1px dashed $primary-color;
+  }
+}
+
 @mixin card-actions {
   .card__actions {
     display: flex;

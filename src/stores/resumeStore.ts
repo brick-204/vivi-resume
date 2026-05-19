@@ -174,15 +174,42 @@ export const useResumeStore = defineStore('resume', () => {
     saveCurrentResume()
   }
 
-  // 删除/隐藏模块
+  // 删除模块（清除数据，重新添加时为初始状态）
   const removeSection = (sectionId: string) => {
     if (!currentResume.value || sectionId === 'basic') return
 
     const currentOrder = currentResume.value.sectionOrder || [...DEFAULT_SECTION_ORDER]
+    const titles = { ...currentResume.value.sectionTitles }
+    delete titles[sectionId]
 
-    updateCurrentResume({
-      sectionOrder: currentOrder.filter(id => id !== sectionId)
-    })
+    const updates: Partial<Resume> = {
+      sectionOrder: currentOrder.filter(id => id !== sectionId),
+      sectionTitles: titles
+    }
+
+    // 清除该模块的数据
+    switch (sectionId) {
+      case 'summary':
+        updates.basicInfo = { ...currentResume.value.basicInfo, summary: '' }
+        break
+      case 'work':
+        updates.workExperience = []
+        break
+      case 'education':
+        updates.education = []
+        break
+      case 'projects':
+        updates.projects = []
+        break
+      case 'skills':
+        updates.skills = []
+        break
+      case 'evaluation':
+        updates.selfEvaluation = ''
+        break
+    }
+
+    updateCurrentResume(updates)
     saveCurrentResume()
   }
 

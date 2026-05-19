@@ -14,7 +14,10 @@
     </div>
 
     <div v-else class="section__list">
-      <div v-for="item in items" :key="item.id" class="card" :class="{ 'card--hidden': item.hidden }">
+      <div v-for="(item, index) in items" :key="item.id" class="card" :class="{ 'card--hidden': item.hidden, 'card--dragging': draggingIndex === index }" draggable="true" @dragstart="handleDragStart(index, $event)" @dragover="handleDragOver(index, $event)" @drop="handleDrop(index, $event)" @dragend="handleDragEnd">
+        <span class="card__drag-handle">
+          <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
+        </span>
         <div class="card__header">
           <span class="card__name">{{ item.name || "未填写项目名称" }}</span>
           <div class="card__actions">
@@ -97,8 +100,9 @@ import { computed, ref } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { generateId } from "@/types/resume";
 import { useSectionTitle } from "@/composables/useSectionTitle";
+import { useCardDrag } from "@/composables/useCardDrag";
 import type { ProjectItem } from "@/types/resume";
-import { TRASH_ICON, ROCKET_ICON, EYE_ICON, EYE_OFF_ICON } from "@/components/icons/SectionIcons";
+import { TRASH_ICON, ROCKET_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
 import BaseInput from "@/components/common/BaseInput.vue";
 import BaseTextarea from "@/components/common/BaseTextarea.vue";
@@ -113,6 +117,8 @@ const items = computed({
   get: () => store.currentResume?.projects || [],
   set: (value) => store.updateCurrentResume({ projects: value }),
 });
+
+const { draggingIndex, handleDragStart, handleDragOver, handleDrop, handleDragEnd } = useCardDrag(items);
 
 const addItem = () => {
   const newItem: ProjectItem = {
@@ -211,7 +217,7 @@ defineExpose({ addItem });
 
 .card {
   @include glass;
-  padding: $spacing-lg;
+  padding: $card-padding;
   border-left: 3px solid $secondary-color;
   border-radius: $radius-xl;
 
@@ -223,9 +229,11 @@ defineExpose({ addItem });
   }
 
   &__name {
+    flex: 1;
     font-size: $font-size-md;
     font-weight: 700;
     color: $text-primary;
+    min-width: 0;
   }
 
   &__delete {
@@ -266,6 +274,7 @@ defineExpose({ addItem });
 
 @include date-field;
 @include card-actions;
+@include card-drag;
 @include modal-btn;
 @include editable-title;
 
