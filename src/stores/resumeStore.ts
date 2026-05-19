@@ -1,7 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Resume } from '@/types/resume'
-import { createEmptyResume, generateId, DEFAULT_SECTION_ORDER } from '@/types/resume'
+import type { Resume, CustomTextSection, CustomCardSection } from '@/types/resume'
+import {
+  createEmptyResume,
+  generateId,
+  DEFAULT_SECTION_ORDER,
+  getCustomSectionType,
+  getCustomSectionIndex,
+  generateCustomSectionId,
+} from '@/types/resume'
 
 const STORAGE_KEY = 'vivi-resume-list'
 const CURRENT_RESUME_KEY = 'vivi-resume-current'
@@ -212,6 +219,84 @@ export const useResumeStore = defineStore('resume', () => {
     return currentResume.value?.hiddenSections || []
   }
 
+  // ========== 自定义模块管理 ==========
+
+  // 添加自定义文本模块
+  const addCustomTextSection = (): string => {
+    if (!currentResume.value) return ''
+    const texts = [...currentResume.value.customTexts]
+    const index = texts.length
+    const sectionId = generateCustomSectionId('customText', index)
+    const newSection: CustomTextSection = { id: generateId(), content: '' }
+    texts.push(newSection)
+    const order = [...currentResume.value.sectionOrder]
+    order.push(sectionId)
+    updateCurrentResume({ customTexts: texts, sectionOrder: order })
+    saveCurrentResume()
+    return sectionId
+  }
+
+  // 添加自定义列表模块
+  const addCustomCardSection = (): string => {
+    if (!currentResume.value) return ''
+    const cards = [...currentResume.value.customCards]
+    const index = cards.length
+    const sectionId = generateCustomSectionId('customCard', index)
+    const newSection: CustomCardSection = { id: generateId(), items: [] }
+    cards.push(newSection)
+    const order = [...currentResume.value.sectionOrder]
+    order.push(sectionId)
+    updateCurrentResume({ customCards: cards, sectionOrder: order })
+    saveCurrentResume()
+    return sectionId
+  }
+
+  // 删除自定义模块
+  const removeCustomSection = (sectionId: string) => {
+    if (!currentResume.value) return
+    const type = getCustomSectionType(sectionId)
+    const index = getCustomSectionIndex(sectionId)
+    if (!type || index === null) return
+
+    const prefix = type === 'customText' ? 'customText_' : 'customCard_'
+    const titles = { ...currentResume.value.sectionTitles }
+
+    // 辅助：重编号 sectionId 并迁移 sectionTitles
+    const remapId = (id: string): string => {
+      if (id.startsWith(prefix)) {
+        const oldIdx = getCustomSectionIndex(id)
+        if (oldIdx !== null && oldIdx > index) {
+          const newId = generateCustomSectionId(type, oldIdx - 1)
+          if (titles[id] !== undefined) {
+            titles[newId] = titles[id]
+            delete titles[id]
+          }
+          return newId
+        }
+      }
+      return id
+    }
+
+    if (type === 'customText') {
+      const texts = [...currentResume.value.customTexts]
+      texts.splice(index, 1)
+      delete titles[sectionId]
+      const order = currentResume.value.sectionOrder
+        .filter(id => id !== sectionId)
+        .map(remapId)
+      updateCurrentResume({ customTexts: texts, sectionOrder: order, sectionTitles: titles })
+    } else if (type === 'customCard') {
+      const cards = [...currentResume.value.customCards]
+      cards.splice(index, 1)
+      delete titles[sectionId]
+      const order = currentResume.value.sectionOrder
+        .filter(id => id !== sectionId)
+        .map(remapId)
+      updateCurrentResume({ customCards: cards, sectionOrder: order, sectionTitles: titles })
+    }
+    saveCurrentResume()
+  }
+
   // 初始化
   init()
 
@@ -235,6 +320,9 @@ export const useResumeStore = defineStore('resume', () => {
     hideSection,
     showSection,
     isSectionVisible,
-    getHiddenSections
+    getHiddenSections,
+    addCustomTextSection,
+    addCustomCardSection,
+    removeCustomSection
   }
 })

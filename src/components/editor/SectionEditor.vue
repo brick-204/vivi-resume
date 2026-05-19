@@ -9,6 +9,8 @@
       <Projects v-else-if="activeSectionId === 'projects'" ref="projectsRef" />
       <Skills v-else-if="activeSectionId === 'skills'" />
       <SelfEvaluation v-else-if="activeSectionId === 'evaluation'" />
+      <CustomText v-else-if="isCustomText" :section-id="activeSectionId" />
+      <CustomCard v-else-if="isCustomCard" :section-id="activeSectionId" ref="customCardRef" />
 
       <!-- 添加按钮，随内容滚动 -->
       <button v-if="canAdd" class="editor__add-btn" @click="handleAdd">
@@ -30,6 +32,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
+import { getCustomSectionType } from '@/types/resume'
 import { PLUS_ICON, COLLAPSE_EDITOR_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BasicInfo from './sections/BasicInfo.vue'
@@ -39,18 +42,26 @@ import Education from './sections/Education.vue'
 import Projects from './sections/Projects.vue'
 import Skills from './sections/Skills.vue'
 import SelfEvaluation from './sections/SelfEvaluation.vue'
+import CustomText from './sections/CustomText.vue'
+import CustomCard from './sections/CustomCard.vue'
 
 const layoutStore = useEditorLayoutStore()
 
 const workRef = ref<InstanceType<typeof WorkExperience>>()
 const educationRef = ref<InstanceType<typeof Education>>()
 const projectsRef = ref<InstanceType<typeof Projects>>()
+const customCardRef = ref<InstanceType<typeof CustomCard>>()
 
 // 当前选中模块
 const activeSectionId = computed(() => layoutStore.activeSectionId)
 
+const isCustomText = computed(() => getCustomSectionType(activeSectionId.value) === 'customText')
+const isCustomCard = computed(() => getCustomSectionType(activeSectionId.value) === 'customCard')
+
 // 是否可添加条目
-const canAdd = computed(() => ['work', 'education', 'projects'].includes(activeSectionId.value))
+const canAdd = computed(() =>
+  ['work', 'education', 'projects'].includes(activeSectionId.value) || isCustomCard.value
+)
 
 // 添加条目
 const handleAdd = async () => {
@@ -59,6 +70,7 @@ const handleAdd = async () => {
   if (sectionId === 'work') workRef.value?.addItem()
   else if (sectionId === 'education') educationRef.value?.addItem()
   else if (sectionId === 'projects') projectsRef.value?.addItem()
+  else if (isCustomCard.value) customCardRef.value?.addItem()
 }
 
 // 收缩编辑区

@@ -21,6 +21,11 @@ export const ZAP_ICON = 'mdi:lightning-bolt'
 // 自我评价 - 星星
 export const STAR_ICON = 'mdi:star-outline'
 
+// 自定义文本模块 - 文本编辑
+export const TEXT_EDIT_ICON = 'mdi:text-box-edit-outline'
+// 自定义列表模块 - 列表方块
+export const LIST_BOX_ICON = 'mdi:format-list-bulleted-square'
+
 // ========== 功能按钮图标 ==========
 
 // 添加模块 - 加号圆圈
@@ -66,7 +71,7 @@ export const CLOSE_ICON = 'mdi:close'
 // 信息提示
 export const INFO_ICON = 'mdi:information-outline'
 
-// 图标映射（section id -> icon name）
+// 图标映射（内置 section id -> icon name）
 export const iconMap: Record<string, string> = {
   basic: USER_ICON,
   summary: MESSAGE_ICON,
@@ -74,5 +79,14 @@ export const iconMap: Record<string, string> = {
   education: EDUCATION_ICON,
   projects: ROCKET_ICON,
   skills: ZAP_ICON,
-  evaluation: STAR_ICON
+  evaluation: STAR_ICON,
+  customText: TEXT_EDIT_ICON,
+  customCard: LIST_BOX_ICON,
+}
+
+// 根据 sectionId 获取图标（支持 customText_0、customCard_1 等动态 ID）
+export const getSectionIcon = (sectionId: string): string => {
+  if (sectionId.startsWith('customText')) return TEXT_EDIT_ICON
+  if (sectionId.startsWith('customCard')) return LIST_BOX_ICON
+  return iconMap[sectionId] || 'mdi:circle-outline'
 }

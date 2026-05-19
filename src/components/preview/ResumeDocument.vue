@@ -201,6 +201,46 @@
           <p v-if="resume.selfEvaluation" class="main__section-text">{{ resume.selfEvaluation }}</p>
           <p v-else class="main__section-placeholder">请填写自我评价...</p>
         </section>
+
+        <!-- 自定义文本模块 -->
+        <section v-if="sectionId.startsWith('customText_')" class="sidebar__section" :data-section="sectionId" @click="$emit('click-section', sectionId)">
+          <h2 class="main__section-title">
+            <span class="main__section-icon"></span>
+            {{ getSectionTitle(resume, sectionId) }}
+          </h2>
+          <p v-if="getCustomTextContent(sectionId)" class="main__section-text">{{ getCustomTextContent(sectionId) }}</p>
+          <p v-else class="main__section-placeholder">请填写内容...</p>
+        </section>
+
+        <!-- 自定义列表模块 -->
+        <section v-if="sectionId.startsWith('customCard_')" class="sidebar__section" :data-section="sectionId" @click="$emit('click-section', sectionId)">
+          <h2 class="main__section-title">
+            <span class="main__section-icon"></span>
+            {{ getSectionTitle(resume, sectionId) }}
+          </h2>
+          <div v-if="getCustomCardItems(sectionId).length">
+            <div v-for="item in getCustomCardItems(sectionId)" :key="item.id" class="main__entry">
+              <div class="main__entry-header">
+                <div class="main__entry-info">
+                  <h3 class="main__entry-title">{{ item.name }}</h3>
+                  <p class="main__entry-subtitle">{{ item.role }}</p>
+                </div>
+                <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
+              </div>
+              <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+              <div v-if="item.keywords.length" class="main__entry-tags">
+                <span v-for="(kw, idx) in item.keywords" :key="idx" class="main__tech-tag">{{ kw }}</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="main__entry-placeholder">
+            <div class="placeholder-row">
+              <span class="placeholder-title">名称</span>
+              <span class="placeholder-subtitle">角色</span>
+            </div>
+            <p class="placeholder-desc">请填写描述...</p>
+          </div>
+        </section>
       </template>
     </main>
   </div>
@@ -410,6 +450,53 @@
         <p v-if="resume.selfEvaluation" class="section__text">{{ resume.selfEvaluation }}</p>
         <p v-else class="section__placeholder">请填写自我评价...</p>
       </section>
+
+      <!-- 自定义文本模块 -->
+      <section v-if="sectionId.startsWith('customText_')" class="resume__section" :data-section="sectionId" @click="$emit('click-section', sectionId)">
+        <h2 class="section__title">
+          <span class="section__icon section__icon--custom-text"></span>
+          {{ getSectionTitle(resume, sectionId) }}
+        </h2>
+        <p v-if="getCustomTextContent(sectionId)" class="section__text">{{ getCustomTextContent(sectionId) }}</p>
+        <p v-else class="section__placeholder">请填写内容...</p>
+      </section>
+
+      <!-- 自定义列表模块 -->
+      <section v-if="sectionId.startsWith('customCard_')" class="resume__section" :data-section="sectionId" @click="$emit('click-section', sectionId)">
+        <h2 class="section__title">
+          <span class="section__icon section__icon--custom-card"></span>
+          {{ getSectionTitle(resume, sectionId) }}
+        </h2>
+        <template v-if="getCustomCardItems(sectionId).length">
+          <div v-for="item in getCustomCardItems(sectionId)" :key="item.id" class="entry">
+            <div class="entry__timeline">
+              <span class="timeline__dot"></span>
+              <span class="timeline__line"></span>
+            </div>
+            <div class="entry__content">
+              <div class="entry__header">
+                <div class="entry__info">
+                  <h3 class="entry__title">{{ item.name }}</h3>
+                  <p class="entry__subtitle">{{ item.role }}</p>
+                </div>
+                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
+              </div>
+              <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+              <div v-if="item.keywords.length" class="entry__tags">
+                <span v-for="(kw, idx) in item.keywords" :key="idx" class="tech-tag">{{ kw }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+        <div v-else class="entry-placeholder">
+          <div class="entry-placeholder__header">
+            <span class="entry-placeholder__title">名称</span>
+            <span class="entry-placeholder__date">开始日期 - 结束日期</span>
+          </div>
+          <p class="entry-placeholder__subtitle">角色</p>
+          <p class="entry-placeholder__desc">请填写描述...</p>
+        </div>
+      </section>
     </template>
   </div>
 </template>
@@ -418,7 +505,7 @@
 import { computed } from 'vue'
 import type { Resume } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
-import { DEFAULT_SECTION_ORDER, getSectionTitle } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER, getSectionTitle, getCustomSectionIndex } from '@/types/resume'
 
 const props = defineProps<{
   resume: Resume
@@ -480,6 +567,18 @@ const sidebarCSSVars = computed(() => {
 const getSkillsContent = computed(() => {
   return props.resume.skills?.[0]?.content || ''
 })
+
+const getCustomTextContent = (sectionId: string): string => {
+  const index = getCustomSectionIndex(sectionId)
+  if (index === null) return ''
+  return props.resume.customTexts?.[index]?.content || ''
+}
+
+const getCustomCardItems = (sectionId: string) => {
+  const index = getCustomSectionIndex(sectionId)
+  if (index === null) return []
+  return (props.resume.customCards?.[index]?.items || []).filter(i => !i.hidden)
+}
 
 const formatDate = (date: string) => {
   if (!date) return ''
@@ -637,6 +736,8 @@ const formatDateRange = (startDate: string, endDate: string) => {
   &--project { background: var(--t-accent); }
   &--skill { background: var(--t-accent); }
   &--eval { background: var(--t-accent); }
+  &--custom-text { background: var(--t-accent); }
+  &--custom-card { background: var(--t-accent); }
 }
 
 .section__text {

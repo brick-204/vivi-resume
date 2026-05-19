@@ -1,37 +1,28 @@
 <template>
-  <BaseModal
-    :visible="visible"
-    title="添加模块"
-    size="sm"
-    @close="$emit('close')"
-  >
-    <p v-if="hiddenSections.length === 0" class="modal__empty">
-      所有模块都已添加
-    </p>
-    <div v-else class="section-list">
+  <BaseModal :visible="visible" title="添加模块" size="sm" @close="$emit('close')">
+    <div class="add-section-list">
       <button
-        v-for="sectionId in hiddenSections"
-        :key="sectionId"
-        class="section-item"
-        @click="$emit('add', sectionId)"
+        v-for="section in sections"
+        :key="section.id"
+        class="add-section-item"
+        @click="$emit('add', section.id)"
       >
-        <span class="section-item__icon">
-          <Icon :icon="iconMap[sectionId]" :width="16" :height="16" />
-        </span>
-        <span class="section-item__label">{{ SECTION_CONFIG[sectionId]?.label || sectionId }}</span>
-        <Icon class="section-item__add" :icon="PLUS_SIMPLE_ICON" :width="16" :height="16" />
+        <Icon :icon="section.icon" :width="20" :height="20" />
+        <span>{{ section.label }}</span>
       </button>
     </div>
   </BaseModal>
 </template>
 
 <script setup lang="ts">
-import { SECTION_CONFIG } from '@/types/resume'
-import { iconMap, PLUS_SIMPLE_ICON } from '@/components/icons/SectionIcons'
+import { computed } from 'vue'
+import { useResumeStore } from '@/stores/resumeStore'
+import { SECTION_CONFIG, getSectionTitle } from '@/types/resume'
+import { getSectionIcon } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
   hiddenSections: string[]
 }>()
@@ -40,61 +31,42 @@ defineEmits<{
   close: []
   add: [sectionId: string]
 }>()
+
+const resumeStore = useResumeStore()
+
+const sections = computed(() => {
+  return props.hiddenSections.map(id => ({
+    id,
+    label: resumeStore.currentResume ? getSectionTitle(resumeStore.currentResume, id) : (SECTION_CONFIG[id]?.label || id),
+    icon: getSectionIcon(id),
+  }))
+})
 </script>
 
 <style lang="scss" scoped>
 
-.modal__empty {
-  text-align: center;
-  color: $text-secondary;
-  padding: $spacing-xl 0;
-}
-
-.section-list {
+.add-section-list {
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
 }
 
-.section-item {
+.add-section-item {
   display: flex;
   align-items: center;
   gap: $spacing-md;
-  padding: $spacing-md $spacing-lg;
+  padding: $spacing-md;
   background: $bg-glass;
   border: 1px solid $border-glass;
   border-radius: $radius-lg;
+  color: $text-primary;
   cursor: pointer;
   transition: all $transition-fast;
-  font-family: $font-family;
+  font-size: $font-size-md;
 
   &:hover {
     background: $bg-glass-hover;
     border-color: $primary-color;
-
-    .section-item__add {
-      color: $primary-light;
-    }
-  }
-
-  &__icon {
-    display: flex;
-    align-items: center;
-    color: $text-secondary;
-  }
-
-  &__label {
-    flex: 1;
-    text-align: left;
-    font-size: $font-size-md;
-    font-weight: 500;
-    color: $text-primary;
-  }
-
-  &__add {
-    display: flex;
-    color: $text-light;
-    transition: color $transition-fast;
   }
 }
 </style>

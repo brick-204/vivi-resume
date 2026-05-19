@@ -47,8 +47,8 @@
       </div>
     </div>
 
-    <!-- 添加模块按钮 -->
-    <button v-if="hiddenSections.length" class="navigator__add" @click="showAddModal = true">
+    <!-- 添加模块按钮（常驻） -->
+    <button class="navigator__add" @click="showAddModal = true">
       <Icon :icon="PLUS_ICON" :width="14" :height="14" />
       <span v-if="!isCollapsed">添加模块</span>
     </button>
@@ -87,8 +87,8 @@
 import { computed, ref, watch } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
-import { SECTION_CONFIG, getSectionTitle } from '@/types/resume'
-import { iconMap, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
+import { SECTION_CONFIG, getSectionTitle, isCustomSection } from '@/types/resume'
+import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import AddSectionModal from './AddSectionModal.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
@@ -109,7 +109,7 @@ const visibleSections = computed(() => {
   return order.map(id => ({
     id,
     label: resume ? getSectionTitle(resume, id) : (SECTION_CONFIG[id]?.label || id),
-    icon: iconMap[id],
+    icon: getSectionIcon(id),
     visible: !hidden.includes(id)
   }))
 })
@@ -117,7 +117,16 @@ const visibleSections = computed(() => {
 // 隐藏的模块列表（用于添加模块弹窗）
 const hiddenSections = computed(() => {
   const visibleIds = resumeStore.getSectionOrder()
-  return Object.keys(SECTION_CONFIG).filter(id => !visibleIds.includes(id))
+  const result: string[] = []
+  // 内置模块（排除自定义模块模板类型，它们单独处理）
+  for (const id of Object.keys(SECTION_CONFIG)) {
+    if (!visibleIds.includes(id) && id !== 'basic' && id !== 'customText' && id !== 'customCard') {
+      result.push(id)
+    }
+  }
+  // 自定义模块类型（始终可添加）
+  result.push('customText', 'customCard')
+  return result
 })
 
 // 当前选中模块
@@ -162,8 +171,15 @@ const toggleCollapse = () => {
 
 // 添加模块
 const handleAddSection = (sectionId: string) => {
-  resumeStore.addSection(sectionId)
-  layoutStore.setActiveSection(sectionId)
+  let newSectionId = sectionId
+  if (sectionId === 'customText') {
+    newSectionId = resumeStore.addCustomTextSection()
+  } else if (sectionId === 'customCard') {
+    newSectionId = resumeStore.addCustomCardSection()
+  } else {
+    resumeStore.addSection(sectionId)
+  }
+  layoutStore.setActiveSection(newSectionId)
   layoutStore.expandEditor()
 }
 
@@ -187,7 +203,11 @@ const handleToggleVisible = (sectionId: string) => {
 // 删除模块
 const removeSection = (sectionId: string) => {
   if (sectionId === 'basic') return
-  resumeStore.removeSection(sectionId)
+  if (isCustomSection(sectionId)) {
+    resumeStore.removeCustomSection(sectionId)
+  } else {
+    resumeStore.removeSection(sectionId)
+  }
   removeConfirmId.value = null
   // 如果删除的是当前选中的，切换到第一个
   if (activeSectionId.value === sectionId) {
