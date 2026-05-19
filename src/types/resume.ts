@@ -19,6 +19,7 @@ export interface WorkItem {
   endDate: string
   description: string
   highlights: string[]
+  hidden?: boolean
 }
 
 // 教育经历
@@ -30,6 +31,7 @@ export interface EducationItem {
   startDate: string
   endDate: string
   description: string
+  hidden?: boolean
 }
 
 // 项目经验
@@ -42,6 +44,7 @@ export interface ProjectItem {
   description: string
   highlights: string[]
   technologies: string[]
+  hidden?: boolean
 }
 
 // 技能（改为纯文本，用户自由列举）

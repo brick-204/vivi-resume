@@ -108,8 +108,8 @@
             <span class="main__section-icon"></span>
             工作经历
           </h2>
-          <div v-if="resume.workExperience.length">
-            <div v-for="item in resume.workExperience" :key="item.id" class="main__entry">
+          <div v-if="resume.workExperience.filter(i => !i.hidden).length">
+            <div v-for="item in resume.workExperience.filter(i => !i.hidden)" :key="item.id" class="main__entry">
               <div class="main__entry-header">
                 <div class="main__entry-info">
                   <h3 class="main__entry-title">{{ item.position }}</h3>
@@ -138,8 +138,8 @@
             <span class="main__section-icon"></span>
             教育经历
           </h2>
-          <div v-if="resume.education.length">
-            <div v-for="item in resume.education" :key="item.id" class="main__entry">
+          <div v-if="resume.education.filter(i => !i.hidden).length">
+            <div v-for="item in resume.education.filter(i => !i.hidden)" :key="item.id" class="main__entry">
               <div class="main__entry-header">
                 <div class="main__entry-info">
                   <h3 class="main__entry-title">{{ item.school }}</h3>
@@ -165,8 +165,8 @@
             <span class="main__section-icon"></span>
             项目经验
           </h2>
-          <div v-if="resume.projects.length">
-            <div v-for="item in resume.projects" :key="item.id" class="main__entry">
+          <div v-if="resume.projects.filter(i => !i.hidden).length">
+            <div v-for="item in resume.projects.filter(i => !i.hidden)" :key="item.id" class="main__entry">
               <div class="main__entry-header">
                 <div class="main__entry-info">
                   <h3 class="main__entry-title">{{ item.name }}</h3>
@@ -286,8 +286,8 @@
           <span class="section__icon section__icon--work"></span>
           工作经历
         </h2>
-        <template v-if="resume.workExperience.length">
-          <div v-for="item in resume.workExperience" :key="item.id" class="entry">
+        <template v-if="resume.workExperience.filter(i => !i.hidden).length">
+          <div v-for="item in resume.workExperience.filter(i => !i.hidden)" :key="item.id" class="entry">
             <div class="entry__timeline">
               <span class="timeline__dot"></span>
               <span class="timeline__line"></span>
@@ -323,8 +323,8 @@
           <span class="section__icon section__icon--edu"></span>
           教育经历
         </h2>
-        <template v-if="resume.education.length">
-          <div v-for="item in resume.education" :key="item.id" class="entry">
+        <template v-if="resume.education.filter(i => !i.hidden).length">
+          <div v-for="item in resume.education.filter(i => !i.hidden)" :key="item.id" class="entry">
             <div class="entry__timeline">
               <span class="timeline__dot timeline__dot--edu"></span>
               <span class="timeline__line"></span>
@@ -357,8 +357,8 @@
           <span class="section__icon section__icon--project"></span>
           项目经验
         </h2>
-        <template v-if="resume.projects.length">
-          <div v-for="item in resume.projects" :key="item.id" class="entry">
+        <template v-if="resume.projects.filter(i => !i.hidden).length">
+          <div v-for="item in resume.projects.filter(i => !i.hidden)" :key="item.id" class="entry">
             <div class="entry__timeline">
               <span class="timeline__dot timeline__dot--project"></span>
               <span class="timeline__line"></span>

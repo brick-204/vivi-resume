@@ -14,7 +14,7 @@
     </div>
 
     <div v-else class="section__list">
-      <div v-for="item in items" :key="item.id" class="card">
+      <div v-for="item in items" :key="item.id" class="card" :class="{ 'card--hidden': item.hidden }">
         <div class="card__header">
           <div class="card__info">
             <span class="card__position">{{
@@ -24,9 +24,14 @@
               >@ {{ item.company || "未填写公司" }}</span
             >
           </div>
-          <button class="card__delete" aria-label="删除" @click="deleteItem(item.id)">
-            <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-          </button>
+          <div class="card__actions">
+            <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click="item.hidden = !item.hidden">
+              <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
+            </button>
+            <button class="card__delete" aria-label="删除" @click="confirmDeleteId = item.id">
+              <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+            </button>
+          </div>
         </div>
         <div class="card__form">
           <div class="form__row">
@@ -60,20 +65,30 @@
         </div>
       </div>
     </div>
+
+    <BaseModal :visible="confirmDeleteId !== null" title="确认删除" size="sm" @close="confirmDeleteId = null">
+      <p>确定要删除这条工作经历吗？此操作不可撤销。</p>
+      <template #footer>
+        <button class="btn btn--cancel" @click="confirmDeleteId = null">取消</button>
+        <button class="btn btn--danger" @click="deleteItem(confirmDeleteId!)">确认删除</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { generateId } from "@/types/resume";
 import type { WorkItem } from "@/types/resume";
-import { TRASH_ICON, BRIEFCASE_ICON } from "@/components/icons/SectionIcons";
+import { TRASH_ICON, BRIEFCASE_ICON, EYE_ICON, EYE_OFF_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
 import BaseInput from "@/components/common/BaseInput.vue";
 import BaseTextarea from "@/components/common/BaseTextarea.vue";
+import BaseModal from "@/components/common/BaseModal.vue";
 
 const store = useResumeStore();
+const confirmDeleteId = ref<string | null>(null);
 
 const items = computed({
   get: () => store.currentResume?.workExperience || [],
@@ -99,6 +114,7 @@ const deleteItem = (id: string) => {
   store.updateCurrentResume({
     workExperience: items.value.filter((item) => item.id !== id),
   });
+  confirmDeleteId.value = null;
 };
 
 defineExpose({ addItem });
@@ -229,4 +245,6 @@ defineExpose({ addItem });
 }
 
 @include date-field;
+@include card-actions;
+@include modal-btn;
 </style>

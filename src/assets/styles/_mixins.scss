@@ -59,6 +59,68 @@
   }
 }
 
+@mixin card-actions {
+  .card__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+  }
+
+  .card__toggle-visibility {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    color: $text-secondary;
+    border: none;
+    border-radius: $radius-md;
+    cursor: pointer;
+    transition: all $transition-fast;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba($text-secondary, 0.15);
+    }
+  }
+
+  .card--hidden {
+    opacity: 0.5;
+  }
+}
+
+@mixin modal-btn {
+  .btn {
+    padding: $spacing-sm $spacing-lg;
+    border-radius: $radius-lg;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all $transition-fast;
+
+    &--cancel {
+      background: $bg-glass;
+      color: $text-secondary;
+      border: 1px solid $border-glass;
+
+      &:hover {
+        background: $bg-glass-hover;
+      }
+    }
+
+    &--danger {
+      background: $error-color;
+      color: white;
+
+      &:hover {
+        opacity: 0.85;
+      }
+    }
+  }
+}
+
 @mixin glass {
   background: $bg-glass;
   backdrop-filter: blur(20px) saturate(1.8);
