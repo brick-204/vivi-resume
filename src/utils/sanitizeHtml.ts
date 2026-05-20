@@ -1,7 +1,10 @@
 import DOMPurify from 'isomorphic-dompurify'
 
-const ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 's', 'strike', 'ul', 'ol', 'li', 'p', 'br']
-const ALLOWED_ATTR: string[] = []
+const ALLOWED_TAGS = [
+  'b', 'strong', 'i', 'em', 's', 'strike', 'u',
+  'ul', 'ol', 'li', 'p', 'br', 'a', 'mark', 'span',
+]
+const ALLOWED_ATTR = ['href', 'target', 'rel', 'style', 'class']
 
 export function sanitizeHtml(html: string): string {
   if (!html) return ''

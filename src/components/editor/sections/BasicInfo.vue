@@ -130,13 +130,13 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
-import { generateId, DEFAULT_FIELD_ORDER } from '@/types/resume'
+import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
 import type { BasicInfo, CustomField, FieldDisplayMode } from '@/types/resume'
 
 const store = useResumeStore()
 
 const basicInfo = computed({
-  get: () => store.currentResume!.basicInfo,
+  get: () => store.currentResume?.basicInfo ?? createEmptyResume().basicInfo,
   set: (value) => store.updateCurrentResume({ basicInfo: value })
 })
 
@@ -179,11 +179,12 @@ const getFieldType = (key: string): InputType => FIELD_META[key]?.type || 'text'
 type StringFieldKey = 'name' | 'title' | 'gender' | 'birthday' | 'age' | 'maritalStatus' | 'politicalStatus' | 'hometown' | 'location' | 'expectedCity' | 'workStartDate' | 'salaryRange' | 'email' | 'phone' | 'wechat' | 'qq' | 'website' | 'photo' | 'summary'
 
 const updateFieldValue = (key: string, value: string) => {
-  if (!FIELD_META[key]) return
+  if (!FIELD_META[key] || !basicInfo.value) return
   basicInfo.value = { ...basicInfo.value, [key as StringFieldKey]: value }
 }
 
 const updateCustomFieldValue = (fieldKey: string, value: string) => {
+  if (!basicInfo.value) return
   const id = getCustomId(fieldKey)
   const customFields = [...(basicInfo.value.customFields || [])]
   const idx = customFields.findIndex(f => f.id === id)
@@ -210,6 +211,7 @@ const onCustomLabelBlur = (fieldKey: string, event: FocusEvent) => {
 }
 
 const isFieldHidden = (key: string): boolean => {
+  if (!basicInfo.value) return false
   if (isCustomField(key)) {
     return getCustomField(key)?.hidden ?? false
   }
@@ -217,6 +219,7 @@ const isFieldHidden = (key: string): boolean => {
 }
 
 const isFieldInOrder = (key: string): boolean => {
+  if (!basicInfo.value) return false
   const order = basicInfo.value.fieldOrder || DEFAULT_FIELD_ORDER
   return order.includes(key)
 }
@@ -225,6 +228,7 @@ const isFieldInOrder = (key: string): boolean => {
 const DISPLAY_MODE_ORDER: FieldDisplayMode[] = ['iconLabelValue', 'labelValue', 'iconValue']
 
 const getDisplayMode = (key: string): FieldDisplayMode => {
+  if (!basicInfo.value) return 'iconLabelValue'
   return basicInfo.value.fieldDisplayMode?.[key] || 'iconLabelValue'
 }
 
@@ -243,6 +247,7 @@ const getDisplayModeTitle = (key: string): string => {
 }
 
 const cycleDisplayMode = (key: string) => {
+  if (!basicInfo.value) return
   const current = getDisplayMode(key)
   const idx = DISPLAY_MODE_ORDER.indexOf(current)
   const next = DISPLAY_MODE_ORDER[(idx + 1) % DISPLAY_MODE_ORDER.length]
@@ -257,6 +262,7 @@ const isCustomField = (key: string): boolean => key.startsWith('custom_')
 const getCustomId = (key: string): string => key.replace('custom_', '')
 
 const getCustomField = (key: string): CustomField | undefined => {
+  if (!basicInfo.value) return undefined
   const id = getCustomId(key)
   return (basicInfo.value.customFields || []).find(f => f.id === id)
 }
@@ -266,6 +272,7 @@ const fixedFields = ['name', 'title']
 
 // 可拖拽的字段顺序（排除 photo/name/title）
 const draggableFieldOrder = computed(() => {
+  if (!basicInfo.value) return []
   const order = basicInfo.value.fieldOrder || [...DEFAULT_FIELD_ORDER]
   return order.filter(k => !['photo', 'name', 'title'].includes(k))
 })
@@ -288,6 +295,7 @@ const onDragOver = (e: DragEvent, _index: number) => {
 
 const onDrop = (e: DragEvent, index: number) => {
   e.preventDefault()
+  if (!basicInfo.value) return
   const fromIndex = draggingIndex.value
   if (fromIndex === null || fromIndex === index) return
 
@@ -310,6 +318,7 @@ const onDragEnd = () => {
 
 // 字段操作
 const toggleFieldVisibility = (field: string) => {
+  if (!basicInfo.value) return
   if (isCustomField(field)) {
     const customFields = [...(basicInfo.value.customFields || [])]
     const id = getCustomId(field)
@@ -326,6 +335,7 @@ const toggleFieldVisibility = (field: string) => {
 }
 
 const handlePhotoUpload = (event: Event) => {
+  if (!basicInfo.value) return
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
@@ -343,6 +353,7 @@ const handlePhotoUpload = (event: Event) => {
 }
 
 const addCustomField = () => {
+  if (!basicInfo.value) return
   const field: CustomField = {
     id: generateId(),
     label: '自定义字段',
@@ -361,6 +372,7 @@ const addCustomField = () => {
 }
 
 const removeCustomField = (id: string) => {
+  if (!basicInfo.value) return
   const existing = basicInfo.value.customFields || []
   const newOrder = (basicInfo.value.fieldOrder || DEFAULT_FIELD_ORDER).filter(k => k !== `custom_${id}`)
   basicInfo.value = {
