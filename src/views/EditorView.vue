@@ -107,7 +107,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
-import { exportToPDF, downloadJSON } from '@/utils/export'
+import { downloadJSON } from '@/utils/export'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
@@ -159,11 +159,8 @@ const exportJSON = () => {
   }
 }
 
-const exportPDF = async () => {
-  const element = previewRef.value?.getElement()
-  if (element) {
-    await exportToPDF(element, `${resumeTitle.value || 'resume'}.pdf`)
-  }
+const exportPDF = () => {
+  window.print()
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
