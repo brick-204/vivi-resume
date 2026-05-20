@@ -57,6 +57,12 @@ export const EYE_ICON = 'mdi:eye-outline'
 // 隐藏模块 - 眼睛关闭
 export const EYE_OFF_ICON = 'mdi:eye-off-outline'
 
+// 收缩 - 上箭头
+export const CHEVRON_UP_ICON = 'mdi:chevron-up'
+
+// 展开 - 下箭头
+export const CHEVRON_DOWN_ICON = 'mdi:chevron-down'
+
 // ========== 通用图标 ==========
 
 // 用户头像 - 实心

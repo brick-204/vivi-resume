@@ -1,13 +1,38 @@
+// 字段显示模式
+export type FieldDisplayMode = 'iconLabelValue' | 'labelValue' | 'iconValue'
+
 // 简历基本信息
+export interface CustomField {
+  id: string
+  label: string
+  value: string
+  hidden: boolean
+}
+
 export interface BasicInfo {
   name: string
   title: string
-  photo: string  // 头像URL
+  photo: string
   email: string
   phone: string
   location: string
   website: string
   summary: string
+  gender: string
+  birthday: string
+  age: string
+  maritalStatus: string
+  politicalStatus: string
+  hometown: string
+  expectedCity: string
+  workStartDate: string
+  wechat: string
+  qq: string
+  salaryRange: string
+  hiddenFields: Record<string, boolean>
+  customFields: CustomField[]
+  fieldOrder: string[]
+  fieldDisplayMode: Record<string, FieldDisplayMode>
 }
 
 // 工作经历
@@ -146,6 +171,14 @@ export const generateCustomSectionId = (type: CustomSectionType, index: number):
   return `${type}_${index}`
 }
 
+// 默认基本信息字段顺序
+export const DEFAULT_FIELD_ORDER = [
+  'photo', 'name', 'title', 'gender', 'birthday', 'age',
+  'maritalStatus', 'politicalStatus', 'hometown', 'location',
+  'expectedCity', 'workStartDate', 'salaryRange', 'email',
+  'phone', 'wechat', 'qq', 'website'
+]
+
 // 创建新简历的默认模板
 export const createEmptyResume = (): Resume => {
   const now = new Date().toISOString()
@@ -161,7 +194,22 @@ export const createEmptyResume = (): Resume => {
       phone: '',
       location: '',
       website: '',
-      summary: ''
+      summary: '',
+      gender: '',
+      birthday: '',
+      age: '',
+      maritalStatus: '',
+      politicalStatus: '',
+      hometown: '',
+      expectedCity: '',
+      workStartDate: '',
+      wechat: '',
+      qq: '',
+      salaryRange: '',
+      hiddenFields: {},
+      customFields: [],
+      fieldOrder: [...DEFAULT_FIELD_ORDER],
+      fieldDisplayMode: {}
     },
     workExperience: [],
     education: [],

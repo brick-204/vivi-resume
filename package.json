@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@iconify-json/simple-icons": "^1.2.83",
     "@iconify/vue": "^5.0.1",
     "html2pdf.js": "^0.10.1",
     "pinia": "^2.1.7",

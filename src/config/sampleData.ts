@@ -1,5 +1,5 @@
 import type { Resume } from '@/types/resume'
-import { DEFAULT_SECTION_ORDER } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER } from '@/types/resume'
 
 // 用于模板画廊预览的示例简历数据
 export const sampleResume: Resume = {
@@ -14,7 +14,22 @@ export const sampleResume: Resume = {
     phone: '138-0000-1234',
     location: '北京市',
     website: 'github.com/zhangming',
-    summary: '拥有 6 年前端开发经验，精通 Vue、React 等主流框架，具备丰富的大型项目架构设计能力。热衷于技术创新和团队协作，主导过多个百万级用户产品的前端架构设计与性能优化。'
+    summary: '拥有 6 年前端开发经验，精通 Vue、React 等主流框架，具备丰富的大型项目架构设计能力。热衷于技术创新和团队协作，主导过多个百万级用户产品的前端架构设计与性能优化。',
+    gender: '男',
+    birthday: '',
+    age: '28',
+    maritalStatus: '未婚',
+    politicalStatus: '',
+    hometown: '湖南长沙',
+    expectedCity: '',
+    workStartDate: '2018-07',
+    wechat: '',
+    qq: '',
+    salaryRange: '',
+    hiddenFields: {},
+    customFields: [],
+    fieldOrder: [...DEFAULT_FIELD_ORDER],
+    fieldDisplayMode: {}
   },
   workExperience: [
     {

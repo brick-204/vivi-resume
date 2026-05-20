@@ -31,47 +31,28 @@
         <p class="sidebar__title">{{ resume.basicInfo.title || '你的职位' }}</p>
       </div>
 
+      <!-- 标签信息 -->
+      <div v-if="orderedTagFields.length" class="sidebar__tags">
+        <span v-for="fieldKey in orderedTagFields" :key="fieldKey" class="sidebar__tag">
+          <Icon v-if="showIcon(fieldKey)" :icon="getFieldIcon(fieldKey)" :width="10" :height="10" class="sidebar__tag-icon" />
+          <span v-if="showLabel(fieldKey)" class="sidebar__tag-label">{{ getFieldLabel(fieldKey) }}</span>
+          {{ getFieldValue(fieldKey) }}
+        </span>
+      </div>
+
       <!-- 联系信息 -->
-      <div class="sidebar__contact">
+      <div v-if="orderedSidebarContactFields.length" class="sidebar__contact">
         <div class="sidebar__section-title">
           <span class="sidebar__section-line"></span>
           联系方式
         </div>
-        <div v-if="resume.basicInfo.email" class="sidebar__contact-item">
-          <span class="sidebar__contact-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="3" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M1 3L7 7L13 3" stroke="currentColor" stroke-width="1.2"/>
-            </svg>
+        <div v-for="fieldKey in orderedSidebarContactFields" :key="fieldKey" class="sidebar__contact-item">
+          <span v-if="showIcon(fieldKey)" class="sidebar__contact-icon">
+            <Icon :icon="getFieldIcon(fieldKey)" :width="14" :height="14" />
           </span>
-          <span>{{ resume.basicInfo.email }}</span>
-        </div>
-        <div v-if="resume.basicInfo.phone" class="sidebar__contact-item">
-          <span class="sidebar__contact-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 2C2.45 2 2 2.45 2 3V4C2 7.5 5.5 11 9 11H10C10.55 11 11 10.55 11 10V9L9 8V10C6 10 4 6 4 4H6L5 2" stroke="currentColor" stroke-width="1.2"/>
-            </svg>
-          </span>
-          <span>{{ resume.basicInfo.phone }}</span>
-        </div>
-        <div v-if="resume.basicInfo.location" class="sidebar__contact-item">
-          <span class="sidebar__contact-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M7 8V13" stroke="currentColor" stroke-width="1.2"/>
-              <circle cx="7" cy="5" r="1" fill="currentColor"/>
-            </svg>
-          </span>
-          <span>{{ resume.basicInfo.location }}</span>
-        </div>
-        <div v-if="resume.basicInfo.website" class="sidebar__contact-item">
-          <span class="sidebar__contact-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M1 7H13M7 1C4 3.5 4 10.5 7 13M7 1C10 3.5 10 10.5 7 13" stroke="currentColor" stroke-width="1.2"/>
-            </svg>
-          </span>
-          <span>{{ resume.basicInfo.website }}</span>
+          <span v-if="showLabel(fieldKey) && !getCustomFieldByKey(fieldKey)" class="sidebar__contact-label">{{ getFieldLabel(fieldKey) }}:</span>
+          <span v-if="showLabel(fieldKey) && getCustomFieldByKey(fieldKey)" class="sidebar__contact-label">{{ getCustomFieldByKey(fieldKey)?.label }}:</span>
+          <span>{{ getCustomFieldByKey(fieldKey) ? getCustomFieldByKey(fieldKey)?.value : getFieldValue(fieldKey) }}</span>
         </div>
       </div>
 
@@ -84,7 +65,6 @@
         <div v-if="getSkillsContent" class="sidebar__skill-text">
           {{ getSkillsContent }}
         </div>
-        <div v-else class="sidebar__empty-hint">请添加技能...</div>
       </div>
     </aside>
 
@@ -99,7 +79,6 @@
             {{ getSectionTitle(resume, 'summary') }}
           </h2>
           <p v-if="resume.basicInfo.summary" class="main__section-text">{{ resume.basicInfo.summary }}</p>
-          <p v-else class="main__section-placeholder">请填写个人简介...</p>
         </section>
 
         <!-- 工作经历 -->
@@ -108,8 +87,8 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, 'work') }}
           </h2>
-          <div v-if="resume.workExperience.filter(i => !i.hidden).length">
-            <div v-for="item in resume.workExperience.filter(i => !i.hidden)" :key="item.id" class="main__entry">
+          <div v-if="getVisibleWorkItems.length">
+            <div v-for="item in getVisibleWorkItems" :key="item.id" class="main__entry">
               <div class="main__entry-header">
                 <div class="main__entry-info">
                   <h3 class="main__entry-title">{{ item.position }}</h3>
@@ -123,13 +102,6 @@
               </ul>
             </div>
           </div>
-          <div v-else class="main__entry-placeholder">
-            <div class="placeholder-row">
-              <span class="placeholder-title">职位名称</span>
-              <span class="placeholder-subtitle">公司名称</span>
-            </div>
-            <p class="placeholder-desc">请填写工作描述...</p>
-          </div>
         </section>
 
         <!-- 教育经历 -->
@@ -138,8 +110,8 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, 'education') }}
           </h2>
-          <div v-if="resume.education.filter(i => !i.hidden).length">
-            <div v-for="item in resume.education.filter(i => !i.hidden)" :key="item.id" class="main__entry">
+          <div v-if="getVisibleEducationItems.length">
+            <div v-for="item in getVisibleEducationItems" :key="item.id" class="main__entry">
               <div class="main__entry-header">
                 <div class="main__entry-info">
                   <h3 class="main__entry-title">{{ item.school }}</h3>
@@ -150,13 +122,6 @@
               <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
             </div>
           </div>
-          <div v-else class="main__entry-placeholder">
-            <div class="placeholder-row">
-              <span class="placeholder-title">学校名称</span>
-              <span class="placeholder-subtitle">学位 · 专业</span>
-            </div>
-            <p class="placeholder-desc">请填写教育描述...</p>
-          </div>
         </section>
 
         <!-- 项目经验 -->
@@ -165,30 +130,21 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, 'projects') }}
           </h2>
-          <div v-if="resume.projects.filter(i => !i.hidden).length">
-            <div v-for="item in resume.projects.filter(i => !i.hidden)" :key="item.id" class="main__entry">
-              <div class="main__entry-header">
-                <div class="main__entry-info">
-                  <h3 class="main__entry-title">{{ item.name }}</h3>
-                  <p class="main__entry-subtitle">{{ item.role }}</p>
-                </div>
-                <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
+          <div v-for="item in getVisibleProjectItems" :key="item.id" class="main__entry">
+            <div class="main__entry-header">
+              <div class="main__entry-info">
+                <h3 class="main__entry-title">{{ item.name }}</h3>
+                <p class="main__entry-subtitle">{{ item.role }}</p>
               </div>
-              <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
-              <ul v-if="item.highlights?.length" class="main__entry-highlights">
-                <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
-              </ul>
-              <div v-if="item.technologies.length" class="main__entry-tags">
-                <span v-for="(tech, idx) in item.technologies" :key="idx" class="main__tech-tag">{{ tech }}</span>
-              </div>
+              <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-          </div>
-          <div v-else class="main__entry-placeholder">
-            <div class="placeholder-row">
-              <span class="placeholder-title">项目名称</span>
-              <span class="placeholder-subtitle">担任角色</span>
+            <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+            <ul v-if="item.highlights?.length" class="main__entry-highlights">
+              <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
+            </ul>
+            <div v-if="item.technologies.length" class="main__entry-tags">
+              <span v-for="(tech, idx) in item.technologies" :key="idx" class="main__tech-tag">{{ tech }}</span>
             </div>
-            <p class="placeholder-desc">请填写项目描述...</p>
           </div>
         </section>
 
@@ -199,7 +155,6 @@
             {{ getSectionTitle(resume, 'evaluation') }}
           </h2>
           <p v-if="resume.selfEvaluation" class="main__section-text">{{ resume.selfEvaluation }}</p>
-          <p v-else class="main__section-placeholder">请填写自我评价...</p>
         </section>
 
         <!-- 自定义文本模块 -->
@@ -209,7 +164,6 @@
             {{ getSectionTitle(resume, sectionId) }}
           </h2>
           <p v-if="getCustomTextContent(sectionId)" class="main__section-text">{{ getCustomTextContent(sectionId) }}</p>
-          <p v-else class="main__section-placeholder">请填写内容...</p>
         </section>
 
         <!-- 自定义列表模块 -->
@@ -218,27 +172,18 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, sectionId) }}
           </h2>
-          <div v-if="getCustomCardItems(sectionId).length">
-            <div v-for="item in getCustomCardItems(sectionId)" :key="item.id" class="main__entry">
-              <div class="main__entry-header">
-                <div class="main__entry-info">
-                  <h3 class="main__entry-title">{{ item.name }}</h3>
-                  <p class="main__entry-subtitle">{{ item.role }}</p>
-                </div>
-                <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
+          <div v-for="item in getCustomCardItems(sectionId)" :key="item.id" class="main__entry">
+            <div class="main__entry-header">
+              <div class="main__entry-info">
+                <h3 class="main__entry-title">{{ item.name }}</h3>
+                <p class="main__entry-subtitle">{{ item.role }}</p>
               </div>
-              <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
-              <div v-if="item.keywords.length" class="main__entry-tags">
-                <span v-for="(kw, idx) in item.keywords" :key="idx" class="main__tech-tag">{{ kw }}</span>
-              </div>
+              <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-          </div>
-          <div v-else class="main__entry-placeholder">
-            <div class="placeholder-row">
-              <span class="placeholder-title">名称</span>
-              <span class="placeholder-subtitle">角色</span>
+            <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+            <div v-if="item.keywords.length" class="main__entry-tags">
+              <span v-for="(kw, idx) in item.keywords" :key="idx" class="main__tech-tag">{{ kw }}</span>
             </div>
-            <p class="placeholder-desc">请填写描述...</p>
           </div>
         </section>
       </template>
@@ -255,55 +200,34 @@
     <!-- 头部（基本信息） -->
     <header class="resume__header" data-section="basic" @click="$emit('click-section', 'basic')">
       <!-- 头像 -->
-      <div class="header__photo">
-        <img v-if="resume.basicInfo.photo" :src="resume.basicInfo.photo" :alt="resume.basicInfo.name" class="header__photo-img" />
-        <div v-else class="header__photo-placeholder">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-        </div>
+      <div v-if="resume.basicInfo.photo && isFieldVisible('photo')" class="header__photo">
+        <img :src="resume.basicInfo.photo" :alt="resume.basicInfo.name" class="header__photo-img" />
       </div>
       <div class="header__main">
-        <h1 class="header__name">{{ resume.basicInfo.name || '你的姓名' }}</h1>
-        <p class="header__title">{{ resume.basicInfo.title || '你的职位' }}</p>
+        <h1 v-if="resume.basicInfo.name && isFieldVisible('name')" class="header__name">{{ resume.basicInfo.name }}</h1>
+        <p v-if="resume.basicInfo.title && isFieldVisible('title')" class="header__title">{{ resume.basicInfo.title }}</p>
+        <div class="header__tags">
+          <span v-for="fieldKey in orderedTagFields" :key="fieldKey" class="header__tag">
+            <Icon v-if="showIcon(fieldKey)" :icon="getFieldIcon(fieldKey)" :width="12" :height="12" class="header__tag-icon" />
+            <span v-if="showLabel(fieldKey)" class="header__tag-label">{{ getFieldLabel(fieldKey) }}</span>
+            <span class="header__tag-value">{{ getFieldValue(fieldKey) }}</span>
+          </span>
+        </div>
       </div>
       <div class="header__contact">
-        <span v-if="resume.basicInfo.email" class="contact__item">
-          <span class="contact__icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="3" width="12" height="8" rx="2" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M1 3L7 7L13 3" stroke="currentColor" stroke-width="1.2"/>
-            </svg>
+        <span v-for="fieldKey in orderedContactFields" :key="fieldKey" class="contact__item">
+          <span v-if="showIcon(fieldKey)" class="contact__icon">
+            <Icon :icon="getFieldIcon(fieldKey)" :width="14" :height="14" />
           </span>
-          {{ resume.basicInfo.email }}
+          <span v-if="showLabel(fieldKey)" class="contact__label">{{ getFieldLabel(fieldKey) }}:</span>
+          {{ getFieldValue(fieldKey) }}
         </span>
-        <span v-if="resume.basicInfo.phone" class="contact__item">
-          <span class="contact__icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 2C2.44772 2 2 2.44772 2 3V4C2 7.5 5.5 11 9 11H10C10.5523 11 11 10.5523 11 10V9L9 8V10C6 10 4 6 4 4H6L5 2" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-            </svg>
+        <span v-for="fieldKey in orderedCustomContactFields" :key="fieldKey" class="contact__item">
+          <span v-if="showIcon(fieldKey)" class="contact__icon">
+            <Icon :icon="getFieldIcon(fieldKey)" :width="14" :height="14" />
           </span>
-          {{ resume.basicInfo.phone }}
-        </span>
-        <span v-if="resume.basicInfo.location" class="contact__item">
-          <span class="contact__icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="5" r="3" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M7 8V13" stroke="currentColor" stroke-width="1.2"/>
-              <circle cx="7" cy="5" r="1" fill="currentColor"/>
-            </svg>
-          </span>
-          {{ resume.basicInfo.location }}
-        </span>
-        <span v-if="resume.basicInfo.website" class="contact__item">
-          <span class="contact__icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M1 7H13M7 1C4 3.5 4 10.5 7 13M7 1C10 3.5 10 10.5 7 13" stroke="currentColor" stroke-width="1.2"/>
-            </svg>
-          </span>
-          {{ resume.basicInfo.website }}
+          <span v-if="showLabel(fieldKey)" class="contact__label">{{ getCustomFieldByKey(fieldKey)?.label }}:</span>
+          {{ getCustomFieldByKey(fieldKey)?.value }}
         </span>
       </div>
     </header>
@@ -317,7 +241,6 @@
           {{ getSectionTitle(resume, 'summary') }}
         </h2>
         <p v-if="resume.basicInfo.summary" class="section__text">{{ resume.basicInfo.summary }}</p>
-        <p v-else class="section__placeholder">请填写个人简介...</p>
       </section>
 
       <!-- 工作经历 -->
@@ -326,34 +249,24 @@
           <span class="section__icon section__icon--work"></span>
           {{ getSectionTitle(resume, 'work') }}
         </h2>
-        <template v-if="resume.workExperience.filter(i => !i.hidden).length">
-          <div v-for="item in resume.workExperience.filter(i => !i.hidden)" :key="item.id" class="entry">
-            <div class="entry__timeline">
-              <span class="timeline__dot"></span>
-              <span class="timeline__line"></span>
-            </div>
-            <div class="entry__content">
-              <div class="entry__header">
-                <div class="entry__info">
-                  <h3 class="entry__title">{{ item.position }}</h3>
-                  <p class="entry__subtitle">{{ item.company }}</p>
-                </div>
-                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
+        <div v-for="item in getVisibleWorkItems" :key="item.id" class="entry">
+          <div class="entry__timeline">
+            <span class="timeline__dot"></span>
+            <span class="timeline__line"></span>
+          </div>
+          <div class="entry__content">
+            <div class="entry__header">
+              <div class="entry__info">
+                <h3 class="entry__title">{{ item.position }}</h3>
+                <p class="entry__subtitle">{{ item.company }}</p>
               </div>
-              <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
-              <ul v-if="item.highlights?.length" class="entry__highlights">
-                <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
-              </ul>
+              <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
+            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <ul v-if="item.highlights?.length" class="entry__highlights">
+              <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
+            </ul>
           </div>
-        </template>
-        <div v-else class="entry-placeholder">
-          <div class="entry-placeholder__header">
-            <span class="entry-placeholder__title">职位名称</span>
-            <span class="entry-placeholder__date">开始日期 - 结束日期</span>
-          </div>
-          <p class="entry-placeholder__subtitle">公司名称</p>
-          <p class="entry-placeholder__desc">请填写工作描述...</p>
         </div>
       </section>
 
@@ -363,31 +276,21 @@
           <span class="section__icon section__icon--edu"></span>
           {{ getSectionTitle(resume, 'education') }}
         </h2>
-        <template v-if="resume.education.filter(i => !i.hidden).length">
-          <div v-for="item in resume.education.filter(i => !i.hidden)" :key="item.id" class="entry">
-            <div class="entry__timeline">
-              <span class="timeline__dot timeline__dot--edu"></span>
-              <span class="timeline__line"></span>
-            </div>
-            <div class="entry__content">
-              <div class="entry__header">
-                <div class="entry__info">
-                  <h3 class="entry__title">{{ item.school }}</h3>
-                  <p class="entry__subtitle">{{ item.degree }} · {{ item.major }}</p>
-                </div>
-                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
+        <div v-for="item in getVisibleEducationItems" :key="item.id" class="entry">
+          <div class="entry__timeline">
+            <span class="timeline__dot timeline__dot--edu"></span>
+            <span class="timeline__line"></span>
+          </div>
+          <div class="entry__content">
+            <div class="entry__header">
+              <div class="entry__info">
+                <h3 class="entry__title">{{ item.school }}</h3>
+                <p class="entry__subtitle">{{ item.degree }} · {{ item.major }}</p>
               </div>
-              <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+              <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
+            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
           </div>
-        </template>
-        <div v-else class="entry-placeholder">
-          <div class="entry-placeholder__header">
-            <span class="entry-placeholder__title">学校名称</span>
-            <span class="entry-placeholder__date">开始日期 - 结束日期</span>
-          </div>
-          <p class="entry-placeholder__subtitle">学位 · 专业</p>
-          <p class="entry-placeholder__desc">请填写教育描述...</p>
         </div>
       </section>
 
@@ -397,37 +300,27 @@
           <span class="section__icon section__icon--project"></span>
           {{ getSectionTitle(resume, 'projects') }}
         </h2>
-        <template v-if="resume.projects.filter(i => !i.hidden).length">
-          <div v-for="item in resume.projects.filter(i => !i.hidden)" :key="item.id" class="entry">
-            <div class="entry__timeline">
-              <span class="timeline__dot timeline__dot--project"></span>
-              <span class="timeline__line"></span>
+        <div v-for="item in getVisibleProjectItems" :key="item.id" class="entry">
+          <div class="entry__timeline">
+            <span class="timeline__dot timeline__dot--project"></span>
+            <span class="timeline__line"></span>
+          </div>
+          <div class="entry__content">
+            <div class="entry__header">
+              <div class="entry__info">
+                <h3 class="entry__title">{{ item.name }}</h3>
+                <p class="entry__subtitle">{{ item.role }}</p>
+              </div>
+              <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <div class="entry__content">
-              <div class="entry__header">
-                <div class="entry__info">
-                  <h3 class="entry__title">{{ item.name }}</h3>
-                  <p class="entry__subtitle">{{ item.role }}</p>
-                </div>
-                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
-              </div>
-              <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
-              <ul v-if="item.highlights?.length" class="entry__highlights">
-                <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
-              </ul>
-              <div v-if="item.technologies.length" class="entry__tags">
-                <span v-for="(tech, idx) in item.technologies" :key="idx" class="tech-tag">{{ tech }}</span>
-              </div>
+            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <ul v-if="item.highlights?.length" class="entry__highlights">
+              <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
+            </ul>
+            <div v-if="item.technologies.length" class="entry__tags">
+              <span v-for="(tech, idx) in item.technologies" :key="idx" class="tech-tag">{{ tech }}</span>
             </div>
           </div>
-        </template>
-        <div v-else class="entry-placeholder">
-          <div class="entry-placeholder__header">
-            <span class="entry-placeholder__title">项目名称</span>
-            <span class="entry-placeholder__date">开始日期 - 结束日期</span>
-          </div>
-          <p class="entry-placeholder__subtitle">担任角色</p>
-          <p class="entry-placeholder__desc">请填写项目描述...</p>
         </div>
       </section>
 
@@ -438,7 +331,6 @@
           {{ getSectionTitle(resume, 'skills') }}
         </h2>
         <p v-if="getSkillsContent" class="section__text">{{ getSkillsContent }}</p>
-        <p v-else class="section__placeholder">请添加技能...</p>
       </section>
 
       <!-- 自我评价 -->
@@ -448,7 +340,6 @@
           {{ getSectionTitle(resume, 'evaluation') }}
         </h2>
         <p v-if="resume.selfEvaluation" class="section__text">{{ resume.selfEvaluation }}</p>
-        <p v-else class="section__placeholder">请填写自我评价...</p>
       </section>
 
       <!-- 自定义文本模块 -->
@@ -458,7 +349,6 @@
           {{ getSectionTitle(resume, sectionId) }}
         </h2>
         <p v-if="getCustomTextContent(sectionId)" class="section__text">{{ getCustomTextContent(sectionId) }}</p>
-        <p v-else class="section__placeholder">请填写内容...</p>
       </section>
 
       <!-- 自定义列表模块 -->
@@ -467,34 +357,24 @@
           <span class="section__icon section__icon--custom-card"></span>
           {{ getSectionTitle(resume, sectionId) }}
         </h2>
-        <template v-if="getCustomCardItems(sectionId).length">
-          <div v-for="item in getCustomCardItems(sectionId)" :key="item.id" class="entry">
-            <div class="entry__timeline">
-              <span class="timeline__dot"></span>
-              <span class="timeline__line"></span>
+        <div v-for="item in getCustomCardItems(sectionId)" :key="item.id" class="entry">
+          <div class="entry__timeline">
+            <span class="timeline__dot"></span>
+            <span class="timeline__line"></span>
+          </div>
+          <div class="entry__content">
+            <div class="entry__header">
+              <div class="entry__info">
+                <h3 class="entry__title">{{ item.name }}</h3>
+                <p class="entry__subtitle">{{ item.role }}</p>
+              </div>
+              <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <div class="entry__content">
-              <div class="entry__header">
-                <div class="entry__info">
-                  <h3 class="entry__title">{{ item.name }}</h3>
-                  <p class="entry__subtitle">{{ item.role }}</p>
-                </div>
-                <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
-              </div>
-              <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
-              <div v-if="item.keywords.length" class="entry__tags">
-                <span v-for="(kw, idx) in item.keywords" :key="idx" class="tech-tag">{{ kw }}</span>
-              </div>
+            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <div v-if="item.keywords.length" class="entry__tags">
+              <span v-for="(kw, idx) in item.keywords" :key="idx" class="tech-tag">{{ kw }}</span>
             </div>
           </div>
-        </template>
-        <div v-else class="entry-placeholder">
-          <div class="entry-placeholder__header">
-            <span class="entry-placeholder__title">名称</span>
-            <span class="entry-placeholder__date">开始日期 - 结束日期</span>
-          </div>
-          <p class="entry-placeholder__subtitle">角色</p>
-          <p class="entry-placeholder__desc">请填写描述...</p>
         </div>
       </section>
     </template>
@@ -503,9 +383,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Resume } from '@/types/resume'
+import type { Resume, FieldDisplayMode } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomSectionIndex } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
-import { DEFAULT_SECTION_ORDER, getSectionTitle, getCustomSectionIndex } from '@/types/resume'
+import { Icon } from '@iconify/vue'
 
 const props = defineProps<{
   resume: Resume
@@ -577,14 +458,52 @@ const getCustomTextContent = (sectionId: string): string => {
 const getCustomCardItems = (sectionId: string) => {
   const index = getCustomSectionIndex(sectionId)
   if (index === null) return []
-  return (props.resume.customCards?.[index]?.items || []).filter(i => !i.hidden)
+  return (props.resume.customCards?.[index]?.items || []).filter(i => !i.hidden && !isCardEmpty(i, 'customCard'))
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const isCardEmpty = (item: any, type: 'work' | 'education' | 'project' | 'customCard'): boolean => {
+  if (type === 'work') {
+    const w = item as { position?: string; company?: string; startDate?: string; endDate?: string; description?: string; highlights?: string[] }
+    return !w.position && !w.company && !w.startDate && !w.endDate && !w.description && !(w.highlights?.length)
+  }
+  if (type === 'education') {
+    const e = item as { school?: string; degree?: string; major?: string; startDate?: string; endDate?: string; description?: string }
+    return !e.school && !e.degree && !e.major && !e.startDate && !e.endDate && !e.description
+  }
+  if (type === 'project') {
+    const p = item as { name?: string; role?: string; startDate?: string; endDate?: string; description?: string; highlights?: string[]; technologies?: string[] }
+    return !p.name && !p.role && !p.startDate && !p.endDate && !p.description && !(p.highlights?.length) && !(p.technologies?.length)
+  }
+  const c = item as { name?: string; role?: string; startDate?: string; endDate?: string; description?: string; keywords?: string[] }
+  return !c.name && !c.role && !c.startDate && !c.endDate && !c.description && !(c.keywords?.length)
+}
+
+const getVisibleWorkItems = computed(() =>
+  props.resume.workExperience.filter(i => !i.hidden && !isCardEmpty(i, 'work'))
+)
+const getVisibleEducationItems = computed(() =>
+  props.resume.education.filter(i => !i.hidden && !isCardEmpty(i, 'education'))
+)
+const getVisibleProjectItems = computed(() =>
+  props.resume.projects.filter(i => !i.hidden && !isCardEmpty(i, 'project'))
+)
 
 const formatDate = (date: string) => {
   if (!date) return ''
   if (date === '至今') return '至今'
   const d = new Date(date)
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+const isFieldVisible = (field: string): boolean => {
+  return !props.resume.basicInfo.hiddenFields?.[field]
+}
+
+const formatBirthday = (date: string): string => {
+  if (!date) return ''
+  const d = new Date(date)
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`
 }
 
 const formatDateRange = (startDate: string, endDate: string) => {
@@ -594,6 +513,114 @@ const formatDateRange = (startDate: string, endDate: string) => {
   if (start) return start
   if (end) return end
   return ''
+}
+
+// 字段图标映射
+const FIELD_ICONS: Record<string, string> = {
+  name: 'mdi:account',
+  title: 'mdi:briefcase',
+  gender: 'mdi:gender-male-female',
+  birthday: 'mdi:cake-variant-outline',
+  age: 'mdi:calendar-clock',
+  maritalStatus: 'mdi:heart-outline',
+  politicalStatus: 'mdi:flag-outline',
+  hometown: 'mdi:home-outline',
+  location: 'mdi:map-marker-outline',
+  expectedCity: 'mdi:city-variant-outline',
+  workStartDate: 'mdi:calendar-start',
+  salaryRange: 'mdi:cash',
+  email: 'mdi:email-outline',
+  phone: 'mdi:phone-outline',
+  wechat: 'mdi:wechat',
+  qq: 'simple-icons:tencentqq',
+  website: 'mdi:web',
+  photo: 'mdi:camera-outline',
+}
+
+const getFieldIcon = (key: string): string => FIELD_ICONS[key] || 'mdi:tag-outline'
+
+// 字段标签映射
+const FIELD_LABELS: Record<string, string> = {
+  name: '姓名', title: '职位', gender: '性别', birthday: '生日',
+  age: '年龄', maritalStatus: '婚姻状态', politicalStatus: '政治面貌',
+  hometown: '籍贯', location: '所在地', expectedCity: '期望城市',
+  workStartDate: '参加工作', salaryRange: '薪资', email: '邮箱',
+  phone: '电话', wechat: '微信', qq: 'QQ', website: '网站',
+}
+
+const getFieldLabel = (key: string): string => FIELD_LABELS[key] || key
+
+// 字段值获取（含格式化）
+const getFieldValue = (fieldKey: string): string => {
+  const bi = props.resume.basicInfo
+  if (fieldKey === 'age') return bi.age ? `${bi.age}岁` : ''
+  if (fieldKey === 'birthday') return bi.birthday ? formatBirthday(bi.birthday) : ''
+  if (fieldKey === 'workStartDate') return bi.workStartDate ? formatDate(bi.workStartDate) : ''
+  return (bi[fieldKey as keyof typeof bi] as string) || ''
+}
+
+// 显示模式辅助
+const getDisplayMode = (key: string): FieldDisplayMode => {
+  return props.resume.basicInfo.fieldDisplayMode?.[key] || 'iconLabelValue'
+}
+
+const showIcon = (key: string): boolean => {
+  const mode = getDisplayMode(key)
+  return mode === 'iconLabelValue' || mode === 'iconValue'
+}
+
+const showLabel = (key: string): boolean => {
+  const mode = getDisplayMode(key)
+  return mode === 'iconLabelValue' || mode === 'labelValue'
+}
+
+// 标签字段 key 列表
+const TAG_KEYS = ['gender', 'age', 'maritalStatus', 'politicalStatus', 'birthday', 'hometown', 'workStartDate', 'salaryRange', 'expectedCity']
+// 联系字段 key 列表
+const CONTACT_KEYS = ['phone', 'email', 'wechat', 'qq', 'location', 'website']
+
+// 按 fieldOrder 排序的可见标签字段
+const orderedTagFields = computed(() => {
+  const order = props.resume.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
+  return order.filter(k => TAG_KEYS.includes(k) && isFieldVisible(k) && getFieldValue(k))
+})
+
+// 按 fieldOrder 排序的可见联系字段
+const orderedContactFields = computed(() => {
+  const order = props.resume.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
+  return order.filter(k => CONTACT_KEYS.includes(k) && isFieldVisible(k) && getFieldValue(k))
+})
+
+// 按 fieldOrder 排序的可见自定义联系字段
+const orderedCustomContactFields = computed(() => {
+  const order = props.resume.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
+  return order.filter(k => {
+    if (!k.startsWith('custom_')) return false
+    const field = getCustomFieldByKey(k)
+    return field !== null && field.value && !field.hidden
+  })
+})
+
+// 按 fieldOrder 排序的可见联系字段（sidebar，包含自定义字段）
+const orderedSidebarContactFields = computed(() => {
+  const order = props.resume.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
+  const result = order.filter(k => {
+    if (CONTACT_KEYS.includes(k)) return isFieldVisible(k) && getFieldValue(k)
+    if (k.startsWith('custom_')) {
+      const id = k.replace('custom_', '')
+      const field = (props.resume.basicInfo.customFields || []).find(f => f.id === id)
+      return field && field.value && !field.hidden
+    }
+    return false
+  })
+  return result
+})
+
+// 获取自定义字段
+const getCustomFieldByKey = (key: string) => {
+  if (!key.startsWith('custom_')) return null
+  const id = key.replace('custom_', '')
+  return (props.resume.basicInfo.customFields || []).find(f => f.id === id) || null
 }
 </script>
 
@@ -680,6 +707,38 @@ const formatDateRange = (startDate: string, endDate: string) => {
     margin-bottom: $spacing-md;
   }
 
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: $font-size-xs;
+    color: var(--t-text-secondary);
+    white-space: nowrap;
+  }
+
+  &__tag-icon {
+    display: flex;
+    color: var(--t-accent);
+  }
+
+  &__tag-label {
+    color: var(--t-text-secondary);
+    font-weight: 500;
+
+    &::after {
+      content: ':';
+      margin-left: 1px;
+    }
+  }
+
   &__contact {
     display: flex;
     flex-wrap: wrap;
@@ -745,13 +804,6 @@ const formatDateRange = (startDate: string, endDate: string) => {
   white-space: pre-wrap;
   font-size: $font-size-sm;
   line-height: 1.8;
-}
-
-.section__placeholder {
-  color: var(--t-text-secondary);
-  opacity: 0.6;
-  font-size: $font-size-sm;
-  font-style: italic;
 }
 
 // 条目时间线
@@ -857,52 +909,6 @@ const formatDateRange = (startDate: string, endDate: string) => {
   font-size: 11px;
   font-weight: 500;
   border: 1px solid var(--t-tag-border);
-}
-
-// 非sidebar模板的条目占位符（更明显）
-.entry-placeholder {
-  padding: $spacing-md;
-  border: 1px dashed rgba(124, 92, 252, 0.2);
-  border-radius: var(--t-radius);
-  margin-bottom: $spacing-sm;
-  background: rgba(124, 92, 252, 0.02);
-}
-
-.entry-placeholder__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.entry-placeholder__title {
-  font-size: $font-size-sm;
-  font-weight: 700;
-  color: var(--t-text-secondary);
-  opacity: 0.6;
-}
-
-.entry-placeholder__date {
-  font-size: $font-size-xs;
-  color: var(--t-text-secondary);
-  opacity: 0.5;
-  padding: 2px $spacing-sm;
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: $radius-sm;
-}
-
-.entry-placeholder__subtitle {
-  font-size: $font-size-xs;
-  color: var(--t-text-secondary);
-  opacity: 0.5;
-  margin-bottom: 4px;
-}
-
-.entry-placeholder__desc {
-  font-size: $font-size-xs;
-  color: var(--t-text-secondary);
-  opacity: 0.5;
-  font-style: italic;
 }
 
 // 技能
@@ -1330,6 +1336,64 @@ const formatDateRange = (startDate: string, endDate: string) => {
   font-weight: 500;
 }
 
+.sidebar__tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.sidebar__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #3b6ba5;
+  white-space: nowrap;
+}
+
+.sidebar__tag-icon {
+  display: flex;
+  color: #3b82f6;
+}
+
+.sidebar__tag-label {
+  color: #2d5a8e;
+  font-weight: 500;
+
+  &::after {
+    content: ':';
+    margin-left: 1px;
+  }
+}
+
+.sidebar__profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar__avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.sidebar__info {
+  text-align: center;
+}
+
 .sidebar__contact {
   display: flex;
   flex-direction: column;
@@ -1349,6 +1413,11 @@ const formatDateRange = (startDate: string, endDate: string) => {
   display: flex;
   flex-shrink: 0;
   color: #3b82f6;
+}
+
+.sidebar__contact-label {
+  color: #2d5a8e;
+  font-weight: 500;
 }
 
 // 侧边栏 section 标题
@@ -1517,47 +1586,6 @@ const formatDateRange = (startDate: string, endDate: string) => {
   border: 1px solid rgba(59, 130, 246, 0.15);
 }
 
-// 占位符样式（更明显的灰色）
-.main__section-placeholder {
-  font-size: 12px;
-  color: #6b7280;
-  font-style: italic;
-  padding: 4px 0;
-}
-
-.main__entry-placeholder {
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f5;
-
-  &:last-child {
-    border-bottom: none;
-  }
-}
-
-.placeholder-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.placeholder-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #9ca3af;
-}
-
-.placeholder-subtitle {
-  font-size: 11px;
-  color: #d1d5db;
-}
-
-.placeholder-desc {
-  font-size: 11px;
-  color: #9ca3af;
-  font-style: italic;
-}
-
 // Sidebar section 可点击
 .sidebar__section {
   cursor: pointer;
@@ -1568,17 +1596,4 @@ const formatDateRange = (startDate: string, endDate: string) => {
   }
 }
 
-.main__entry-date.placeholder-date {
-  font-size: 10px;
-  color: #9ca3af;
-  background: #f3f4f6;
-}
-
-// 侧边栏空数据提示
-.sidebar__empty-hint {
-  font-size: 10px;
-  color: #9ca3af;
-  font-style: italic;
-  padding: 4px 0;
-}
 </style>

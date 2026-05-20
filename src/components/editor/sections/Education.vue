@@ -27,9 +27,12 @@
             <button class="card__delete" aria-label="删除" @click="confirmDeleteId = item.id">
               <Icon :icon="TRASH_ICON" :width="20" :height="20" />
             </button>
+            <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click="toggleCollapse(item.id)">
+              <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />
+            </button>
           </div>
         </div>
-        <div class="card__form">
+        <div v-show="!collapsedIds.has(item.id)" class="card__form">
           <BaseInput v-model="item.school" label="学校名称" placeholder="请输入学校名称" />
           <div class="form__row">
             <BaseInput v-model="item.degree" label="学历" placeholder="如：本科" />
@@ -67,7 +70,7 @@ import { generateId } from '@/types/resume'
 import { useSectionTitle } from '@/composables/useSectionTitle'
 import { useCardDrag } from '@/composables/useCardDrag'
 import type { EducationItem } from '@/types/resume'
-import { TRASH_ICON, EDUCATION_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
+import { TRASH_ICON, EDUCATION_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import BaseTextarea from '@/components/common/BaseTextarea.vue'
@@ -76,6 +79,13 @@ import BaseModal from '@/components/common/BaseModal.vue'
 const store = useResumeStore()
 const { saveTitle, getSectionTitle } = useSectionTitle()
 const confirmDeleteId = ref<string | null>(null)
+const collapsedIds = ref<Set<string>>(new Set())
+
+const toggleCollapse = (id: string) => {
+  const next = new Set(collapsedIds.value)
+  if (next.has(id)) next.delete(id); else next.add(id)
+  collapsedIds.value = next
+}
 
 const items = computed({
   get: () => store.currentResume?.education || [],
