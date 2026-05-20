@@ -22,15 +22,17 @@
 import { ref, computed, onUnmounted } from 'vue'
 
 const props = withDefaults(defineProps<{
+  currentWidth?: number
   atMin?: boolean
   atMax?: boolean
 }>(), {
+  currentWidth: 0,
   atMin: false,
   atMax: false
 })
 
 const emit = defineEmits<{
-  resize: [delta: number]
+  resize: [newWidth: number]
   resizeEnd: []
   reset: []
 }>()
@@ -38,9 +40,10 @@ const emit = defineEmits<{
 const isDragging = ref(false)
 const isHover = ref(false)
 const isMounted = ref(true)
-let startX = 0
+let dragStartX = 0
+let dragStartWidth = 0
 let rafId: number | null = null
-let pendingDelta = 0
+let pendingWidth: number | null = null
 let hoverTimer: ReturnType<typeof setTimeout> | null = null
 let cursorStyle: HTMLStyleElement | null = null
 
@@ -102,12 +105,10 @@ const restoreIframePointerEvents = () => {
   }
 }
 
-const flushDelta = () => {
-  if (!isMounted.value) return
-  if (pendingDelta !== 0) {
-    emit('resize', pendingDelta)
-    pendingDelta = 0
-  }
+const flushWidth = () => {
+  if (!isMounted.value || pendingWidth === null) return
+  emit('resize', pendingWidth)
+  pendingWidth = null
   rafId = null
 }
 
@@ -115,7 +116,8 @@ const handleMouseDown = (e: MouseEvent) => {
   e.preventDefault()
   isDragging.value = true
   isHover.value = true
-  startX = e.clientX
+  dragStartX = e.clientX
+  dragStartWidth = props.currentWidth
 
   injectCursorStyle(cursorClass.value)
   disableIframePointerEvents()
@@ -127,12 +129,13 @@ const handleMouseDown = (e: MouseEvent) => {
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value || !isMounted.value) return
 
-  const delta = e.clientX - startX
-  startX = e.clientX
-  pendingDelta += delta
+  const delta = e.clientX - dragStartX
+  const newWidth = dragStartWidth + delta
+
+  pendingWidth = newWidth
 
   if (rafId === null) {
-    rafId = requestAnimationFrame(flushDelta)
+    rafId = requestAnimationFrame(flushWidth)
   }
 
   // 动态更新光标（边界状态可能变化）
@@ -151,7 +154,7 @@ const handleMouseUp = () => {
     cancelAnimationFrame(rafId)
     rafId = null
   }
-  flushDelta()
+  flushWidth()
 
   isDragging.value = false
   emit('resizeEnd')
@@ -174,11 +177,11 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
   if (e.key === 'ArrowLeft') {
     e.preventDefault()
-    emit('resize', -step)
+    emit('resize', props.currentWidth - step)
     emit('resizeEnd')
   } else if (e.key === 'ArrowRight') {
     e.preventDefault()
-    emit('resize', step)
+    emit('resize', props.currentWidth + step)
     emit('resizeEnd')
   }
 }

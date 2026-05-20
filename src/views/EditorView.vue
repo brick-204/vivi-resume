@@ -57,6 +57,7 @@
       <!-- 第一列拖拽手柄 -->
       <ResizeHandle
         v-if="!layoutStore.navCollapsed"
+        :current-width="layoutStore.navWidth"
         :at-min="layoutStore.navAtMin"
         :at-max="layoutStore.navAtMax"
         @resize="handleNavResize"
@@ -78,6 +79,7 @@
       <!-- 第二列拖拽手柄 -->
       <ResizeHandle
         v-if="!layoutStore.editorCollapsed"
+        :current-width="layoutStore.editorWidth"
         :at-min="layoutStore.editorAtMin"
         :at-max="layoutStore.editorAtMax"
         @resize="handleEditorResize"
@@ -134,13 +136,13 @@ const handleClickSection = (sectionId: string) => {
 }
 
 // 拖拽调节导航栏宽度
-const handleNavResize = (delta: number) => {
-  layoutStore.setNavWidth(layoutStore.navWidth + delta)
+const handleNavResize = (newWidth: number) => {
+  layoutStore.setNavWidth(newWidth)
 }
 
 // 拖拽调节编辑区宽度
-const handleEditorResize = (delta: number) => {
-  layoutStore.setEditorWidth(layoutStore.editorWidth + delta)
+const handleEditorResize = (newWidth: number) => {
+  layoutStore.setEditorWidth(newWidth)
 }
 
 const goToTemplates = () => {

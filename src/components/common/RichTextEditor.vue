@@ -225,6 +225,7 @@ onBeforeUnmount(() => {
     flex: 1;
     padding: $spacing-md;
     overflow-y: auto;
+    background: $editor-bg;
   }
 
   &__error {
@@ -289,10 +290,15 @@ onBeforeUnmount(() => {
 // ProseMirror 内容区样式
 :deep(.rich-text-editor__content) {
   outline: none;
-  color: $text-primary;
+  color: $text-dark;
   font-size: $font-size-sm;
   line-height: 1.7;
   min-height: 40px;
+
+  ::selection {
+    background: rgba(124, 92, 252, 0.35);
+    color: inherit;
+  }
 
   p {
     margin: 0 0 0.5em;
