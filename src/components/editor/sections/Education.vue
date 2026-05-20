@@ -48,7 +48,7 @@
               </div>
             </div>
           </div>
-          <BaseTextarea v-model="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" />
+          <RichTextEditor v-model="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" />
         </div>
       </div>
     </div>
@@ -73,7 +73,7 @@ import type { EducationItem } from '@/types/resume'
 import { TRASH_ICON, EDUCATION_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 const store = useResumeStore()

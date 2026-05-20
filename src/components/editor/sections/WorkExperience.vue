@@ -62,7 +62,7 @@
               </div>
             </div>
           </div>
-          <BaseTextarea
+          <RichTextEditor
             v-model="item.description"
             label="工作描述"
             placeholder="描述你的主要职责和成就..."
@@ -92,7 +92,7 @@ import type { WorkItem } from "@/types/resume";
 import { TRASH_ICON, BRIEFCASE_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
 import BaseInput from "@/components/common/BaseInput.vue";
-import BaseTextarea from "@/components/common/BaseTextarea.vue";
+import RichTextEditor from "@/components/common/RichTextEditor.vue";
 import BaseModal from "@/components/common/BaseModal.vue";
 
 const store = useResumeStore();

@@ -47,7 +47,7 @@
               </div>
             </div>
           </div>
-          <BaseTextarea v-model="item.description" label="描述" placeholder="描述内容..." :rows="3" />
+          <RichTextEditor v-model="item.description" label="描述" placeholder="描述内容..." :rows="3" />
           <div class="keyword-section">
             <label class="keyword__label">关键词</label>
             <div class="keyword__input-wrap">
@@ -84,7 +84,7 @@ import type { CustomCardItem } from '@/types/resume'
 import { TRASH_ICON, LIST_BOX_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 
 const props = defineProps<{

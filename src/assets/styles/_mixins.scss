@@ -467,3 +467,13 @@
   animation-delay: $delay;
   opacity: 0;
 }
+
+// 富文本内容渲染样式
+@mixin rich-text-content {
+  :deep(p) { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
+  :deep(ul), :deep(ol) { margin: 0.5em 0; padding-left: 1.5em; }
+  :deep(li) { margin-bottom: 0.25em; }
+  :deep(strong) { font-weight: 700; }
+  :deep(em) { font-style: italic; }
+  :deep(s) { text-decoration: line-through; }
+}

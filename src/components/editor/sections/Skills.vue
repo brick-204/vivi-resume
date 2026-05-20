@@ -10,9 +10,9 @@
     </div>
 
     <div class="skills-content">
-      <BaseTextarea
+      <RichTextEditor
         v-model="content"
-        placeholder="请列举你的技能，每行一个，例如：&#10;Vue / React&#10;TypeScript&#10;Node.js"
+        placeholder="请列举你的技能，例如：Vue / React、TypeScript、Node.js"
         :rows="6"
       />
     </div>
@@ -25,7 +25,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { useSectionTitle } from '@/composables/useSectionTitle'
 import { ZAP_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
 const store = useResumeStore()
 const { saveTitle, getSectionTitle } = useSectionTitle()
@@ -78,7 +78,7 @@ const content = computed({
 }
 
 .skills-content {
-  :deep(.base-textarea) {
+  :deep(.rich-text-editor) {
     min-height: 150px;
   }
 }

@@ -55,7 +55,7 @@
               </div>
             </div>
           </div>
-          <BaseTextarea
+          <RichTextEditor
             v-model="item.description"
             label="项目描述"
             placeholder="描述项目背景、你的职责和成果..."
@@ -108,7 +108,7 @@ import type { ProjectItem } from "@/types/resume";
 import { TRASH_ICON, ROCKET_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
 import BaseInput from "@/components/common/BaseInput.vue";
-import BaseTextarea from "@/components/common/BaseTextarea.vue";
+import RichTextEditor from "@/components/common/RichTextEditor.vue";
 import BaseModal from "@/components/common/BaseModal.vue";
 
 const store = useResumeStore();

@@ -7,7 +7,7 @@
       <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'evaluation')" @keydown.enter.prevent @blur="saveTitle($event, 'evaluation')"></span>
     </h3>
     <div class="section__form">
-      <BaseTextarea
+      <RichTextEditor
         v-model="selfEvaluation"
         placeholder="简要介绍自己的优势、职业目标和个人特质..."
         :rows="8"
@@ -26,7 +26,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { STAR_ICON, INFO_ICON } from '@/components/icons/SectionIcons'
 import { useSectionTitle } from '@/composables/useSectionTitle'
 import { Icon } from '@iconify/vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
 const store = useResumeStore()
 const { saveTitle, getSectionTitle } = useSectionTitle()

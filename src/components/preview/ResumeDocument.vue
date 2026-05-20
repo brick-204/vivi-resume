@@ -62,9 +62,7 @@
           <span class="sidebar__section-line"></span>
           {{ getSectionTitle(resume, 'skills') }}
         </div>
-        <div v-if="getSkillsContent" class="sidebar__skill-text">
-          {{ getSkillsContent }}
-        </div>
+        <div v-if="getSkillsContent" class="sidebar__skill-text" v-html="renderHtml(getSkillsContent)"></div>
       </div>
     </aside>
 
@@ -78,7 +76,7 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, 'summary') }}
           </h2>
-          <p v-if="resume.basicInfo.summary" class="main__section-text">{{ resume.basicInfo.summary }}</p>
+          <div v-if="resume.basicInfo.summary" class="main__section-text" v-html="renderHtml(resume.basicInfo.summary)"></div>
         </section>
 
         <!-- 工作经历 -->
@@ -96,7 +94,7 @@
                 </div>
                 <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
-              <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+              <div v-if="item.description" class="main__entry-desc" v-html="renderHtml(item.description)"></div>
               <ul v-if="item.highlights?.length" class="main__entry-highlights">
                 <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
               </ul>
@@ -119,7 +117,7 @@
                 </div>
                 <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
               </div>
-              <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+              <div v-if="item.description" class="main__entry-desc" v-html="renderHtml(item.description)"></div>
             </div>
           </div>
         </section>
@@ -138,7 +136,7 @@
               </div>
               <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+            <div v-if="item.description" class="main__entry-desc" v-html="renderHtml(item.description)"></div>
             <ul v-if="item.highlights?.length" class="main__entry-highlights">
               <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
             </ul>
@@ -154,7 +152,7 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, 'evaluation') }}
           </h2>
-          <p v-if="resume.selfEvaluation" class="main__section-text">{{ resume.selfEvaluation }}</p>
+          <div v-if="resume.selfEvaluation" class="main__section-text" v-html="renderHtml(resume.selfEvaluation)"></div>
         </section>
 
         <!-- 自定义文本模块 -->
@@ -163,7 +161,7 @@
             <span class="main__section-icon"></span>
             {{ getSectionTitle(resume, sectionId) }}
           </h2>
-          <p v-if="getCustomTextContent(sectionId)" class="main__section-text">{{ getCustomTextContent(sectionId) }}</p>
+          <div v-if="getCustomTextContent(sectionId)" class="main__section-text" v-html="renderHtml(getCustomTextContent(sectionId))"></div>
         </section>
 
         <!-- 自定义列表模块 -->
@@ -180,7 +178,7 @@
               </div>
               <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <p v-if="item.description" class="main__entry-desc">{{ item.description }}</p>
+            <div v-if="item.description" class="main__entry-desc" v-html="renderHtml(item.description)"></div>
             <div v-if="item.keywords.length" class="main__entry-tags">
               <span v-for="(kw, idx) in item.keywords" :key="idx" class="main__tech-tag">{{ kw }}</span>
             </div>
@@ -240,7 +238,7 @@
           <span class="section__icon section__icon--intro"></span>
           {{ getSectionTitle(resume, 'summary') }}
         </h2>
-        <p v-if="resume.basicInfo.summary" class="section__text">{{ resume.basicInfo.summary }}</p>
+        <div v-if="resume.basicInfo.summary" class="section__text" v-html="renderHtml(resume.basicInfo.summary)"></div>
       </section>
 
       <!-- 工作经历 -->
@@ -262,7 +260,7 @@
               </div>
               <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <div v-if="item.description" class="entry__desc" v-html="renderHtml(item.description)"></div>
             <ul v-if="item.highlights?.length" class="entry__highlights">
               <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
             </ul>
@@ -289,7 +287,7 @@
               </div>
               <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <div v-if="item.description" class="entry__desc" v-html="renderHtml(item.description)"></div>
           </div>
         </div>
       </section>
@@ -313,7 +311,7 @@
               </div>
               <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <div v-if="item.description" class="entry__desc" v-html="renderHtml(item.description)"></div>
             <ul v-if="item.highlights?.length" class="entry__highlights">
               <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
             </ul>
@@ -330,7 +328,7 @@
           <span class="section__icon section__icon--skill"></span>
           {{ getSectionTitle(resume, 'skills') }}
         </h2>
-        <p v-if="getSkillsContent" class="section__text">{{ getSkillsContent }}</p>
+        <div v-if="getSkillsContent" class="section__text" v-html="renderHtml(getSkillsContent)"></div>
       </section>
 
       <!-- 自我评价 -->
@@ -339,7 +337,7 @@
           <span class="section__icon section__icon--eval"></span>
           {{ getSectionTitle(resume, 'evaluation') }}
         </h2>
-        <p v-if="resume.selfEvaluation" class="section__text">{{ resume.selfEvaluation }}</p>
+        <div v-if="resume.selfEvaluation" class="section__text" v-html="renderHtml(resume.selfEvaluation)"></div>
       </section>
 
       <!-- 自定义文本模块 -->
@@ -348,7 +346,7 @@
           <span class="section__icon section__icon--custom-text"></span>
           {{ getSectionTitle(resume, sectionId) }}
         </h2>
-        <p v-if="getCustomTextContent(sectionId)" class="section__text">{{ getCustomTextContent(sectionId) }}</p>
+        <div v-if="getCustomTextContent(sectionId)" class="section__text" v-html="renderHtml(getCustomTextContent(sectionId))"></div>
       </section>
 
       <!-- 自定义列表模块 -->
@@ -370,7 +368,7 @@
               </div>
               <span v-if="item.startDate || item.endDate" class="entry__date">{{ formatDateRange(item.startDate, item.endDate) }}</span>
             </div>
-            <p v-if="item.description" class="entry__desc">{{ item.description }}</p>
+            <div v-if="item.description" class="entry__desc" v-html="renderHtml(item.description)"></div>
             <div v-if="item.keywords.length" class="entry__tags">
               <span v-for="(kw, idx) in item.keywords" :key="idx" class="tech-tag">{{ kw }}</span>
             </div>
@@ -387,6 +385,8 @@ import type { Resume, FieldDisplayMode } from '@/types/resume'
 import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomSectionIndex } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
 import { Icon } from '@iconify/vue'
+import { sanitizeHtml } from '@/utils/sanitizeHtml'
+import { normalizeContent } from '@/utils/normalizeContent'
 
 const props = defineProps<{
   resume: Resume
@@ -498,6 +498,11 @@ const formatDate = (date: string) => {
 
 const isFieldVisible = (field: string): boolean => {
   return !props.resume.basicInfo.hiddenFields?.[field]
+}
+
+const renderHtml = (value: string | undefined): string => {
+  if (!value) return ''
+  return sanitizeHtml(normalizeContent(value))
 }
 
 const formatBirthday = (date: string): string => {
@@ -801,9 +806,10 @@ const getCustomFieldByKey = (key: string) => {
 
 .section__text {
   color: var(--t-text-secondary);
-  white-space: pre-wrap;
   font-size: $font-size-sm;
   line-height: 1.8;
+
+  @include rich-text-content;
 }
 
 // 条目时间线
@@ -889,9 +895,10 @@ const getCustomFieldByKey = (key: string) => {
 .entry__desc {
   font-size: $font-size-xs;
   color: var(--t-text-secondary);
-  white-space: pre-wrap;
   margin-top: $spacing-xs;
   line-height: 1.7;
+
+  @include rich-text-content;
 }
 
 .entry__tags {
@@ -1445,7 +1452,8 @@ const getCustomFieldByKey = (key: string) => {
   font-size: 11px;
   color: #1e3a5f;
   line-height: 1.8;
-  white-space: pre-wrap;
+
+  @include rich-text-content;
 }
 
 // 右侧主内容区
@@ -1485,6 +1493,8 @@ const getCustomFieldByKey = (key: string) => {
   font-size: 12px;
   color: #4a5568;
   line-height: 1.8;
+
+  @include rich-text-content;
 }
 
 // 条目
@@ -1539,6 +1549,8 @@ const getCustomFieldByKey = (key: string) => {
   color: #4a5568;
   line-height: 1.7;
   margin-top: 6px;
+
+  @include rich-text-content;
 }
 
 .main__entry-highlights {

@@ -9,7 +9,7 @@
       </h3>
     </div>
     <div class="section__form">
-      <BaseTextarea
+      <RichTextEditor
         v-model="content"
         placeholder="输入自定义内容..."
         :rows="8"
@@ -24,7 +24,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { useSectionTitle } from '@/composables/useSectionTitle'
 import { TEXT_EDIT_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
-import BaseTextarea from '@/components/common/BaseTextarea.vue'
+import RichTextEditor from '@/components/common/RichTextEditor.vue'
 
 const props = defineProps<{
   sectionId: string
