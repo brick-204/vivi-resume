@@ -120,6 +120,8 @@ const editor = useEditor({
       codeBlock: false,
       blockquote: false,
       horizontalRule: false,
+      link: false,
+      underline: false,
     }),
     Placeholder.configure({
       placeholder: props.placeholder || '',

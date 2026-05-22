@@ -43,7 +43,7 @@ provide(ResumeDocumentKey, ctx)
 <style lang="scss" scoped>
 .resume--elegant {
   :deep(.resume__header) {
-    text-align: left;
+    text-align: center;
     padding-bottom: $spacing-lg;
     margin-bottom: $spacing-lg;
     border-bottom: 1px solid #e5e7eb;
@@ -64,7 +64,7 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.header__contact) {
-    justify-content: flex-start;
+    justify-content: center;
   }
 
   :deep(.section__title) {
@@ -90,7 +90,6 @@ provide(ResumeDocumentKey, ctx)
   :deep(.entry__content) {
     padding-left: $spacing-md;
     border-left: 2px solid var(--t-accent);
-    margin-bottom: $spacing-md;
   }
 
   :deep(.entry__date) {

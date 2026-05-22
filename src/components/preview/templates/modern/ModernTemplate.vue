@@ -43,7 +43,7 @@ provide(ResumeDocumentKey, ctx)
 <style lang="scss" scoped>
 .resume--modern {
   :deep(.resume__header) {
-    text-align: left;
+    text-align: center;
     background: var(--t-header-bg);
     color: var(--t-header-text);
     padding: $spacing-xl;
@@ -62,7 +62,7 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.header__contact) {
-    justify-content: flex-start;
+    justify-content: center;
   }
 
   :deep(.contact__item) {
@@ -78,7 +78,6 @@ provide(ResumeDocumentKey, ctx)
     border: 1px solid rgba(0, 0, 0, 0.06);
     border-radius: var(--t-radius);
     padding: $spacing-lg;
-    margin-bottom: $spacing-md;
   }
 
   :deep(.section__title) {
@@ -99,7 +98,6 @@ provide(ResumeDocumentKey, ctx)
   :deep(.entry__content) {
     border-left: 3px solid var(--t-accent);
     padding-left: $spacing-md;
-    margin-bottom: $spacing-md;
   }
 
   :deep(.entry__date) {

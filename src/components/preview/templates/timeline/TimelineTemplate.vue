@@ -46,8 +46,7 @@ provide(ResumeDocumentKey, ctx)
     text-align: center;
 
     &::after {
-      height: 4px;
-      width: 120px;
+      height: 0;
     }
   }
 

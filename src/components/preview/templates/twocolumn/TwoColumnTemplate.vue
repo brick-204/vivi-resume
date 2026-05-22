@@ -88,6 +88,7 @@ provide(ResumeDocumentKey, ctx)
   :deep(.resume__section:first-of-type) {
     grid-column: 1;
     padding: $spacing-lg;
+    margin-top: 0;
     background: rgba(0, 0, 0, 0.03);
     border-right: 1px solid rgba(0, 0, 0, 0.06);
   }
@@ -95,6 +96,7 @@ provide(ResumeDocumentKey, ctx)
   :deep(.resume__section:not(:first-of-type)) {
     grid-column: 2;
     padding: $spacing-lg;
+    margin-top: 0;
   }
 
   :deep(.section__title) {
@@ -118,10 +120,6 @@ provide(ResumeDocumentKey, ctx)
 
   :deep(.entry__timeline) {
     display: none;
-  }
-
-  :deep(.entry__content) {
-    margin-bottom: $spacing-md;
   }
 
   :deep(.entry__date) {
