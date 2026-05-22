@@ -22,27 +22,21 @@
       <p class="sidebar__title">{{ ctx.resume.basicInfo.title || '你的职位' }}</p>
     </div>
 
-    <div v-if="ctx.orderedTagFields.value.length" class="sidebar__tags">
-      <span v-for="fieldKey in ctx.orderedTagFields.value" :key="fieldKey" class="sidebar__tag">
-        <Icon v-if="ctx.showIcon(fieldKey)" :icon="ctx.getFieldIcon(fieldKey)" :width="10" :height="10" class="sidebar__tag-icon" />
-        <span v-if="ctx.showLabel(fieldKey)" class="sidebar__tag-label">{{ ctx.getFieldLabel(fieldKey) }}</span>
-        {{ ctx.getFieldValue(fieldKey) }}
-      </span>
-    </div>
-
-    <div v-if="ctx.orderedSidebarContactFields.value.length" class="sidebar__contact">
-      <div class="sidebar__section-title">
-        <span class="sidebar__section-line"></span>
-        联系方式
-      </div>
-      <div v-for="fieldKey in ctx.orderedSidebarContactFields.value" :key="fieldKey" class="sidebar__contact-item">
-        <span v-if="ctx.showIcon(fieldKey)" class="sidebar__contact-icon">
-          <Icon :icon="ctx.getFieldIcon(fieldKey)" :width="14" :height="14" />
-        </span>
-        <span v-if="ctx.showLabel(fieldKey) && !ctx.getCustomFieldByKey(fieldKey)" class="sidebar__contact-label">{{ ctx.getFieldLabel(fieldKey) }}:</span>
-        <span v-if="ctx.showLabel(fieldKey) && ctx.getCustomFieldByKey(fieldKey)" class="sidebar__contact-label">{{ ctx.getCustomFieldByKey(fieldKey)?.label }}:</span>
-        <span>{{ ctx.getCustomFieldByKey(fieldKey) ? ctx.getCustomFieldByKey(fieldKey)?.value : ctx.getFieldValue(fieldKey) }}</span>
-      </div>
+    <!-- 统一字段列表 -->
+    <div v-if="ctx.orderedAllFields.value.length" class="sidebar__fields">
+      <template v-for="(field, index) in ctx.orderedAllFields.value" :key="field.key">
+        <div v-if="field.isContact && !ctx.orderedAllFields.value.slice(0, index).some(f => f.isContact)" class="sidebar__section-title">
+          <span class="sidebar__section-line"></span>
+          联系方式
+        </div>
+        <div class="sidebar__field">
+          <span v-if="field.showIcon" class="sidebar__field-icon">
+            <Icon :icon="field.icon" :width="14" :height="14" />
+          </span>
+          <span v-if="field.showLabel" class="sidebar__field-label">{{ field.label }}</span>
+          <span class="sidebar__field-value">{{ field.value }}</span>
+        </div>
+      </template>
     </div>
 
     <div v-if="ctx.isSectionVisible('skills')" class="sidebar__skills">

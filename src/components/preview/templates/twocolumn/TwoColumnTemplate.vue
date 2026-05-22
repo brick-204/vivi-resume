@@ -70,18 +70,18 @@ provide(ResumeDocumentKey, ctx)
     color: rgba(255, 255, 255, 0.85);
   }
 
-  :deep(.header__contact) {
+  :deep(.header__fields) {
     flex-direction: column;
     align-items: flex-start;
     gap: $spacing-sm;
   }
 
-  :deep(.contact__item) {
+  :deep(.header__field) {
     color: rgba(255, 255, 255, 0.8);
     font-size: $font-size-xs;
   }
 
-  :deep(.contact__icon) {
+  :deep(.header__field-icon) {
     color: rgba(255, 255, 255, 0.9);
   }
 

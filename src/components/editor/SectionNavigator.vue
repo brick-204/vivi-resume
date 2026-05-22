@@ -2,49 +2,51 @@
   <div class="section-navigator" :class="{ 'section-navigator--collapsed': isCollapsed }">
     <!-- 导航项列表 -->
     <div class="navigator__list">
-      <div
-        v-for="(item, index) in visibleSections"
-        :key="item.id"
-        class="nav-item"
-        :class="{
-          'nav-item--active': activeSectionId === item.id,
-          'nav-item--dragging': draggingIndex === index,
-          'nav-item--basic': item.id === 'basic',
-          'nav-item--hidden': !item.visible
-        }"
-        :draggable="item.id !== 'basic'"
-        @click="handleSelect(item.id)"
-        @dragstart="handleDragStart(index, $event)"
-        @dragover="handleDragOver(index, $event)"
-        @drop="handleDrop(index, $event)"
-        @dragend="handleDragEnd"
+      <draggable
+        v-model="sortableSections"
+        item-key="id"
+        handle=".nav-item__drag-handle"
+        :animation="200"
+        ghost-class="nav-item--ghost"
       >
-        <!-- 拖拽手柄 -->
-        <span
-          v-if="!isCollapsed && item.id !== 'basic'"
-          class="nav-item__drag-handle"
-        >
-          <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
-        </span>
-        <span class="nav-item__icon">
-          <Icon :icon="item.icon" :width="16" :height="16" />
-        </span>
-        <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
-        <button
-          v-if="!isCollapsed && item.id !== 'basic'"
-          class="nav-item__hide"
-          @click.stop="handleToggleVisible(item.id)"
-        >
-          <Icon :icon="item.visible ? EYE_ICON : EYE_OFF_ICON" :width="20" :height="20" />
-        </button>
-        <button
-          v-if="!isCollapsed && item.id !== 'basic'"
-          class="nav-item__remove"
-          @click.stop="confirmRemove(item.id)"
-        >
-          <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-        </button>
-      </div>
+        <template #item="{ element: item }">
+          <div
+            class="nav-item"
+            :class="{
+              'nav-item--active': activeSectionId === item.id,
+              'nav-item--basic': item.id === 'basic',
+              'nav-item--hidden': !item.visible
+            }"
+            @click="handleSelect(item.id)"
+          >
+            <!-- 拖拽手柄 -->
+            <span
+              v-if="!isCollapsed && item.id !== 'basic'"
+              class="nav-item__drag-handle"
+            >
+              <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
+            </span>
+            <span class="nav-item__icon">
+              <Icon :icon="item.icon" :width="16" :height="16" />
+            </span>
+            <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
+            <button
+              v-if="!isCollapsed && item.id !== 'basic'"
+              class="nav-item__hide"
+              @click.stop="handleToggleVisible(item.id)"
+            >
+              <Icon :icon="item.visible ? EYE_ICON : EYE_OFF_ICON" :width="20" :height="20" />
+            </button>
+            <button
+              v-if="!isCollapsed && item.id !== 'basic'"
+              class="nav-item__remove"
+              @click.stop="confirmRemove(item.id)"
+            >
+              <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+            </button>
+          </div>
+        </template>
+      </draggable>
     </div>
 
     <!-- 添加模块按钮（常驻） -->
@@ -90,6 +92,7 @@ import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { SECTION_CONFIG, getSectionTitle, isCustomSection } from '@/types/resume'
 import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
+import draggable from 'vuedraggable'
 import AddSectionModal from './AddSectionModal.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
@@ -101,17 +104,28 @@ const emit = defineEmits<{
   'click-section': [sectionId: string]
 }>()
 
-// 可见模块列表
-const visibleSections = computed(() => {
-  const order = resumeStore.getSectionOrder()
-  const hidden = resumeStore.currentResume?.hiddenSections || []
-  const resume = resumeStore.currentResume
-  return order.map(id => ({
-    id,
-    label: resume ? getSectionTitle(resume, id) : (SECTION_CONFIG[id]?.label || id),
-    icon: getSectionIcon(id),
-    visible: !hidden.includes(id)
-  }))
+// 可见模块列表（vuedraggable 双向绑定）
+const sortableSections = computed({
+  get: () => {
+    const order = resumeStore.getSectionOrder()
+    const hidden = resumeStore.currentResume?.hiddenSections || []
+    const resume = resumeStore.currentResume
+    return order.map(id => ({
+      id,
+      label: resume ? getSectionTitle(resume, id) : (SECTION_CONFIG[id]?.label || id),
+      icon: getSectionIcon(id),
+      visible: !hidden.includes(id)
+    }))
+  },
+  set: (newList) => {
+    // 不允许 basic 被移到非首位
+    const basicIndex = newList.findIndex(item => item.id === 'basic')
+    if (basicIndex > 0) {
+      const [basic] = newList.splice(basicIndex, 1)
+      newList.unshift(basic)
+    }
+    resumeStore.updateSectionOrder(newList.map(item => item.id))
+  }
 })
 
 // 隐藏的模块列表（用于添加模块弹窗）
@@ -146,11 +160,8 @@ watch(hiddenSections, (val) => {
 // 删除确认状态
 const removeConfirmId = ref<string | null>(null)
 
-// 拖拽状态
-const draggingIndex = ref<number | null>(null)
-
 // 确保选中的模块始终可见
-watch(visibleSections, (sections) => {
+watch(sortableSections, (sections) => {
   if (!sections.find(s => s.id === activeSectionId.value)) {
     layoutStore.setActiveSection(sections[0]?.id || 'basic')
   }
@@ -211,53 +222,8 @@ const removeSection = (sectionId: string) => {
   removeConfirmId.value = null
   // 如果删除的是当前选中的，切换到第一个
   if (activeSectionId.value === sectionId) {
-    layoutStore.setActiveSection(visibleSections.value[0]?.id || 'basic')
+    layoutStore.setActiveSection(sortableSections.value[0]?.id || 'basic')
   }
-}
-
-// 拖拽开始
-const handleDragStart = (index: number, event: DragEvent) => {
-  draggingIndex.value = index
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', index.toString())
-  }
-}
-
-// 拖拽悬停
-const handleDragOver = (_index: number, event: DragEvent) => {
-  event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
-  }
-}
-
-// 拖拽放置
-const handleDrop = (targetIndex: number, event: DragEvent) => {
-  event.preventDefault()
-  const sourceIndex = draggingIndex.value
-
-  if (sourceIndex !== null && sourceIndex !== targetIndex) {
-    const newOrder = [...resumeStore.getSectionOrder()]
-    const draggedItem = newOrder[sourceIndex]
-
-    // 不允许拖动 basic
-    if (draggedItem === 'basic') return
-
-    // 不允许拖到 basic 前面（targetIndex === 0）
-    if (targetIndex === 0) return
-
-    // 执行移动
-    newOrder.splice(sourceIndex, 1)
-    newOrder.splice(targetIndex, 0, draggedItem)
-
-    resumeStore.updateSectionOrder(newOrder)
-  }
-}
-
-// 拖拽结束
-const handleDragEnd = () => {
-  draggingIndex.value = null
 }
 </script>
 
@@ -328,8 +294,6 @@ const handleDragEnd = () => {
     flex-shrink: 0;
     display: flex;
     color: $text-light;
-    opacity: 0;
-    transition: opacity 0.15s;
     cursor: grab;
 
     &:active {
@@ -381,7 +345,6 @@ const handleDragEnd = () => {
   &:hover {
     background: $bg-glass;
 
-    .nav-item__drag-handle,
     .nav-item__hide,
     .nav-item__remove {
       opacity: 1;
@@ -412,7 +375,7 @@ const handleDragEnd = () => {
     }
   }
 
-  &--dragging {
+  &--ghost {
     opacity: 0.5;
     border: 1px dashed $primary-color;
   }

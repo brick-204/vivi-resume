@@ -169,7 +169,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     name: '姓名', title: '职位', gender: '性别', birthday: '生日',
     age: '年龄', maritalStatus: '婚姻状态', politicalStatus: '政治面貌',
     hometown: '籍贯', location: '所在地', expectedCity: '期望城市',
-    workStartDate: '参加工作', salaryRange: '薪资', email: '邮箱',
+    workStartDate: '参加工作时间', salaryRange: '薪资', email: '邮箱',
     phone: '电话', wechat: '微信', qq: 'QQ', website: '网站',
   }
 
@@ -204,41 +204,30 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
   // 联系字段 key 列表
   const CONTACT_KEYS = ['phone', 'email', 'wechat', 'qq', 'location', 'website']
 
-  // 按 fieldOrder 排序的可见标签字段
-  const orderedTagFields = computed(() => {
-    const order = resume.value.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
-    return order.filter(k => TAG_KEYS.includes(k) && isFieldVisible(k) && getFieldValue(k))
-  })
-
-  // 按 fieldOrder 排序的可见联系字段
-  const orderedContactFields = computed(() => {
-    const order = resume.value.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
-    return order.filter(k => CONTACT_KEYS.includes(k) && isFieldVisible(k) && getFieldValue(k))
-  })
-
-  // 按 fieldOrder 排序的可见自定义联系字段
-  const orderedCustomContactFields = computed(() => {
+  // 统一排列：所有可见且有值的字段按 fieldOrder 排列（不含 photo/name/title）
+  const ALL_FIELD_KEYS = [...TAG_KEYS, ...CONTACT_KEYS]
+  const orderedAllFields = computed(() => {
     const order = resume.value.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
     return order.filter(k => {
-      if (!k.startsWith('custom_')) return false
-      const field = getCustomFieldByKey(k)
-      return field !== null && field.value && !field.hidden
-    })
-  })
-
-  // 按 fieldOrder 排序的可见联系字段（sidebar，包含自定义字段）
-  const orderedSidebarContactFields = computed(() => {
-    const order = resume.value.basicInfo.fieldOrder || DEFAULT_FIELD_ORDER
-    const result = order.filter(k => {
-      if (CONTACT_KEYS.includes(k)) return isFieldVisible(k) && getFieldValue(k)
+      if (['photo', 'name', 'title'].includes(k)) return false
       if (k.startsWith('custom_')) {
-        const id = k.replace('custom_', '')
-        const field = (resume.value.basicInfo.customFields || []).find(f => f.id === id)
-        return field && field.value && !field.hidden
+        const field = getCustomFieldByKey(k)
+        return field !== null && field.value && !field.hidden
       }
-      return false
+      return ALL_FIELD_KEYS.includes(k) && isFieldVisible(k) && getFieldValue(k)
+    }).map(k => {
+      const custom = getCustomFieldByKey(k)
+      return {
+        key: k,
+        isCustom: custom !== null,
+        label: custom ? custom.label : getFieldLabel(k),
+        value: custom ? custom.value : getFieldValue(k),
+        showIcon: showIcon(k),
+        icon: getFieldIcon(k),
+        showLabel: showLabel(k),
+        isContact: CONTACT_KEYS.includes(k) || (k.startsWith('custom_') && custom !== null),
+      }
     })
-    return result
   })
 
   // 获取自定义字段
@@ -279,10 +268,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     showLabel,
     TAG_KEYS,
     CONTACT_KEYS,
-    orderedTagFields,
-    orderedContactFields,
-    orderedCustomContactFields,
-    orderedSidebarContactFields,
+    orderedAllFields,
     getCustomFieldByKey,
     getSectionTitle,
   }

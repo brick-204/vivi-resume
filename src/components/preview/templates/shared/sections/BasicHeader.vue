@@ -5,28 +5,14 @@
       <img :src="ctx.resume.basicInfo.photo" :alt="ctx.resume.basicInfo.name" class="header__photo-img" />
     </div>
     <h1 v-if="ctx.resume.basicInfo.name && ctx.isFieldVisible('name')" class="header__name">{{ ctx.resume.basicInfo.name }}</h1>
-      <p v-if="ctx.resume.basicInfo.title && ctx.isFieldVisible('title')" class="header__title">{{ ctx.resume.basicInfo.title }}</p>
-      <div class="header__tags">
-        <span v-for="fieldKey in ctx.orderedTagFields.value" :key="fieldKey" class="header__tag">
-          <Icon v-if="ctx.showIcon(fieldKey)" :icon="ctx.getFieldIcon(fieldKey)" :width="12" :height="12" class="header__tag-icon" />
-          <span v-if="ctx.showLabel(fieldKey)" class="header__tag-label">{{ ctx.getFieldLabel(fieldKey) }}</span>
-          {{ ctx.getFieldValue(fieldKey) }}
-        </span>
-      </div>
-    <div class="header__contact">
-      <span v-for="fieldKey in ctx.orderedContactFields.value" :key="fieldKey" class="contact__item">
-        <span v-if="ctx.showIcon(fieldKey)" class="contact__icon">
-          <Icon :icon="ctx.getFieldIcon(fieldKey)" :width="14" :height="14" />
-        </span>
-        <span v-if="ctx.showLabel(fieldKey)">{{ ctx.getFieldLabel(fieldKey) }}:</span>
-        {{ ctx.getFieldValue(fieldKey) }}
-      </span>
-      <span v-for="fieldKey in ctx.orderedCustomContactFields.value" :key="fieldKey" class="contact__item">
-        <span v-if="ctx.showIcon(fieldKey)" class="contact__icon">
-          <Icon :icon="ctx.getFieldIcon(fieldKey)" :width="14" :height="14" />
-        </span>
-        <span v-if="ctx.showLabel(fieldKey)">{{ ctx.getCustomFieldByKey(fieldKey)?.label }}:</span>
-        {{ ctx.getCustomFieldByKey(fieldKey)?.value }}
+    <p v-if="ctx.resume.basicInfo.title && ctx.isFieldVisible('title')" class="header__title">{{ ctx.resume.basicInfo.title }}</p>
+
+    <!-- 统一字段列表 -->
+    <div v-if="ctx.orderedAllFields.value.length" class="header__fields">
+      <span v-for="field in ctx.orderedAllFields.value" :key="field.key" class="header__field">
+        <Icon v-if="field.showIcon" :icon="field.icon" :width="14" :height="14" class="header__field-icon" />
+        <span v-if="field.showLabel" class="header__field-label">{{ field.label }}</span>
+        <span class="header__field-value">{{ field.value }}</span>
       </span>
     </div>
   </header>

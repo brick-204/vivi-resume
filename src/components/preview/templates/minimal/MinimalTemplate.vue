@@ -61,10 +61,6 @@ provide(ResumeDocumentKey, ctx)
     color: var(--t-text-secondary);
   }
 
-  :deep(.header__contact) {
-    justify-content: center;
-  }
-
   :deep(.section__title) {
     font-size: $font-size-sm;
     text-transform: uppercase;

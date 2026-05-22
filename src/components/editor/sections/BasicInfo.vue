@@ -45,9 +45,6 @@
             <div class="field-row__label">
               <span>{{ getFieldLabel(fieldKey) }}</span>
               <div class="field-row__actions">
-                <button class="field-display-mode" :title="getDisplayModeTitle(fieldKey)" @click="cycleDisplayMode(fieldKey)">
-                  <Icon :icon="getDisplayModeIcon(fieldKey)" :width="16" :height="16" />
-                </button>
                 <button class="field-toggle" :aria-label="isFieldHidden(fieldKey) ? '显示' : '隐藏'" @click="toggleFieldVisibility(fieldKey)">
                   <Icon :icon="isFieldHidden(fieldKey) ? EYE_OFF_ICON : EYE_ICON" :width="16" :height="16" />
                 </button>
@@ -64,57 +61,56 @@
       </div>
 
       <!-- 可拖拽字段区域 -->
-      <div class="fields-grid">
-        <div
-          v-for="(fieldKey, index) in draggableFieldOrder"
-          :key="fieldKey"
-          class="field-item"
-          :class="{ 'field-item--dragging': draggingIndex === index }"
-          draggable="true"
-          @dragstart="onDragStart($event, index)"
-          @dragover.prevent="onDragOver($event, index)"
-          @drop="onDrop($event, index)"
-          @dragend="onDragEnd"
-        >
-          <span class="field-item__drag-handle">
-            <Icon :icon="DRAG_HANDLE_ICON" :width="16" :height="16" />
-          </span>
-          <div class="field-item__content">
-            <div class="field-row__label">
-              <span v-if="isCustomField(fieldKey)" class="custom-field__label-text" contenteditable @keydown.enter.prevent @blur="onCustomLabelBlur(fieldKey, $event)">{{ getFieldLabel(fieldKey) }}</span>
-              <span v-else>{{ getFieldLabel(fieldKey) }}</span>
-              <div class="field-row__actions">
-                <button class="field-display-mode" :title="getDisplayModeTitle(fieldKey)" @click="cycleDisplayMode(fieldKey)">
-                  <Icon :icon="getDisplayModeIcon(fieldKey)" :width="16" :height="16" />
-                </button>
-                <button class="field-toggle" :aria-label="isFieldHidden(fieldKey) ? '显示' : '隐藏'" @click="toggleFieldVisibility(fieldKey)">
-                  <Icon :icon="isFieldHidden(fieldKey) ? EYE_OFF_ICON : EYE_ICON" :width="16" :height="16" />
-                </button>
-                <button v-if="isCustomField(fieldKey)" class="field-delete" @click="removeCustomField(getCustomId(fieldKey))">
-                  <Icon :icon="TRASH_ICON" :width="16" :height="16" />
-                </button>
+      <draggable
+        v-model="draggableFieldOrder"
+        item-key="key"
+        handle=".field-item__drag-handle"
+        :animation="200"
+        ghost-class="field-item--ghost"
+        class="fields-grid"
+      >
+        <template #item="{ element }">
+          <div class="field-item">
+            <span class="field-item__drag-handle">
+              <Icon :icon="DRAG_HANDLE_ICON" :width="16" :height="16" />
+            </span>
+            <div class="field-item__content">
+              <div class="field-row__label">
+                <span v-if="isCustomField(element.key)" class="custom-field__label-text" contenteditable @keydown.enter.prevent @blur="onCustomLabelBlur(element.key, $event)">{{ getFieldLabel(element.key) }}</span>
+                <span v-else>{{ getFieldLabel(element.key) }}</span>
+                <div class="field-row__actions">
+                  <button class="field-display-mode" :title="getDisplayModeTitle(element.key)" @click="cycleDisplayMode(element.key)">
+                    <Icon :icon="getDisplayModeIcon(element.key)" :width="16" :height="16" />
+                  </button>
+                  <button class="field-toggle" :aria-label="isFieldHidden(element.key) ? '显示' : '隐藏'" @click="toggleFieldVisibility(element.key)">
+                    <Icon :icon="isFieldHidden(element.key) ? EYE_OFF_ICON : EYE_ICON" :width="16" :height="16" />
+                  </button>
+                  <button v-if="isCustomField(element.key)" class="field-delete" @click="removeCustomField(getCustomId(element.key))">
+                    <Icon :icon="TRASH_ICON" :width="16" :height="16" />
+                  </button>
+                </div>
               </div>
+              <!-- 自定义字段 -->
+              <template v-if="isCustomField(element.key)">
+                <BaseInput
+                  :model-value="getCustomField(element.key)?.value ?? ''"
+                  @update:model-value="updateCustomFieldValue(element.key, $event)"
+                  :placeholder="'请输入内容'"
+                />
+              </template>
+              <!-- 固定字段 -->
+              <template v-else>
+                <BaseInput
+                  :model-value="basicInfo[element.key as keyof BasicInfo] as string"
+                  @update:model-value="updateFieldValue(element.key, $event)"
+                  :type="getFieldType(element.key)"
+                  :placeholder="getFieldPlaceholder(element.key)"
+                />
+              </template>
             </div>
-            <!-- 自定义字段 -->
-            <template v-if="isCustomField(fieldKey)">
-              <BaseInput
-                :model-value="getCustomField(fieldKey)?.value ?? ''"
-                @update:model-value="updateCustomFieldValue(fieldKey, $event)"
-                :placeholder="'请输入内容'"
-              />
-            </template>
-            <!-- 固定字段 -->
-            <template v-else>
-              <BaseInput
-                :model-value="basicInfo[fieldKey as keyof BasicInfo] as string"
-                @update:model-value="updateFieldValue(fieldKey, $event)"
-                :type="getFieldType(fieldKey)"
-                :placeholder="getFieldPlaceholder(fieldKey)"
-              />
-            </template>
           </div>
-        </div>
-      </div>
+        </template>
+      </draggable>
 
       <button class="add-custom-field" @click="addCustomField">
         <Icon icon="mdi:plus" :width="18" :height="18" />
@@ -125,11 +121,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
+import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
 import type { BasicInfo, CustomField, FieldDisplayMode } from '@/types/resume'
 
@@ -270,51 +267,21 @@ const getCustomField = (key: string): CustomField | undefined => {
 // 固定字段（姓名、职位，不可拖拽）
 const fixedFields = ['name', 'title']
 
-// 可拖拽的字段顺序（排除 photo/name/title）
-const draggableFieldOrder = computed(() => {
-  if (!basicInfo.value) return []
-  const order = basicInfo.value.fieldOrder || [...DEFAULT_FIELD_ORDER]
-  return order.filter(k => !['photo', 'name', 'title'].includes(k))
-})
-
-// 拖拽逻辑
-const draggingIndex = ref<number | null>(null)
-
-const onDragStart = (e: DragEvent, index: number) => {
-  draggingIndex.value = index
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', String(index))
+// 可拖拽的字段顺序（排除 photo/name/title），包装为对象以支持 vuedraggable item-key
+const draggableFieldOrder = computed({
+  get: () => {
+    if (!basicInfo.value) return []
+    const order = basicInfo.value.fieldOrder || [...DEFAULT_FIELD_ORDER]
+    return order.filter(k => !['photo', 'name', 'title'].includes(k)).map((key, i) => ({ key, order: i }))
+  },
+  set: (newList: { key: string; order: number }[]) => {
+    if (!basicInfo.value) return
+    const fixedKeys = ['photo', 'name', 'title']
+    const currentOrder = basicInfo.value.fieldOrder || [...DEFAULT_FIELD_ORDER]
+    const fixedItems = currentOrder.filter(k => fixedKeys.includes(k))
+    basicInfo.value = { ...basicInfo.value, fieldOrder: [...fixedItems, ...newList.map(item => item.key)] }
   }
-}
-
-const onDragOver = (e: DragEvent, _index: number) => {
-  e.preventDefault()
-  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-}
-
-const onDrop = (e: DragEvent, index: number) => {
-  e.preventDefault()
-  if (!basicInfo.value) return
-  const fromIndex = draggingIndex.value
-  if (fromIndex === null || fromIndex === index) return
-
-  const currentOrder = [...(basicInfo.value.fieldOrder || DEFAULT_FIELD_ORDER)]
-  const fixedKeys = ['photo', 'name', 'title']
-  const draggableKeys = currentOrder.filter(k => !fixedKeys.includes(k))
-  const movedKey = draggableKeys[fromIndex]
-  const newOrder = currentOrder.filter(k => k !== movedKey)
-  const dropTargetKey = draggableKeys[index]
-  const dropIndex = newOrder.indexOf(dropTargetKey)
-  newOrder.splice(dropIndex, 0, movedKey)
-
-  basicInfo.value = { ...basicInfo.value, fieldOrder: newOrder }
-  draggingIndex.value = null
-}
-
-const onDragEnd = () => {
-  draggingIndex.value = null
-}
+})
 
 // 字段操作
 const toggleFieldVisibility = (field: string) => {
@@ -581,7 +548,7 @@ const removeCustomField = (id: string) => {
     // 固定字段无拖拽手柄
   }
 
-  &--dragging {
+  &--ghost {
     opacity: 0.5;
     background: rgba($primary-color, 0.05);
     border: 1px dashed $primary-color;
@@ -593,18 +560,12 @@ const removeCustomField = (id: string) => {
     justify-content: center;
     padding-top: 28px;
     color: $text-light;
-    opacity: 0;
     cursor: grab;
-    transition: opacity 0.15s;
     flex-shrink: 0;
 
     &:active {
       cursor: grabbing;
     }
-  }
-
-  &:hover .field-item__drag-handle {
-    opacity: 1;
   }
 
   &__content {

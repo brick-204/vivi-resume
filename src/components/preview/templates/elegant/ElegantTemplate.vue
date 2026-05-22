@@ -63,10 +63,6 @@ provide(ResumeDocumentKey, ctx)
     font-style: italic;
   }
 
-  :deep(.header__contact) {
-    justify-content: center;
-  }
-
   :deep(.section__title) {
     font-weight: 700;
     letter-spacing: 0.02em;

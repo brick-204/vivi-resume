@@ -65,29 +65,28 @@
       margin-bottom: $spacing-md;
     }
 
-    .header__tags {
+    .header__fields {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 6px;
-      margin-bottom: $spacing-sm;
+      gap: $spacing-xs $spacing-md;
     }
 
-    .header__tag {
+    .header__field {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      font-size: $font-size-xs;
+      gap: $spacing-xs;
       color: var(--t-text-secondary);
+      font-size: $font-size-xs;
       white-space: nowrap;
     }
 
-    .header__tag-icon {
+    .header__field-icon {
       display: flex;
       color: var(--t-accent);
     }
 
-    .header__tag-label {
+    .header__field-label {
       color: var(--t-text-secondary);
       font-weight: 500;
 
@@ -97,24 +96,8 @@
       }
     }
 
-    .header__contact {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: $spacing-md $spacing-lg;
-    }
-
-    .contact__item {
-      display: flex;
-      align-items: center;
-      gap: $spacing-xs;
+    .header__field-value {
       color: var(--t-text-secondary);
-      font-size: $font-size-xs;
-    }
-
-    .contact__icon {
-      display: flex;
-      color: var(--t-accent);
     }
   }
 
