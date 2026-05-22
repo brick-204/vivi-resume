@@ -11,6 +11,7 @@
   background: #ffffff;
   padding: 24px;
 
+  // ===== 头部 =====
   .resume__header {
     text-align: center;
     padding-bottom: $spacing-xl;
@@ -28,20 +29,8 @@
       background: var(--t-accent);
       border-radius: $radius-full;
     }
-  }
 
-  .resume__section {
-    margin-bottom: $spacing-xl;
-    cursor: pointer;
-    transition: opacity 0.15s;
-
-    &:hover {
-      opacity: 0.85;
-    }
-  }
-
-  .header {
-    &__photo {
+    .header__photo {
       width: 80px;
       height: 80px;
       border-radius: 50%;
@@ -55,13 +44,13 @@
       border: 3px solid var(--t-accent);
     }
 
-    &__photo-img {
+    .header__photo-img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    &__name {
+    .header__name {
       font-size: $font-size-3xl;
       font-weight: 800;
       color: var(--t-header-text);
@@ -69,14 +58,14 @@
       letter-spacing: -0.02em;
     }
 
-    &__title {
+    .header__title {
       font-size: $font-size-lg;
       color: var(--t-accent);
       font-weight: 600;
       margin-bottom: $spacing-md;
     }
 
-    &__tags {
+    .header__tags {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
@@ -84,7 +73,7 @@
       margin-bottom: $spacing-sm;
     }
 
-    &__tag {
+    .header__tag {
       display: inline-flex;
       align-items: center;
       gap: 4px;
@@ -93,12 +82,12 @@
       white-space: nowrap;
     }
 
-    &__tag-icon {
+    .header__tag-icon {
       display: flex;
       color: var(--t-accent);
     }
 
-    &__tag-label {
+    .header__tag-label {
       color: var(--t-text-secondary);
       font-weight: 500;
 
@@ -108,16 +97,14 @@
       }
     }
 
-    &__contact {
+    .header__contact {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: $spacing-md $spacing-lg;
     }
-  }
 
-  .contact {
-    &__item {
+    .contact__item {
       display: flex;
       align-items: center;
       gap: $spacing-xs;
@@ -125,62 +112,70 @@
       font-size: $font-size-xs;
     }
 
-    &__icon {
+    .contact__icon {
       display: flex;
       color: var(--t-accent);
     }
   }
 
-  // 模块标题
-  .section {
-    &__title {
-      font-size: $font-size-md;
-      font-weight: 700;
-      color: var(--t-section-title);
-      padding-bottom: $spacing-sm;
-      margin-bottom: $spacing-lg;
-      display: flex;
-      align-items: center;
-      gap: $spacing-sm;
-      position: relative;
+  // ===== 模块 =====
+  .resume__section {
+    margin-bottom: $spacing-xl;
+    cursor: pointer;
+    transition: opacity 0.15s;
 
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        height: 1px;
-        background: #e8e8f0;
-      }
-    }
-
-    &__icon {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--t-accent);
-
-      &--intro { background: var(--t-accent); }
-      &--work { background: var(--t-accent); }
-      &--edu { background: var(--t-accent); }
-      &--project { background: var(--t-accent); }
-      &--skill { background: var(--t-accent); }
-      &--eval { background: var(--t-accent); }
-      &--custom-text { background: var(--t-accent); }
-      &--custom-card { background: var(--t-accent); }
-    }
-
-    &__text {
-      color: var(--t-text-secondary);
-      font-size: $font-size-sm;
-      line-height: 1.8;
-
-      @include rich-text-content;
+    &:hover {
+      opacity: 0.85;
     }
   }
 
-  // 条目时间线
+  .section__title {
+    font-size: $font-size-md;
+    font-weight: 700;
+    color: var(--t-section-title);
+    padding-bottom: $spacing-sm;
+    margin-bottom: $spacing-lg;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: #e8e8f0;
+    }
+  }
+
+  .section__icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--t-accent);
+
+    &--intro { background: var(--t-accent); }
+    &--work { background: var(--t-accent); }
+    &--edu { background: var(--t-accent); }
+    &--project { background: var(--t-accent); }
+    &--skill { background: var(--t-accent); }
+    &--eval { background: var(--t-accent); }
+    &--custom-text { background: var(--t-accent); }
+    &--custom-card { background: var(--t-accent); }
+  }
+
+  .section__text {
+    color: var(--t-text-secondary);
+    font-size: $font-size-sm;
+    line-height: 1.8;
+
+    @include rich-text-content;
+  }
+
+  // ===== 条目 =====
   .entry {
     display: flex;
     gap: $spacing-md;
@@ -195,98 +190,98 @@
     &:last-child .timeline__line {
       display: none;
     }
-
-    &__timeline {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-top: 6px;
-    }
-
-    &__content {
-      flex: 1;
-    }
-
-    &__header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: $spacing-xs;
-    }
-
-    &__info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    &__title {
-      font-size: $font-size-sm;
-      font-weight: 700;
-      color: var(--t-text);
-    }
-
-    &__subtitle {
-      font-size: $font-size-xs;
-      color: var(--t-text-secondary);
-    }
-
-    &__date {
-      font-size: $font-size-xs;
-      color: var(--t-text-secondary);
-      padding: $spacing-xs $spacing-sm;
-      background: rgba(124, 92, 252, 0.08);
-      border-radius: $radius-sm;
-      border: 1px solid rgba(124, 92, 252, 0.15);
-    }
-
-    &__desc {
-      font-size: $font-size-xs;
-      color: var(--t-text-secondary);
-      margin-top: $spacing-xs;
-      line-height: 1.7;
-
-      @include rich-text-content;
-    }
-
-    &__tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: $spacing-xs;
-      margin-top: $spacing-sm;
-    }
-
-    &__highlights {
-      list-style: none;
-      padding: 0;
-      margin: $spacing-xs 0 0;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
   }
 
-  .timeline {
-    &__dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #ffffff;
-      border: 2px solid var(--t-accent);
-      flex-shrink: 0;
-
-      &--edu { border-color: var(--t-accent); }
-      &--project { border-color: var(--t-accent); }
-    }
-
-    &__line {
-      width: 1px;
-      height: 100%;
-      background: #e8e8f0;
-      flex: 1;
-      min-height: 20px;
-    }
+  .entry__timeline {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 6px;
   }
 
+  .entry__content {
+    flex: 1;
+  }
+
+  .entry__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: $spacing-xs;
+  }
+
+  .entry__info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .entry__title {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: var(--t-text);
+  }
+
+  .entry__subtitle {
+    font-size: $font-size-xs;
+    color: var(--t-text-secondary);
+  }
+
+  .entry__date {
+    font-size: $font-size-xs;
+    color: var(--t-text-secondary);
+    padding: $spacing-xs $spacing-sm;
+    background: rgba(124, 92, 252, 0.08);
+    border-radius: $radius-sm;
+    border: 1px solid rgba(124, 92, 252, 0.15);
+  }
+
+  .entry__desc {
+    font-size: $font-size-xs;
+    color: var(--t-text-secondary);
+    margin-top: $spacing-xs;
+    line-height: 1.7;
+
+    @include rich-text-content;
+  }
+
+  .entry__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-top: $spacing-sm;
+  }
+
+  .entry__highlights {
+    list-style: none;
+    padding: 0;
+    margin: $spacing-xs 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  // ===== 时间线 =====
+  .timeline__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid var(--t-accent);
+    flex-shrink: 0;
+
+    &--edu { border-color: var(--t-accent); }
+    &--project { border-color: var(--t-accent); }
+  }
+
+  .timeline__line {
+    width: 1px;
+    height: 100%;
+    background: #e8e8f0;
+    flex: 1;
+    min-height: 20px;
+  }
+
+  // ===== 标签 =====
   .tech-tag {
     padding: 2px $spacing-sm;
     background: var(--t-tag-bg);
