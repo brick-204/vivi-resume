@@ -1,0 +1,299 @@
+// 6 个标准模板共享的基础样式
+@use '@/assets/styles/variables' as *;
+@use '@/assets/styles/mixins' as *;
+
+.resume-document {
+  max-width: 720px;
+  margin: 0 auto;
+  font-size: $font-size-sm;
+  line-height: 1.7;
+  color: var(--t-text);
+  background: #ffffff;
+  padding: 24px;
+
+  .resume__header {
+    text-align: center;
+    padding-bottom: $spacing-xl;
+    margin-bottom: $spacing-xl;
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 3px;
+      background: var(--t-accent);
+      border-radius: $radius-full;
+    }
+  }
+
+  .resume__section {
+    margin-bottom: $spacing-xl;
+    cursor: pointer;
+    transition: opacity 0.15s;
+
+    &:hover {
+      opacity: 0.85;
+    }
+  }
+
+  .header {
+    &__photo {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      margin: 0 auto $spacing-md;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid var(--t-accent);
+    }
+
+    &__photo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    &__name {
+      font-size: $font-size-3xl;
+      font-weight: 800;
+      color: var(--t-header-text);
+      margin-bottom: $spacing-xs;
+      letter-spacing: -0.02em;
+    }
+
+    &__title {
+      font-size: $font-size-lg;
+      color: var(--t-accent);
+      font-weight: 600;
+      margin-bottom: $spacing-md;
+    }
+
+    &__tags {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: $spacing-sm;
+    }
+
+    &__tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: $font-size-xs;
+      color: var(--t-text-secondary);
+      white-space: nowrap;
+    }
+
+    &__tag-icon {
+      display: flex;
+      color: var(--t-accent);
+    }
+
+    &__tag-label {
+      color: var(--t-text-secondary);
+      font-weight: 500;
+
+      &::after {
+        content: ':';
+        margin-left: 1px;
+      }
+    }
+
+    &__contact {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: $spacing-md $spacing-lg;
+    }
+  }
+
+  .contact {
+    &__item {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+      color: var(--t-text-secondary);
+      font-size: $font-size-xs;
+    }
+
+    &__icon {
+      display: flex;
+      color: var(--t-accent);
+    }
+  }
+
+  // 模块标题
+  .section {
+    &__title {
+      font-size: $font-size-md;
+      font-weight: 700;
+      color: var(--t-section-title);
+      padding-bottom: $spacing-sm;
+      margin-bottom: $spacing-lg;
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      position: relative;
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 1px;
+        background: #e8e8f0;
+      }
+    }
+
+    &__icon {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--t-accent);
+
+      &--intro { background: var(--t-accent); }
+      &--work { background: var(--t-accent); }
+      &--edu { background: var(--t-accent); }
+      &--project { background: var(--t-accent); }
+      &--skill { background: var(--t-accent); }
+      &--eval { background: var(--t-accent); }
+      &--custom-text { background: var(--t-accent); }
+      &--custom-card { background: var(--t-accent); }
+    }
+
+    &__text {
+      color: var(--t-text-secondary);
+      font-size: $font-size-sm;
+      line-height: 1.8;
+
+      @include rich-text-content;
+    }
+  }
+
+  // 条目时间线
+  .entry {
+    display: flex;
+    gap: $spacing-md;
+    margin-bottom: $spacing-lg;
+    cursor: pointer;
+    transition: opacity 0.15s;
+
+    &:hover {
+      opacity: 0.85;
+    }
+
+    &:last-child .timeline__line {
+      display: none;
+    }
+
+    &__timeline {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 6px;
+    }
+
+    &__content {
+      flex: 1;
+    }
+
+    &__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: $spacing-xs;
+    }
+
+    &__info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    &__title {
+      font-size: $font-size-sm;
+      font-weight: 700;
+      color: var(--t-text);
+    }
+
+    &__subtitle {
+      font-size: $font-size-xs;
+      color: var(--t-text-secondary);
+    }
+
+    &__date {
+      font-size: $font-size-xs;
+      color: var(--t-text-secondary);
+      padding: $spacing-xs $spacing-sm;
+      background: rgba(124, 92, 252, 0.08);
+      border-radius: $radius-sm;
+      border: 1px solid rgba(124, 92, 252, 0.15);
+    }
+
+    &__desc {
+      font-size: $font-size-xs;
+      color: var(--t-text-secondary);
+      margin-top: $spacing-xs;
+      line-height: 1.7;
+
+      @include rich-text-content;
+    }
+
+    &__tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: $spacing-xs;
+      margin-top: $spacing-sm;
+    }
+
+    &__highlights {
+      list-style: none;
+      padding: 0;
+      margin: $spacing-xs 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+  }
+
+  .timeline {
+    &__dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 2px solid var(--t-accent);
+      flex-shrink: 0;
+
+      &--edu { border-color: var(--t-accent); }
+      &--project { border-color: var(--t-accent); }
+    }
+
+    &__line {
+      width: 1px;
+      height: 100%;
+      background: #e8e8f0;
+      flex: 1;
+      min-height: 20px;
+    }
+  }
+
+  .tech-tag {
+    padding: 2px $spacing-sm;
+    background: var(--t-tag-bg);
+    color: var(--t-tag-color);
+    border-radius: $radius-full;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--t-tag-border);
+  }
+}
