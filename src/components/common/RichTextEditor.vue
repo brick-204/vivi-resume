@@ -28,14 +28,24 @@
         <span class="toolbar-divider" />
 
         <!-- 颜色 -->
-        <label class="toolbar-btn toolbar-btn--color" title="字体颜色">
-          <Icon icon="mdi:format-color-text" :width="18" />
-          <input type="color" class="color-input" :value="fontColor" @input="onFontColorChange" />
-        </label>
-        <label class="toolbar-btn toolbar-btn--color" title="背景颜色">
-          <Icon icon="mdi:format-color-fill" :width="18" />
-          <input type="color" class="color-input" :value="bgColor" @input="onBgColorChange" />
-        </label>
+        <ColorPicker
+          :model-value="currentFontColor"
+          :preset-colors="FONT_PRESET_COLORS"
+          icon="mdi:format-color-text"
+          title="字体颜色"
+          :is-active="editor.isActive('textStyle')"
+          @update:model-value="onFontColorChange"
+          @clear="onFontColorClear"
+        />
+        <ColorPicker
+          :model-value="currentBgColor"
+          :preset-colors="BG_PRESET_COLORS"
+          icon="mdi:format-color-fill"
+          title="背景颜色"
+          :is-active="editor.isActive('highlight')"
+          @update:model-value="onBgColorChange"
+          @clear="onBgColorClear"
+        />
         <span class="toolbar-divider" />
 
         <!-- 对齐 -->
@@ -86,6 +96,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import { Icon } from '@iconify/vue'
 import { normalizeContent } from '@/utils/normalizeContent'
+import ColorPicker from './ColorPicker.vue'
 
 const props = withDefaults(defineProps<{
   label?: string
@@ -108,8 +119,17 @@ const minHeight = computed(() => {
   return `${props.rows * rowHeight + padding}px`
 })
 
-const fontColor = ref('#ffffff')
-const bgColor = ref('#fef08a')
+const FONT_PRESET_COLORS = [
+  '#ffffff', '#1c1917', '#78716c', '#dc2626', '#ea580c', '#ca8a04',
+  '#16a34a', '#2563eb', '#7c3aed', '#db2777', '#0891b2', '#4f46e5', '#f97316',
+]
+const BG_PRESET_COLORS = [
+  '#ffffff', '#fef08a', '#bbf7d0', '#bfdbfe', '#e9d5ff', '#fecdd3',
+  '#fed7aa', '#ccfbf1', '#e2e8f0', '#fce7f3', '#dbeafe', '#d9f99d', '#fde68a',
+]
+
+const currentFontColor = ref('')
+const currentBgColor = ref('')
 
 const editor = useEditor({
   content: normalizeContent(props.modelValue),
@@ -149,16 +169,24 @@ const editor = useEditor({
   },
 })
 
-const onFontColorChange = (e: Event) => {
-  const color = (e.target as HTMLInputElement).value
-  fontColor.value = color
+const onFontColorChange = (color: string) => {
+  currentFontColor.value = color
   editor.value?.chain().focus().setColor(color).run()
 }
 
-const onBgColorChange = (e: Event) => {
-  const color = (e.target as HTMLInputElement).value
-  bgColor.value = color
+const onFontColorClear = () => {
+  currentFontColor.value = ''
+  editor.value?.chain().focus().unsetColor().run()
+}
+
+const onBgColorChange = (color: string) => {
+  currentBgColor.value = color
   editor.value?.chain().focus().toggleHighlight({ color }).run()
+}
+
+const onBgColorClear = () => {
+  currentBgColor.value = ''
+  editor.value?.chain().focus().unsetHighlight().run()
 }
 
 const onAddLink = () => {
@@ -265,20 +293,6 @@ onBeforeUnmount(() => {
     opacity: 0.3;
     cursor: not-allowed;
   }
-
-  &--color {
-    position: relative;
-    overflow: hidden;
-  }
-}
-
-.color-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .toolbar-divider {
