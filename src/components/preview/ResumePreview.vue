@@ -4,7 +4,7 @@
       v-if="resume"
       :resume="resume"
       :template-id="templateId"
-      @click-section="$emit('click-section', $event)"
+      @click-section="(s: string, i?: string) => emit('click-section', s, i)"
     />
   </div>
 </template>
@@ -20,8 +20,8 @@ const previewRef = ref<HTMLElement>()
 const templateId = computed(() => store.currentResume?.templateId || 'classic')
 const resume = computed(() => store.currentResume)
 
-defineEmits<{
-  'click-section': [tabId: string]
+const emit = defineEmits<{
+  'click-section': [tabId: string, itemId?: string]
 }>()
 
 // 滚动到指定模块
@@ -32,9 +32,16 @@ const scrollToSection = (sectionId: string) => {
   }
 }
 
+// 滚动到指定条目
+const scrollToEntry = (sectionId: string, itemId: string) => {
+  const entry = previewRef.value?.querySelector(`[data-section="${sectionId}"] [data-item-id="${itemId}"]`)
+  if (entry) entry.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 defineExpose({
   getElement: () => previewRef.value,
-  scrollToSection
+  scrollToSection,
+  scrollToEntry
 })
 </script>
 

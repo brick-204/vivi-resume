@@ -70,6 +70,7 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: $spacing-xs $spacing-md;
+      position: relative;
     }
 
     .header__field {
@@ -79,6 +80,7 @@
       color: var(--t-text-secondary);
       font-size: $font-size-xs;
       white-space: nowrap;
+      position: relative;
     }
 
     .header__field-icon {
@@ -105,7 +107,6 @@
   .resume__section {
     margin-top: 16px;
     cursor: pointer;
-    transition: opacity 0.15s;
     position: relative;
 
     &:hover {
@@ -119,26 +120,55 @@
   }
 
   .section-reorder-move {
-    transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .section-reorder-enter-active {
-    transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .section-reorder-enter-from {
     opacity: 0;
-    transform: translateY(-20px);
+    transform: translateY(-16px);
   }
 
   .section-reorder-leave-active {
-    transition: all 0.25s ease-in;
+    transition: all 0.3s cubic-bezier(0.4, 0, 1, 1);
     position: absolute;
+    width: 100%;
+    overflow: hidden;
   }
 
   .section-reorder-leave-to {
     opacity: 0;
-    transform: scale(0.95);
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-top: 0;
+  }
+
+  // ===== 字段 FLIP 动画 =====
+  .field-reorder-move {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .field-reorder-enter-active {
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .field-reorder-enter-from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  .field-reorder-leave-active {
+    transition: all 0.25s cubic-bezier(0.4, 0, 1, 1);
+    position: absolute;
+    overflow: hidden;
+  }
+
+  .field-reorder-leave-to {
+    opacity: 0;
   }
 
   .section__title {

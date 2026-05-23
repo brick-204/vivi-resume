@@ -23,7 +23,7 @@
     </div>
 
     <!-- 统一字段列表 -->
-    <div v-if="ctx.orderedAllFields.value.length" class="sidebar__fields">
+    <TransitionGroup v-if="ctx.orderedAllFields.value.length" name="field-reorder" tag="div" class="sidebar__fields">
       <template v-for="(field, index) in ctx.orderedAllFields.value" :key="field.key">
         <div v-if="field.isContact && !ctx.orderedAllFields.value.slice(0, index).some(f => f.isContact)" class="sidebar__section-title">
           <span class="sidebar__section-line"></span>
@@ -37,7 +37,7 @@
           <span class="sidebar__field-value">{{ field.value }}</span>
         </div>
       </template>
-    </div>
+    </TransitionGroup>
 
     <div v-if="ctx.isSectionVisible('skills')" class="sidebar__skills">
       <div class="sidebar__section-title">
@@ -54,6 +54,6 @@ import { inject } from 'vue'
 import { Icon } from '@iconify/vue'
 import { ResumeDocumentKey } from '../../shared/ResumeDocumentKey'
 
-const emit = defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 const ctx = inject(ResumeDocumentKey)!
 </script>

@@ -4,7 +4,7 @@
       <span class="section__icon section__icon--work"></span>
       {{ ctx.getSectionTitle(ctx.resume, 'work') }}
     </h2>
-    <div v-for="item in ctx.getVisibleWorkItems.value" :key="item.id" class="entry">
+    <div v-for="item in ctx.getVisibleWorkItems.value" :key="item.id" class="entry" :data-item-id="item.id" @click.stop="emit('click-section', 'work', item.id)">
       <div class="entry__timeline">
         <span class="timeline__dot"></span>
         <span class="timeline__line"></span>
@@ -30,6 +30,6 @@
 import { inject } from 'vue'
 import { ResumeDocumentKey } from '../ResumeDocumentKey'
 
-const emit = defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 const ctx = inject(ResumeDocumentKey)!
 </script>

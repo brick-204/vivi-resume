@@ -1,14 +1,19 @@
 <template>
-  <TransitionGroup name="section-reorder" tag="div" class="animated-sections">
+  <TransitionGroup
+    name="section-reorder"
+    tag="div"
+    class="animated-sections"
+    @before-leave="onBeforeLeave"
+  >
     <template v-for="sectionId in sections" :key="sectionId">
-      <SummarySection v-if="sectionId === 'summary'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <WorkSection v-else-if="sectionId === 'work'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <EducationSection v-else-if="sectionId === 'education'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <ProjectsSection v-else-if="sectionId === 'projects'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <SkillsSection v-else-if="sectionId === 'skills'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <EvaluationSection v-else-if="sectionId === 'evaluation'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <CustomTextSection v-else-if="sectionId.startsWith('customText_')" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <CustomCardSection v-else-if="sectionId.startsWith('customCard_')" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
+      <SummarySection v-if="sectionId === 'summary'" :section-id="sectionId" @click-section="forwardClick" />
+      <WorkSection v-else-if="sectionId === 'work'" :section-id="sectionId" @click-section="forwardClick" />
+      <EducationSection v-else-if="sectionId === 'education'" :section-id="sectionId" @click-section="forwardClick" />
+      <ProjectsSection v-else-if="sectionId === 'projects'" :section-id="sectionId" @click-section="forwardClick" />
+      <SkillsSection v-else-if="sectionId === 'skills'" :section-id="sectionId" @click-section="forwardClick" />
+      <EvaluationSection v-else-if="sectionId === 'evaluation'" :section-id="sectionId" @click-section="forwardClick" />
+      <CustomTextSection v-else-if="sectionId.startsWith('customText_')" :section-id="sectionId" @click-section="forwardClick" />
+      <CustomCardSection v-else-if="sectionId.startsWith('customCard_')" :section-id="sectionId" @click-section="forwardClick" />
     </template>
   </TransitionGroup>
 </template>
@@ -22,13 +27,15 @@ import SkillsSection from './sections/SkillsSection.vue'
 import EvaluationSection from './sections/EvaluationSection.vue'
 import CustomTextSection from './sections/CustomTextSection.vue'
 import CustomCardSection from './sections/CustomCardSection.vue'
+import { onBeforeLeave } from './transitionUtils'
 
 defineProps<{
   sections: string[]
 }>()
 
-defineEmits<{
-  'click-section': [tabId: string]
+const emit = defineEmits<{
+  'click-section': [tabId: string, itemId?: string]
 }>()
-</script>
 
+const forwardClick = (sectionId: string, itemId?: string) => emit('click-section', sectionId, itemId)
+</script>

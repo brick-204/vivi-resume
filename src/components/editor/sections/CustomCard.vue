@@ -13,22 +13,22 @@
       <span>暂无内容，点击下方按钮添加</span>
     </div>
 
-    <draggable v-else v-model="items" item-key="id" handle=".card__drag-handle" :animation="200" ghost-class="card--ghost" chosen-class="card--chosen" drag-class="card--drag" class="section__list">
+    <draggable v-else v-model="items" item-key="id" handle=".card__drag-handle" :animation="200" ghost-class="card--ghost" chosen-class="card--chosen" drag-class="card--drag" class="section__list" :scroll="scrollContainer" :scroll-sensitivity="80" :scroll-speed="10">
       <template #item="{ element: item }">
-        <div class="card" :class="{ 'card--hidden': item.hidden }">
+        <div class="card" :class="{ 'card--hidden': item.hidden }" :data-item-id="item.id" @click="emit('click-entry', item.id)">
           <span class="card__drag-handle">
             <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
           </span>
           <div class="card__header">
             <span class="card__name">{{ item.name || '未填写名称' }}</span>
             <div class="card__actions">
-              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click="item.hidden = !item.hidden">
+              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
-              <button class="card__delete" aria-label="删除" @click="confirmDeleteId = item.id">
+              <button class="card__delete" aria-label="删除" @click.stop="confirmDeleteId = item.id">
                 <Icon :icon="TRASH_ICON" :width="20" :height="20" />
               </button>
-              <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click="toggleCollapse(item.id)">
+              <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click.stop="toggleCollapse(item.id)">
                 <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />
               </button>
             </div>
@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useSectionTitle } from '@/composables/useSectionTitle'
 import draggable from 'vuedraggable'
@@ -88,12 +88,15 @@ import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { ScrollContainerKey } from '../scrollContainerKey'
 
 const props = defineProps<{
   sectionId: string
 }>()
 
 const store = useResumeStore()
+const scrollContainer = inject(ScrollContainerKey)
+const emit = defineEmits<{ 'click-entry': [itemId: string] }>()
 const { saveTitle, getSectionTitle } = useSectionTitle()
 const newKeyword = ref('')
 const confirmDeleteId = ref<string | null>(null)

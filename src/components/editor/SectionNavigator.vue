@@ -1,7 +1,7 @@
 <template>
   <div class="section-navigator" :class="{ 'section-navigator--collapsed': isCollapsed }">
     <!-- 导航项列表 -->
-    <div class="navigator__list">
+    <div class="navigator__list" ref="navigatorListRef">
       <draggable
         v-model="sortableSections"
         item-key="id"
@@ -10,6 +10,9 @@
         ghost-class="nav-item--ghost"
         chosen-class="nav-item--chosen"
         drag-class="nav-item--drag"
+        :scroll="navigatorListRef"
+        :scroll-sensitivity="80"
+        :scroll-speed="10"
       >
         <template #item="{ element: item }">
           <div
@@ -102,8 +105,10 @@ import BaseButton from '@/components/common/BaseButton.vue'
 const resumeStore = useResumeStore()
 const layoutStore = useEditorLayoutStore()
 
+const navigatorListRef = ref<HTMLElement>()
+
 const emit = defineEmits<{
-  'click-section': [sectionId: string]
+  'click-section': [sectionId: string, itemId?: string]
 }>()
 
 // 可见模块列表（vuedraggable 双向绑定）

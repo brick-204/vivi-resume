@@ -72,7 +72,7 @@
           class="editor-body__editor"
           :style="{ width: layoutStore.editorWidth + 'px' }"
         >
-          <SectionEditor />
+          <SectionEditor ref="sectionEditorRef" @click-entry="handleClickEntry" />
         </aside>
       </Transition>
 
@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
@@ -118,6 +118,7 @@ const router = useRouter()
 const store = useResumeStore()
 const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
+const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 
 const resumeTitle = computed({
   get: () => store.currentResume?.title || '',
@@ -128,11 +129,32 @@ const saveTitle = () => {
   store.saveCurrentResume()
 }
 
-// 点击导航或预览区模块时，同步激活状态并滚动预览
-const handleClickSection = (sectionId: string) => {
+// 编辑区滑入动画时长（与 CSS .slide-left-enter-active 的 0.25s 对齐，加缓冲）
+const EDITOR_SLIDE_DURATION = 300
+
+// 点击导航或预览区模块时，同步激活状态并滚动
+const handleClickSection = (sectionId: string, itemId?: string) => {
+  const wasCollapsed = layoutStore.editorCollapsed
   layoutStore.setActiveSection(sectionId)
   layoutStore.expandEditor()
-  previewRef.value?.scrollToSection(sectionId)
+  if (itemId) {
+    previewRef.value?.scrollToEntry(sectionId, itemId)
+    if (wasCollapsed) {
+      setTimeout(() => {
+        nextTick(() => sectionEditorRef.value?.scrollToCard(itemId))
+      }, EDITOR_SLIDE_DURATION)
+    } else {
+      nextTick(() => sectionEditorRef.value?.scrollToCard(itemId))
+    }
+  } else {
+    previewRef.value?.scrollToSection(sectionId)
+  }
+}
+
+// 编辑器 card 点击 → 滚动预览到对应 entry
+const handleClickEntry = (itemId: string) => {
+  const sectionId = layoutStore.activeSectionId
+  previewRef.value?.scrollToEntry(sectionId, itemId)
 }
 
 // 拖拽调节导航栏宽度

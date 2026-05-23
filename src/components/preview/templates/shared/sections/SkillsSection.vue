@@ -12,6 +12,6 @@
 import { inject } from 'vue'
 import { ResumeDocumentKey } from '../ResumeDocumentKey'
 
-const emit = defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 const ctx = inject(ResumeDocumentKey)!
 </script>

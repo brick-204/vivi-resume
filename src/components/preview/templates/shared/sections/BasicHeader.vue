@@ -8,13 +8,13 @@
     <p v-if="ctx.resume.basicInfo.title && ctx.isFieldVisible('title')" class="header__title">{{ ctx.resume.basicInfo.title }}</p>
 
     <!-- 统一字段列表 -->
-    <div v-if="ctx.orderedAllFields.value.length" class="header__fields">
+    <TransitionGroup v-if="ctx.orderedAllFields.value.length" name="field-reorder" tag="div" class="header__fields">
       <span v-for="field in ctx.orderedAllFields.value" :key="field.key" class="header__field">
         <Icon v-if="field.showIcon" :icon="field.icon" :width="14" :height="14" class="header__field-icon" />
         <span v-if="field.showLabel" class="header__field-label">{{ field.label }}</span>
         <span class="header__field-value">{{ field.value }}</span>
       </span>
-    </div>
+    </TransitionGroup>
   </header>
 </template>
 
@@ -23,6 +23,6 @@ import { inject } from 'vue'
 import { ResumeDocumentKey } from '../ResumeDocumentKey'
 import { Icon } from '@iconify/vue'
 
-const emit = defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 const ctx = inject(ResumeDocumentKey)!
 </script>

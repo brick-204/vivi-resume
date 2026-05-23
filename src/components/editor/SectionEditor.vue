@@ -1,16 +1,16 @@
 <template>
   <div class="section-editor">
     <!-- 内容区 -->
-    <div class="editor__content">
+    <div class="editor__content" ref="editorContentRef">
       <BasicInfo v-if="activeSectionId === 'basic'" />
       <Summary v-else-if="activeSectionId === 'summary'" />
-      <WorkExperience v-else-if="activeSectionId === 'work'" ref="workRef" />
-      <Education v-else-if="activeSectionId === 'education'" ref="educationRef" />
-      <Projects v-else-if="activeSectionId === 'projects'" ref="projectsRef" />
+      <WorkExperience v-else-if="activeSectionId === 'work'" ref="workRef" @click-entry="(itemId) => emit('click-entry', itemId)" />
+      <Education v-else-if="activeSectionId === 'education'" ref="educationRef" @click-entry="(itemId) => emit('click-entry', itemId)" />
+      <Projects v-else-if="activeSectionId === 'projects'" ref="projectsRef" @click-entry="(itemId) => emit('click-entry', itemId)" />
       <Skills v-else-if="activeSectionId === 'skills'" />
       <SelfEvaluation v-else-if="activeSectionId === 'evaluation'" />
       <CustomText v-else-if="isCustomText" :section-id="activeSectionId" />
-      <CustomCard v-else-if="isCustomCard" :section-id="activeSectionId" ref="customCardRef" />
+      <CustomCard v-else-if="isCustomCard" :section-id="activeSectionId" ref="customCardRef" @click-entry="(itemId) => emit('click-entry', itemId)" />
 
       <!-- 添加按钮，随内容滚动 -->
       <button v-if="canAdd" class="editor__add-btn" @click="handleAdd">
@@ -30,11 +30,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, provide, ref } from 'vue'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { getCustomSectionType } from '@/types/resume'
 import { PLUS_ICON, COLLAPSE_EDITOR_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
+import { ScrollContainerKey } from './scrollContainerKey'
 import BasicInfo from './sections/BasicInfo.vue'
 import Summary from './sections/Summary.vue'
 import WorkExperience from './sections/WorkExperience.vue'
@@ -46,6 +47,11 @@ import CustomText from './sections/CustomText.vue'
 import CustomCard from './sections/CustomCard.vue'
 
 const layoutStore = useEditorLayoutStore()
+
+const editorContentRef = ref<HTMLElement>()
+provide(ScrollContainerKey, editorContentRef)
+
+const emit = defineEmits<{ 'click-entry': [itemId: string] }>()
 
 const workRef = ref<InstanceType<typeof WorkExperience>>()
 const educationRef = ref<InstanceType<typeof Education>>()
@@ -77,6 +83,15 @@ const handleAdd = async () => {
 const handleCollapse = () => {
   layoutStore.toggleEditorCollapse()
 }
+
+const scrollToCard = (itemId: string) => {
+  const cardEl = editorContentRef.value?.querySelector(`[data-item-id="${itemId}"]`)
+  if (cardEl) {
+    cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+}
+
+defineExpose({ scrollToCard })
 </script>
 
 <style lang="scss" scoped>

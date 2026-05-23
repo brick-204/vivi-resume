@@ -15,9 +15,6 @@
         <div class="field-row__label">
           <span>头像</span>
           <div class="field-row__actions">
-            <button class="field-display-mode" :title="getDisplayModeTitle('photo')" @click="cycleDisplayMode('photo')">
-              <Icon :icon="getDisplayModeIcon('photo')" :width="16" :height="16" />
-            </button>
             <button class="field-toggle" :aria-label="basicInfo.hiddenFields?.photo ? '显示' : '隐藏'" @click="toggleFieldVisibility('photo')">
               <Icon :icon="basicInfo.hiddenFields?.photo ? EYE_OFF_ICON : EYE_ICON" :width="16" :height="16" />
             </button>
@@ -70,6 +67,9 @@
         chosen-class="field-item--chosen"
         drag-class="field-item--drag"
         class="fields-grid"
+        :scroll="scrollContainer"
+        :scroll-sensitivity="80"
+        :scroll-speed="10"
       >
         <template #item="{ element }">
           <div class="field-item">
@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
@@ -131,8 +131,10 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
 import type { BasicInfo, CustomField, FieldDisplayMode } from '@/types/resume'
+import { ScrollContainerKey } from '../scrollContainerKey'
 
 const store = useResumeStore()
+const scrollContainer = inject(ScrollContainerKey)
 
 const basicInfo = computed({
   get: () => store.currentResume?.basicInfo ?? createEmptyResume().basicInfo,

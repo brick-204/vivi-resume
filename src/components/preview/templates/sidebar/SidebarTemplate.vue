@@ -1,10 +1,10 @@
 <template>
   <div class="resume-document resume--sidebar" :style="ctx.sidebarCSSVars.value">
-    <SidebarAside @click-section="$emit('click-section', $event)" />
+    <SidebarAside @click-section="(s: string, i?: string) => emit('click-section', s, i)" />
     <main class="sidebar__right">
       <AnimatedSidebarSectionList
         :sections="ctx.sidebarContentSections.value"
-        @click-section="$emit('click-section', $event)"
+        @click-section="(s: string, i?: string) => emit('click-section', s, i)"
       />
     </main>
   </div>
@@ -19,7 +19,7 @@ import SidebarAside from './sections/SidebarAside.vue'
 import AnimatedSidebarSectionList from '../shared/AnimatedSidebarSectionList.vue'
 
 const props = defineProps<{ resume: Resume }>()
-defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 
 const ctx = useResumeDocument(() => props.resume, 'sidebar')
 provide(ResumeDocumentKey, ctx)
@@ -101,6 +101,7 @@ provide(ResumeDocumentKey, ctx)
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
 }
 
 :deep(.sidebar__field) {
@@ -110,6 +111,7 @@ provide(ResumeDocumentKey, ctx)
   font-size: 11px;
   color: #2d5a8e;
   word-break: break-all;
+  position: relative;
 }
 
 :deep(.sidebar__field-icon) {

@@ -1,9 +1,9 @@
 <template>
   <div class="resume-document resume--timeline" :style="ctx.templateCSSVars.value">
-    <BasicHeader @click-section="$emit('click-section', $event)" />
+    <BasicHeader @click-section="(s: string, i?: string) => emit('click-section', s, i)" />
     <AnimatedSectionList
       :sections="ctx.contentSections.value"
-      @click-section="$emit('click-section', $event)"
+      @click-section="(s: string, i?: string) => emit('click-section', s, i)"
     />
   </div>
 </template>
@@ -17,7 +17,7 @@ import BasicHeader from '../shared/sections/BasicHeader.vue'
 import AnimatedSectionList from '../shared/AnimatedSectionList.vue'
 
 const props = defineProps<{ resume: Resume }>()
-defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 
 const ctx = useResumeDocument(() => props.resume, 'timeline')
 provide(ResumeDocumentKey, ctx)

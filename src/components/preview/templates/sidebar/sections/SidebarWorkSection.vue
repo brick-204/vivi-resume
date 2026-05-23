@@ -5,7 +5,7 @@
       {{ ctx.getSectionTitle(ctx.resume, sectionId) }}
     </h2>
     <div v-if="ctx.getVisibleWorkItems.value.length">
-      <div v-for="item in ctx.getVisibleWorkItems.value" :key="item.id" class="main__entry">
+      <div v-for="item in ctx.getVisibleWorkItems.value" :key="item.id" class="main__entry" :data-item-id="item.id" @click.stop="emit('click-section', sectionId, item.id)">
         <div class="main__entry-header">
           <div class="main__entry-info">
             <h3 class="main__entry-title">{{ item.position }}</h3>
@@ -27,6 +27,6 @@ import { inject } from 'vue'
 import { ResumeDocumentKey } from '../../shared/ResumeDocumentKey'
 
 defineProps<{ sectionId: string }>()
-const emit = defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 const ctx = inject(ResumeDocumentKey)!
 </script>

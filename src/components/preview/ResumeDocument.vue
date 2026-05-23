@@ -2,7 +2,7 @@
   <component
     :is="templateComponent"
     :resume="resume"
-    @click-section="$emit('click-section', $event)"
+    @click-section="(s: string, i?: string) => emit('click-section', s, i)"
   />
 </template>
 
@@ -21,7 +21,7 @@ const TEMPLATE_MAP: Record<string, Component> = {
 }
 
 const props = defineProps<{ resume: Resume; templateId: string }>()
-defineEmits<{ 'click-section': [tabId: string] }>()
+const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 
 const templateComponent = computed(() => TEMPLATE_MAP[props.templateId] || TEMPLATE_MAP.classic)
 </script>
