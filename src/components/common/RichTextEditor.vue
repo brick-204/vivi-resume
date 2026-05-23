@@ -76,6 +76,12 @@
         <button v-if="editor.isActive('link')" type="button" class="toolbar-btn" title="移除链接" @click="editor.chain().focus().unsetLink().run()">
           <Icon icon="mdi:link-off" :width="18" />
         </button>
+        <span class="toolbar-divider" />
+
+        <!-- 清除样式 -->
+        <button type="button" class="toolbar-btn" title="清除样式" @click="onClearFormat">
+          <Icon icon="mdi:format-clear" :width="18" />
+        </button>
       </div>
       <EditorContent :editor="editor" class="rich-text-editor__body" :style="{ minHeight }" />
     </div>
@@ -187,6 +193,22 @@ const onBgColorChange = (color: string) => {
 const onBgColorClear = () => {
   currentBgColor.value = ''
   editor.value?.chain().focus().unsetHighlight().run()
+}
+
+const onClearFormat = () => {
+  if (!editor.value) return
+  editor.value.chain().focus()
+    .unsetBold()
+    .unsetItalic()
+    .unsetUnderline()
+    .unsetStrike()
+    .unsetColor()
+    .unsetHighlight()
+    .unsetLink()
+    .setTextAlign('left')
+    .run()
+  currentFontColor.value = ''
+  currentBgColor.value = ''
 }
 
 const onAddLink = () => {
