@@ -13,6 +13,8 @@
         :scroll="navigatorListRef"
         :scroll-sensitivity="80"
         :scroll-speed="10"
+        @start="flipNav.recordPositions"
+        @end="flipNav.animateFlip"
       >
         <template #item="{ element: item }">
           <div
@@ -22,6 +24,7 @@
               'nav-item--basic': item.id === 'basic',
               'nav-item--hidden': !item.visible
             }"
+            :data-flip-id="item.id"
             @click="handleSelect(item.id)"
           >
             <!-- 拖拽手柄 -->
@@ -94,6 +97,7 @@
 import { computed, ref, watch } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
+import { useFlipAnimation } from '@/composables/useFlipAnimation'
 import { SECTION_CONFIG, getSectionTitle, isCustomSection } from '@/types/resume'
 import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
@@ -106,6 +110,8 @@ const resumeStore = useResumeStore()
 const layoutStore = useEditorLayoutStore()
 
 const navigatorListRef = ref<HTMLElement>()
+
+const flipNav = useFlipAnimation(() => navigatorListRef.value, '.nav-item')
 
 const emit = defineEmits<{
   'click-section': [sectionId: string, itemId?: string]

@@ -70,9 +70,11 @@
         :scroll="scrollContainer"
         :scroll-sensitivity="80"
         :scroll-speed="10"
+        @start="flipFields.recordPositions"
+        @end="flipFields.animateFlip"
       >
         <template #item="{ element }">
-          <div class="field-item">
+          <div class="field-item" :data-flip-id="element.key">
             <span class="field-item__drag-handle">
               <Icon :icon="DRAG_HANDLE_ICON" :width="16" :height="16" />
             </span>
@@ -132,9 +134,11 @@ import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
 import type { BasicInfo, CustomField, FieldDisplayMode } from '@/types/resume'
 import { ScrollContainerKey } from '../scrollContainerKey'
+import { useFlipAnimation } from '@/composables/useFlipAnimation'
 
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
+const flipFields = useFlipAnimation(() => scrollContainer?.value, '.field-item')
 
 const basicInfo = computed({
   get: () => store.currentResume?.basicInfo ?? createEmptyResume().basicInfo,

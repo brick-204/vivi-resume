@@ -13,9 +13,9 @@
       <span>暂无教育经历，点击下方按钮添加</span>
     </div>
 
-    <draggable v-else v-model="items" item-key="id" handle=".card__drag-handle" :animation="200" ghost-class="card--ghost" chosen-class="card--chosen" drag-class="card--drag" class="section__list" :scroll="scrollContainer" :scroll-sensitivity="80" :scroll-speed="10">
+    <draggable v-else v-model="items" item-key="id" handle=".card__drag-handle" :animation="200" ghost-class="card--ghost" chosen-class="card--chosen" drag-class="card--drag" class="section__list" :scroll="scrollContainer" :scroll-sensitivity="80" :scroll-speed="10" @start="flipCards.recordPositions" @end="flipCards.animateFlip">
       <template #item="{ element: item }">
-        <div class="card" :class="{ 'card--hidden': item.hidden }" :data-item-id="item.id" @click="emit('click-entry', item.id)">
+        <div class="card" :class="{ 'card--hidden': item.hidden }" :data-item-id="item.id" :data-flip-id="item.id" @click="emit('click-entry', item.id)">
           <span class="card__drag-handle">
             <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
           </span>
@@ -78,9 +78,11 @@ import BaseInput from '@/components/common/BaseInput.vue'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { ScrollContainerKey } from '../scrollContainerKey'
+import { useFlipAnimation } from '@/composables/useFlipAnimation'
 
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
+const flipCards = useFlipAnimation(() => scrollContainer?.value, '.card')
 const { saveTitle, getSectionTitle } = useSectionTitle()
 const emit = defineEmits<{ 'click-entry': [itemId: string] }>()
 const confirmDeleteId = ref<string | null>(null)
