@@ -2,15 +2,10 @@
   <div class="resume-document resume--sidebar" :style="ctx.sidebarCSSVars.value">
     <SidebarAside @click-section="$emit('click-section', $event)" />
     <main class="sidebar__right">
-      <template v-for="sectionId in ctx.sidebarContentSections.value" :key="sectionId">
-        <SidebarSummarySection v-if="sectionId === 'summary'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-        <SidebarWorkSection v-else-if="sectionId === 'work'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-        <SidebarEducationSection v-else-if="sectionId === 'education'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-        <SidebarProjectsSection v-else-if="sectionId === 'projects'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-        <SidebarEvaluationSection v-else-if="sectionId === 'evaluation'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-        <SidebarCustomTextSection v-else-if="sectionId.startsWith('customText_')" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-        <SidebarCustomCardSection v-else-if="sectionId.startsWith('customCard_')" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      </template>
+      <AnimatedSidebarSectionList
+        :sections="ctx.sidebarContentSections.value"
+        @click-section="$emit('click-section', $event)"
+      />
     </main>
   </div>
 </template>
@@ -21,13 +16,7 @@ import type { Resume } from '@/types/resume'
 import { useResumeDocument } from '../shared/useResumeDocument'
 import { ResumeDocumentKey } from '../shared/ResumeDocumentKey'
 import SidebarAside from './sections/SidebarAside.vue'
-import SidebarSummarySection from './sections/SidebarSummarySection.vue'
-import SidebarWorkSection from './sections/SidebarWorkSection.vue'
-import SidebarEducationSection from './sections/SidebarEducationSection.vue'
-import SidebarProjectsSection from './sections/SidebarProjectsSection.vue'
-import SidebarEvaluationSection from './sections/SidebarEvaluationSection.vue'
-import SidebarCustomTextSection from './sections/SidebarCustomTextSection.vue'
-import SidebarCustomCardSection from './sections/SidebarCustomCardSection.vue'
+import AnimatedSidebarSectionList from '../shared/AnimatedSidebarSectionList.vue'
 
 const props = defineProps<{ resume: Resume }>()
 defineEmits<{ 'click-section': [tabId: string] }>()

@@ -8,6 +8,8 @@
         handle=".nav-item__drag-handle"
         :animation="200"
         ghost-class="nav-item--ghost"
+        chosen-class="nav-item--chosen"
+        drag-class="nav-item--drag"
       >
         <template #item="{ element: item }">
           <div
@@ -375,9 +377,28 @@ const removeSection = (sectionId: string) => {
     }
   }
 
+  &--chosen {
+    box-shadow: $shadow-md;
+    transform: scale(1.02);
+    z-index: 10;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.2s ease;
+  }
+
+  &--drag {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),
+                0 0 20px rgba($primary-color, 0.3);
+    transform: scale(1.05);
+    z-index: 100;
+    opacity: 0.95;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.15s ease;
+  }
+
   &--ghost {
-    opacity: 0.5;
+    opacity: 0.3;
     border: 1px dashed $primary-color;
+    background: rgba($primary-color, 0.05);
   }
 
   &--basic {

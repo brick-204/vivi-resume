@@ -67,6 +67,8 @@
         handle=".field-item__drag-handle"
         :animation="200"
         ghost-class="field-item--ghost"
+        chosen-class="field-item--chosen"
+        drag-class="field-item--drag"
         class="fields-grid"
       >
         <template #item="{ element }">
@@ -548,8 +550,25 @@ const removeCustomField = (id: string) => {
     // 固定字段无拖拽手柄
   }
 
+  &--chosen {
+    box-shadow: $shadow-sm;
+    transform: scale(1.02);
+    z-index: 10;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.2s ease;
+  }
+
+  &--drag {
+    box-shadow: $shadow-lg;
+    transform: scale(1.04);
+    z-index: 100;
+    opacity: 0.95;
+    transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.15s ease;
+  }
+
   &--ghost {
-    opacity: 0.5;
+    opacity: 0.3;
     background: rgba($primary-color, 0.05);
     border: 1px dashed $primary-color;
   }

@@ -64,8 +64,6 @@
     display: flex;
     justify-content: center;
     color: $text-light;
-    opacity: 0;
-    transition: opacity 0.15s;
     cursor: grab;
     padding: 0 $spacing-xs;
 
@@ -74,13 +72,25 @@
     }
   }
 
-  .card:hover .card__drag-handle {
-    opacity: 1;
+  .card--chosen {
+    box-shadow: $shadow-lg, 0 0 20px rgba($primary-color, 0.2);
+    transform: scale(1.01);
+    z-index: 10;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.2s ease;
   }
 
-  .card--dragging {
-    opacity: 0.5;
+  .card--drag {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),
+                0 0 30px rgba($primary-color, 0.25);
+    z-index: 100;
+    opacity: 0.95;
+  }
+
+  .card--ghost {
+    opacity: 0.3;
     border: 1px dashed $primary-color;
+    background: rgba($primary-color, 0.03);
   }
 }
 

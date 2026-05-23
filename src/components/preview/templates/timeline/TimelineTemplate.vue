@@ -1,16 +1,10 @@
 <template>
   <div class="resume-document resume--timeline" :style="ctx.templateCSSVars.value">
     <BasicHeader @click-section="$emit('click-section', $event)" />
-    <template v-for="sectionId in ctx.contentSections.value" :key="sectionId">
-      <SummarySection v-if="sectionId === 'summary'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <WorkSection v-else-if="sectionId === 'work'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <EducationSection v-else-if="sectionId === 'education'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <ProjectsSection v-else-if="sectionId === 'projects'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <SkillsSection v-else-if="sectionId === 'skills'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <EvaluationSection v-else-if="sectionId === 'evaluation'" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <CustomTextSection v-else-if="sectionId.startsWith('customText_')" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-      <CustomCardSection v-else-if="sectionId.startsWith('customCard_')" :section-id="sectionId" @click-section="$emit('click-section', $event)" />
-    </template>
+    <AnimatedSectionList
+      :sections="ctx.contentSections.value"
+      @click-section="$emit('click-section', $event)"
+    />
   </div>
 </template>
 
@@ -20,14 +14,7 @@ import type { Resume } from '@/types/resume'
 import { useResumeDocument } from '../shared/useResumeDocument'
 import { ResumeDocumentKey } from '../shared/ResumeDocumentKey'
 import BasicHeader from '../shared/sections/BasicHeader.vue'
-import SummarySection from '../shared/sections/SummarySection.vue'
-import WorkSection from '../shared/sections/WorkSection.vue'
-import EducationSection from '../shared/sections/EducationSection.vue'
-import ProjectsSection from '../shared/sections/ProjectsSection.vue'
-import SkillsSection from '../shared/sections/SkillsSection.vue'
-import EvaluationSection from '../shared/sections/EvaluationSection.vue'
-import CustomTextSection from '../shared/sections/CustomTextSection.vue'
-import CustomCardSection from '../shared/sections/CustomCardSection.vue'
+import AnimatedSectionList from '../shared/AnimatedSectionList.vue'
 
 const props = defineProps<{ resume: Resume }>()
 defineEmits<{ 'click-section': [tabId: string] }>()

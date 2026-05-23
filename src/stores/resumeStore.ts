@@ -36,12 +36,24 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
-  // 保存到 localStorage
-  const saveToStorage = () => {
+  // 防抖写入
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+  // 立即写入 localStorage（用于创建/删除等不可丢失操作）
+  const saveToStorageNow = () => {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(resumeList.value))
     if (currentResume.value) {
       localStorage.setItem(CURRENT_RESUME_KEY, JSON.stringify(currentResume.value))
     }
+  }
+
+  // 防抖写入 localStorage（用于拖拽等高频操作）
+  const saveToStorage = () => {
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveToStorageNow()
+    }, 300)
   }
 
   // 创建新简历
@@ -49,7 +61,7 @@ export const useResumeStore = defineStore('resume', () => {
     const newResume = createEmptyResume()
     resumeList.value.push(newResume)
     currentResume.value = newResume
-    saveToStorage()
+    saveToStorageNow()
     return newResume.id
   }
 
@@ -97,13 +109,12 @@ export const useResumeStore = defineStore('resume', () => {
       if (currentResume.value?.id === id) {
         currentResume.value = null
       }
-      saveToStorage()
+      saveToStorageNow()
     }
   }
 
   // 导出 JSON
   const exportToJSON = (): string | null => {
-    if (!currentResume.value) return null
     return JSON.stringify(currentResume.value, null, 2)
   }
 
@@ -115,7 +126,7 @@ export const useResumeStore = defineStore('resume', () => {
       data.createdAt = new Date().toISOString()
       data.updatedAt = new Date().toISOString()
       resumeList.value.push(data)
-      saveToStorage()
+      saveToStorageNow()
       return true
     } catch (e) {
       console.error('Failed to import resume:', e)

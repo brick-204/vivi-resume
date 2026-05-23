@@ -13,56 +13,58 @@
       <span>暂无内容，点击下方按钮添加</span>
     </div>
 
-    <div v-else class="section__list">
-      <div v-for="(item, index) in items" :key="item.id" class="card" :class="{ 'card--hidden': item.hidden, 'card--dragging': draggingIndex === index }" draggable="true" @dragstart="handleDragStart(index, $event)" @dragover="handleDragOver(index, $event)" @drop="handleDrop(index, $event)" @dragend="handleDragEnd">
-        <span class="card__drag-handle">
-          <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
-        </span>
-        <div class="card__header">
-          <span class="card__name">{{ item.name || '未填写名称' }}</span>
-          <div class="card__actions">
-            <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click="item.hidden = !item.hidden">
-              <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
-            </button>
-            <button class="card__delete" aria-label="删除" @click="confirmDeleteId = item.id">
-              <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-            </button>
-            <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click="toggleCollapse(item.id)">
-              <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />
-            </button>
+    <draggable v-else v-model="items" item-key="id" handle=".card__drag-handle" :animation="200" ghost-class="card--ghost" chosen-class="card--chosen" drag-class="card--drag" class="section__list">
+      <template #item="{ element: item }">
+        <div class="card" :class="{ 'card--hidden': item.hidden }">
+          <span class="card__drag-handle">
+            <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
+          </span>
+          <div class="card__header">
+            <span class="card__name">{{ item.name || '未填写名称' }}</span>
+            <div class="card__actions">
+              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click="item.hidden = !item.hidden">
+                <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
+              </button>
+              <button class="card__delete" aria-label="删除" @click="confirmDeleteId = item.id">
+                <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+              </button>
+              <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click="toggleCollapse(item.id)">
+                <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />
+              </button>
+            </div>
           </div>
-        </div>
-        <div v-show="!collapsedIds.has(item.id)" class="card__form">
-          <div class="form__row">
-            <BaseInput v-model="item.name" label="名称" placeholder="请输入名称" />
-            <BaseInput v-model="item.role" label="角色" placeholder="如：负责人" />
-          </div>
-          <div class="form__row">
-            <BaseInput v-model="item.startDate" label="开始时间" type="month" />
-            <div class="date-field">
-              <BaseInput :model-value="item.endDate === '至今' ? '' : item.endDate" @update:model-value="item.endDate = $event" label="结束时间" type="month" :disabled="item.endDate === '至今'" />
-              <div class="date-field__present">
-                <input type="checkbox" :checked="item.endDate === '至今'" @change="item.endDate = ($event.target as HTMLInputElement).checked ? '至今' : ''" />
-                至今
+          <div v-show="!collapsedIds.has(item.id)" class="card__form">
+            <div class="form__row">
+              <BaseInput v-model="item.name" label="名称" placeholder="请输入名称" />
+              <BaseInput v-model="item.role" label="角色" placeholder="如：负责人" />
+            </div>
+            <div class="form__row">
+              <BaseInput v-model="item.startDate" label="开始时间" type="month" />
+              <div class="date-field">
+                <BaseInput :model-value="item.endDate === '至今' ? '' : item.endDate" @update:model-value="item.endDate = $event" label="结束时间" type="month" :disabled="item.endDate === '至今'" />
+                <div class="date-field__present">
+                  <input type="checkbox" :checked="item.endDate === '至今'" @change="item.endDate = ($event.target as HTMLInputElement).checked ? '至今' : ''" />
+                  至今
+                </div>
+              </div>
+            </div>
+            <RichTextEditor v-model="item.description" label="描述" placeholder="描述内容..." :rows="3" />
+            <div class="keyword-section">
+              <label class="keyword__label">关键词</label>
+              <div class="keyword__input-wrap">
+                <input v-model="newKeyword" class="keyword__input" placeholder="输入关键词后按回车添加" @keydown.enter.prevent="addKeyword(item)" />
+              </div>
+              <div class="keyword__list">
+                <span v-for="(kw, index) in item.keywords" :key="index" class="keyword__tag">
+                  {{ kw }}
+                  <button class="keyword__remove" @click="removeKeyword(item, index)">×</button>
+                </span>
               </div>
             </div>
           </div>
-          <RichTextEditor v-model="item.description" label="描述" placeholder="描述内容..." :rows="3" />
-          <div class="keyword-section">
-            <label class="keyword__label">关键词</label>
-            <div class="keyword__input-wrap">
-              <input v-model="newKeyword" class="keyword__input" placeholder="输入关键词后按回车添加" @keydown.enter.prevent="addKeyword(item)" />
-            </div>
-            <div class="keyword__list">
-              <span v-for="(kw, index) in item.keywords" :key="index" class="keyword__tag">
-                {{ kw }}
-                <button class="keyword__remove" @click="removeKeyword(item, index)">×</button>
-              </span>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </draggable>
 
     <BaseModal :visible="confirmDeleteId !== null" title="确认删除" size="sm" @close="confirmDeleteId = null">
       <p>确定要删除这条记录吗？此操作不可撤销。</p>
@@ -78,7 +80,7 @@
 import { computed, ref } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useSectionTitle } from '@/composables/useSectionTitle'
-import { useCardDrag } from '@/composables/useCardDrag'
+import draggable from 'vuedraggable'
 import { generateId } from '@/types/resume'
 import type { CustomCardItem } from '@/types/resume'
 import { TRASH_ICON, LIST_BOX_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from '@/components/icons/SectionIcons'
@@ -117,8 +119,6 @@ const items = computed({
     store.updateCurrentResume({ customCards: cards })
   }
 })
-
-const { draggingIndex, handleDragStart, handleDragOver, handleDrop, handleDragEnd } = useCardDrag(items)
 
 const addItem = () => {
   if (sectionIndex.value < 0) return
