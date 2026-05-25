@@ -4,6 +4,12 @@ import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomS
 import { getTemplate } from '@/config/templates'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import { normalizeContent } from '@/utils/normalizeContent'
+import {
+  deriveSectionTitleColor, deriveTagBg, deriveTagColor, deriveTagBorder,
+  deriveDecorativeLine, deriveEntryDateBg, deriveEntryDateBorder,
+  deriveSidebarBg, deriveSidebarText, deriveSidebarTitleColor,
+  deriveSidebarFieldColor, deriveSidebarHighlightDot, deriveHeaderBg,
+} from '@/utils/colorUtils'
 
 export function useResumeDocument(getResume: () => Resume, templateId: string) {
   const resume = computed(getResume)
@@ -32,36 +38,54 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
 
   const templateCSSVars = computed(() => {
     const t = getTemplate(templateId)
+    const accent = resume.value.themeAccentColor || t.style.accentColor
+    const userAccent = resume.value.themeAccentColor
+    const hasColoredHeader = t.style.headerLayout === 'two-column'
     return {
-      '--t-header-bg': t.style.headerBg,
-      '--t-header-text': t.style.headerTextColor,
-      '--t-accent': t.style.accentColor,
-      '--t-section-title': t.style.sectionTitleColor,
+      '--t-header-bg': (userAccent && hasColoredHeader) ? deriveHeaderBg(userAccent) : t.style.headerBg,
+      '--t-header-text': (userAccent && hasColoredHeader) ? '#ffffff' : t.style.headerTextColor,
+      '--t-accent': accent,
+      '--t-section-title': userAccent ? deriveSectionTitleColor(userAccent) : t.style.sectionTitleColor,
       '--t-text': t.style.textColor,
       '--t-text-secondary': t.style.textSecondaryColor,
       '--t-radius': t.style.sectionBorderRadius,
-      '--t-tag-bg': t.style.tagBg,
-      '--t-tag-color': t.style.tagColor,
-      '--t-tag-border': t.style.tagBorder
+      '--t-tag-bg': userAccent ? deriveTagBg(userAccent) : t.style.tagBg,
+      '--t-tag-color': userAccent ? deriveTagColor(userAccent) : t.style.tagColor,
+      '--t-tag-border': userAccent ? deriveTagBorder(userAccent) : t.style.tagBorder,
+      '--t-line': userAccent ? deriveDecorativeLine(userAccent) : '#e8e8f0',
+      '--t-date-bg': userAccent ? deriveEntryDateBg(userAccent) : 'rgba(124, 92, 252, 0.08)',
+      '--t-date-border': userAccent ? deriveEntryDateBorder(userAccent) : 'rgba(124, 92, 252, 0.15)',
     }
   })
 
   const sidebarCSSVars = computed(() => {
     const t = getTemplate('sidebar')
+    const accent = resume.value.themeAccentColor || t.style.accentColor
+    const userAccent = resume.value.themeAccentColor
+    const lineColor = userAccent ? deriveDecorativeLine(userAccent) : '#e8e8f0'
+    const sidebarText = userAccent ? deriveSidebarText(userAccent) : (t.style.sidebarTextColor || '#1e3a5f')
     return {
-      '--sidebar-bg': t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)',
-      '--sidebar-text': t.style.sidebarTextColor || '#1e3a5f',
-      '--sidebar-accent': t.style.accentColor,
+      '--sidebar-bg': userAccent ? deriveSidebarBg(userAccent) : (t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)'),
+      '--sidebar-text': sidebarText,
+      '--sidebar-accent': accent,
+      '--sidebar-name-color': sidebarText,
+      '--sidebar-title-color': userAccent ? deriveSidebarTitleColor(userAccent) : '#3b6ba5',
+      '--sidebar-field-color': userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e',
+      '--sidebar-entry-border': userAccent ? deriveDecorativeLine(userAccent) : '#f0f0f5',
+      '--sidebar-highlight-dot': userAccent ? deriveSidebarHighlightDot(userAccent) : '#93c5fd',
       '--t-header-bg': t.style.headerBg,
       '--t-header-text': t.style.headerTextColor,
-      '--t-accent': t.style.accentColor,
-      '--t-section-title': t.style.sectionTitleColor,
+      '--t-accent': accent,
+      '--t-section-title': userAccent ? deriveSectionTitleColor(userAccent) : t.style.sectionTitleColor,
       '--t-text': t.style.textColor,
       '--t-text-secondary': t.style.textSecondaryColor,
       '--t-radius': t.style.sectionBorderRadius,
-      '--t-tag-bg': t.style.tagBg,
-      '--t-tag-color': t.style.tagColor,
-      '--t-tag-border': t.style.tagBorder
+      '--t-tag-bg': userAccent ? deriveTagBg(userAccent) : t.style.tagBg,
+      '--t-tag-color': userAccent ? deriveTagColor(userAccent) : t.style.tagColor,
+      '--t-tag-border': userAccent ? deriveTagBorder(userAccent) : t.style.tagBorder,
+      '--t-line': lineColor,
+      '--t-date-bg': userAccent ? deriveEntryDateBg(userAccent) : 'rgba(124, 92, 252, 0.08)',
+      '--t-date-border': userAccent ? deriveEntryDateBorder(userAccent) : 'rgba(124, 92, 252, 0.15)',
     }
   })
 

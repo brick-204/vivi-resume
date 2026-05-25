@@ -86,14 +86,14 @@ provide(ResumeDocumentKey, ctx)
 :deep(.sidebar__name) {
   font-size: 18px;
   font-weight: 800;
-  color: #1e3a5f;
+  color: var(--sidebar-name-color);
   margin-bottom: 4px;
   letter-spacing: 0.02em;
 }
 
 :deep(.sidebar__title) {
   font-size: 12px;
-  color: #3b6ba5;
+  color: var(--sidebar-title-color);
   font-weight: 500;
 }
 
@@ -109,7 +109,7 @@ provide(ResumeDocumentKey, ctx)
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: #2d5a8e;
+  color: var(--sidebar-field-color);
   word-break: break-all;
   position: relative;
 }
@@ -117,11 +117,11 @@ provide(ResumeDocumentKey, ctx)
 :deep(.sidebar__field-icon) {
   display: flex;
   flex-shrink: 0;
-  color: #3b82f6;
+  color: var(--sidebar-accent);
 }
 
 :deep(.sidebar__field-label) {
-  color: #2d5a8e;
+  color: var(--sidebar-field-color);
   font-weight: 500;
 
   &::after {
@@ -131,7 +131,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__field-value) {
-  color: #1e3a5f;
+  color: var(--sidebar-name-color);
 }
 
 :deep(.sidebar__section-title) {
@@ -139,7 +139,7 @@ provide(ResumeDocumentKey, ctx)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #1e3a5f;
+  color: var(--sidebar-name-color);
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -149,13 +149,13 @@ provide(ResumeDocumentKey, ctx)
 :deep(.sidebar__section-line) {
   width: 16px;
   height: 2px;
-  background: #3b82f6;
+  background: var(--sidebar-accent);
   border-radius: 1px;
 }
 
 :deep(.sidebar__skill-text) {
   font-size: 11px;
-  color: #1e3a5f;
+  color: var(--sidebar-name-color);
   line-height: 1.8;
 
   @include rich-text-content;
@@ -182,13 +182,13 @@ provide(ResumeDocumentKey, ctx)
 :deep(.main__section-title) {
   font-size: 14px;
   font-weight: 700;
-  color: #1e3a5f;
+  color: var(--sidebar-name-color);
   padding-bottom: 8px;
   margin-bottom: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  border-bottom: 2px solid #3b82f6;
+  border-bottom: 2px solid var(--sidebar-accent);
   position: relative;
 }
 
@@ -196,7 +196,7 @@ provide(ResumeDocumentKey, ctx)
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--sidebar-accent);
 }
 
 :deep(.main__section-text) {
@@ -210,7 +210,7 @@ provide(ResumeDocumentKey, ctx)
 :deep(.main__entry) {
   margin-top: 12px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f5;
+  border-bottom: 1px solid var(--sidebar-entry-border);
 
   &:last-child {
     border-bottom: none;
@@ -245,7 +245,7 @@ provide(ResumeDocumentKey, ctx)
 :deep(.main__entry-date) {
   font-size: 10px;
   color: #ffffff;
-  background: #3b82f6;
+  background: var(--sidebar-accent);
   padding: 2px 10px;
   border-radius: 10px;
   white-space: nowrap;
@@ -286,7 +286,7 @@ provide(ResumeDocumentKey, ctx)
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: #93c5fd;
+    background: var(--sidebar-highlight-dot);
   }
 }
 
@@ -299,11 +299,11 @@ provide(ResumeDocumentKey, ctx)
 
 :deep(.main__tech-tag) {
   padding: 2px 10px;
-  background: rgba(59, 130, 246, 0.08);
-  color: #3b82f6;
+  background: var(--t-tag-bg);
+  color: var(--t-tag-color);
   border-radius: 12px;
   font-size: 10px;
   font-weight: 500;
-  border: 1px solid rgba(59, 130, 246, 0.15);
+  border: 1px solid var(--t-tag-border);
 }
 </style>

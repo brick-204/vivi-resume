@@ -106,6 +106,7 @@ export interface Resume {
   id: string
   title: string
   templateId: string
+  themeAccentColor?: string
   basicInfo: BasicInfo
   workExperience: WorkItem[]
   education: EducationItem[]

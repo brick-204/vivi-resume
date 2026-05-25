@@ -60,9 +60,9 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.entry__date) {
-    background: rgba(249, 115, 22, 0.1);
+    background: var(--t-date-bg);
     color: var(--t-accent);
-    border-color: rgba(249, 115, 22, 0.2);
+    border-color: var(--t-date-border);
     font-weight: 600;
   }
 }

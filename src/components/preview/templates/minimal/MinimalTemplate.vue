@@ -67,7 +67,7 @@ provide(ResumeDocumentKey, ctx)
     flex-direction: column;
     gap: 0;
     padding-bottom: $spacing-md;
-    border-bottom: 1px solid #e8e8f0;
+    border-bottom: 1px solid var(--t-line, #e8e8f0);
   }
 
   :deep(.entry__timeline) {

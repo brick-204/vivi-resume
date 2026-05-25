@@ -188,7 +188,7 @@
       left: 0;
       width: 100%;
       height: 1px;
-      background: #e8e8f0;
+      background: var(--t-line, #e8e8f0);
     }
   }
 
@@ -271,9 +271,9 @@
     font-size: $font-size-xs;
     color: var(--t-text-secondary);
     padding: $spacing-xs $spacing-sm;
-    background: rgba(124, 92, 252, 0.08);
+    background: var(--t-date-bg, rgba(124, 92, 252, 0.08));
     border-radius: $radius-sm;
-    border: 1px solid rgba(124, 92, 252, 0.15);
+    border: 1px solid var(--t-date-border, rgba(124, 92, 252, 0.15));
   }
 
   .entry__desc {
@@ -317,7 +317,7 @@
   .timeline__line {
     width: 1px;
     height: 100%;
-    background: #e8e8f0;
+    background: var(--t-line, #e8e8f0);
     flex: 1;
     min-height: 20px;
   }
