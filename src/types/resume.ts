@@ -33,6 +33,8 @@ export interface BasicInfo {
   customFields: CustomField[]
   fieldOrder: string[]
   fieldDisplayMode: Record<string, FieldDisplayMode>
+  photoShape?: 'circle' | 'rectangle'
+  photoOriginal?: string
 }
 
 // 工作经历
@@ -107,6 +109,8 @@ export interface Resume {
   title: string
   templateId: string
   themeAccentColor?: string
+  whiteHeaderText?: boolean
+  iconFollowAccent?: boolean
   basicInfo: BasicInfo
   workExperience: WorkItem[]
   education: EducationItem[]

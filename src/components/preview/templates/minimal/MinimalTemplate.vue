@@ -45,7 +45,7 @@ provide(ResumeDocumentKey, ctx)
 
   :deep(.header__title) {
     font-weight: 400;
-    color: var(--t-text-secondary);
+    color: var(--t-header-title-color);
   }
 
   :deep(.section__title) {

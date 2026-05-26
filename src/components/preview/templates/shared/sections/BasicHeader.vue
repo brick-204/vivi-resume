@@ -1,7 +1,7 @@
 <template>
   <header class="resume__header" data-section="basic" @click="emit('click-section', 'basic')">
     <!-- 头像 -->
-    <div v-if="ctx.resume.basicInfo.photo && ctx.isFieldVisible('photo')" class="header__photo">
+    <div v-if="ctx.resume.basicInfo.photo && ctx.isFieldVisible('photo')" class="header__photo" :class="{ 'header__photo--rectangle': ctx.resume.basicInfo.photoShape === 'rectangle' }">
       <img :src="ctx.resume.basicInfo.photo" :alt="ctx.resume.basicInfo.name" class="header__photo-img" />
     </div>
     <h1 v-if="ctx.resume.basicInfo.name && ctx.isFieldVisible('name')" class="header__name">{{ ctx.resume.basicInfo.name }}</h1>

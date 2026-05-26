@@ -49,12 +49,7 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.header__name) {
-    color: var(--t-header-text);
     font-size: $font-size-2xl;
-  }
-
-  :deep(.header__title) {
-    color: rgba(255, 255, 255, 0.85);
   }
 
   :deep(.header__fields) {
@@ -64,12 +59,7 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.header__field) {
-    color: rgba(255, 255, 255, 0.8);
     font-size: $font-size-xs;
-  }
-
-  :deep(.header__field-icon) {
-    color: rgba(255, 255, 255, 0.9);
   }
 
   :deep(.resume__section:first-child) {

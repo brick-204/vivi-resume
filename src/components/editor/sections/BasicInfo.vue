@@ -10,6 +10,12 @@
     </div>
 
     <div class="section__form">
+      <!-- 显示控制 -->
+      <div class="display-controls">
+        <BaseCheckbox v-model="whiteHeaderText">白色文字</BaseCheckbox>
+        <BaseSwitch v-model="iconFollowAccent">图标跟随主题色</BaseSwitch>
+      </div>
+
       <!-- 头像（始终在顶部，不参与拖拽） -->
       <div class="field-row" v-if="isFieldInOrder('photo')">
         <div class="field-row__label">
@@ -21,11 +27,22 @@
           </div>
         </div>
         <div class="photo-upload">
-          <div v-if="basicInfo.photo" class="photo-preview">
-            <img :src="basicInfo.photo" alt="头像预览" />
-            <button class="photo-delete" @click="basicInfo.photo = ''">
-              <Icon :icon="TRASH_ICON" :width="16" :height="16" />
-            </button>
+          <div v-if="basicInfo.photo" class="photo-row">
+            <div class="photo-preview" :class="basicInfo.photoShape === 'rectangle' ? 'photo-preview--rectangle' : 'photo-preview--circle'">
+              <img :src="basicInfo.photo" alt="头像预览" />
+            </div>
+            <div class="photo-actions">
+              <label class="photo-action" title="重新上传">
+                <input type="file" accept="image/*" class="photo-input" @change="handlePhotoUpload" />
+                <Icon icon="mdi:upload-outline" :width="16" :height="16" />
+              </label>
+              <button class="photo-action" title="编辑" @click="openPhotoEditor">
+                <Icon icon="mdi:pencil-outline" :width="16" :height="16" />
+              </button>
+              <button class="photo-action photo-action--danger" title="删除" @click="deletePhoto">
+                <Icon :icon="TRASH_ICON" :width="16" :height="16" />
+              </button>
+            </div>
           </div>
           <label v-else class="photo-placeholder">
             <input type="file" accept="image/*" class="photo-input" @change="handlePhotoUpload" />
@@ -121,15 +138,27 @@
         <span>添加自定义字段</span>
       </button>
     </div>
+
+    <PhotoEditor
+      v-if="editingPhotoSrc"
+      :visible="showPhotoEditor"
+      :image-src="editingPhotoSrc"
+      :current-shape="basicInfo.photoShape"
+      @close="showPhotoEditor = false; editingPhotoSrc = ''"
+      @confirm="handlePhotoEditorConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
+import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
+import BaseSwitch from '@/components/common/BaseSwitch.vue'
+import PhotoEditor from './PhotoEditor.vue'
 import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
 import type { BasicInfo, CustomField, FieldDisplayMode } from '@/types/resume'
@@ -139,6 +168,20 @@ import { useFlipAnimation } from '@/composables/useFlipAnimation'
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
 const flipFields = useFlipAnimation(() => scrollContainer?.value, '.field-item')
+
+const showPhotoEditor = ref(false)
+const editingPhotoSrc = ref('')
+
+// ---- 基本信息显示控制 ----
+const whiteHeaderText = computed({
+  get: () => store.currentResume?.whiteHeaderText ?? false,
+  set: (val) => store.updateCurrentResume({ whiteHeaderText: val }),
+})
+
+const iconFollowAccent = computed({
+  get: () => store.currentResume?.iconFollowAccent ?? false,
+  set: (val) => store.updateCurrentResume({ iconFollowAccent: val }),
+})
 
 const basicInfo = computed({
   get: () => store.currentResume?.basicInfo ?? createEmptyResume().basicInfo,
@@ -310,7 +353,6 @@ const toggleFieldVisibility = (field: string) => {
 }
 
 const handlePhotoUpload = (event: Event) => {
-  if (!basicInfo.value) return
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
@@ -321,10 +363,47 @@ const handlePhotoUpload = (event: Event) => {
   }
   const reader = new FileReader()
   reader.onload = (e) => {
-    basicInfo.value = { ...basicInfo.value, photo: e.target?.result as string }
+    compressAndOpenEditor(e.target?.result as string)
   }
   reader.readAsDataURL(file)
   input.value = ''
+}
+
+const compressAndOpenEditor = (dataUrl: string) => {
+  const image = new Image()
+  image.onload = () => {
+    const maxDim = 800
+    let { width, height } = image
+    if (width > maxDim || height > maxDim) {
+      const ratio = Math.min(maxDim / width, maxDim / height)
+      width = Math.round(width * ratio)
+      height = Math.round(height * ratio)
+    }
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(image, 0, 0, width, height)
+    editingPhotoSrc.value = canvas.toDataURL('image/jpeg', 0.85)
+    showPhotoEditor.value = true
+  }
+  image.src = dataUrl
+}
+
+const openPhotoEditor = () => {
+  editingPhotoSrc.value = basicInfo.value?.photoOriginal || basicInfo.value?.photo || ''
+  if (!editingPhotoSrc.value) return
+  showPhotoEditor.value = true
+}
+
+const handlePhotoEditorConfirm = (result: { photo: string; photoShape: 'circle' | 'rectangle' }) => {
+  basicInfo.value = { ...basicInfo.value, photo: result.photo, photoShape: result.photoShape, photoOriginal: editingPhotoSrc.value }
+  showPhotoEditor.value = false
+  editingPhotoSrc.value = ''
+}
+
+const deletePhoto = () => {
+  basicInfo.value = { ...basicInfo.value, photo: '', photoShape: undefined, photoOriginal: undefined }
 }
 
 const addCustomField = () => {
@@ -463,13 +542,27 @@ const removeCustomField = (id: string) => {
   width: 100%;
 }
 
+.photo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-sm;
+}
+
 .photo-preview {
-  position: relative;
   width: 80px;
   height: 80px;
-  border-radius: $radius-lg;
   overflow: hidden;
-  border: 2px solid $border-glass;
+  flex-shrink: 0;
+
+  &--circle {
+    border-radius: 50%;
+  }
+
+  &--rectangle {
+    width: 60px;
+    height: 80px;
+    border-radius: 0;
+  }
 
   img {
     width: 100%;
@@ -478,25 +571,36 @@ const removeCustomField = (id: string) => {
   }
 }
 
-.photo-delete {
-  position: absolute;
-  top: 4px;
-  right: 4px;
+.photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.photo-action {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: rgba($error-color, 0.8);
-  color: white;
-  border: none;
-  border-radius: $radius-full;
+  width: 28px;
+  height: 28px;
+  background: $bg-glass;
+  border: 1px solid $border-glass;
+  border-radius: $radius-sm;
+  color: $text-secondary;
   cursor: pointer;
   transition: all $transition-fast;
+  padding: 0;
 
   &:hover {
-    background: $error-color;
-    transform: scale(1.1);
+    border-color: rgba($primary-color, 0.4);
+    color: $text-primary;
+    background: rgba($primary-color, 0.08);
+  }
+
+  &--danger:hover {
+    border-color: rgba($error-color, 0.4);
+    color: $error-color;
+    background: rgba($error-color, 0.08);
   }
 }
 
@@ -637,5 +741,16 @@ const removeCustomField = (id: string) => {
   &:focus {
     border-bottom-color: $primary-color;
   }
+}
+
+.display-controls {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-sm;
+  background: $bg-glass;
+  border-radius: $radius-lg;
+  border: 1px solid $border-glass;
+  width: fit-content;
 }
 </style>

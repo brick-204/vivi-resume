@@ -61,22 +61,26 @@ provide(ResumeDocumentKey, ctx)
   height: 100px;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.4);
+}
+
+:deep(.sidebar__photo--rectangle) {
+  width: 75px;
+  height: 100px;
+  border-radius: 0;
 }
 
 :deep(.sidebar__photo-img) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
 }
 
 :deep(.sidebar__photo-placeholder) {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(0, 0, 0, 0.25);
 }
 
 :deep(.sidebar__identity) {
@@ -117,7 +121,7 @@ provide(ResumeDocumentKey, ctx)
 :deep(.sidebar__field-icon) {
   display: flex;
   flex-shrink: 0;
-  color: var(--sidebar-accent);
+  color: var(--sidebar-icon-color);
 }
 
 :deep(.sidebar__field-label) {

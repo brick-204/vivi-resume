@@ -133,15 +133,6 @@ export function deriveSidebarText(accent: string): string {
   return rgba(derived.r, derived.g, derived.b, 1)
 }
 
-// 侧边栏职位色 — 中间亮度的去饱和变体
-export function deriveSidebarTitleColor(accent: string): string {
-  const parsed = parseAccentColor(accent)
-  if (!parsed) return '#3b6ba5'
-  const hsl = rgbToHsl(parsed.r, parsed.g, parsed.b)
-  const derived = hslToRgb(hsl.h, hsl.s * 0.7, 0.35)
-  return rgba(derived.r, derived.g, derived.b, 1)
-}
-
 // 侧边栏字段色 — 中间偏暗的去饱和变体
 export function deriveSidebarFieldColor(accent: string): string {
   const parsed = parseAccentColor(accent)

@@ -46,7 +46,7 @@ provide(ResumeDocumentKey, ctx)
 
   :deep(.header__title) {
     font-weight: 400;
-    color: var(--t-accent);
+    color: var(--t-header-title-color);
     font-style: italic;
   }
 

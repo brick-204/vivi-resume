@@ -40,22 +40,6 @@ provide(ResumeDocumentKey, ctx)
     &::after { display: none; }
   }
 
-  :deep(.header__name) {
-    color: var(--t-header-text);
-  }
-
-  :deep(.header__title) {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  :deep(.header__field) {
-    color: rgba(255, 255, 255, 0.8);
-  }
-
-  :deep(.header__field-icon) {
-    color: rgba(255, 255, 255, 0.9);
-  }
-
   :deep(.resume__section) {
     background: rgba(0, 0, 0, 0.02);
     border: 1px solid rgba(0, 0, 0, 0.06);

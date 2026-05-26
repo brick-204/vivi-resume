@@ -7,7 +7,7 @@ import { normalizeContent } from '@/utils/normalizeContent'
 import {
   deriveSectionTitleColor, deriveTagBg, deriveTagColor, deriveTagBorder,
   deriveDecorativeLine, deriveEntryDateBg, deriveEntryDateBorder,
-  deriveSidebarBg, deriveSidebarText, deriveSidebarTitleColor,
+  deriveSidebarBg, deriveSidebarText,
   deriveSidebarFieldColor, deriveSidebarHighlightDot, deriveHeaderBg,
 } from '@/utils/colorUtils'
 
@@ -41,9 +41,15 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const accent = resume.value.themeAccentColor || t.style.accentColor
     const userAccent = resume.value.themeAccentColor
     const hasColoredHeader = t.style.headerLayout === 'two-column'
+    const whiteHeaderText = resume.value.whiteHeaderText ?? false
+    const iconFollowAccent = resume.value.iconFollowAccent ?? false
+    const effectiveWhiteHeader = whiteHeaderText || (userAccent && hasColoredHeader)
     return {
       '--t-header-bg': (userAccent && hasColoredHeader) ? deriveHeaderBg(userAccent) : t.style.headerBg,
-      '--t-header-text': (userAccent && hasColoredHeader) ? '#ffffff' : t.style.headerTextColor,
+      '--t-header-text': effectiveWhiteHeader ? '#ffffff' : t.style.headerTextColor,
+      '--t-header-title-color': effectiveWhiteHeader ? '#ffffff' : t.style.headerTextColor,
+      '--t-header-field-text': effectiveWhiteHeader ? 'rgba(255,255,255,0.85)' : t.style.textSecondaryColor,
+      '--t-header-icon-color': iconFollowAccent ? accent : (effectiveWhiteHeader ? 'rgba(255,255,255,0.7)' : '#9ca3af'),
       '--t-accent': accent,
       '--t-section-title': userAccent ? deriveSectionTitleColor(userAccent) : t.style.sectionTitleColor,
       '--t-text': t.style.textColor,
@@ -62,19 +68,27 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const t = getTemplate('sidebar')
     const accent = resume.value.themeAccentColor || t.style.accentColor
     const userAccent = resume.value.themeAccentColor
+    const whiteHeaderText = resume.value.whiteHeaderText ?? false
+    const iconFollowAccent = resume.value.iconFollowAccent ?? false
     const lineColor = userAccent ? deriveDecorativeLine(userAccent) : '#e8e8f0'
     const sidebarText = userAccent ? deriveSidebarText(userAccent) : (t.style.sidebarTextColor || '#1e3a5f')
+    // Only allow white text when sidebar background is dark enough (user has set an accent)
+    const effectiveWhiteSidebar = whiteHeaderText && !!userAccent
     return {
-      '--sidebar-bg': userAccent ? deriveSidebarBg(userAccent) : (t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)'),
-      '--sidebar-text': sidebarText,
+      '--sidebar-bg': effectiveWhiteSidebar ? deriveHeaderBg(userAccent!) : (userAccent ? deriveSidebarBg(userAccent) : (t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)')),
+      '--sidebar-text': effectiveWhiteSidebar ? '#ffffff' : sidebarText,
       '--sidebar-accent': accent,
-      '--sidebar-name-color': sidebarText,
-      '--sidebar-title-color': userAccent ? deriveSidebarTitleColor(userAccent) : '#3b6ba5',
-      '--sidebar-field-color': userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e',
+      '--sidebar-name-color': effectiveWhiteSidebar ? '#ffffff' : sidebarText,
+      '--sidebar-title-color': effectiveWhiteSidebar ? '#ffffff' : sidebarText,
+      '--sidebar-field-color': effectiveWhiteSidebar ? 'rgba(255,255,255,0.8)' : (userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e'),
+      '--sidebar-icon-color': iconFollowAccent ? accent : (effectiveWhiteSidebar ? 'rgba(255,255,255,0.7)' : '#9ca3af'),
       '--sidebar-entry-border': userAccent ? deriveDecorativeLine(userAccent) : '#f0f0f5',
       '--sidebar-highlight-dot': userAccent ? deriveSidebarHighlightDot(userAccent) : '#93c5fd',
       '--t-header-bg': t.style.headerBg,
       '--t-header-text': t.style.headerTextColor,
+      '--t-header-title-color': accent,
+      '--t-header-field-text': t.style.textSecondaryColor,
+      '--t-header-icon-color': iconFollowAccent ? accent : '#9ca3af',
       '--t-accent': accent,
       '--t-section-title': userAccent ? deriveSectionTitleColor(userAccent) : t.style.sectionTitleColor,
       '--t-text': t.style.textColor,

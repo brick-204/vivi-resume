@@ -1,7 +1,7 @@
 <template>
   <aside class="sidebar__left" data-section="basic" @click="emit('click-section', 'basic')">
     <div class="sidebar__photo-wrapper">
-      <div class="sidebar__photo">
+      <div class="sidebar__photo" :class="{ 'sidebar__photo--rectangle': ctx.resume.basicInfo.photoShape === 'rectangle' }">
         <img
           v-if="ctx.resume.basicInfo.photo"
           :src="ctx.resume.basicInfo.photo"
