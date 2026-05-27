@@ -30,20 +30,29 @@
             <circle v-if="shape === 'circle'" :cx="frameCX" :cy="frameCY" :r="frameW / 2" fill="none" stroke="white" stroke-width="2" stroke-dasharray="8 5" />
             <rect v-else :x="frameCX - frameW / 2" :y="frameCY - frameH / 2" :width="frameW" :height="frameH" fill="none" stroke="white" stroke-width="2" stroke-dasharray="8 5" />
 
-            <!-- Dimension labels inside frame -->
-            <g :clip-path="`url(#${clipId})`">
-              <!-- Width -->
-              <line :x1="frameCX - frameW / 2 + 6" :y1="frameCY + frameH / 2 - 14" :x2="frameCX + frameW / 2 - 6" :y2="frameCY + frameH / 2 - 14" stroke="white" stroke-width="0.8" opacity="0.6" />
-              <line :x1="frameCX - frameW / 2 + 6" :y1="frameCY + frameH / 2 - 18" :x2="frameCX - frameW / 2 + 6" :y2="frameCY + frameH / 2 - 10" stroke="white" stroke-width="0.8" opacity="0.6" />
-              <line :x1="frameCX + frameW / 2 - 6" :y1="frameCY + frameH / 2 - 18" :x2="frameCX + frameW / 2 - 6" :y2="frameCY + frameH / 2 - 10" stroke="white" stroke-width="0.8" opacity="0.6" />
-              <text :x="frameCX" :y="frameCY + frameH / 2 - 16" text-anchor="middle" fill="white" font-size="11" font-family="system-ui, sans-serif" opacity="0.8" paint-order="stroke" stroke="rgba(0,0,0,0.4)" stroke-width="2">{{ dimW }}</text>
+            <!-- Dimension labels -->
+            <template v-if="shape === 'circle'">
+              <!-- Diameter annotation right of circle -->
+              <line :x1="frameCX + frameW / 2 + 12" :y1="frameCY - frameW / 2" :x2="frameCX + frameW / 2 + 12" :y2="frameCY + frameW / 2" stroke="white" stroke-width="0.8" opacity="0.6" />
+              <line :x1="frameCX + frameW / 2 + 8" :y1="frameCY - frameW / 2" :x2="frameCX + frameW / 2 + 16" :y2="frameCY - frameW / 2" stroke="white" stroke-width="0.8" opacity="0.6" />
+              <line :x1="frameCX + frameW / 2 + 8" :y1="frameCY + frameW / 2" :x2="frameCX + frameW / 2 + 16" :y2="frameCY + frameW / 2" stroke="white" stroke-width="0.8" opacity="0.6" />
+              <text :x="frameCX + frameW / 2 + 14" :y="frameCY + 4" text-anchor="middle" fill="white" font-size="11" font-family="system-ui, sans-serif" opacity="0.8" paint-order="stroke" stroke="rgba(0,0,0,0.4)" stroke-width="2">⌀{{ dimW }}</text>
+            </template>
+            <template v-else>
+              <g :clip-path="`url(#${clipId})`">
+                <!-- Width -->
+                <line :x1="frameCX - frameW / 2 + 6" :y1="frameCY + frameH / 2 - 14" :x2="frameCX + frameW / 2 - 6" :y2="frameCY + frameH / 2 - 14" stroke="white" stroke-width="0.8" opacity="0.6" />
+                <line :x1="frameCX - frameW / 2 + 6" :y1="frameCY + frameH / 2 - 18" :x2="frameCX - frameW / 2 + 6" :y2="frameCY + frameH / 2 - 10" stroke="white" stroke-width="0.8" opacity="0.6" />
+                <line :x1="frameCX + frameW / 2 - 6" :y1="frameCY + frameH / 2 - 18" :x2="frameCX + frameW / 2 - 6" :y2="frameCY + frameH / 2 - 10" stroke="white" stroke-width="0.8" opacity="0.6" />
+                <text :x="frameCX" :y="frameCY + frameH / 2 - 16" text-anchor="middle" fill="white" font-size="11" font-family="system-ui, sans-serif" opacity="0.8" paint-order="stroke" stroke="rgba(0,0,0,0.4)" stroke-width="2">{{ dimW }}</text>
 
-              <!-- Height -->
-              <line :x1="frameCX + frameW / 2 - 14" :y1="frameCY - frameH / 2 + 6" :x2="frameCX + frameW / 2 - 14" :y2="frameCY + frameH / 2 - 6" stroke="white" stroke-width="0.8" opacity="0.6" />
-              <line :x1="frameCX + frameW / 2 - 18" :y1="frameCY - frameH / 2 + 6" :x2="frameCX + frameW / 2 - 10" :y2="frameCY - frameH / 2 + 6" stroke="white" stroke-width="0.8" opacity="0.6" />
-              <line :x1="frameCX + frameW / 2 - 18" :y1="frameCY + frameH / 2 - 6" :x2="frameCX + frameW / 2 - 10" :y2="frameCY + frameH / 2 - 6" stroke="white" stroke-width="0.8" opacity="0.6" />
-              <text :x="frameCX + frameW / 2 - 14" :y="frameCY + 4" text-anchor="middle" fill="white" font-size="11" font-family="system-ui, sans-serif" opacity="0.8" paint-order="stroke" stroke="rgba(0,0,0,0.4)" stroke-width="2">{{ dimH }}</text>
-            </g>
+                <!-- Height -->
+                <line :x1="frameCX + frameW / 2 - 14" :y1="frameCY - frameH / 2 + 6" :x2="frameCX + frameW / 2 - 14" :y2="frameCY + frameH / 2 - 6" stroke="white" stroke-width="0.8" opacity="0.6" />
+                <line :x1="frameCX + frameW / 2 - 18" :y1="frameCY - frameH / 2 + 6" :x2="frameCX + frameW / 2 - 10" :y2="frameCY - frameH / 2 + 6" stroke="white" stroke-width="0.8" opacity="0.6" />
+                <line :x1="frameCX + frameW / 2 - 18" :y1="frameCY + frameH / 2 - 6" :x2="frameCX + frameW / 2 - 10" :y2="frameCY + frameH / 2 - 6" stroke="white" stroke-width="0.8" opacity="0.6" />
+                <text :x="frameCX + frameW / 2 - 14" :y="frameCY + 4" text-anchor="middle" fill="white" font-size="11" font-family="system-ui, sans-serif" opacity="0.8" paint-order="stroke" stroke="rgba(0,0,0,0.4)" stroke-width="2">{{ dimH }}</text>
+              </g>
+            </template>
 
             <!-- Person silhouette guide (clear dashed outline) -->
             <g :clip-path="`url(#${clipId})`">
@@ -90,7 +99,7 @@
               <Icon icon="mdi:circle-outline" :width="18" /> 圆形
             </button>
             <button class="pe-btn" :class="{ 'pe-btn--active': shape === 'rectangle' }" @click="shape = 'rectangle'">
-              <Icon icon="mdi:rectangle-outline" :width="18" /> 3:4
+              <Icon icon="mdi:rectangle-outline" :width="18" /> 4:3
             </button>
           </div>
         </div>
@@ -132,7 +141,7 @@ const clipId = `frameClip_${uid}`
 
 // 输出尺寸（最终裁剪结果的像素大小）
 const OUT_CIRCLE = 400  // 圆形输出 400×400
-const OUT_RECT_W = 300  // 矩形输出 300×400 (3:4)
+const OUT_RECT_W = 300  // 矩形输出 300×400 (4:3)
 const OUT_RECT_H = 400
 
 // Canvas 上人形框的缩放因子，让框在编辑器里足够大
