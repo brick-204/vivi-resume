@@ -14,11 +14,11 @@
             <defs>
               <mask :id="maskId">
                 <rect width="100%" height="100%" fill="white" />
-                <circle v-if="shape === 'circle'" :cx="canvasW / 2" :cy="canvasH / 2" :r="frameSize / 2" fill="black" />
+                <circle v-if="shape === 'circle'" :cx="frameCX" :cy="frameCY" :r="frameW / 2" fill="black" />
                 <rect v-else :x="frameCX - frameW / 2" :y="frameCY - frameH / 2" :width="frameW" :height="frameH" fill="black" />
               </mask>
               <clipPath :id="clipId">
-                <circle v-if="shape === 'circle'" :cx="canvasW / 2" :cy="canvasH / 2" :r="frameSize / 2" />
+                <circle v-if="shape === 'circle'" :cx="frameCX" :cy="frameCY" :r="frameW / 2" />
                 <rect v-else :x="frameCX - frameW / 2" :y="frameCY - frameH / 2" :width="frameW" :height="frameH" />
               </clipPath>
             </defs>
@@ -27,7 +27,7 @@
             <rect width="100%" height="100%" fill="rgba(0,0,0,0.5)" :mask="`url(#${maskId})`" />
 
             <!-- Frame border -->
-            <circle v-if="shape === 'circle'" :cx="canvasW / 2" :cy="canvasH / 2" :r="frameSize / 2" fill="none" stroke="white" stroke-width="2" stroke-dasharray="8 5" />
+            <circle v-if="shape === 'circle'" :cx="frameCX" :cy="frameCY" :r="frameW / 2" fill="none" stroke="white" stroke-width="2" stroke-dasharray="8 5" />
             <rect v-else :x="frameCX - frameW / 2" :y="frameCY - frameH / 2" :width="frameW" :height="frameH" fill="none" stroke="white" stroke-width="2" stroke-dasharray="8 5" />
 
             <!-- Dimension labels inside frame -->
@@ -67,9 +67,9 @@
       <div class="photo-editor__controls">
         <div class="photo-editor__group">
           <span class="photo-editor__label">缩放</span>
-          <div class="photo-editor__btns">
+          <div class="photo-editor__slider-row">
             <button class="pe-btn" @click="zoomOut" title="缩小"><Icon icon="mdi:magnify-minus" :width="18" /></button>
-            <span class="pe-value">{{ Math.round(zoom * 100) }}%</span>
+            <input type="range" class="photo-editor__slider" :min="minZoom" :max="3" step="0.01" v-model.number="zoom" />
             <button class="pe-btn" @click="zoomIn" title="放大"><Icon icon="mdi:magnify-plus" :width="18" /></button>
           </div>
         </div>
@@ -130,25 +130,42 @@ const uid = useId()
 const maskId = `frameMask_${uid}`
 const clipId = `frameClip_${uid}`
 
-const canvasW = 360
-const canvasH = 360
-const rectW = 270
-const frameCX = canvasW / 2
-const frameCY = canvasH / 2
+// 输出尺寸（最终裁剪结果的像素大小）
+const OUT_CIRCLE = 400  // 圆形输出 400×400
+const OUT_RECT_W = 300  // 矩形输出 300×400 (3:4)
+const OUT_RECT_H = 400
 
-const outCircleSize = 400
-const outRectW = 300
+// Canvas 上人形框的缩放因子，让框在编辑器里足够大
+const SCALE = 0.7
 
-const frameSize = computed(() => Math.min(canvasW, canvasH) - 40)
-const frameW = computed(() => shape.value === 'circle' ? frameSize.value : rectW - 40)
-const frameH = computed(() => shape.value === 'circle' ? frameSize.value : canvasH - 40)
+// Canvas padding（框与 canvas 边缘的距离）
+const PAD = 40
 
-const dimW = computed(() => shape.value === 'circle' ? `${outCircleSize}` : `${outRectW}`)
-const dimH = computed(() => `${outCircleSize}`)
+const shape = ref<'circle' | 'rectangle'>(props.currentShape || 'circle')
+
+// 人形框在 canvas 上的尺寸（宽高比严格等于输出宽高比）
+const frameW = computed(() =>
+  shape.value === 'circle' ? OUT_CIRCLE * SCALE : OUT_RECT_W * SCALE
+)
+const frameH = computed(() =>
+  shape.value === 'circle' ? OUT_CIRCLE * SCALE : OUT_RECT_H * SCALE
+)
+
+// Canvas 尺寸
+const canvasW = computed(() => frameW.value + PAD * 2)
+const canvasH = computed(() => frameH.value + PAD * 2)
+
+// 人形框中心
+const frameCX = computed(() => canvasW.value / 2)
+const frameCY = computed(() => canvasH.value / 2)
+
+// 尺寸标注
+const dimW = computed(() => shape.value === 'circle' ? `${OUT_CIRCLE}` : `${OUT_RECT_W}`)
+const dimH = computed(() => shape.value === 'circle' ? `${OUT_CIRCLE}` : `${OUT_RECT_H}`)
 
 const shouldersPath = computed(() => {
-  const cx = frameCX
-  const cy = frameCY
+  const cx = frameCX.value
+  const cy = frameCY.value
   const fw = frameW.value
   const fh = frameH.value
   return `M${cx - fw * 0.28},${cy + fh * 0.05} Q${cx - fw * 0.15},${cy - fh * 0.04} ${cx},${cy - fh * 0.09} Q${cx + fw * 0.15},${cy - fh * 0.04} ${cx + fw * 0.28},${cy + fh * 0.05}`
@@ -157,10 +174,10 @@ const shouldersPath = computed(() => {
 const canvasRef = ref<HTMLCanvasElement>()
 const canvasAreaRef = ref<HTMLDivElement>()
 const zoom = ref(1)
+const minZoom = 0.3
 const rotation = ref(0)
 const panX = ref(0)
 const panY = ref(0)
-const shape = ref<'circle' | 'rectangle'>(props.currentShape || 'circle')
 const isDragging = ref(false)
 
 let img: HTMLImageElement | null = null
@@ -191,11 +208,13 @@ const render = () => {
   const canvas = canvasRef.value
   if (!canvas || !img) return
   const ctx = canvas.getContext('2d')!
+  const cw = canvasW.value
+  const ch = canvasH.value
   ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, canvasW, canvasH)
+  ctx.fillRect(0, 0, cw, ch)
 
   ctx.save()
-  ctx.translate(frameCX + panX.value, frameCY + panY.value)
+  ctx.translate(frameCX.value + panX.value, frameCY.value + panY.value)
   ctx.rotate((rotation.value * Math.PI) / 180)
   ctx.scale(zoom.value, zoom.value)
 
@@ -228,14 +247,14 @@ const onPointerUp = () => {
 }
 
 const zoomIn = () => { zoom.value = Math.min(zoom.value + 0.1, 3); render() }
-const zoomOut = () => { zoom.value = Math.max(zoom.value - 0.1, 0.3); render() }
+const zoomOut = () => { zoom.value = Math.max(zoom.value - 0.1, minZoom); render() }
 const rotateLeft = () => { rotation.value = (rotation.value - 90 + 360) % 360; render() }
 const rotateRight = () => { rotation.value = (rotation.value + 90) % 360; render() }
 const resetAll = () => { rotation.value = 0; zoom.value = 1; panX.value = 0; panY.value = 0; render() }
 
 const handleConfirm = () => {
-  const outW = shape.value === 'circle' ? outCircleSize : outRectW
-  const outH = outCircleSize
+  const outW = shape.value === 'circle' ? OUT_CIRCLE : OUT_RECT_W
+  const outH = shape.value === 'circle' ? OUT_CIRCLE : OUT_RECT_H
   const offscreen = document.createElement('canvas')
   offscreen.width = outW
   offscreen.height = outH
@@ -249,12 +268,18 @@ const handleConfirm = () => {
   }
   ctx.clip()
 
+  // Fill white background inside clip (matches editor canvas background)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, outW, outH)
+
   if (img) {
     const scaleX = outW / frameW.value
     const scaleY = outH / frameH.value
-    ctx.translate(outW / 2 + panX.value * scaleX, outH / 2 + panY.value * scaleY)
+    ctx.translate(outW / 2, outH / 2)
     ctx.rotate((rotation.value * Math.PI) / 180)
     ctx.scale(zoom.value, zoom.value)
+    ctx.scale(scaleX, scaleY)
+    ctx.translate(panX.value, panY.value)
 
     const scale = Math.max(frameW.value / img.width, frameH.value / img.height)
     const drawW = img.width * scale
@@ -305,7 +330,6 @@ watch(() => props.visible, (v) => {
 
   &__canvas-area {
     position: relative;
-    height: 360px;
     flex-shrink: 0;
     background: #f3f4f6;
     border-radius: $radius-lg;
@@ -362,6 +386,19 @@ watch(() => props.visible, (v) => {
     flex-wrap: wrap;
   }
 
+  &__slider-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+  }
+
+  &__slider {
+    flex: 1;
+    min-width: 80px;
+    accent-color: $primary-color;
+    cursor: pointer;
+  }
+
   &__hint {
     display: flex;
     align-items: center;
@@ -397,13 +434,5 @@ watch(() => props.visible, (v) => {
     border-color: $primary-color;
     color: $primary-light;
   }
-}
-
-.pe-value {
-  min-width: 48px;
-  text-align: center;
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  font-variant-numeric: tabular-nums;
 }
 </style>
