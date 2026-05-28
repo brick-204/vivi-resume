@@ -30,7 +30,9 @@ provide(ResumeDocumentKey, ctx)
 <style lang="scss" scoped>
 .resume--minimal {
   :deep(.resume__header) {
-    text-align: center;
+    &:not(.resume__header--photo-left):not(.resume__header--photo-right) {
+      text-align: center;
+    }
     padding-bottom: $spacing-lg;
     margin-bottom: $spacing-lg;
     border-bottom: 2px solid var(--t-text);

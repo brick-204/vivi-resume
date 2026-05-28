@@ -30,6 +30,67 @@
       border-radius: $radius-full;
     }
 
+    // -- photo-left / photo-right 三列布局 --
+    &--photo-left,
+    &--photo-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-lg;
+      text-align: left;
+
+      &::after {
+        left: 0;
+        transform: none;
+      }
+
+      .header__photo {
+        margin: 0;
+        flex-shrink: 0;
+      }
+
+      .header__name {
+        margin-bottom: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .header__title {
+        margin-bottom: 0;
+      }
+
+      .header__main {
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .header__fields {
+        flex: 1;
+        min-width: 0;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        align-items: flex-start;
+      }
+    }
+
+    &--photo-right {
+      flex-direction: row-reverse;
+
+      &::after {
+        left: 0;
+        transform: none;
+      }
+
+      .header__main {
+        text-align: right;
+      }
+
+      .header__fields {
+        justify-content: flex-end;
+      }
+    }
+
     .header__photo {
       width: 80px;
       height: 80px;

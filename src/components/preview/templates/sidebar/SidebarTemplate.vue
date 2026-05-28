@@ -56,6 +56,30 @@ provide(ResumeDocumentKey, ctx)
   padding-top: 4px;
 }
 
+:deep(.sidebar__photo-wrapper--left) {
+  justify-content: flex-start;
+  padding-top: 0;
+}
+
+:deep(.sidebar__photo-wrapper--row) {
+  justify-content: flex-start;
+  padding-top: 0;
+}
+
+:deep(.sidebar__left--photo-right .sidebar__header-row) {
+  flex-direction: row-reverse;
+}
+
+:deep(.sidebar__left--photo-right .sidebar__identity) {
+  text-align: right;
+}
+
+:deep(.sidebar__header-row) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 :deep(.sidebar__photo) {
   width: 100px;
   height: 100px;
@@ -85,6 +109,14 @@ provide(ResumeDocumentKey, ctx)
 
 :deep(.sidebar__identity) {
   text-align: center;
+}
+
+:deep(.sidebar__header-row .sidebar__identity) {
+  text-align: left;
+}
+
+:deep(.sidebar__left--photo-right .sidebar__identity) {
+  text-align: right;
 }
 
 :deep(.sidebar__name) {

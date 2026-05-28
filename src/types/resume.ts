@@ -1,6 +1,9 @@
 // 字段显示模式
 export type FieldDisplayMode = 'iconLabelValue' | 'labelValue' | 'iconValue'
 
+// 头部布局模式
+export type HeaderLayout = 'centered' | 'photo-left' | 'photo-right'
+
 // 简历基本信息
 export interface CustomField {
   id: string
@@ -35,6 +38,7 @@ export interface BasicInfo {
   fieldDisplayMode: Record<string, FieldDisplayMode>
   photoShape?: 'circle' | 'rectangle'
   photoOriginal?: string
+  headerLayout?: HeaderLayout
 }
 
 // 工作经历
@@ -214,7 +218,8 @@ export const createEmptyResume = (): Resume => {
       hiddenFields: {},
       customFields: [],
       fieldOrder: [...DEFAULT_FIELD_ORDER],
-      fieldDisplayMode: {}
+      fieldDisplayMode: {},
+      headerLayout: 'centered',
     },
     workExperience: [],
     education: [],

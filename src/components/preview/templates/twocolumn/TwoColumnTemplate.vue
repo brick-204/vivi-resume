@@ -39,7 +39,9 @@ provide(ResumeDocumentKey, ctx)
 
   :deep(.resume__header) {
     grid-column: 1 / -1;
-    text-align: left;
+    &:not(.resume__header--photo-left):not(.resume__header--photo-right) {
+      text-align: left;
+    }
     background: var(--t-header-bg);
     color: var(--t-header-text);
     padding: $spacing-xl;

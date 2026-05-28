@@ -30,7 +30,9 @@ provide(ResumeDocumentKey, ctx)
 <style lang="scss" scoped>
 .resume--timeline {
   :deep(.resume__header) {
-    text-align: center;
+    &:not(.resume__header--photo-left):not(.resume__header--photo-right) {
+      text-align: center;
+    }
 
     &::after {
       height: 0;

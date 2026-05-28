@@ -16,6 +16,26 @@
         <BaseSwitch v-model="iconFollowAccent">图标跟随主题色</BaseSwitch>
       </div>
 
+      <!-- 头部布局选择 -->
+      <div class="layout-selector">
+        <span class="layout-selector__label">头部布局</span>
+        <div class="layout-selector__options">
+          <button
+            v-for="opt in layoutOptions"
+            :key="opt.value"
+            class="layout-btn"
+            :class="{ 'layout-btn--active': headerLayout === opt.value }"
+            :title="opt.label"
+            @click="headerLayout = opt.value"
+          >
+            <svg viewBox="0 0 36 28" width="36" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <component :is="opt.icon" />
+            </svg>
+            <span class="layout-btn__text">{{ opt.label }}</span>
+          </button>
+        </div>
+      </div>
+
       <!-- 头像（始终在顶部，不参与拖拽） -->
       <div class="field-row" v-if="isFieldInOrder('photo')">
         <div class="field-row__label">
@@ -151,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref, h } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
@@ -161,7 +181,7 @@ import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import PhotoEditor from './PhotoEditor.vue'
 import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
-import type { BasicInfo, CustomField, FieldDisplayMode } from '@/types/resume'
+import type { BasicInfo, CustomField, FieldDisplayMode, HeaderLayout } from '@/types/resume'
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
 
@@ -182,6 +202,56 @@ const iconFollowAccent = computed({
   get: () => store.currentResume?.iconFollowAccent ?? false,
   set: (val) => store.updateCurrentResume({ iconFollowAccent: val }),
 })
+
+const headerLayout = computed({
+  get: () => store.currentResume?.basicInfo?.headerLayout ?? 'centered',
+  set: (val: HeaderLayout) => {
+    if (!basicInfo.value) return
+    basicInfo.value = { ...basicInfo.value, headerLayout: val }
+  },
+})
+
+// 布局预览图标组件
+const LayoutIconLeft = {
+  render() {
+    return h('g', [
+      h('circle', { cx: '8', cy: '10', r: '5', fill: 'currentColor', opacity: '0.4' }),
+      h('rect', { x: '16', y: '6', width: '16', height: '3', rx: '1.5', fill: 'currentColor' }),
+      h('rect', { x: '16', y: '12', width: '10', height: '2', rx: '1', fill: 'currentColor', opacity: '0.4' }),
+      h('rect', { x: '4', y: '19', width: '28', height: '2', rx: '1', fill: 'currentColor', opacity: '0.2' }),
+      h('rect', { x: '4', y: '23', width: '22', height: '2', rx: '1', fill: 'currentColor', opacity: '0.2' }),
+    ])
+  }
+}
+
+const LayoutIconCenter = {
+  render() {
+    return h('g', [
+      h('circle', { cx: '18', cy: '7', r: '4', fill: 'currentColor', opacity: '0.4' }),
+      h('rect', { x: '10', y: '13', width: '16', height: '3', rx: '1.5', fill: 'currentColor' }),
+      h('rect', { x: '13', y: '18', width: '10', height: '2', rx: '1', fill: 'currentColor', opacity: '0.4' }),
+      h('rect', { x: '4', y: '23', width: '28', height: '2', rx: '1', fill: 'currentColor', opacity: '0.2' }),
+    ])
+  }
+}
+
+const LayoutIconRight = {
+  render() {
+    return h('g', [
+      h('circle', { cx: '28', cy: '10', r: '5', fill: 'currentColor', opacity: '0.4' }),
+      h('rect', { x: '4', y: '6', width: '16', height: '3', rx: '1.5', fill: 'currentColor' }),
+      h('rect', { x: '10', y: '12', width: '10', height: '2', rx: '1', fill: 'currentColor', opacity: '0.4' }),
+      h('rect', { x: '4', y: '19', width: '28', height: '2', rx: '1', fill: 'currentColor', opacity: '0.2' }),
+      h('rect', { x: '4', y: '23', width: '22', height: '2', rx: '1', fill: 'currentColor', opacity: '0.2' }),
+    ])
+  }
+}
+
+const layoutOptions: { value: HeaderLayout; label: string; icon: typeof LayoutIconLeft }[] = [
+  { value: 'photo-left', label: '左图', icon: LayoutIconLeft },
+  { value: 'centered', label: '居中', icon: LayoutIconCenter },
+  { value: 'photo-right', label: '右图', icon: LayoutIconRight },
+]
 
 const basicInfo = computed({
   get: () => store.currentResume?.basicInfo ?? createEmptyResume().basicInfo,
@@ -752,5 +822,53 @@ const removeCustomField = (id: string) => {
   border-radius: $radius-lg;
   border: 1px solid $border-glass;
   width: fit-content;
+}
+
+.layout-selector {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+    white-space: nowrap;
+  }
+
+  &__options {
+    display: flex;
+    gap: $spacing-xs;
+  }
+}
+
+.layout-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  background: $bg-glass;
+  border: 1px solid $border-glass;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-fast;
+  color: $text-secondary;
+
+  &:hover {
+    border-color: rgba($primary-color, 0.4);
+    background: rgba($primary-color, 0.05);
+  }
+
+  &--active {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.1);
+    color: $primary-color;
+  }
+
+  &__text {
+    font-size: 10px;
+    font-weight: 500;
+  }
 }
 </style>

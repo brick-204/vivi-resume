@@ -263,7 +263,6 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
         showIcon: showIcon(k),
         icon: getFieldIcon(k),
         showLabel: showLabel(k),
-        isContact: CONTACT_KEYS.includes(k) || (k.startsWith('custom_') && custom !== null),
       }
     })
   })
