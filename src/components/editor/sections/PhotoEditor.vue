@@ -190,6 +190,7 @@ const panY = ref(0)
 const isDragging = ref(false)
 
 let img: HTMLImageElement | null = null
+let fetchAbort: AbortController | null = null
 let dragStartX = 0
 let dragStartY = 0
 let panStartX = 0
@@ -208,9 +209,42 @@ const removeListeners = () => {
 
 const loadImage = () => {
   if (!props.imageSrc) return
-  img = new Image()
-  img.onload = () => render()
-  img.src = props.imageSrc
+  // 取消上一次未完成的 fetch
+  fetchAbort?.abort()
+  fetchAbort = null
+  // 如果已经是 data URL 或 blob URL，直接使用
+  if (props.imageSrc.startsWith('data:') || props.imageSrc.startsWith('blob:')) {
+    img = new Image()
+    img.onload = () => render()
+    img.src = props.imageSrc
+    return
+  }
+  // 跨域图片：通过 fetch 转为 data URL，避免 canvas 被污染
+  const ac = new AbortController()
+  fetchAbort = ac
+  fetch(props.imageSrc, { mode: 'cors', signal: ac.signal })
+    .then(r => r.blob())
+    .then(blob => new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    }))
+    .then(dataUrl => {
+      if (ac.signal.aborted) return
+      img = new Image()
+      img.onload = () => render()
+      img.src = dataUrl
+    })
+    .catch((err) => {
+      if (ac.signal.aborted) return
+      // fetch 失败时回退：尝试设置 crossOrigin 直接加载
+      img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => render()
+      img.onerror = () => { img = null }
+      img.src = props.imageSrc
+    })
 }
 
 const render = () => {
@@ -315,7 +349,10 @@ watch(canvasAreaRef, (el) => {
   }
 })
 
-onBeforeUnmount(removeListeners)
+onBeforeUnmount(() => {
+  fetchAbort?.abort()
+  removeListeners()
+})
 
 watch(() => [zoom.value, rotation.value, shape.value], () => nextTick(() => render()))
 watch(() => props.visible, (v) => {

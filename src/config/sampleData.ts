@@ -1,5 +1,6 @@
 import type { Resume } from '@/types/resume'
 import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER } from '@/types/resume'
+import timoPhoto from '@/assets/images/timo.webp'
 
 // 用于模板画廊预览的示例简历数据
 export const sampleResume: Resume = {
@@ -9,7 +10,7 @@ export const sampleResume: Resume = {
   basicInfo: {
     name: '张明',
     title: '高级前端工程师',
-    photo: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=b6e3f4',
+    photo: timoPhoto,
     email: 'zhangming@email.com',
     phone: '138-0000-1234',
     location: '北京市',
