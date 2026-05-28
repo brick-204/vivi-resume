@@ -142,15 +142,17 @@ export function deriveSidebarFieldColor(accent: string): string {
   return rgba(derived.r, derived.g, derived.b, 1)
 }
 
-// 头部背景色 — 主题色的深色饱和变体，保证白色文字可读
-export function deriveHeaderBg(accent: string): string {
+// 判断背景色是否适合白色文字（基于 WCAG 相对亮度对比度）
+export function isDarkEnoughForWhiteText(accent: string): boolean {
   const parsed = parseAccentColor(accent)
-  if (!parsed) return '#06b6d4'
-  const hsl = rgbToHsl(parsed.r, parsed.g, parsed.b)
-  const l = Math.min(Math.max(hsl.l, 0.30), 0.45)
-  const s = Math.max(hsl.s, 0.55)
-  const derived = hslToRgb(hsl.h, s, l)
-  return rgba(derived.r, derived.g, derived.b, 1)
+  if (!parsed) return false
+  // WCAG 相对亮度公式
+  const [rs, gs, bs] = [parsed.r / 255, parsed.g / 255, parsed.b / 255].map(c =>
+    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  )
+  const luminance = 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
+  // 白色(#fff)亮度=1, 对比度 = (1+0.05)/(luminance+0.05), 阈值4.5对应luminance≈0.179
+  return luminance <= 0.179
 }
 
 // 侧边栏高亮圆点色 — 亮色的去饱和变体

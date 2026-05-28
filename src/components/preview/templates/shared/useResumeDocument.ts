@@ -8,7 +8,8 @@ import {
   deriveSectionTitleColor, deriveTagBg, deriveTagColor, deriveTagBorder,
   deriveDecorativeLine, deriveEntryDateBg, deriveEntryDateBorder,
   deriveSidebarBg, deriveSidebarText,
-  deriveSidebarFieldColor, deriveSidebarHighlightDot, deriveHeaderBg,
+  deriveSidebarFieldColor, deriveSidebarHighlightDot,
+  isDarkEnoughForWhiteText,
 } from '@/utils/colorUtils'
 
 export function useResumeDocument(getResume: () => Resume, templateId: string) {
@@ -43,12 +44,13 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const hasColoredHeader = t.style.headerLayout === 'two-column'
     const whiteHeaderText = resume.value.whiteHeaderText
     const iconFollowAccent = resume.value.iconFollowAccent ?? false
-    // 有色头部默认白色文字，白色文字开关可关闭；无色头部默认非白，开关可开启
-    const effectiveWhiteHeader = hasColoredHeader
-      ? (whiteHeaderText === undefined ? true : whiteHeaderText)
-      : (whiteHeaderText === true)
+    // 头部背景色直接使用主题色
+    const headerBg = hasColoredHeader ? accent : t.style.headerBg
+    // 主题色足够深时默认白色文字，否则默认深色文字；开关可手动覆盖
+    const autoWhiteDefault = hasColoredHeader ? isDarkEnoughForWhiteText(accent) : false
+    const effectiveWhiteHeader = whiteHeaderText === undefined ? autoWhiteDefault : whiteHeaderText
     return {
-      '--t-header-bg': (userAccent && hasColoredHeader) ? deriveHeaderBg(userAccent) : t.style.headerBg,
+      '--t-header-bg': headerBg,
       '--t-header-text': effectiveWhiteHeader ? '#ffffff' : t.style.headerTextColor,
       '--t-header-title-color': effectiveWhiteHeader ? '#ffffff' : t.style.headerTextColor,
       '--t-header-field-text': effectiveWhiteHeader ? 'rgba(255,255,255,0.85)' : t.style.textSecondaryColor,

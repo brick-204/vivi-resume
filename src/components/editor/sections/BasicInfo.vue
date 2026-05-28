@@ -184,6 +184,7 @@ import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resu
 import type { BasicInfo, CustomField, FieldDisplayMode, HeaderLayout } from '@/types/resume'
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
+import { isDarkEnoughForWhiteText } from '@/utils/colorUtils'
 
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
@@ -199,8 +200,9 @@ const whiteHeaderText = computed({
     // 有色头部模板默认白色文字，checkbox 应显示勾选
     if (val === undefined) {
       const templateId = store.currentResume?.templateId
+      const accent = store.currentResume?.themeAccentColor
       const hasColoredHeader = templateId === 'modern' || templateId === 'twocolumn'
-      return hasColoredHeader
+      return hasColoredHeader && (accent ? isDarkEnoughForWhiteText(accent) : true)
     }
     return val
   },
