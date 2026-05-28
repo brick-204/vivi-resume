@@ -122,14 +122,14 @@ provide(ResumeDocumentKey, ctx)
 :deep(.sidebar__name) {
   font-size: 18px;
   font-weight: 800;
-  color: var(--sidebar-name-color);
+  color: var(--sidebar-basic-name-color);
   margin-bottom: 4px;
   letter-spacing: 0.02em;
 }
 
 :deep(.sidebar__title) {
   font-size: 12px;
-  color: var(--sidebar-title-color);
+  color: var(--sidebar-basic-title-color);
   font-weight: 500;
 }
 
@@ -145,7 +145,7 @@ provide(ResumeDocumentKey, ctx)
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  color: var(--sidebar-field-color);
+  color: var(--sidebar-basic-field-color);
   word-break: break-all;
   position: relative;
 }
@@ -153,11 +153,11 @@ provide(ResumeDocumentKey, ctx)
 :deep(.sidebar__field-icon) {
   display: flex;
   flex-shrink: 0;
-  color: var(--sidebar-icon-color);
+  color: var(--sidebar-basic-icon-color);
 }
 
 :deep(.sidebar__field-label) {
-  color: var(--sidebar-field-color);
+  color: var(--sidebar-basic-field-color);
   font-weight: 500;
 
   &::after {
@@ -167,7 +167,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__field-value) {
-  color: var(--sidebar-name-color);
+  color: var(--sidebar-basic-name-color);
 }
 
 :deep(.sidebar__section-title) {
@@ -175,7 +175,7 @@ provide(ResumeDocumentKey, ctx)
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--sidebar-name-color);
+  color: var(--sidebar-text);
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -191,7 +191,7 @@ provide(ResumeDocumentKey, ctx)
 
 :deep(.sidebar__skill-text) {
   font-size: 11px;
-  color: var(--sidebar-name-color);
+  color: var(--sidebar-text);
   line-height: 1.8;
 
   @include rich-text-content;
@@ -218,7 +218,7 @@ provide(ResumeDocumentKey, ctx)
 :deep(.main__section-title) {
   font-size: 14px;
   font-weight: 700;
-  color: var(--sidebar-name-color);
+  color: var(--sidebar-text);
   padding-bottom: 8px;
   margin-bottom: 14px;
   display: flex;

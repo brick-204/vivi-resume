@@ -41,15 +41,18 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const accent = resume.value.themeAccentColor || t.style.accentColor
     const userAccent = resume.value.themeAccentColor
     const hasColoredHeader = t.style.headerLayout === 'two-column'
-    const whiteHeaderText = resume.value.whiteHeaderText ?? false
+    const whiteHeaderText = resume.value.whiteHeaderText
     const iconFollowAccent = resume.value.iconFollowAccent ?? false
-    const effectiveWhiteHeader = whiteHeaderText || (userAccent && hasColoredHeader)
+    // 有色头部默认白色文字，白色文字开关可关闭；无色头部默认非白，开关可开启
+    const effectiveWhiteHeader = hasColoredHeader
+      ? (whiteHeaderText === undefined ? true : whiteHeaderText)
+      : (whiteHeaderText === true)
     return {
       '--t-header-bg': (userAccent && hasColoredHeader) ? deriveHeaderBg(userAccent) : t.style.headerBg,
       '--t-header-text': effectiveWhiteHeader ? '#ffffff' : t.style.headerTextColor,
       '--t-header-title-color': effectiveWhiteHeader ? '#ffffff' : t.style.headerTextColor,
       '--t-header-field-text': effectiveWhiteHeader ? 'rgba(255,255,255,0.85)' : t.style.textSecondaryColor,
-      '--t-header-icon-color': iconFollowAccent ? accent : (effectiveWhiteHeader ? 'rgba(255,255,255,0.7)' : '#9ca3af'),
+      '--t-header-icon-color': effectiveWhiteHeader && !iconFollowAccent ? 'rgba(255,255,255,0.7)' : (iconFollowAccent ? accent : '#9ca3af'),
       '--t-accent': accent,
       '--t-section-title': userAccent ? deriveSectionTitleColor(userAccent) : t.style.sectionTitleColor,
       '--t-text': t.style.textColor,
@@ -72,16 +75,16 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const iconFollowAccent = resume.value.iconFollowAccent ?? false
     const lineColor = userAccent ? deriveDecorativeLine(userAccent) : '#e8e8f0'
     const sidebarText = userAccent ? deriveSidebarText(userAccent) : (t.style.sidebarTextColor || '#1e3a5f')
-    // Only allow white text when sidebar background is dark enough (user has set an accent)
-    const effectiveWhiteSidebar = whiteHeaderText && !!userAccent
+    // 白色文字仅影响基本信息字段/图标/姓名/职业，不影响侧边栏背景和模块标题
+    const whiteSidebarFields = whiteHeaderText
     return {
-      '--sidebar-bg': effectiveWhiteSidebar ? deriveHeaderBg(userAccent!) : (userAccent ? deriveSidebarBg(userAccent) : (t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)')),
-      '--sidebar-text': effectiveWhiteSidebar ? '#ffffff' : sidebarText,
+      '--sidebar-bg': userAccent ? deriveSidebarBg(userAccent) : (t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)'),
+      '--sidebar-text': sidebarText,
       '--sidebar-accent': accent,
-      '--sidebar-name-color': effectiveWhiteSidebar ? '#ffffff' : sidebarText,
-      '--sidebar-title-color': effectiveWhiteSidebar ? '#ffffff' : sidebarText,
-      '--sidebar-field-color': effectiveWhiteSidebar ? 'rgba(255,255,255,0.8)' : (userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e'),
-      '--sidebar-icon-color': iconFollowAccent ? accent : (effectiveWhiteSidebar ? 'rgba(255,255,255,0.7)' : '#9ca3af'),
+      '--sidebar-basic-name-color': whiteSidebarFields ? '#ffffff' : sidebarText,
+      '--sidebar-basic-title-color': whiteSidebarFields ? '#ffffff' : sidebarText,
+      '--sidebar-basic-field-color': whiteSidebarFields ? 'rgba(255,255,255,0.8)' : (userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e'),
+      '--sidebar-basic-icon-color': whiteSidebarFields && !iconFollowAccent ? 'rgba(255,255,255,0.7)' : (iconFollowAccent ? accent : '#9ca3af'),
       '--sidebar-entry-border': userAccent ? deriveDecorativeLine(userAccent) : '#f0f0f5',
       '--sidebar-highlight-dot': userAccent ? deriveSidebarHighlightDot(userAccent) : '#93c5fd',
       '--t-header-bg': t.style.headerBg,

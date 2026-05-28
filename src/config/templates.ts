@@ -55,7 +55,7 @@ export const TEMPLATES: TemplateConfig[] = [
     preview: 'linear-gradient(135deg, #06b6d4, #22d3ee)',
     style: {
       headerBg: '#06b6d4',
-      headerTextColor: '#ffffff',
+      headerTextColor: '#1e293b',
       accentColor: '#06b6d4',
       sectionTitleColor: '#0e7490',
       textColor: '#1a1a2e',
@@ -135,7 +135,7 @@ export const TEMPLATES: TemplateConfig[] = [
     preview: 'linear-gradient(135deg, #2563eb, #60a5fa)',
     style: {
       headerBg: '#1e40af',
-      headerTextColor: '#ffffff',
+      headerTextColor: '#1e293b',
       accentColor: '#2563eb',
       sectionTitleColor: '#1e40af',
       textColor: '#1f2937',

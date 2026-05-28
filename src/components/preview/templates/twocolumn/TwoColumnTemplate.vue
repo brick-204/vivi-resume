@@ -40,24 +40,19 @@ provide(ResumeDocumentKey, ctx)
   :deep(.resume__header) {
     grid-column: 1 / -1;
     &:not(.resume__header--photo-left):not(.resume__header--photo-right) {
-      text-align: left;
+      text-align: center;
     }
     background: var(--t-header-bg);
     color: var(--t-header-text);
     padding: $spacing-xl;
-    margin-bottom: 0;
+    margin-bottom: $spacing-lg;
+    border-radius: var(--t-radius);
 
     &::after { display: none; }
   }
 
   :deep(.header__name) {
     font-size: $font-size-2xl;
-  }
-
-  :deep(.header__fields) {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: $spacing-sm;
   }
 
   :deep(.header__field) {

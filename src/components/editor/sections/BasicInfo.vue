@@ -194,7 +194,16 @@ const editingPhotoSrc = ref('')
 
 // ---- 基本信息显示控制 ----
 const whiteHeaderText = computed({
-  get: () => store.currentResume?.whiteHeaderText ?? false,
+  get: () => {
+    const val = store.currentResume?.whiteHeaderText
+    // 有色头部模板默认白色文字，checkbox 应显示勾选
+    if (val === undefined) {
+      const templateId = store.currentResume?.templateId
+      const hasColoredHeader = templateId === 'modern' || templateId === 'twocolumn'
+      return hasColoredHeader
+    }
+    return val
+  },
   set: (val) => store.updateCurrentResume({ whiteHeaderText: val }),
 })
 
