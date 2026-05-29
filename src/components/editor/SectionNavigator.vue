@@ -171,6 +171,7 @@ const layoutStore = useEditorLayoutStore()
 const THEME_PRESET_COLORS = [
   '#7c5cfc', '#06b6d4', '#475569', '#f97316',
   '#059669', '#2563eb', '#3b82f6', '#db2777',
+  '#dc2626', '#ca8a04', '#7c3aed', '#92400e',
 ]
 
 const themeAlphaSliderRef = ref<HTMLElement>()

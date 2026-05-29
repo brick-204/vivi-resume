@@ -1,6 +1,6 @@
 import type { Resume } from '@/types/resume'
 import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER } from '@/types/resume'
-import timoPhoto from '@/assets/images/timo.webp'
+import timoPhoto from '@/assets/images/timo.png'
 
 // 用于模板画廊预览的示例简历数据
 export const sampleResume: Resume = {
