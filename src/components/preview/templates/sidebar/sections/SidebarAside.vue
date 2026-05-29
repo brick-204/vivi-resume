@@ -1,7 +1,8 @@
 <template>
-  <aside class="sidebar__left" :class="layoutClass" data-section="basic" @click="emit('click-section', 'basic')">
+  <aside ref="asideRef" class="sidebar__left" :class="layoutClass" data-section="basic" @click="emit('click-section', 'basic')">
+    <!-- v-if/v-else 互斥渲染，同一 flip-id 不会同时出现在 DOM 中 -->
     <div v-if="isRowLayout" class="sidebar__header-row">
-      <div class="sidebar__photo-wrapper" :class="{ 'sidebar__photo-wrapper--row': true }">
+      <div data-flip-id="photo" class="sidebar__photo-wrapper" :class="{ 'sidebar__photo-wrapper--row': true }">
         <div class="sidebar__photo" :class="{ 'sidebar__photo--rectangle': ctx.resume.basicInfo.photoShape === 'rectangle' }">
           <img
             v-if="ctx.resume.basicInfo.photo"
@@ -18,13 +19,13 @@
         </div>
       </div>
       <div class="sidebar__identity">
-        <h1 class="sidebar__name">{{ ctx.resume.basicInfo.name || '你的姓名' }}</h1>
-        <p class="sidebar__title">{{ ctx.resume.basicInfo.title || '你的职位' }}</p>
+        <h1 data-flip-id="name" class="sidebar__name">{{ ctx.resume.basicInfo.name || '你的姓名' }}</h1>
+        <p data-flip-id="title" class="sidebar__title">{{ ctx.resume.basicInfo.title || '你的职位' }}</p>
       </div>
     </div>
 
     <template v-else>
-      <div class="sidebar__photo-wrapper">
+      <div data-flip-id="photo" class="sidebar__photo-wrapper">
         <div class="sidebar__photo" :class="{ 'sidebar__photo--rectangle': ctx.resume.basicInfo.photoShape === 'rectangle' }">
           <img
             v-if="ctx.resume.basicInfo.photo"
@@ -41,13 +42,13 @@
         </div>
       </div>
       <div class="sidebar__identity">
-        <h1 class="sidebar__name">{{ ctx.resume.basicInfo.name || '你的姓名' }}</h1>
-        <p class="sidebar__title">{{ ctx.resume.basicInfo.title || '你的职位' }}</p>
+        <h1 data-flip-id="name" class="sidebar__name">{{ ctx.resume.basicInfo.name || '你的姓名' }}</h1>
+        <p data-flip-id="title" class="sidebar__title">{{ ctx.resume.basicInfo.title || '你的职位' }}</p>
       </div>
     </template>
 
     <TransitionGroup v-if="ctx.orderedAllFields.value.length" name="field-reorder" tag="div" class="sidebar__fields">
-      <div v-for="field in ctx.orderedAllFields.value" :key="field.key" class="sidebar__field">
+      <div v-for="field in ctx.orderedAllFields.value" :key="field.key" :data-flip-id="`field-${field.key}`" class="sidebar__field">
         <span v-if="field.showIcon" class="sidebar__field-icon">
           <Icon :icon="field.icon" :width="14" :height="14" />
         </span>
@@ -67,14 +68,16 @@
 </template>
 
 <script setup lang="ts">
-import { inject, computed } from 'vue'
+import { inject, computed, ref, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { ResumeDocumentKey } from '../../shared/ResumeDocumentKey'
+import { useFlipAnimation } from '@/composables/useFlipAnimation'
 import type { HeaderLayout } from '@/types/resume'
 
 const emit = defineEmits<{ 'click-section': [tabId: string, itemId?: string] }>()
 const ctx = inject(ResumeDocumentKey)!
 
+const asideRef = ref<HTMLElement>()
 const headerLayout = computed<HeaderLayout>(() => ctx.resume.basicInfo.headerLayout || 'centered')
 const isRowLayout = computed(() => headerLayout.value === 'photo-left' || headerLayout.value === 'photo-right')
 
@@ -82,4 +85,14 @@ const layoutClass = computed(() => ({
   'sidebar__left--photo-left': headerLayout.value === 'photo-left',
   'sidebar__left--photo-right': headerLayout.value === 'photo-right',
 }))
+
+const { recordPositions, animateLayoutChange } = useFlipAnimation(
+  () => asideRef.value,
+  '[data-flip-id]'
+)
+
+watch(headerLayout, () => {
+  recordPositions()
+  nextTick(() => animateLayoutChange())
+}, { flush: 'pre' })
 </script>

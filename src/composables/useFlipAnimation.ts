@@ -1,6 +1,7 @@
 import { nextTick } from 'vue'
 
 const FLIP_DURATION = 300
+const LAYOUT_FLIP_DURATION = 350
 const SORTABLE_ANIMATION = 200
 
 export function useFlipAnimation(containerRef: () => HTMLElement | undefined, itemSelector: string) {
@@ -15,16 +16,11 @@ export function useFlipAnimation(containerRef: () => HTMLElement | undefined, it
     })
   }
 
-  const animateFlip = async () => {
-    // Wait for SortableJS's built-in animation to finish before measuring final positions
-    await new Promise(r => setTimeout(r, SORTABLE_ANIMATION))
-    await nextTick()
-
+  const runFlip = (duration: number) => {
     const container = containerRef()
     if (!container) return
 
-    const elements = container.querySelectorAll(itemSelector)
-    elements.forEach((el) => {
+    container.querySelectorAll(itemSelector).forEach((el) => {
       const htmlEl = el as HTMLElement
       const id = htmlEl.dataset.flipId
       if (!id) return
@@ -40,17 +36,17 @@ export function useFlipAnimation(containerRef: () => HTMLElement | undefined, it
       htmlEl.style.transform = `translate(${dx}px, ${dy}px)`
 
       requestAnimationFrame(() => {
-        htmlEl.style.transition = `transform ${FLIP_DURATION}ms cubic-bezier(0.22, 1, 0.36, 1)`
+        htmlEl.style.transition = `transform ${duration}ms cubic-bezier(0.22, 1, 0.36, 1)`
         htmlEl.style.transform = ''
 
         const cleanup = () => {
           htmlEl.style.transition = ''
+          htmlEl.style.transform = ''
           htmlEl.removeEventListener('transitionend', onEnd)
           clearTimeout(fallback)
         }
         const onEnd = () => cleanup()
-        // Fallback cleanup in case transitionend doesn't fire
-        const fallback = setTimeout(cleanup, FLIP_DURATION + 50)
+        const fallback = setTimeout(cleanup, duration + 50)
         htmlEl.addEventListener('transitionend', onEnd)
       })
     })
@@ -58,5 +54,15 @@ export function useFlipAnimation(containerRef: () => HTMLElement | undefined, it
     positions.clear()
   }
 
-  return { recordPositions, animateFlip }
+  const animateFlip = async () => {
+    await new Promise(r => setTimeout(r, SORTABLE_ANIMATION))
+    await nextTick()
+    runFlip(FLIP_DURATION)
+  }
+
+  const animateLayoutChange = () => {
+    runFlip(LAYOUT_FLIP_DURATION)
+  }
+
+  return { recordPositions, animateFlip, animateLayoutChange }
 }
