@@ -16,18 +16,20 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
   const resume = computed(getResume)
 
   // 解析头部文字颜色（向后兼容 + 智能默认值）
-  const resolveHeaderTextColor = (r: Resume, hasColoredHeader: boolean): HeaderTextColor => {
+  const resolveHeaderTextColor = (r: Resume, _hasColoredHeader: boolean): HeaderTextColor => {
     if (r.headerTextColor) return r.headerTextColor
     if (r.whiteHeaderText === true) return 'white'
     if (r.whiteHeaderText === false) return 'black'
-    return hasColoredHeader ? 'white' : 'black'
+    // 浅色背景默认深色文字
+    return 'black'
   }
 
   // 解析头部图标颜色（向后兼容 + 智能默认值）
-  const resolveHeaderIconColor = (r: Resume, hasColoredHeader: boolean): HeaderIconColor => {
+  const resolveHeaderIconColor = (r: Resume, _hasColoredHeader: boolean): HeaderIconColor => {
     if (r.headerIconColor) return r.headerIconColor
     if (r.iconFollowAccent === true) return 'accent'
-    return hasColoredHeader ? 'white' : 'black'
+    // 浅色背景默认深色图标
+    return 'black'
   }
 
   // 获取可见的模块顺序
@@ -61,8 +63,8 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const headerTextColorMode = resolveHeaderTextColor(resume.value, hasColoredHeader)
     const headerIconColorMode = resolveHeaderIconColor(resume.value, hasColoredHeader)
 
-    // 有色头部背景始终跟随主题色，文字颜色仅影响文字
-    const headerBg = hasColoredHeader ? accent : t.style.headerBg
+    // 有色头部背景使用浅色渐变（与侧边栏风格一致），而非纯主题色
+    const headerBg = hasColoredHeader ? deriveSidebarBg(accent) : t.style.headerBg
 
     // 文字颜色
     const nameTitleColor = headerTextColorMode === 'white' ? '#ffffff'
@@ -104,19 +106,26 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const userAccent = resume.value.themeAccentColor
     const sidebarText = userAccent ? deriveSidebarText(userAccent) : (t.style.sidebarTextColor || '#1e3a5f')
 
-    // sidebar 模板侧边栏背景始终是浅色，白色文字不可见
-    // 因此文字颜色不受 headerTextColor 影响，始终基于侧边栏自身配色
+    // sidebar 模板侧边栏：尊重用户文字/图标颜色选择
+    const headerTextColorMode = resolveHeaderTextColor(resume.value, false)
     const headerIconColorMode = resolveHeaderIconColor(resume.value, false)
 
     // 侧边栏背景不受文字颜色影响
     const sidebarBg = userAccent ? deriveSidebarBg(userAccent) : (t.style.sidebarBg || 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)')
 
-    // 文字颜色：始终基于侧边栏背景推导，不跟随头部文字颜色按钮
-    const nameTitleColor = sidebarText
-    const fieldTextColor = userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e'
+    // 文字颜色：根据用户选择决定
+    const nameTitleColor = headerTextColorMode === 'black' ? '#1a1a2e'
+      : headerTextColorMode === 'white' ? '#ffffff'
+      : sidebarText
+
+    const fieldTextColor = headerTextColorMode === 'black' ? '#4a4a6a'
+      : headerTextColorMode === 'white' ? 'rgba(255,255,255,0.85)'
+      : (userAccent ? deriveSidebarFieldColor(userAccent) : '#2d5a8e')
 
     // 图标颜色
-    const iconColor = headerIconColorMode === 'accent' ? deriveSidebarIconAccentColor(accent) : '#9ca3af'
+    const iconColor = headerIconColorMode === 'black' ? '#9ca3af'
+      : headerIconColorMode === 'white' ? 'rgba(255,255,255,0.7)'
+      : deriveSidebarIconAccentColor(accent)
 
     const lineColor = userAccent ? deriveDecorativeLine(userAccent) : '#e8e8f0'
     return {
