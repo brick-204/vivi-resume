@@ -22,7 +22,8 @@
               :class="{ 'color-btn--active': headerTextColor === opt.value }"
               @click="headerTextColor = opt.value"
             >
-              {{ opt.label }}
+              <span class="color-btn__dot" :style="colorDotStyle(opt.value)" />
+              <span class="color-btn__label">{{ opt.label }}</span>
             </button>
           </div>
         </div>
@@ -36,7 +37,8 @@
               :class="{ 'color-btn--active': headerIconColor === opt.value }"
               @click="headerIconColor = opt.value"
             >
-              {{ opt.label }}
+              <span class="color-btn__dot" :style="colorDotStyle(opt.value)" />
+              <span class="color-btn__label">{{ opt.label }}</span>
             </button>
           </div>
         </div>
@@ -253,6 +255,16 @@ const iconColorOptions: { value: HeaderIconColor; label: string }[] = [
   { value: 'white', label: '白色' },
   { value: 'accent', label: '跟随主题色' },
 ]
+
+// 颜色圆点样式
+const themeAccent = computed(() => store.currentResume?.themeAccentColor || '#7c5cfc')
+
+const colorDotStyle = (mode: 'black' | 'white' | 'accent') => ({
+  background: mode === 'black' ? '#1a1a2e'
+    : mode === 'white' ? '#ffffff'
+    : themeAccent.value,
+  borderColor: mode === 'white' ? 'rgba(0, 0, 0, 0.15)' : undefined,
+})
 
 const headerLayout = computed({
   get: () => store.currentResume?.basicInfo?.headerLayout ?? 'centered',
@@ -895,6 +907,9 @@ const removeCustomField = (id: string) => {
 }
 
 .color-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 12px;
   background: $bg-glass;
   border: 1px solid $border-glass;
@@ -906,6 +921,20 @@ const removeCustomField = (id: string) => {
   font-weight: 500;
   font-family: $font-family;
 
+  &__dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: transform $transition-fast;
+  }
+
+  &__label {
+    font-size: $font-size-xs;
+    font-weight: 500;
+  }
+
   &:hover {
     border-color: rgba($primary-color, 0.4);
     background: rgba($primary-color, 0.05);
@@ -914,7 +943,15 @@ const removeCustomField = (id: string) => {
   &--active {
     border-color: $primary-color;
     background: rgba($primary-color, 0.1);
-    color: $primary-color;
+    box-shadow: 0 0 0 2px rgba($primary-color, 0.25);
+
+    .color-btn__dot {
+      transform: scale(1.15);
+    }
+
+    .color-btn__label {
+      color: $primary-color;
+    }
   }
 }
 
