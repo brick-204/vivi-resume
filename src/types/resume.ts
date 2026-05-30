@@ -4,6 +4,12 @@ export type FieldDisplayMode = 'iconLabelValue' | 'labelValue' | 'iconValue'
 // 头部布局模式
 export type HeaderLayout = 'centered' | 'photo-left' | 'photo-right'
 
+// 头部文字颜色模式
+export type HeaderTextColor = 'black' | 'white' | 'accent'
+
+// 头部图标颜色模式
+export type HeaderIconColor = 'black' | 'white' | 'accent'
+
 // 简历基本信息
 export interface CustomField {
   id: string
@@ -115,6 +121,8 @@ export interface Resume {
   themeAccentColor?: string
   whiteHeaderText?: boolean
   iconFollowAccent?: boolean
+  headerTextColor?: HeaderTextColor
+  headerIconColor?: HeaderIconColor
   basicInfo: BasicInfo
   workExperience: WorkItem[]
   education: EducationItem[]

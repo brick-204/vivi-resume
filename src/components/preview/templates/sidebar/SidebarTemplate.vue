@@ -167,7 +167,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__field-value) {
-  color: var(--sidebar-basic-name-color);
+  color: var(--sidebar-basic-field-color);
 }
 
 :deep(.sidebar__section-title) {

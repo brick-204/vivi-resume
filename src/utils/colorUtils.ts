@@ -163,3 +163,12 @@ export function deriveSidebarHighlightDot(accent: string): string {
   const derived = hslToRgb(hsl.h, hsl.s * 0.6, 0.70)
   return rgba(derived.r, derived.g, derived.b, 1)
 }
+
+// 图标主题色衍生 — 比文字稍亮，保证小尺寸可见
+export function deriveSidebarIconAccentColor(accent: string): string {
+  const parsed = parseAccentColor(accent)
+  if (!parsed) return '#9ca3af'
+  const hsl = rgbToHsl(parsed.r, parsed.g, parsed.b)
+  const derived = hslToRgb(hsl.h, Math.max(hsl.s * 0.85, 0.4), 0.40)
+  return rgba(derived.r, derived.g, derived.b, 1)
+}

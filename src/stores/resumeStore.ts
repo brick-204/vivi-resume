@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Resume, CustomTextSection, CustomCardSection } from '@/types/resume'
+import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor } from '@/types/resume'
 import {
   createEmptyResume,
   generateId,
@@ -12,6 +12,18 @@ import {
 
 const STORAGE_KEY = 'vivi-resume-list'
 const CURRENT_RESUME_KEY = 'vivi-resume-current'
+
+// 颜色设置迁移 — 将旧的 boolean 字段迁移到新的三态枚举
+const migrateResumeColors = (resume: Resume): Resume => {
+  const updates: Partial<Resume> = {}
+  if (resume.headerTextColor === undefined && resume.whiteHeaderText !== undefined) {
+    updates.headerTextColor = (resume.whiteHeaderText ? 'white' : 'black') as HeaderTextColor
+  }
+  if (resume.headerIconColor === undefined && resume.iconFollowAccent !== undefined) {
+    updates.headerIconColor = (resume.iconFollowAccent ? 'accent' : 'black') as HeaderIconColor
+  }
+  return Object.keys(updates).length > 0 ? { ...resume, ...updates } : resume
+}
 
 export const useResumeStore = defineStore('resume', () => {
   // 简历列表
@@ -28,7 +40,11 @@ export const useResumeStore = defineStore('resume', () => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        resumeList.value = JSON.parse(saved)
+        const loaded = JSON.parse(saved) as Resume[]
+        resumeList.value = loaded.map(migrateResumeColors)
+        if (JSON.stringify(resumeList.value) !== saved) {
+          saveToStorageNow()
+        }
       } catch (e) {
         console.error('Failed to load resume list:', e)
         resumeList.value = []
@@ -125,7 +141,8 @@ export const useResumeStore = defineStore('resume', () => {
       data.id = generateId()
       data.createdAt = new Date().toISOString()
       data.updatedAt = new Date().toISOString()
-      resumeList.value.push(data)
+      const migrated = migrateResumeColors(data)
+      resumeList.value.push(migrated)
       saveToStorageNow()
       return true
     } catch (e) {

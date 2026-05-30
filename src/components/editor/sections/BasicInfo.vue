@@ -12,8 +12,34 @@
     <div class="section__form">
       <!-- 显示控制 -->
       <div class="display-controls">
-        <BaseCheckbox v-model="whiteHeaderText">白色文字</BaseCheckbox>
-        <BaseSwitch v-model="iconFollowAccent">图标跟随主题色</BaseSwitch>
+        <div class="color-selector">
+          <span class="color-selector__label">文字颜色</span>
+          <div class="color-selector__options">
+            <button
+              v-for="opt in textColorOptions"
+              :key="opt.value"
+              class="color-btn"
+              :class="{ 'color-btn--active': headerTextColor === opt.value }"
+              @click="headerTextColor = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
+        <div class="color-selector">
+          <span class="color-selector__label">图标颜色</span>
+          <div class="color-selector__options">
+            <button
+              v-for="opt in iconColorOptions"
+              :key="opt.value"
+              class="color-btn"
+              :class="{ 'color-btn--active': headerIconColor === opt.value }"
+              @click="headerIconColor = opt.value"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- 头部布局选择 -->
@@ -176,15 +202,12 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import BaseInput from '@/components/common/BaseInput.vue'
-import BaseCheckbox from '@/components/common/BaseCheckbox.vue'
-import BaseSwitch from '@/components/common/BaseSwitch.vue'
 import PhotoEditor from './PhotoEditor.vue'
 import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
-import type { BasicInfo, CustomField, FieldDisplayMode, HeaderLayout } from '@/types/resume'
+import type { BasicInfo, CustomField, FieldDisplayMode, HeaderLayout, HeaderTextColor, HeaderIconColor } from '@/types/resume'
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
-import { isDarkEnoughForWhiteText } from '@/utils/colorUtils'
 
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
@@ -194,25 +217,42 @@ const showPhotoEditor = ref(false)
 const editingPhotoSrc = ref('')
 
 // ---- 基本信息显示控制 ----
-const whiteHeaderText = computed({
-  get: () => {
-    const val = store.currentResume?.whiteHeaderText
-    // 有色头部模板默认白色文字，checkbox 应显示勾选
-    if (val === undefined) {
-      const templateId = store.currentResume?.templateId
-      const accent = store.currentResume?.themeAccentColor
-      const hasColoredHeader = templateId === 'modern' || templateId === 'twocolumn'
-      return hasColoredHeader && (accent ? isDarkEnoughForWhiteText(accent) : true)
-    }
-    return val
+const headerTextColor = computed({
+  get: (): HeaderTextColor => {
+    const resume = store.currentResume
+    if (!resume) return 'black'
+    if (resume.headerTextColor) return resume.headerTextColor
+    if (resume.whiteHeaderText === true) return 'white'
+    if (resume.whiteHeaderText === false) return 'black'
+    const hasColoredHeader = resume.templateId === 'modern' || resume.templateId === 'twocolumn'
+    return hasColoredHeader ? 'white' : 'black'
   },
-  set: (val) => store.updateCurrentResume({ whiteHeaderText: val }),
+  set: (val: HeaderTextColor) => store.updateCurrentResume({ headerTextColor: val }),
 })
 
-const iconFollowAccent = computed({
-  get: () => store.currentResume?.iconFollowAccent ?? false,
-  set: (val) => store.updateCurrentResume({ iconFollowAccent: val }),
+const textColorOptions: { value: HeaderTextColor; label: string }[] = [
+  { value: 'black', label: '黑色' },
+  { value: 'white', label: '白色' },
+  { value: 'accent', label: '跟随主题色' },
+]
+
+const headerIconColor = computed({
+  get: (): HeaderIconColor => {
+    const resume = store.currentResume
+    if (!resume) return 'black'
+    if (resume.headerIconColor) return resume.headerIconColor
+    if (resume.iconFollowAccent === true) return 'accent'
+    const hasColoredHeader = resume.templateId === 'modern' || resume.templateId === 'twocolumn'
+    return hasColoredHeader ? 'white' : 'black'
+  },
+  set: (val: HeaderIconColor) => store.updateCurrentResume({ headerIconColor: val }),
 })
+
+const iconColorOptions: { value: HeaderIconColor; label: string }[] = [
+  { value: 'black', label: '黑色' },
+  { value: 'white', label: '白色' },
+  { value: 'accent', label: '跟随主题色' },
+]
 
 const headerLayout = computed({
   get: () => store.currentResume?.basicInfo?.headerLayout ?? 'centered',
@@ -828,11 +868,54 @@ const removeCustomField = (id: string) => {
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
-  padding: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
   background: $bg-glass;
   border-radius: $radius-lg;
   border: 1px solid $border-glass;
   width: fit-content;
+}
+
+.color-selector {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &__label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+    white-space: nowrap;
+    min-width: 70px;
+  }
+
+  &__options {
+    display: flex;
+    gap: $spacing-xs;
+  }
+}
+
+.color-btn {
+  padding: 5px 12px;
+  background: $bg-glass;
+  border: 1px solid $border-glass;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-fast;
+  color: $text-secondary;
+  font-size: $font-size-xs;
+  font-weight: 500;
+  font-family: $font-family;
+
+  &:hover {
+    border-color: rgba($primary-color, 0.4);
+    background: rgba($primary-color, 0.05);
+  }
+
+  &--active {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.1);
+    color: $primary-color;
+  }
 }
 
 .layout-selector {
