@@ -44,10 +44,12 @@ const selectedId = ref('sidebar')
 
 const resumeId = computed(() => route.params.id as string)
 
-onMounted(() => {
+onMounted(async () => {
+  // 等待 store 初始化完成，确保 resumeList 已加载
+  await store.ready
   // 加载简历数据
   if (resumeId.value) {
-    const loaded = store.loadResume(resumeId.value)
+    const loaded = await store.loadResume(resumeId.value)
     if (loaded && store.currentResume) {
       selectedId.value = store.currentResume.templateId || 'sidebar'
     }

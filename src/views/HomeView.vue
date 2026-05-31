@@ -230,8 +230,8 @@ import { readJSONFile } from '@/utils/export'
 const router = useRouter()
 const store = useResumeStore()
 
-const createNewResume = () => {
-  const id = store.createResume()
+const createNewResume = async () => {
+  const id = await store.createResume()
   router.push(`/templates/${id}`)
 }
 
@@ -239,9 +239,9 @@ const openResume = (id: string) => {
   router.push(`/editor/${id}`)
 }
 
-const deleteResume = (id: string) => {
+const deleteResume = async (id: string) => {
   if (confirm('确定要删除这个简历吗？')) {
-    store.deleteResume(id)
+    await store.deleteResume(id)
   }
 }
 
@@ -251,7 +251,7 @@ const handleImport = async (event: Event) => {
   if (file) {
     try {
       const json = await readJSONFile(file)
-      if (store.importFromJSON(json)) {
+      if (await store.importFromJSON(json)) {
         alert('导入成功！')
       } else {
         alert('导入失败，请检查文件格式')

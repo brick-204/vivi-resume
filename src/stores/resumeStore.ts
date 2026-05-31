@@ -9,6 +9,7 @@ import {
   getCustomSectionIndex,
   generateCustomSectionId,
 } from '@/types/resume'
+import { useWorkerSerializer } from '@/composables/useWorkerSerializer'
 
 const STORAGE_KEY = 'vivi-resume-list'
 const CURRENT_RESUME_KEY = 'vivi-resume-current'
@@ -35,49 +36,72 @@ export const useResumeStore = defineStore('resume', () => {
   // 计算属性：简历数量
   const resumeCount = computed(() => resumeList.value.length)
 
-  // 初始化：从 localStorage 加载数据
-  const init = () => {
+  // 序列化 Worker（persistent 模式：store 生命周期内持续存在，不依赖 onUnmounted）
+  const { serialize, parse } = useWorkerSerializer({ persistent: true })
+
+  // ========== 初始化就绪 Promise ==========
+  // init() 改为异步后，组件需要等待数据加载完成才能安全访问 resumeList
+  let _readyResolve!: () => void
+  const ready = new Promise<void>(resolve => { _readyResolve = resolve })
+
+  // 初始化：从 localStorage 加载数据（异步，使用 Worker 解析 JSON）
+  const init = async () => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        const loaded = JSON.parse(saved) as Resume[]
-        resumeList.value = loaded.map(migrateResumeColors)
-        if (JSON.stringify(resumeList.value) !== saved) {
-          saveToStorageNow()
+        const loaded = await parse<Resume[]>(saved)
+        const migrated = loaded.map(migrateResumeColors)
+        resumeList.value = migrated
+        // 如果迁移产生了变化，立即保存更新后的数据
+        const migratedJson = await serialize(migrated)
+        if (migratedJson !== saved) {
+          localStorage.setItem(STORAGE_KEY, migratedJson)
         }
       } catch (e) {
         console.error('Failed to load resume list:', e)
         resumeList.value = []
       }
     }
+    // 标记初始化完成
+    _readyResolve()
   }
 
   // 防抖写入
   let saveTimer: ReturnType<typeof setTimeout> | null = null
+  // 防止并发写入的锁
+  let _savePromise: Promise<void> | null = null
 
   // 立即写入 localStorage（用于创建/删除等不可丢失操作）
-  const saveToStorageNow = () => {
+  // 使用 Promise.all 并行序列化，确保基于同一快照写入，避免中间状态不一致
+  const saveToStorageNow = async (): Promise<void> => {
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(resumeList.value))
-    if (currentResume.value) {
-      localStorage.setItem(CURRENT_RESUME_KEY, JSON.stringify(currentResume.value))
+    const [listJson, currentJson] = await Promise.all([
+      serialize(resumeList.value),
+      currentResume.value ? serialize(currentResume.value) : Promise.resolve(null),
+    ])
+    localStorage.setItem(STORAGE_KEY, listJson)
+    if (currentJson) {
+      localStorage.setItem(CURRENT_RESUME_KEY, currentJson)
     }
   }
 
   // 防抖写入 localStorage（用于拖拽等高频操作）
+  // 使用串行化确保不会出现并发写入导致旧数据覆盖新数据
   const saveToStorage = () => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
-      saveToStorageNow()
+      // 串行化：等待上一次保存完成后再执行本次保存
+      _savePromise = (_savePromise || Promise.resolve()).then(() => saveToStorageNow())
     }, 300)
   }
 
   // 创建新简历
-  const createResume = (): string => {
+  const createResume = async (): Promise<string> => {
     const newResume = createEmptyResume()
     resumeList.value.push(newResume)
     currentResume.value = newResume
-    saveToStorageNow()
+    // 创建操作不可丢失，await 确保写入完成
+    await saveToStorageNow()
     return newResume.id
   }
 
@@ -86,11 +110,12 @@ export const useResumeStore = defineStore('resume', () => {
     return resumeList.value.find(r => r.id === id)
   }
 
-  // 加载简历到编辑器
-  const loadResume = (id: string): boolean => {
+  // 加载简历到编辑器（使用 Worker 深拷贝，避免主线程阻塞）
+  const loadResume = async (id: string): Promise<boolean> => {
     const resume = getResume(id)
     if (resume) {
-      currentResume.value = JSON.parse(JSON.stringify(resume))
+      const json = await serialize(resume)
+      currentResume.value = await parse<Resume>(json)
       return true
     }
     return false
@@ -105,45 +130,48 @@ export const useResumeStore = defineStore('resume', () => {
     })
   }
 
-  // 保存当前简历到列表
-  const saveCurrentResume = () => {
+  // 保存当前简历到列表（使用 Worker 深拷贝 + 序列化）
+  const saveCurrentResume = async () => {
     if (!currentResume.value) return
 
     const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
     if (index !== -1) {
       currentResume.value.updatedAt = new Date().toISOString()
-      resumeList.value[index] = JSON.parse(JSON.stringify(currentResume.value))
+      const json = await serialize(currentResume.value)
+      resumeList.value[index] = await parse<Resume>(json)
       saveToStorage()
     }
   }
 
   // 删除简历
-  const deleteResume = (id: string) => {
+  const deleteResume = async (id: string) => {
     const index = resumeList.value.findIndex(r => r.id === id)
     if (index !== -1) {
       resumeList.value.splice(index, 1)
       if (currentResume.value?.id === id) {
         currentResume.value = null
       }
-      saveToStorageNow()
+      // 删除操作不可丢失，await 确保写入完成
+      await saveToStorageNow()
     }
   }
 
-  // 导出 JSON
+  // 导出 JSON（用户手动触发，不需要 Worker 优化；保留格式化输出提高可读性）
   const exportToJSON = (): string | null => {
+    if (!currentResume.value) return null
     return JSON.stringify(currentResume.value, null, 2)
   }
 
-  // 导入 JSON
-  const importFromJSON = (json: string): boolean => {
+  // 导入 JSON（使用 Worker 解析）
+  const importFromJSON = async (json: string): Promise<boolean> => {
     try {
-      const data = JSON.parse(json) as Resume
+      const data = await parse<Resume>(json)
       data.id = generateId()
       data.createdAt = new Date().toISOString()
       data.updatedAt = new Date().toISOString()
       const migrated = migrateResumeColors(data)
       resumeList.value.push(migrated)
-      saveToStorageNow()
+      await saveToStorageNow()
       return true
     } catch (e) {
       console.error('Failed to import resume:', e)
@@ -359,6 +387,7 @@ export const useResumeStore = defineStore('resume', () => {
     resumeList,
     currentResume,
     resumeCount,
+    ready,
     createResume,
     getResume,
     loadResume,

@@ -177,7 +177,7 @@ const goToTemplates = () => {
 const exportJSON = () => {
   const json = store.exportToJSON()
   if (json) {
-    downloadJSON(store.currentResume, `${resumeTitle.value || 'resume'}.json`)
+    downloadJSON(json, `${resumeTitle.value || 'resume'}.json`)
   }
 }
 
@@ -191,16 +191,19 @@ watch(
   () => {
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
+      // saveCurrentResume 已改为异步（Worker 序列化），不阻塞 UI
       store.saveCurrentResume()
     }, 1000)
   },
   { deep: true }
 )
 
-onMounted(() => {
+onMounted(async () => {
+  // 等待 store 初始化完成（Worker 异步加载 localStorage 数据）
+  await store.ready
   const id = route.params.id as string
   if (id) {
-    if (!store.loadResume(id)) {
+    if (!(await store.loadResume(id))) {
       router.push('/')
     }
   } else {

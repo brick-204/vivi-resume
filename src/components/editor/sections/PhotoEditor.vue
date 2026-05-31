@@ -123,6 +123,7 @@ import { ref, computed, watch, nextTick, onBeforeUnmount, useId } from 'vue'
 import { Icon } from '@iconify/vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import BaseButton from '@/components/common/BaseButton.vue'
+import { useWorkerImageProcessor } from '@/composables/useWorkerImageProcessor'
 
 const props = defineProps<{
   visible: boolean
@@ -295,7 +296,10 @@ const rotateLeft = () => { rotation.value = (rotation.value - 90 + 360) % 360; r
 const rotateRight = () => { rotation.value = (rotation.value + 90) % 360; render() }
 const resetAll = () => { rotation.value = 0; zoom.value = 1; panX.value = 0; panY.value = 0; render() }
 
-const handleConfirm = () => {
+// 图片处理 Worker（自动 fallback 到主线程）
+const { encodeImage } = useWorkerImageProcessor()
+
+const handleConfirm = async () => {
   const outW = shape.value === 'circle' ? OUT_CIRCLE : OUT_RECT_W
   const outH = shape.value === 'circle' ? OUT_CIRCLE : OUT_RECT_H
   const offscreen = document.createElement('canvas')
@@ -332,10 +336,24 @@ const handleConfirm = () => {
 
   const mimeType = shape.value === 'circle' ? 'image/png' : 'image/jpeg'
   const quality = shape.value === 'circle' ? undefined : 0.85
-  emit('confirm', {
-    photo: offscreen.toDataURL(mimeType, quality),
-    photoShape: shape.value,
-  })
+
+  try {
+    // 使用 Worker 编码图片，避免 toDataURL 阻塞主线程
+    // encodeImage 仅做编码（主线程已完成绘制），processImage 会重复绘制
+    const photo = await encodeImage(offscreen, mimeType, quality)
+
+    emit('confirm', {
+      photo,
+      photoShape: shape.value,
+    })
+  } catch (err) {
+    console.error('[PhotoEditor] 图片编码失败:', err)
+    // Fallback：主线程同步编码
+    emit('confirm', {
+      photo: offscreen.toDataURL(mimeType, quality),
+      photoShape: shape.value,
+    })
+  }
 }
 
 watch(canvasAreaRef, (el) => {

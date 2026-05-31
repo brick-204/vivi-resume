@@ -1,9 +1,13 @@
-export const exportToJSON = (data: any): string => {
-  return JSON.stringify(data, null, 2)
-}
+/**
+ * 导出工具函数
+ */
 
-export const downloadJSON = (data: any, filename: string = 'resume.json') => {
-  const json = exportToJSON(data)
+/**
+ * 将 JSON 字符串下载为文件
+ * @param json 已序列化的 JSON 字符串
+ * @param filename 下载文件名
+ */
+export const downloadJSON = (json: string, filename: string = 'resume.json') => {
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

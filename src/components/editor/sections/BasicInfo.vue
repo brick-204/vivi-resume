@@ -210,10 +210,12 @@ import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resu
 import type { BasicInfo, CustomField, FieldDisplayMode, HeaderLayout, HeaderTextColor, HeaderIconColor } from '@/types/resume'
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
+import { useWorkerImageProcessor } from '@/composables/useWorkerImageProcessor'
 
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
 const flipFields = useFlipAnimation(() => scrollContainer?.value, '.field-item')
+const { resizeImage } = useWorkerImageProcessor()
 
 const showPhotoEditor = ref(false)
 const editingPhotoSrc = ref('')
@@ -502,23 +504,22 @@ const handlePhotoUpload = (event: Event) => {
   input.value = ''
 }
 
-const compressAndOpenEditor = (dataUrl: string) => {
+const compressAndOpenEditor = async (dataUrl: string) => {
   const image = new Image()
-  image.onload = () => {
-    const maxDim = 800
-    let { width, height } = image
-    if (width > maxDim || height > maxDim) {
-      const ratio = Math.min(maxDim / width, maxDim / height)
-      width = Math.round(width * ratio)
-      height = Math.round(height * ratio)
+  image.onload = async () => {
+    try {
+      // 使用 Worker 缩放+编码图片，避免 toDataURL 阻塞主线程
+      editingPhotoSrc.value = await resizeImage(image, 800, 'image/jpeg', 0.85)
+      showPhotoEditor.value = true
+    } catch (err) {
+      console.error('[BasicInfo] 图片压缩失败:', err)
+      // Fallback：直接使用原始 data URL 打开编辑器
+      editingPhotoSrc.value = dataUrl
+      showPhotoEditor.value = true
     }
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(image, 0, 0, width, height)
-    editingPhotoSrc.value = canvas.toDataURL('image/jpeg', 0.85)
-    showPhotoEditor.value = true
+  }
+  image.onerror = () => {
+    console.error('[BasicInfo] 图片加载失败')
   }
   image.src = dataUrl
 }
