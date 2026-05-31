@@ -236,7 +236,7 @@ const loadImage = () => {
       img.onload = () => render()
       img.src = dataUrl
     })
-    .catch((err) => {
+    .catch((_err) => {
       if (ac.signal.aborted) return
       // fetch 失败时回退：尝试设置 crossOrigin 直接加载
       img = new Image()

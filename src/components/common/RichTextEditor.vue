@@ -169,6 +169,18 @@ const editor = useEditor({
     attributes: {
       class: 'rich-text-editor__content',
     },
+    handleKeyDown: (_view, event) => {
+      // Tab 键：插入 4 个真实空格（U+0020），而非 NBSP
+      // 真实空格配合 white-space: pre-wrap 可以在边界自动换行
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        if (editor.value) {
+          editor.value.chain().focus().insertContent('    ').run()
+        }
+        return true
+      }
+      return false
+    },
   },
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.getHTML())
@@ -332,6 +344,8 @@ onBeforeUnmount(() => {
   font-size: $font-size-sm;
   line-height: 1.7;
   min-height: 40px;
+  white-space: pre-wrap;
+  word-break: break-word;
 
   ::selection {
     background: rgba(124, 92, 252, 0.35);
@@ -340,6 +354,7 @@ onBeforeUnmount(() => {
 
   p {
     margin: 0 0 0.5em;
+    min-height: 1em;
 
     &:last-child {
       margin-bottom: 0;
