@@ -57,12 +57,8 @@
       </draggable>
     </div>
 
-    <!-- 主题色面板 -->
+    <!-- 主题色面板（紧随导航列表） -->
     <div v-if="!isCollapsed" class="theme-color-panel">
-      <div class="theme-color-panel__header">
-        <Icon icon="mdi:palette-outline" :width="16" />
-        <span>主题色</span>
-      </div>
       <div class="theme-color-panel__presets">
         <button
           v-for="(color, i) in THEME_PRESET_COLORS"
@@ -73,17 +69,9 @@
           @click="selectThemeColor(color)"
         />
       </div>
-      <div class="theme-color-panel__alpha-row">
-        <span class="alpha-label">透明度</span>
-        <div class="alpha-slider-wrap" ref="themeAlphaSliderRef" @mousedown="onThemeAlphaStart" @touchstart.prevent="onThemeAlphaTouchStart">
-          <div class="alpha-rail" :style="{ background: themeAlphaTrackBg }" />
-          <div class="alpha-thumb" :style="{ left: themeAlpha + '%' }" />
-        </div>
-        <span class="alpha-value">{{ themeAlpha }}%</span>
-      </div>
       <button class="theme-color-panel__more-btn" @click="themeShowMore = !themeShowMore">
-        <Icon :icon="themeShowMore ? 'mdi:chevron-down' : 'mdi:chevron-up'" :width="14" />
-        更多颜色
+        <Icon :icon="themeShowMore ? 'mdi:chevron-up' : 'mdi:palette-outline'" :width="14" />
+        {{ themeShowMore ? '收起' : '自定义' }}
       </button>
       <div v-if="themeShowMore" class="theme-color-panel__extended">
         <div class="sv-panel-wrap">
@@ -93,6 +81,14 @@
         <div class="hue-row" ref="themeHueSliderRef" @mousedown="onThemeHueStart" @touchstart.prevent="onThemeHueTouchStart">
           <div class="hue-track" />
           <div class="hue-thumb" :style="{ left: (themeHue / 360 * 100) + '%' }" />
+        </div>
+        <div class="theme-color-panel__alpha-row">
+          <span class="alpha-label">透明度</span>
+          <div class="alpha-slider-wrap" ref="themeAlphaSliderRef" @mousedown="onThemeAlphaStart" @touchstart.prevent="onThemeAlphaTouchStart">
+            <div class="alpha-rail" :style="{ background: themeAlphaTrackBg }" />
+            <div class="alpha-thumb" :style="{ left: themeAlpha + '%' }" />
+          </div>
+          <span class="alpha-value">{{ themeAlpha }}%</span>
         </div>
         <div class="input-row">
           <div class="input-group">
@@ -837,20 +833,11 @@ const removeSection = (sectionId: string) => {
 .theme-color-panel {
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: $spacing-xs;
   padding: $spacing-sm;
   background: $bg-glass;
   border-radius: $radius-lg;
   border: 1px solid $border-glass;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-    font-size: $font-size-xs;
-    font-weight: 600;
-    color: $text-secondary;
-  }
 
   &__presets {
     display: flex;
@@ -870,7 +857,7 @@ const removeSection = (sectionId: string) => {
     justify-content: center;
     gap: 4px;
     width: 100%;
-    padding: 5px 0;
+    padding: 4px 0;
     background: transparent;
     border: 1px dashed $border-glass;
     border-radius: $radius-md;
