@@ -16,6 +16,7 @@
           placeholder="给简历起个名字..."
           @blur="saveTitle"
         />
+        <span v-if="templateName" class="header__template-badge">{{ templateName }}</span>
       </div>
       <div class="header__right">
         <button class="header-btn header-btn--template" @click="goToTemplates">
@@ -108,6 +109,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
+import { getTemplate } from '@/config/templates'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
@@ -123,6 +125,11 @@ const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const resumeTitle = computed({
   get: () => store.currentResume?.title || '',
   set: (value) => store.updateCurrentResume({ title: value })
+})
+
+const templateName = computed(() => {
+  const id = store.currentResume?.templateId
+  return id ? getTemplate(id).name : ''
 })
 
 const saveTitle = () => {
@@ -311,6 +318,21 @@ onMounted(async () => {
   &::placeholder {
     color: $text-light;
   }
+}
+
+.header__template-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-light;
+  background: $bg-glass;
+  border-radius: $radius-sm;
+  border: 1px solid $border-glass;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .header__right {

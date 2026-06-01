@@ -495,8 +495,13 @@ const repositionPopup = () => {
   const btn = themeMoreBtnRef.value
   if (!btn || !themeShowMore.value) return
   const btnRect = btn.getBoundingClientRect()
+  // 弹窗垂直居中对齐主题色面板（按钮的父容器），而非仅对齐按钮
+  const panel = btn.closest('.theme-color-panel') as HTMLElement
+  const panelRect = panel?.getBoundingClientRect() || btnRect
+  const popupHeight = 280 // 弹窗大致高度，用于居中计算
+  const top = panelRect.top + (panelRect.height - popupHeight) / 2
   themePopupStyle.value = {
-    top: (btnRect.top + btnRect.height / 2 - 20) + 'px',
+    top: Math.max(8, top) + 'px',
     left: (btnRect.right + 4) + 'px',
   }
 }
