@@ -174,6 +174,8 @@
     margin-top: 16px;
     cursor: pointer;
     position: relative;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 200px;
 
     &:hover {
       opacity: 0.85;
@@ -183,6 +185,14 @@
   // ===== TransitionGroup FLIP 动画 =====
   .animated-sections {
     display: contents;
+  }
+
+  // 动画期间强制 content-visibility: visible，
+  // 确保 FLIP 位置计算读到真实的 offsetHeight 而非 contain-intrinsic-size 估算值
+  .section-reorder-move,
+  .section-reorder-enter-active,
+  .section-reorder-leave-active {
+    content-visibility: visible;
   }
 
   .section-reorder-move {
@@ -289,6 +299,8 @@
     margin-top: 12px;
     cursor: pointer;
     transition: opacity 0.15s;
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
 
     &:hover {
       opacity: 0.85;

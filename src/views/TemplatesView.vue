@@ -61,7 +61,7 @@ const goBack = () => {
   router.push(`/editor/${resumeId.value}`)
 }
 
-const applyTemplate = () => {
+const applyTemplate = async () => {
   const resume = store.currentResume
 
   // 判断简历是否为空（无姓名、无工作经历、无教育经历）
@@ -86,7 +86,8 @@ const applyTemplate = () => {
     store.updateCurrentResume({ templateId: selectedId.value })
   }
 
-  store.saveCurrentResume()
+  // 等待保存完成后再跳转，确保 resumeList 已同步更新
+  await store.saveCurrentResume()
   router.push(`/editor/${resumeId.value}`)
 }
 </script>

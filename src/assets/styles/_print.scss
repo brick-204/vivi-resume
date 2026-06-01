@@ -100,4 +100,13 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  // content-visibility 在打印时必须强制可见，否则离屏内容不会渲染到 PDF
+  .resume__section,
+  .entry,
+  .sidebar__section,
+  .main__entry {
+    content-visibility: visible !important;
+    contain-intrinsic-size: none !important;
+  }
 }

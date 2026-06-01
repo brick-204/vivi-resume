@@ -10,9 +10,13 @@ import {
   generateCustomSectionId,
 } from '@/types/resume'
 import { useWorkerSerializer } from '@/composables/useWorkerSerializer'
-
-const STORAGE_KEY = 'vivi-resume-list'
-const CURRENT_RESUME_KEY = 'vivi-resume-current'
+import {
+  migrateFromLocalStorage,
+  getAllResumes,
+  saveResumeList,
+  getCurrentId,
+  setCurrentId,
+} from '@/utils/storage'
 
 // 颜色设置迁移 — 将旧的 boolean 字段迁移到新的三态枚举
 const migrateResumeColors = (resume: Resume): Resume => {
@@ -44,24 +48,39 @@ export const useResumeStore = defineStore('resume', () => {
   let _readyResolve!: () => void
   const ready = new Promise<void>(resolve => { _readyResolve = resolve })
 
-  // 初始化：从 localStorage 加载数据（异步，使用 Worker 解析 JSON）
+  // 初始化：从 IndexedDB 加载数据（首次使用时自动从 localStorage 迁移）
   const init = async () => {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      try {
-        const loaded = await parse<Resume[]>(saved)
-        const migrated = loaded.map(migrateResumeColors)
-        resumeList.value = migrated
-        // 如果迁移产生了变化，立即保存更新后的数据
-        const migratedJson = await serialize(migrated)
-        if (migratedJson !== saved) {
-          localStorage.setItem(STORAGE_KEY, migratedJson)
-        }
-      } catch (e) {
-        console.error('Failed to load resume list:', e)
-        resumeList.value = []
+    // Step 1: 检测并执行 localStorage → IndexedDB 迁移（一次性）
+    await migrateFromLocalStorage()
+
+    // Step 2: 从 IndexedDB 加载所有简历
+    try {
+      const loaded = await getAllResumes()
+      const migrated = loaded.map(migrateResumeColors)
+      resumeList.value = migrated
+
+      // 如果颜色迁移产生了变化，保存回 IndexedDB
+      const needsSave = loaded.some(r =>
+        r.headerTextColor === undefined && r.whiteHeaderText !== undefined
+      )
+      if (needsSave) {
+        await saveResumeList(migrated)
+      }
+    } catch (e) {
+      console.error('Failed to load resume list:', e)
+      resumeList.value = []
+    }
+
+    // Step 3: 加载当前编辑的简历
+    const currentId = await getCurrentId()
+    if (currentId) {
+      const resume = resumeList.value.find(r => r.id === currentId)
+      if (resume) {
+        const json = await serialize(resume)
+        currentResume.value = await parse<Resume>(json)
       }
     }
+
     // 标记初始化完成
     _readyResolve()
   }
@@ -71,21 +90,20 @@ export const useResumeStore = defineStore('resume', () => {
   // 防止并发写入的锁
   let _savePromise: Promise<void> | null = null
 
-  // 立即写入 localStorage（用于创建/删除等不可丢失操作）
-  // 使用 Promise.all 并行序列化，确保基于同一快照写入，避免中间状态不一致
+  // 立即写入 IndexedDB（用于创建/删除等不可丢失操作）
   const saveToStorageNow = async (): Promise<void> => {
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
-    const [listJson, currentJson] = await Promise.all([
-      serialize(resumeList.value),
-      currentResume.value ? serialize(currentResume.value) : Promise.resolve(null),
-    ])
-    localStorage.setItem(STORAGE_KEY, listJson)
-    if (currentJson) {
-      localStorage.setItem(CURRENT_RESUME_KEY, currentJson)
+
+    // 先保存完整列表（包含当前简历的最新状态）
+    // 再单独更新 currentId 元数据
+    // 避免并行 clear+put 导致竞态条件
+    await saveResumeList(resumeList.value)
+    if (currentResume.value) {
+      await setCurrentId(currentResume.value.id)
     }
   }
 
-  // 防抖写入 localStorage（用于拖拽等高频操作）
+  // 防抖写入 IndexedDB（用于拖拽等高频操作）
   // 使用串行化确保不会出现并发写入导致旧数据覆盖新数据
   const saveToStorage = () => {
     if (saveTimer) clearTimeout(saveTimer)
@@ -116,6 +134,8 @@ export const useResumeStore = defineStore('resume', () => {
     if (resume) {
       const json = await serialize(resume)
       currentResume.value = await parse<Resume>(json)
+      // 切换简历时清空撤销/重做历史
+      clearHistory()
       return true
     }
     return false
@@ -124,6 +144,9 @@ export const useResumeStore = defineStore('resume', () => {
   // 更新当前简历
   const updateCurrentResume = (data: Partial<Resume>) => {
     if (!currentResume.value) return
+
+    // 推入防抖快照（捕获编辑前状态）
+    pushHistoryDebounced()
 
     Object.assign(currentResume.value, data, {
       updatedAt: new Date().toISOString()
@@ -180,9 +203,10 @@ export const useResumeStore = defineStore('resume', () => {
   }
 
   // 清空当前简历
-  const clearCurrentResume = () => {
+  const clearCurrentResume = async () => {
     currentResume.value = null
-    localStorage.removeItem(CURRENT_RESUME_KEY)
+    await setCurrentId(null)
+    clearHistory()
   }
 
   // ========== 模块管理方法 ==========
@@ -380,6 +404,99 @@ export const useResumeStore = defineStore('resume', () => {
     saveCurrentResume()
   }
 
+  // ========== Undo/Redo 历史 ==========
+
+  const MAX_HISTORY = 50
+  const undoStack: string[] = []   // JSON 字符串快照
+  const redoStack: string[] = []
+
+  const canUndo = ref(false)
+  const canRedo = ref(false)
+
+  // 防抖快照：首次变更捕获编辑前状态，500ms 无新变更后推入 undoStack
+  let _historyTimer: ReturnType<typeof setTimeout> | null = null
+  let _preEditSnapshot: string | null = null
+
+  const pushHistoryDebounced = () => {
+    if (!currentResume.value) return
+
+    // 首次变更：同步捕获编辑前的状态快照
+    if (!_preEditSnapshot) {
+      _preEditSnapshot = JSON.stringify(currentResume.value)
+    }
+
+    if (_historyTimer) clearTimeout(_historyTimer)
+    _historyTimer = setTimeout(() => {
+      if (_preEditSnapshot) {
+        undoStack.push(_preEditSnapshot)
+        if (undoStack.length > MAX_HISTORY) {
+          undoStack.shift()
+        }
+        redoStack.length = 0
+        canUndo.value = true
+        canRedo.value = false
+        _preEditSnapshot = null
+      }
+      _historyTimer = null
+    }, 500)
+  }
+
+  /** 清空历史栈（切换简历 / 清空当前简历时调用） */
+  const clearHistory = () => {
+    undoStack.length = 0
+    redoStack.length = 0
+    _preEditSnapshot = null
+    if (_historyTimer) { clearTimeout(_historyTimer); _historyTimer = null }
+    canUndo.value = false
+    canRedo.value = false
+  }
+
+  const undo = () => {
+    if (undoStack.length === 0) return
+
+    // 当前状态推入 redo 栈
+    if (currentResume.value) {
+      redoStack.push(JSON.stringify(currentResume.value))
+    }
+
+    // 恢复上一个快照（快照已是纯 JSON 字符串，直接 JSON.parse 即可）
+    const snapshot = undoStack.pop()!
+    currentResume.value = JSON.parse(snapshot) as Resume
+
+    // 同步更新列表中的对应条目
+    const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
+    if (index !== -1) {
+      resumeList.value[index] = currentResume.value!
+    }
+
+    canUndo.value = undoStack.length > 0
+    canRedo.value = true
+    saveToStorage()
+  }
+
+  const redo = () => {
+    if (redoStack.length === 0) return
+
+    // 当前状态推入 undo 栈
+    if (currentResume.value) {
+      undoStack.push(JSON.stringify(currentResume.value))
+    }
+
+    // 恢复下一个快照
+    const snapshot = redoStack.pop()!
+    currentResume.value = JSON.parse(snapshot) as Resume
+
+    // 同步更新列表中的对应条目
+    const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
+    if (index !== -1) {
+      resumeList.value[index] = currentResume.value!
+    }
+
+    canUndo.value = true
+    canRedo.value = redoStack.length > 0
+    saveToStorage()
+  }
+
   // 初始化
   init()
 
@@ -407,6 +524,10 @@ export const useResumeStore = defineStore('resume', () => {
     getHiddenSections,
     addCustomTextSection,
     addCustomCardSection,
-    removeCustomSection
+    removeCustomSection,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
   }
 })

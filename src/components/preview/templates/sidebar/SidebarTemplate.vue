@@ -209,6 +209,8 @@ provide(ResumeDocumentKey, ctx)
   margin-bottom: 0;
   cursor: pointer;
   transition: opacity 0.15s;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 
   &:hover {
     opacity: 0.85;
@@ -247,6 +249,8 @@ provide(ResumeDocumentKey, ctx)
   margin-top: 12px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--sidebar-entry-border);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
 
   &:last-child {
     border-bottom: none;

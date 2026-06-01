@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
@@ -199,7 +199,29 @@ watch(
 )
 
 onMounted(async () => {
-  // 等待 store 初始化完成（Worker 异步加载 localStorage 数据）
+  // Undo/Redo 全局快捷键（必须在第一个 await 之前注册 onUnmounted）
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return
+    // 排除焦点在可编辑元素内（这些组件有自己的 undo 逻辑）
+    const tag = (e.target as HTMLElement).tagName
+    const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' ||
+      (e.target as HTMLElement).isContentEditable
+    if (isEditable) return
+
+    if (e.key === 'z' && !e.shiftKey) {
+      e.preventDefault()
+      store.undo()
+    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+      e.preventDefault()
+      store.redo()
+    }
+  }
+  window.addEventListener('keydown', handleKeyDown)
+  onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeyDown)
+  })
+
+  // 等待 store 初始化完成（Worker 异步加载 IndexedDB 数据）
   await store.ready
   const id = route.params.id as string
   if (id) {
