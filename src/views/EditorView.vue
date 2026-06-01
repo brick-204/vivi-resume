@@ -386,7 +386,9 @@ onMounted(async () => {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid $border-glass;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    position: relative;
     will-change: width;
 
     &--collapsed {

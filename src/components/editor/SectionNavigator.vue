@@ -1,132 +1,149 @@
 <template>
   <div class="section-navigator" :class="{ 'section-navigator--collapsed': isCollapsed }">
-    <!-- 导航项列表 -->
-    <div class="navigator__list" ref="navigatorListRef">
-      <draggable
-        v-model="sortableSections"
-        item-key="id"
-        handle=".nav-item__drag-handle"
-        :animation="200"
-        ghost-class="nav-item--ghost"
-        chosen-class="nav-item--chosen"
-        drag-class="nav-item--drag"
-        :scroll="navigatorListRef"
-        :scroll-sensitivity="80"
-        :scroll-speed="10"
-        @start="flipNav.recordPositions"
-        @end="flipNav.animateFlip"
-      >
-        <template #item="{ element: item }">
-          <div
-            class="nav-item"
-            :class="{
-              'nav-item--active': activeSectionId === item.id,
-              'nav-item--basic': item.id === 'basic',
-              'nav-item--hidden': !item.visible
-            }"
-            :data-flip-id="item.id"
-            @click="handleSelect(item.id)"
-          >
-            <!-- 拖拽手柄 -->
-            <span
-              v-if="!isCollapsed && item.id !== 'basic'"
-              class="nav-item__drag-handle"
+    <!-- 中间区域：导航列表 + 主题色，流式排列，占满空间 -->
+    <div class="navigator__middle" ref="navigatorListRef">
+      <div class="navigator__list">
+        <draggable
+          v-model="sortableSections"
+          item-key="id"
+          handle=".nav-item__drag-handle"
+          :animation="200"
+          ghost-class="nav-item--ghost"
+          chosen-class="nav-item--chosen"
+          drag-class="nav-item--drag"
+          :scroll="navigatorListRef"
+          :scroll-sensitivity="80"
+          :scroll-speed="10"
+          @start="flipNav.recordPositions"
+          @end="flipNav.animateFlip"
+        >
+          <template #item="{ element: item }">
+            <div
+              class="nav-item"
+              :class="{
+                'nav-item--active': activeSectionId === item.id,
+                'nav-item--basic': item.id === 'basic',
+                'nav-item--hidden': !item.visible
+              }"
+              :data-flip-id="item.id"
+              @click="handleSelect(item.id)"
             >
-              <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
-            </span>
-            <span class="nav-item__icon">
-              <Icon :icon="item.icon" :width="16" :height="16" />
-            </span>
-            <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
-            <button
-              v-if="!isCollapsed && item.id !== 'basic'"
-              class="nav-item__hide"
-              @click.stop="handleToggleVisible(item.id)"
-            >
-              <Icon :icon="item.visible ? EYE_ICON : EYE_OFF_ICON" :width="20" :height="20" />
-            </button>
-            <button
-              v-if="!isCollapsed && item.id !== 'basic'"
-              class="nav-item__remove"
-              @click.stop="confirmRemove(item.id)"
-            >
-              <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-            </button>
-          </div>
-        </template>
-      </draggable>
-    </div>
+              <!-- 拖拽手柄 -->
+              <span
+                v-if="!isCollapsed && item.id !== 'basic'"
+                class="nav-item__drag-handle"
+              >
+                <Icon :icon="DRAG_HANDLE_ICON" :width="20" :height="20" />
+              </span>
+              <span class="nav-item__icon">
+                <Icon :icon="item.icon" :width="16" :height="16" />
+              </span>
+              <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
+              <button
+                v-if="!isCollapsed && item.id !== 'basic'"
+                class="nav-item__hide"
+                @click.stop="handleToggleVisible(item.id)"
+              >
+                <Icon :icon="item.visible ? EYE_ICON : EYE_OFF_ICON" :width="20" :height="20" />
+              </button>
+              <button
+                v-if="!isCollapsed && item.id !== 'basic'"
+                class="nav-item__remove"
+                @click.stop="confirmRemove(item.id)"
+              >
+                <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+              </button>
+            </div>
+          </template>
+        </draggable>
+      </div>
 
-    <!-- 主题色面板 -->
-    <div v-if="!isCollapsed" class="theme-color-panel">
-      <div class="theme-color-panel__header">
-        <Icon icon="mdi:palette-outline" :width="16" />
-        <span>主题色</span>
-      </div>
-      <div class="theme-color-panel__presets">
-        <button
-          v-for="(color, i) in THEME_PRESET_COLORS"
-          :key="i"
-          class="theme-swatch"
-          :class="{ 'theme-swatch--active': isThemeSwatchActive(color) }"
-          :style="{ background: color }"
-          @click="selectThemeColor(color)"
-        />
-      </div>
-      <div class="theme-color-panel__alpha-row">
-        <span class="alpha-label">透明度</span>
-        <div class="alpha-slider-wrap" ref="themeAlphaSliderRef" @mousedown="onThemeAlphaStart" @touchstart.prevent="onThemeAlphaTouchStart">
-          <div class="alpha-rail" :style="{ background: themeAlphaTrackBg }" />
-          <div class="alpha-thumb" :style="{ left: themeAlpha + '%' }" />
+      <!-- 主题色面板 -->
+      <div v-if="!isCollapsed" class="theme-color-panel">
+        <div class="theme-color-panel__header">
+          <Icon icon="mdi:palette-outline" :width="16" />
+          <span>主题色</span>
         </div>
-        <span class="alpha-value">{{ themeAlpha }}%</span>
-      </div>
-      <button class="theme-color-panel__more-btn" @click="themeShowMore = !themeShowMore">
-        <Icon :icon="themeShowMore ? 'mdi:chevron-down' : 'mdi:chevron-up'" :width="14" />
-        更多颜色
-      </button>
-      <div v-if="themeShowMore" class="theme-color-panel__extended">
-        <div class="sv-panel-wrap">
-          <canvas ref="themeSvCanvasRef" class="sv-canvas" width="200" height="150" @mousedown="onThemeSvStart" />
-          <div class="sv-cursor" :style="themeSvCursorStyle" />
+        <div class="theme-color-panel__presets">
+          <button
+            v-for="(color, i) in THEME_PRESET_COLORS"
+            :key="i"
+            class="theme-swatch"
+            :class="{ 'theme-swatch--active': isThemeSwatchActive(color) }"
+            :style="{ background: color }"
+            @click="selectThemeColor(color)"
+          />
         </div>
-        <div class="hue-row" ref="themeHueSliderRef" @mousedown="onThemeHueStart" @touchstart.prevent="onThemeHueTouchStart">
-          <div class="hue-track" />
-          <div class="hue-thumb" :style="{ left: (themeHue / 360 * 100) + '%' }" />
+        <div class="theme-color-panel__alpha-row">
+          <span class="alpha-label">透明度</span>
+          <div class="alpha-slider-wrap" ref="themeAlphaSliderRef" @mousedown="onThemeAlphaStart" @touchstart.prevent="onThemeAlphaTouchStart">
+            <div class="alpha-rail" :style="{ background: themeAlphaTrackBg }" />
+            <div class="alpha-thumb" :style="{ left: themeAlpha + '%' }" />
+          </div>
+          <span class="alpha-value">{{ themeAlpha }}%</span>
         </div>
-        <div class="input-row">
-          <div class="input-group">
-            <label>R</label>
-            <input type="number" min="0" max="255" :value="themeR" @input="onThemeRgbInput('r', $event)" />
-          </div>
-          <div class="input-group">
-            <label>G</label>
-            <input type="number" min="0" max="255" :value="themeG" @input="onThemeRgbInput('g', $event)" />
-          </div>
-          <div class="input-group">
-            <label>B</label>
-            <input type="number" min="0" max="255" :value="themeB" @input="onThemeRgbInput('b', $event)" />
-          </div>
-          <div class="input-group input-group--hex">
-            <label>#</label>
-            <input type="text" maxlength="6" :value="themeHexNoHash" @input="onThemeHexInput" />
-          </div>
-        </div>
+        <button ref="themeMoreBtnRef" class="theme-color-panel__more-btn" @click="toggleThemePopup">
+          <span>自定义</span>
+          <Icon icon="mdi:chevron-right" :width="14" />
+        </button>
       </div>
     </div>
 
-    <!-- 添加模块按钮（常驻） -->
-    <button class="navigator__add" @click="showAddModal = true">
-      <Icon :icon="PLUS_ICON" :width="14" :height="14" />
-      <span v-if="!isCollapsed">添加模块</span>
-    </button>
+    <!-- 更多颜色弹窗（Teleport 到 body，避免被任何父容器 overflow 裁剪） -->
+    <Teleport to="body">
+      <!-- 点击遮罩关闭弹窗 -->
+      <div v-if="!isCollapsed && themeShowMore" class="theme-color-popup-backdrop" @click="themeShowMore = false" />
+      <Transition name="color-popup">
+        <div v-if="!isCollapsed && themeShowMore" class="theme-color-popup" :style="themePopupStyle" @click.stop>
+          <div class="theme-color-popup__header">
+            <Icon icon="mdi:palette-outline" :width="14" />
+            <span>自定义颜色</span>
+            <button class="theme-color-popup__close" @click="themeShowMore = false">
+              <Icon icon="mdi:close" :width="14" />
+            </button>
+          </div>
+          <div class="sv-panel-wrap">
+            <canvas ref="themeSvCanvasRef" class="sv-canvas" width="200" height="150" @mousedown="onThemeSvStart" />
+            <div class="sv-cursor" :style="themeSvCursorStyle" />
+          </div>
+          <div class="hue-row" ref="themeHueSliderRef" @mousedown="onThemeHueStart" @touchstart.prevent="onThemeHueTouchStart">
+            <div class="hue-track" />
+            <div class="hue-thumb" :style="{ left: (themeHue / 360 * 100) + '%' }" />
+          </div>
+          <div class="input-row">
+            <div class="input-group">
+              <label>R</label>
+              <input type="number" min="0" max="255" :value="themeR" @input="onThemeRgbInput('r', $event)" />
+            </div>
+            <div class="input-group">
+              <label>G</label>
+              <input type="number" min="0" max="255" :value="themeG" @input="onThemeRgbInput('g', $event)" />
+            </div>
+            <div class="input-group">
+              <label>B</label>
+              <input type="number" min="0" max="255" :value="themeB" @input="onThemeRgbInput('b', $event)" />
+            </div>
+            <div class="input-group input-group--hex">
+              <label>#</label>
+              <input type="text" maxlength="6" :value="themeHexNoHash" @input="onThemeHexInput" />
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
-    <!-- 收缩/展开按钮 -->
-    <button class="navigator__collapse" @click="toggleCollapse">
-      <Icon :icon="isCollapsed ? COLLAPSE_RIGHT_ICON : COLLAPSE_LEFT_ICON" :width="14" :height="14" />
-    </button>
+  <!-- 添加模块按钮（常驻） -->
+  <button class="navigator__add" @click="showAddModal = true">
+    <Icon :icon="PLUS_ICON" :width="14" :height="14" />
+    <span v-if="!isCollapsed">添加模块</span>
+  </button>
 
-    <!-- 添加模块弹窗 -->
+  <!-- 收缩/展开按钮 -->
+  <button class="navigator__collapse" @click="toggleCollapse">
+    <Icon :icon="isCollapsed ? COLLAPSE_RIGHT_ICON : COLLAPSE_LEFT_ICON" :width="14" :height="14" />
+  </button>
+
+  <!-- 添加模块弹窗 -->
     <AddSectionModal
       :visible="showAddModal"
       :hidden-sections="hiddenSections"
@@ -460,7 +477,37 @@ watch(() => resumeStore.currentResume?.themeAccentColor, () => {
   if (themeShowMore.value) nextTick(drawThemeSvCanvas)
 }, { immediate: true })
 
-watch(themeShowMore, (v) => { if (v) nextTick(drawThemeSvCanvas) })
+watch(themeShowMore, (v) => {
+  if (v) {
+    nextTick(repositionPopup)
+    nextTick(drawThemeSvCanvas)
+    window.addEventListener('resize', repositionPopup)
+  } else {
+    window.removeEventListener('resize', repositionPopup)
+  }
+})
+
+// 主题色弹窗定位：监听按钮位置，动态设置弹窗 top/left
+const themeMoreBtnRef = ref<HTMLElement>()
+const themePopupStyle = ref<Record<string, string>>({})
+
+const repositionPopup = () => {
+  const btn = themeMoreBtnRef.value
+  if (!btn || !themeShowMore.value) return
+  const btnRect = btn.getBoundingClientRect()
+  themePopupStyle.value = {
+    top: (btnRect.top + btnRect.height / 2 - 20) + 'px',
+    left: (btnRect.right + 4) + 'px',
+  }
+}
+
+const toggleThemePopup = () => {
+  themeShowMore.value = !themeShowMore.value
+  if (themeShowMore.value) {
+    nextTick(repositionPopup)
+    drawThemeSvCanvas()
+  }
+}
 
 onBeforeUnmount(() => {
   // cleanup not needed since we use window listeners that self-remove on mouseup
@@ -604,6 +651,7 @@ const removeSection = (sectionId: string) => {
   flex-direction: column;
   padding: $spacing-md;
   gap: $spacing-sm;
+  position: relative;
 
   &--collapsed {
     padding: $spacing-sm;
@@ -622,13 +670,20 @@ const removeSection = (sectionId: string) => {
   }
 }
 
-.navigator__list {
+.navigator__middle {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: $spacing-xs;
+  gap: $spacing-sm;
+  min-height: 0;
   overflow-y: auto;
   @include scrollbar;
+}
+
+.navigator__list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
 }
 
 .nav-item {
@@ -785,6 +840,8 @@ const removeSection = (sectionId: string) => {
 }
 
 .navigator__add {
+  flex-shrink: 0;
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: $spacing-sm;
@@ -807,6 +864,7 @@ const removeSection = (sectionId: string) => {
 }
 
 .navigator__collapse {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -835,6 +893,7 @@ const removeSection = (sectionId: string) => {
 
 // ---- 主题色面板 ----
 .theme-color-panel {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: $spacing-sm;
@@ -886,12 +945,78 @@ const removeSection = (sectionId: string) => {
       background: rgba($primary-color, 0.08);
     }
   }
+}
 
-  &__extended {
+// ---- 更多颜色弹窗遮罩层 ----
+.theme-color-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+}
+
+// ---- 更多颜色弹窗（Teleport 到 body，fixed 定位） ----
+.theme-color-popup {
+  position: fixed;
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  padding: $spacing-md;
+  background: rgba($bg-primary, 0.95);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border-radius: $radius-lg;
+  border: 1px solid $border-glass;
+  box-shadow: $shadow-xl, 0 0 40px rgba($primary-color, 0.08);
+  z-index: 9999;
+
+  &__header {
     display: flex;
-    flex-direction: column;
-    gap: $spacing-sm;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-secondary;
   }
+
+  &__close {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: $radius-sm;
+    color: $text-light;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      background: $bg-glass-hover;
+      color: $text-primary;
+    }
+  }
+}
+
+// 弹窗进出动画
+.color-popup-enter-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.color-popup-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.color-popup-enter-from {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+.color-popup-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
 }
 
 .theme-swatch {
