@@ -80,6 +80,9 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       : headerIconColorMode === 'accent' ? deriveSidebarIconAccentColor(accent)
       : '#9ca3af'
 
+    // professional 模板：section bar 使用 sidebar 背景色逻辑
+    const isPro = templateId === 'professional'
+
     return {
       '--t-header-bg': headerBg,
       '--t-header-text': nameTitleColor,
@@ -97,6 +100,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--t-line': userAccent ? deriveDecorativeLine(userAccent) : '#e8e8f0',
       '--t-date-bg': userAccent ? deriveEntryDateBg(userAccent) : 'rgba(124, 92, 252, 0.08)',
       '--t-date-border': userAccent ? deriveEntryDateBorder(userAccent) : 'rgba(124, 92, 252, 0.15)',
+      ...(isPro ? { '--t-pro-bar-bg': deriveSidebarBg(accent) } : {}),
     }
   })
 

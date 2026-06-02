@@ -169,6 +169,26 @@ export const TEMPLATES: TemplateConfig[] = [
       sidebarBg: 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)',
       sidebarTextColor: '#1e3a5f'
     }
+  },
+  {
+    id: 'professional',
+    name: '专业风格',
+    description: '黑色标题栏 + 三栏布局，商务正式',
+    preview: 'linear-gradient(135deg, #1a1a2e, #000000)',
+    style: {
+      headerBg: '#ffffff',
+      headerTextColor: 'black',
+      accentColor: '#000000',
+      sectionTitleColor: '#ffffff',
+      textColor: '#202429',
+      textSecondaryColor: '#6b7280',
+      sectionBorderRadius: '0',
+      tagBg: 'transparent',
+      tagColor: '#202429',
+      tagBorder: 'transparent',
+      headerLayout: 'left',
+      showTimeline: false,
+    }
   }
 ]
 

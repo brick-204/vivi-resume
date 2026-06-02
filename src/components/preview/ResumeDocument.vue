@@ -18,6 +18,7 @@ const TEMPLATE_MAP: Record<string, Component> = {
   elegant: defineAsyncComponent(() => import('./templates/elegant/ElegantTemplate.vue')),
   twocolumn: defineAsyncComponent(() => import('./templates/twocolumn/TwoColumnTemplate.vue')),
   sidebar: defineAsyncComponent(() => import('./templates/sidebar/SidebarTemplate.vue')),
+  professional: defineAsyncComponent(() => import('./templates/professional/ProfessionalTemplate.vue')),
 }
 
 const props = defineProps<{ resume: Resume; templateId: string }>()
