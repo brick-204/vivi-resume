@@ -143,7 +143,7 @@ provide(ResumeDocumentKey, ctx)
 
 :deep(.sidebar__field) {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   font-size: var(--t-body-font-size, 14px);
   position: relative;
@@ -158,7 +158,6 @@ provide(ResumeDocumentKey, ctx)
   color: var(--sidebar-basic-icon-color, #202429);
   width: 1em;
   height: 1em;
-  vertical-align: -0.125em;
 }
 
 :deep(.sidebar__field-label) {

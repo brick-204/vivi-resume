@@ -142,7 +142,7 @@
 
     .header__field {
       display: inline-flex;
-      align-items: baseline;
+      align-items: center;
       gap: $spacing-xs;
       color: var(--t-header-field-text);
       font-size: var(--t-body-font-size, $font-size-xs);
@@ -156,7 +156,6 @@
       color: var(--t-header-icon-color);
       width: 1em;
       height: 1em;
-      vertical-align: -0.125em;
     }
 
     .header__field-label {
