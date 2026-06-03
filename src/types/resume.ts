@@ -34,7 +34,7 @@ export interface BasicInfo {
   politicalStatus: string
   hometown: string
   expectedCity: string
-  workStartDate: string
+  workExperience: string
   wechat: string
   qq: string
   salaryRange: string
@@ -198,7 +198,7 @@ export const generateCustomSectionId = (type: CustomSectionType, index: number):
 export const DEFAULT_FIELD_ORDER = [
   'photo', 'name', 'title', 'gender', 'birthday', 'age',
   'maritalStatus', 'politicalStatus', 'hometown', 'location',
-  'expectedCity', 'workStartDate', 'salaryRange', 'email',
+  'expectedCity', 'workExperience', 'salaryRange', 'email',
   'phone', 'wechat', 'qq', 'website'
 ]
 
@@ -225,7 +225,7 @@ export const createEmptyResume = (): Resume => {
       politicalStatus: '',
       hometown: '',
       expectedCity: '',
-      workStartDate: '',
+      workExperience: '',
       wechat: '',
       qq: '',
       salaryRange: '',

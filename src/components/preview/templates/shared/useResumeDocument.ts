@@ -295,7 +295,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     hometown: 'mdi:home-outline',
     location: 'mdi:map-marker-outline',
     expectedCity: 'mdi:city-variant-outline',
-    workStartDate: 'mdi:calendar-start',
+    workExperience: 'mdi:briefcase-clock',
     salaryRange: 'mdi:cash',
     email: 'mdi:email-outline',
     phone: 'mdi:phone-outline',
@@ -312,7 +312,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     name: '姓名', title: '职位', gender: '性别', birthday: '生日',
     age: '年龄', maritalStatus: '婚姻状态', politicalStatus: '政治面貌',
     hometown: '籍贯', location: '所在地', expectedCity: '期望城市',
-    workStartDate: '参加工作时间', salaryRange: '薪资', email: '邮箱',
+    workExperience: '工作经验', salaryRange: '薪资', email: '邮箱',
     phone: '电话', wechat: '微信', qq: 'QQ', website: '网站',
   }
 
@@ -323,7 +323,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const bi = resume.value.basicInfo
     if (fieldKey === 'age') return bi.age ? `${bi.age}岁` : ''
     if (fieldKey === 'birthday') return bi.birthday ? formatBirthday(bi.birthday) : ''
-    if (fieldKey === 'workStartDate') return bi.workStartDate ? formatDate(bi.workStartDate) : ''
+    if (fieldKey === 'workExperience') return bi.workExperience ? `${bi.workExperience}年` : ''
     return (bi[fieldKey as keyof typeof bi] as string) || ''
   }
 
@@ -343,7 +343,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
   }
 
   // 标签字段 key 列表
-  const TAG_KEYS = ['gender', 'age', 'maritalStatus', 'politicalStatus', 'birthday', 'hometown', 'workStartDate', 'salaryRange', 'expectedCity']
+  const TAG_KEYS = ['gender', 'age', 'maritalStatus', 'politicalStatus', 'birthday', 'hometown', 'workExperience', 'salaryRange', 'expectedCity']
   // 联系字段 key 列表
   const CONTACT_KEYS = ['phone', 'email', 'wechat', 'qq', 'location', 'website']
 

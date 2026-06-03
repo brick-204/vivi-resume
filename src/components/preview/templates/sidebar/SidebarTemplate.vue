@@ -143,12 +143,18 @@ provide(ResumeDocumentKey, ctx)
 
 :deep(.sidebar__field) {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   font-size: var(--t-body-font-size, 14px);
   position: relative;
-  word-break: break-all;
   min-width: 0;
+}
+
+:deep(.sidebar__field-prefix) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 :deep(.sidebar__field-icon) {

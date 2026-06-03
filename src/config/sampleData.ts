@@ -23,7 +23,7 @@ export const sampleResume: Resume = {
     politicalStatus: '',
     hometown: '湖南长沙',
     expectedCity: '',
-    workStartDate: '2018-07',
+    workExperience: '5',
     wechat: '',
     qq: '',
     salaryRange: '',
