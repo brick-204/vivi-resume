@@ -74,7 +74,7 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.section__title) {
-    font-size: $font-size-xs;
+    font-size: var(--t-section-title-font-size, $font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--t-accent);
@@ -100,7 +100,7 @@ provide(ResumeDocumentKey, ctx)
     background: var(--t-accent);
     color: #ffffff;
     border: none;
-    font-size: 10px;
+    font-size: var(--t-entry-date-font-size, 10px);
   }
 }
 </style>

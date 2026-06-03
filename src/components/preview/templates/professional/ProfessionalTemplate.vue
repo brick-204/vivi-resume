@@ -54,8 +54,24 @@ provide(ResumeDocumentKey, ctx)
     background: transparent;
     border: none;
     border-radius: 0;
-    font-size: 11pt;
+    font-size: var(--t-entry-date-font-size, 11pt);
     white-space: nowrap;
+  }
+
+  // 技术标签：紧凑方角，匹配商务正式风格
+  :deep(.tech-tag) {
+    padding: 1px 8px;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 2px;
+    font-size: var(--t-tag-font-size, 10pt);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  :deep(.entry__tags) {
+    gap: 4px;
+    margin-top: 6px;
   }
 }
 </style>

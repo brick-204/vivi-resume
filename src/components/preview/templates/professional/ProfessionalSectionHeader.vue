@@ -14,7 +14,6 @@ defineProps<{ title: string }>()
 <style lang="scss" scoped>
 .pro-section-header {
   display: flex;
-  margin-top: 16px;
 
   &__accent {
     width: 2.25pt;
@@ -32,7 +31,7 @@ defineProps<{ title: string }>()
   }
 
   &__title {
-    font-size: 13.5pt;
+    font-size: var(--t-section-title-font-size, 13.5pt);
     font-weight: 700;
     color: var(--t-accent, #000000);
     margin: 0;

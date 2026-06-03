@@ -49,7 +49,6 @@ provide(ResumeDocumentKey, ctx)
   :deep(.header__title) {
     font-weight: 400;
     color: var(--t-header-title-color);
-    font-style: italic;
   }
 
   :deep(.section__title) {
@@ -80,7 +79,7 @@ provide(ResumeDocumentKey, ctx)
   :deep(.entry__date) {
     background: transparent;
     border: 1px solid #e5e7eb;
-    color: var(--t-text-secondary);
+    color: var(--t-text, #202429);
   }
 
   :deep(.tech-tag) {

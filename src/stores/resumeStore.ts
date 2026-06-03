@@ -30,6 +30,32 @@ const migrateResumeColors = (resume: Resume): Resume => {
   return Object.keys(updates).length > 0 ? { ...resume, ...updates } : resume
 }
 
+// highlights 迁移 — 将旧的 highlights[] 合并到 description 中
+const migrateHighlights = (resume: Resume): Resume => {
+  let changed = false
+  const work = resume.workExperience.map(item => {
+    if (item.highlights?.length && !item.description.includes(item.highlights[0])) {
+      changed = true
+      const merged = item.description
+        ? item.description + '\n- ' + item.highlights.join('\n- ')
+        : '- ' + item.highlights.join('\n- ')
+      return { ...item, description: merged, highlights: undefined }
+    }
+    return item
+  })
+  const projects = resume.projects.map(item => {
+    if (item.highlights?.length && !item.description.includes(item.highlights[0])) {
+      changed = true
+      const merged = item.description
+        ? item.description + '\n- ' + item.highlights.join('\n- ')
+        : '- ' + item.highlights.join('\n- ')
+      return { ...item, description: merged, highlights: undefined }
+    }
+    return item
+  })
+  return changed ? { ...resume, workExperience: work, projects: projects } : resume
+}
+
 export const useResumeStore = defineStore('resume', () => {
   // 简历列表
   const resumeList = ref<Resume[]>([])
@@ -56,12 +82,14 @@ export const useResumeStore = defineStore('resume', () => {
     // Step 2: 从 IndexedDB 加载所有简历
     try {
       const loaded = await getAllResumes()
-      const migrated = loaded.map(migrateResumeColors)
+      const migrated = loaded.map(r => migrateHighlights(migrateResumeColors(r)))
       resumeList.value = migrated
 
-      // 如果颜色迁移产生了变化，保存回 IndexedDB
+      // 如果迁移产生了变化，保存回 IndexedDB
       const needsSave = loaded.some(r =>
-        r.headerTextColor === undefined && r.whiteHeaderText !== undefined
+        (r.headerTextColor === undefined && r.whiteHeaderText !== undefined)
+        || r.workExperience?.some(w => (w as any).highlights?.length)
+        || r.projects?.some(p => (p as any).highlights?.length)
       )
       if (needsSave) {
         await saveResumeList(migrated)

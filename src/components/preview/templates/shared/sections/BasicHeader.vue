@@ -15,7 +15,7 @@
     </div>
     <TransitionGroup v-if="ctx.orderedAllFields.value.length" name="field-reorder" tag="div" class="header__fields">
       <span v-for="field in ctx.orderedAllFields.value" :key="field.key" :data-flip-id="`field-${field.key}`" class="header__field">
-        <Icon v-if="field.showIcon" :icon="field.icon" :width="14" :height="14" class="header__field-icon" />
+        <Icon v-if="field.showIcon" :icon="field.icon" class="header__field-icon" />
         <span v-if="field.showLabel" class="header__field-label">{{ field.label }}</span>
         <span class="header__field-value">{{ field.value }}</span>
       </span>

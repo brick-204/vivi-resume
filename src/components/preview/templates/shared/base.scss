@@ -5,7 +5,8 @@
 .resume-document {
   max-width: 720px;
   margin: 0 auto;
-  font-size: $font-size-sm;
+  font-family: var(--t-font-family, $font-family);
+  font-size: var(--t-body-font-size, $font-size-sm);
   line-height: 1.7;
   color: var(--t-text);
   background: #ffffff;
@@ -141,17 +142,21 @@
 
     .header__field {
       display: inline-flex;
-      align-items: center;
+      align-items: baseline;
       gap: $spacing-xs;
       color: var(--t-header-field-text);
-      font-size: $font-size-xs;
+      font-size: var(--t-body-font-size, $font-size-xs);
       white-space: nowrap;
       position: relative;
     }
 
     .header__field-icon {
-      display: flex;
+      display: inline-flex;
+      align-items: center;
       color: var(--t-header-icon-color);
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
     }
 
     .header__field-label {
@@ -248,7 +253,7 @@
   }
 
   .section__title {
-    font-size: $font-size-md;
+    font-size: var(--t-section-title-font-size, $font-size-md);
     font-weight: 700;
     color: var(--t-section-title);
     padding-bottom: $spacing-sm;
@@ -263,8 +268,8 @@
       bottom: 0;
       left: 0;
       width: 100%;
-      height: 1px;
-      background: var(--t-line, #e8e8f0);
+      height: 2px;
+      background: var(--t-line, #d0d0d8);
     }
   }
 
@@ -285,9 +290,10 @@
   }
 
   .section__text {
-    color: var(--t-text-secondary);
-    font-size: $font-size-sm;
+    color: var(--t-text, #202429);
+    font-size: var(--t-section-text-font-size, $font-size-sm);
     line-height: 1.8;
+    margin-top: 12px;
 
     @include rich-text-content;
   }
@@ -335,19 +341,19 @@
   }
 
   .entry__title {
-    font-size: $font-size-sm;
+    font-size: var(--t-entry-title-font-size, $font-size-sm);
     font-weight: 700;
     color: var(--t-text);
   }
 
   .entry__subtitle {
-    font-size: $font-size-xs;
-    color: var(--t-text-secondary);
+    font-size: var(--t-entry-subtitle-font-size, $font-size-xs);
+    color: var(--t-text, #202429);
   }
 
   .entry__date {
-    font-size: $font-size-xs;
-    color: var(--t-text-secondary);
+    font-size: var(--t-entry-date-font-size, $font-size-xs);
+    color: var(--t-text, #202429);
     padding: $spacing-xs $spacing-sm;
     background: var(--t-date-bg, rgba(124, 92, 252, 0.08));
     border-radius: $radius-sm;
@@ -355,8 +361,8 @@
   }
 
   .entry__desc {
-    font-size: $font-size-xs;
-    color: var(--t-text-secondary);
+    font-size: var(--t-entry-desc-font-size, $font-size-xs);
+    color: var(--t-text, #202429);
     margin-top: $spacing-xs;
     line-height: 1.7;
 
@@ -368,15 +374,6 @@
     flex-wrap: wrap;
     gap: $spacing-xs;
     margin-top: $spacing-sm;
-  }
-
-  .entry__highlights {
-    list-style: none;
-    padding: 0;
-    margin: $spacing-xs 0 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
   }
 
   // ===== 时间线 =====
@@ -404,9 +401,9 @@
   .tech-tag {
     padding: 2px $spacing-sm;
     background: var(--t-tag-bg);
-    color: var(--t-tag-color);
+    color: var(--t-tag-color, #202429);
     border-radius: $radius-full;
-    font-size: 11px;
+    font-size: var(--t-tag-font-size, 11px);
     font-weight: 500;
     border: 1px solid var(--t-tag-border);
   }

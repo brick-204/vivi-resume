@@ -39,12 +39,7 @@ export const sampleResume: Resume = {
       position: '高级前端工程师',
       startDate: '2021-03',
       endDate: '至今',
-      description: '负责核心业务线的前端架构设计和团队技术规划，主导微前端架构落地，推动前端工程化建设。',
-      highlights: [
-        '主导微前端架构设计，将单体应用拆分为 8 个独立模块，部署效率提升 60%',
-        '建立前端监控体系，页面性能指标提升 40%，首屏加载时间降至 1.2s',
-        '带领 5 人前端团队，制定代码规范和 Code Review 流程，Bug 率降低 35%'
-      ]
+      description: '负责核心业务线的前端架构设计和团队技术规划，主导微前端架构落地，推动前端工程化建设。\n- 主导微前端架构设计，将单体应用拆分为 8 个独立模块，部署效率提升 60%\n- 建立前端监控体系，页面性能指标提升 40%，首屏加载时间降至 1.2s\n- 带领 5 人前端团队，制定代码规范和 Code Review 流程，Bug 率降低 35%',
     },
     {
       id: 'w2',
@@ -52,11 +47,7 @@ export const sampleResume: Resume = {
       position: '前端工程师',
       startDate: '2018-07',
       endDate: '2021-02',
-      description: '参与电商平台核心模块开发，负责性能优化和组件库建设。',
-      highlights: [
-        '开发通用组件库，覆盖 50+ 业务组件，被 3 个事业部复用',
-        '优化商品详情页渲染性能，LCP 从 3.5s 降至 1.8s'
-      ]
+      description: '参与电商平台核心模块开发，负责性能优化和组件库建设。\n- 开发通用组件库，覆盖 50+ 业务组件，被 3 个事业部复用\n- 优化商品详情页渲染性能，LCP 从 3.5s 降至 1.8s',
     }
   ],
   education: [
@@ -77,11 +68,7 @@ export const sampleResume: Resume = {
       role: '前端负责人',
       startDate: '2022-01',
       endDate: '2023-06',
-      description: '基于 Vue 3 + TypeScript 的数据可视化平台，支持拖拽式报表设计，服务 200+ 内部团队。',
-      highlights: [
-        '设计拖拽式报表编辑器，支持 20+ 图表类型',
-        '实现自定义数据源接入，兼容 REST API 和 WebSocket 实时推送'
-      ],
+      description: '基于 Vue 3 + TypeScript 的数据可视化平台，支持拖拽式报表设计，服务 200+ 内部团队。\n- 设计拖拽式报表编辑器，支持 20+ 图表类型\n- 实现自定义数据源接入，兼容 REST API 和 WebSocket 实时推送',
       technologies: ['Vue 3', 'TypeScript', 'ECharts', 'Pinia']
     },
     {
@@ -90,11 +77,7 @@ export const sampleResume: Resume = {
       role: '核心开发者',
       startDate: '2021-06',
       endDate: '2022-12',
-      description: '设计并开发跨端 UI 组件库，覆盖 Web、小程序、React Native 三端，组件覆盖率达 95%。',
-      highlights: [
-        '设计跨端主题系统，一套样式适配三端',
-        '编写完善的单元测试，覆盖率 90%+'
-      ],
+      description: '设计并开发跨端 UI 组件库，覆盖 Web、小程序、React Native 三端，组件覆盖率达 95%。\n- 设计跨端主题系统，一套样式适配三端\n- 编写完善的单元测试，覆盖率 90%+',
       technologies: ['React', 'Vue', 'Storybook', 'Jest']
     }
   ],

@@ -55,7 +55,8 @@ export interface WorkItem {
   startDate: string
   endDate: string
   description: string
-  highlights: string[]
+  /** @deprecated 已合并到 description，仅做向后兼容读取 */
+  highlights?: string[]
   hidden?: boolean
 }
 
@@ -79,8 +80,9 @@ export interface ProjectItem {
   startDate: string
   endDate: string
   description: string
-  highlights: string[]
   technologies: string[]
+  /** @deprecated 已合并到 description，仅做向后兼容读取 */
+  highlights?: string[]
   hidden?: boolean
 }
 
@@ -123,6 +125,10 @@ export interface Resume {
   iconFollowAccent?: boolean
   headerTextColor?: HeaderTextColor
   headerIconColor?: HeaderIconColor
+  fontFamily?: string
+  bodyFontSize?: number
+  sectionTitleFontSize?: number
+  entryTitleFontSize?: number
   basicInfo: BasicInfo
   workExperience: WorkItem[]
   education: EducationItem[]

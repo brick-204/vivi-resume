@@ -51,10 +51,10 @@ provide(ResumeDocumentKey, ctx)
   }
 
   :deep(.section__title) {
-    font-size: $font-size-sm;
+    font-size: var(--t-section-title-font-size, $font-size-sm);
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--t-text-secondary);
+    color: var(--t-text, #202429);
     font-weight: 600;
     padding-bottom: $spacing-xs;
 
@@ -84,14 +84,14 @@ provide(ResumeDocumentKey, ctx)
     background: transparent;
     border: none;
     padding: 0;
-    font-size: $font-size-xs;
-    color: var(--t-text-secondary);
+    font-size: var(--t-entry-date-font-size, $font-size-xs);
+    color: var(--t-text, #202429);
   }
 
   :deep(.tech-tag) {
     background: transparent;
-    border: 1px solid var(--t-text-secondary);
-    color: var(--t-text-secondary);
+    border: 1px solid var(--t-text, #202429);
+    color: var(--t-text, #202429);
     border-radius: 0;
   }
 }

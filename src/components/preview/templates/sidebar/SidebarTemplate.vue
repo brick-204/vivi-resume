@@ -37,13 +37,14 @@ provide(ResumeDocumentKey, ctx)
   min-height: 1050px;
   padding: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--t-body-font-size, 13px);
+  font-family: var(--t-font-family, $font-family);
 }
 
 // 左侧边栏
 :deep(.sidebar__left) {
   background: var(--sidebar-bg);
-  padding: 28px 20px;
+  padding: 16px 10px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -81,8 +82,8 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__photo) {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -91,8 +92,8 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__photo--rectangle) {
-  width: 75px;
-  height: 100px;
+  width: 60px;
+  height: 80px;
   border-radius: 0;
 }
 
@@ -120,16 +121,16 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__name) {
-  font-size: 18px;
+  font-size: 32px;
   font-weight: 800;
-  color: var(--sidebar-basic-name-color);
+  color: #202429;
   margin-bottom: 4px;
   letter-spacing: 0.02em;
 }
 
 :deep(.sidebar__title) {
-  font-size: 12px;
-  color: var(--sidebar-basic-title-color);
+  font-size: 18px;
+  color: #202429;
   font-weight: 500;
 }
 
@@ -142,23 +143,28 @@ provide(ResumeDocumentKey, ctx)
 
 :deep(.sidebar__field) {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  font-size: 11px;
-  color: var(--sidebar-basic-field-color);
-  word-break: break-all;
+  font-size: var(--t-body-font-size, 14px);
   position: relative;
+  word-break: break-all;
+  min-width: 0;
 }
 
 :deep(.sidebar__field-icon) {
-  display: flex;
+  display: inline-flex;
   flex-shrink: 0;
-  color: var(--sidebar-basic-icon-color);
+  align-items: center;
+  color: var(--sidebar-basic-icon-color, #202429);
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
 }
 
 :deep(.sidebar__field-label) {
-  color: var(--sidebar-basic-field-color);
+  color: var(--sidebar-basic-field-color, #202429);
   font-weight: 500;
+  flex-shrink: 0;
 
   &::after {
     content: ':';
@@ -167,11 +173,15 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__field-value) {
-  color: var(--sidebar-basic-field-color);
+  color: var(--sidebar-basic-field-color, #202429);
+  min-width: 0;
+  flex: 1;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 :deep(.sidebar__section-title) {
-  font-size: 11px;
+  font-size: var(--sidebar-section-title-font-size, 11px);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -190,7 +200,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__skill-text) {
-  font-size: 11px;
+  font-size: var(--sidebar-skill-font-size, 11px);
   color: var(--sidebar-text);
   line-height: 1.8;
 
@@ -199,7 +209,7 @@ provide(ResumeDocumentKey, ctx)
 
 // 右侧主内容区
 :deep(.sidebar__right) {
-  padding: 28px 28px 20px;
+  padding: 8px 16px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -218,7 +228,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.main__section-title) {
-  font-size: 14px;
+  font-size: var(--t-section-title-font-size, 14px);
   font-weight: 700;
   color: var(--sidebar-text);
   padding-bottom: 8px;
@@ -238,8 +248,8 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.main__section-text) {
-  font-size: 12px;
-  color: #4a5568;
+  font-size: var(--t-section-text-font-size, 12px);
+  color: var(--t-text, #202429);
   line-height: 1.8;
 
   @include rich-text-content;
@@ -272,18 +282,18 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.main__entry-title) {
-  font-size: 13px;
+  font-size: var(--t-entry-title-font-size, 13px);
   font-weight: 700;
-  color: #1a202c;
+  color: var(--t-text, #202429);
 }
 
 :deep(.main__entry-subtitle) {
-  font-size: 11px;
-  color: #718096;
+  font-size: var(--t-entry-subtitle-font-size, 11px);
+  color: #202429;
 }
 
 :deep(.main__entry-date) {
-  font-size: 10px;
+  font-size: var(--t-entry-date-font-size, 10px);
   color: #ffffff;
   background: var(--sidebar-accent);
   padding: 2px 10px;
@@ -294,40 +304,12 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.main__entry-desc) {
-  font-size: 11px;
-  color: #4a5568;
+  font-size: var(--t-entry-desc-font-size, 11px);
+  color: var(--t-text, #202429);
   line-height: 1.7;
   margin-top: 6px;
 
   @include rich-text-content;
-}
-
-:deep(.main__entry-highlights) {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-:deep(.main__entry-highlights li) {
-  font-size: 11px;
-  color: #4a5568;
-  line-height: 1.6;
-  padding-left: 14px;
-  position: relative;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 7px;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--sidebar-highlight-dot);
-  }
 }
 
 :deep(.main__entry-tags) {
@@ -342,7 +324,7 @@ provide(ResumeDocumentKey, ctx)
   background: var(--t-tag-bg);
   color: var(--t-tag-color);
   border-radius: 12px;
-  font-size: 10px;
+  font-size: var(--t-tag-font-size, 10px);
   font-weight: 500;
   border: 1px solid var(--t-tag-border);
 }

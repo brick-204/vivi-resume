@@ -14,9 +14,6 @@
           <span v-if="item.startDate || item.endDate" class="main__entry-date">{{ ctx.formatDateRange(item.startDate, item.endDate) }}</span>
         </div>
         <div v-if="item.description" class="main__entry-desc" v-html="ctx.renderHtml(item.description)"></div>
-        <ul v-if="item.highlights?.length" class="main__entry-highlights">
-          <li v-for="(hl, idx) in item.highlights" :key="idx">{{ hl }}</li>
-        </ul>
       </div>
     </div>
   </section>

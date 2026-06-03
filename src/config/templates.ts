@@ -15,6 +15,12 @@ export interface TemplateStyle {
   // sidebar 模板专用
   sidebarBg?: string
   sidebarTextColor?: string
+  // 字体默认值
+  fontDefaults?: {
+    bodyFontSize?: number
+    sectionTitleFontSize?: number
+    entryTitleFontSize?: number
+  }
 }
 
 // 模版配置
@@ -38,14 +44,15 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#1a1a2e',
       accentColor: '#7c5cfc',
       sectionTitleColor: '#1a1a2e',
-      textColor: '#1a1a2e',
+      textColor: '#202429',
       textSecondaryColor: '#4a4a6a',
       sectionBorderRadius: '0',
       tagBg: 'rgba(6, 182, 212, 0.1)',
       tagColor: '#0891b2',
       tagBorder: 'rgba(6, 182, 212, 0.2)',
       headerLayout: 'centered',
-      showTimeline: true
+      showTimeline: true,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   },
   {
@@ -58,14 +65,15 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#1e293b',
       accentColor: '#06b6d4',
       sectionTitleColor: '#0e7490',
-      textColor: '#1a1a2e',
+      textColor: '#202429',
       textSecondaryColor: '#64748b',
       sectionBorderRadius: '12px',
       tagBg: 'rgba(6, 182, 212, 0.15)',
       tagColor: '#0891b2',
       tagBorder: 'rgba(6, 182, 212, 0.3)',
       headerLayout: 'two-column',
-      showTimeline: false
+      showTimeline: false,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   },
   {
@@ -78,14 +86,15 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#0f172a',
       accentColor: '#475569',
       sectionTitleColor: '#0f172a',
-      textColor: '#334155',
+      textColor: '#202429',
       textSecondaryColor: '#64748b',
       sectionBorderRadius: '0',
       tagBg: 'transparent',
       tagColor: '#64748b',
       tagBorder: 'rgba(100, 116, 139, 0.3)',
       headerLayout: 'left',
-      showTimeline: false
+      showTimeline: false,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   },
   {
@@ -98,14 +107,15 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#1c1917',
       accentColor: '#f97316',
       sectionTitleColor: '#1c1917',
-      textColor: '#1c1917',
+      textColor: '#202429',
       textSecondaryColor: '#78716c',
       sectionBorderRadius: '8px',
       tagBg: 'rgba(249, 115, 22, 0.1)',
       tagColor: '#ea580c',
       tagBorder: 'rgba(249, 115, 22, 0.25)',
       headerLayout: 'centered',
-      showTimeline: true
+      showTimeline: true,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   },
   {
@@ -118,14 +128,15 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#064e3b',
       accentColor: '#059669',
       sectionTitleColor: '#064e3b',
-      textColor: '#1a1a2e',
+      textColor: '#202429',
       textSecondaryColor: '#6b7280',
       sectionBorderRadius: '4px',
       tagBg: 'rgba(5, 150, 105, 0.08)',
       tagColor: '#059669',
       tagBorder: 'rgba(5, 150, 105, 0.2)',
       headerLayout: 'left',
-      showTimeline: false
+      showTimeline: false,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   },
   {
@@ -138,14 +149,15 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#1e293b',
       accentColor: '#2563eb',
       sectionTitleColor: '#1e40af',
-      textColor: '#1f2937',
+      textColor: '#202429',
       textSecondaryColor: '#6b7280',
       sectionBorderRadius: '8px',
       tagBg: 'rgba(37, 99, 235, 0.1)',
       tagColor: '#2563eb',
       tagBorder: 'rgba(37, 99, 235, 0.2)',
       headerLayout: 'two-column',
-      showTimeline: false
+      showTimeline: false,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   },
   {
@@ -158,7 +170,7 @@ export const TEMPLATES: TemplateConfig[] = [
       headerTextColor: '#ffffff',
       accentColor: '#3b82f6',
       sectionTitleColor: '#1e3a5f',
-      textColor: '#1f2937',
+      textColor: '#202429',
       textSecondaryColor: '#6b7280',
       sectionBorderRadius: '0',
       tagBg: 'rgba(59, 130, 246, 0.1)',
@@ -167,7 +179,8 @@ export const TEMPLATES: TemplateConfig[] = [
       headerLayout: 'sidebar',
       showTimeline: false,
       sidebarBg: 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)',
-      sidebarTextColor: '#1e3a5f'
+      sidebarTextColor: '#1e3a5f',
+      fontDefaults: { bodyFontSize: 13, sectionTitleFontSize: 14, entryTitleFontSize: 13 }
     }
   },
   {
@@ -188,6 +201,7 @@ export const TEMPLATES: TemplateConfig[] = [
       tagBorder: 'transparent',
       headerLayout: 'left',
       showTimeline: false,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
     }
   }
 ]

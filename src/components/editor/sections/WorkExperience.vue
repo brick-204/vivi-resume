@@ -126,7 +126,6 @@ const addItem = () => {
     startDate: "",
     endDate: "",
     description: "",
-    highlights: [],
   };
   store.updateCurrentResume({
     workExperience: [...items.value, newItem],

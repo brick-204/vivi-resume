@@ -87,6 +87,38 @@
           <Icon icon="mdi:chevron-right" :width="14" />
         </button>
       </div>
+
+      <!-- 文字设置面板 -->
+      <div v-if="!isCollapsed" class="font-settings-panel">
+        <div class="font-settings-panel__header">
+          <Icon icon="mdi:format-font" :width="16" />
+          <span>文字设置</span>
+        </div>
+        <div class="font-settings-panel__row">
+          <span class="font-settings-panel__label">字体</span>
+          <select class="font-settings-panel__select" :value="currentFontFamily" @change="onFontFamilyChange" aria-label="选择字体">
+            <option v-for="f in FONT_FAMILY_OPTIONS" :key="f.value" :value="f.value">{{ f.label }}</option>
+          </select>
+        </div>
+        <div class="font-settings-panel__row">
+          <span class="font-settings-panel__label">正文字号</span>
+          <select class="font-settings-panel__select" :value="currentBodyFontSize" @change="onBodyFontSizeChange" aria-label="选择正文字号">
+            <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
+          </select>
+        </div>
+        <div class="font-settings-panel__row">
+          <span class="font-settings-panel__label">一级标题</span>
+          <select class="font-settings-panel__select" :value="currentSectionTitleFontSize" @change="onSectionTitleFontSizeChange" aria-label="选择一级标题字号">
+            <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
+          </select>
+        </div>
+        <div class="font-settings-panel__row">
+          <span class="font-settings-panel__label">二级标题</span>
+          <select class="font-settings-panel__select" :value="currentEntryTitleFontSize" @change="onEntryTitleFontSizeChange" aria-label="选择二级标题字号">
+            <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- 更多颜色弹窗（Teleport 到 body，避免被任何父容器 overflow 裁剪） -->
@@ -174,6 +206,8 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
 import { SECTION_CONFIG, getSectionTitle, isCustomSection } from '@/types/resume'
+import { getTemplate } from '@/config/templates'
+import { FONT_SIZE_OPTIONS, FONT_FAMILY_OPTIONS, DEFAULT_FONT_FAMILY } from '@/config/fonts'
 import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import draggable from 'vuedraggable'
@@ -469,6 +503,40 @@ const onThemeHexInput = (e: Event) => {
   themeHue.value = h; themeSat.value = s; themeVal.value = v
   themeSave()
   drawThemeSvCanvas()
+}
+
+// ---- 文字设置功能 ----
+
+const currentFontFamily = computed(() =>
+  resumeStore.currentResume?.fontFamily || DEFAULT_FONT_FAMILY
+)
+const currentBodyFontSize = computed(() => {
+  const t = getTemplate(resumeStore.currentResume?.templateId || 'sidebar')
+  const fd = t.style.fontDefaults || {}
+  return resumeStore.currentResume?.bodyFontSize || fd.bodyFontSize || 14
+})
+const currentSectionTitleFontSize = computed(() => {
+  const t = getTemplate(resumeStore.currentResume?.templateId || 'sidebar')
+  const fd = t.style.fontDefaults || {}
+  return resumeStore.currentResume?.sectionTitleFontSize || fd.sectionTitleFontSize || 16
+})
+const currentEntryTitleFontSize = computed(() => {
+  const t = getTemplate(resumeStore.currentResume?.templateId || 'sidebar')
+  const fd = t.style.fontDefaults || {}
+  return resumeStore.currentResume?.entryTitleFontSize || fd.entryTitleFontSize || 14
+})
+
+const onFontFamilyChange = (e: Event) => {
+  resumeStore.updateCurrentResume({ fontFamily: (e.target as HTMLSelectElement).value })
+}
+const onBodyFontSizeChange = (e: Event) => {
+  resumeStore.updateCurrentResume({ bodyFontSize: Number((e.target as HTMLSelectElement).value) })
+}
+const onSectionTitleFontSizeChange = (e: Event) => {
+  resumeStore.updateCurrentResume({ sectionTitleFontSize: Number((e.target as HTMLSelectElement).value) })
+}
+const onEntryTitleFontSizeChange = (e: Event) => {
+  resumeStore.updateCurrentResume({ entryTitleFontSize: Number((e.target as HTMLSelectElement).value) })
 }
 
 // Sync from store on mount and when accent color changes externally
@@ -1179,6 +1247,70 @@ const removeSection = (sectionId: string) => {
 
   &--hex {
     flex: 1.4;
+  }
+}
+
+// ---- 文字设置面板 ----
+.font-settings-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding: $spacing-sm;
+  background: $bg-glass;
+  border-radius: $radius-lg;
+  border: 1px solid $border-glass;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-xs;
+  }
+
+  &__label {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    flex-shrink: 0;
+  }
+
+  &__select {
+    flex: 1;
+    min-width: 0;
+    padding: 3px 6px;
+    padding-right: 20px;
+    background: $bg-glass;
+    border: 1px solid $border-glass;
+    border-radius: $radius-sm;
+    color: $text-primary;
+    font-size: $font-size-xs;
+    font-family: $font-family;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+    background-size: 12px;
+
+    &:focus {
+      border-color: $primary-color;
+    }
+
+    option {
+      background: $bg-primary;
+      color: $text-primary;
+    }
   }
 }
 </style>

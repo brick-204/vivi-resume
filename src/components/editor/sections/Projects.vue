@@ -143,7 +143,6 @@ const addItem = () => {
     startDate: "",
     endDate: "",
     description: "",
-    highlights: [],
     technologies: [],
   };
   store.updateCurrentResume({
