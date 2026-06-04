@@ -220,6 +220,7 @@ export const useResumeStore = defineStore('resume', () => {
       data.id = generateId()
       data.createdAt = new Date().toISOString()
       data.updatedAt = new Date().toISOString()
+      // 保留 JSON 中的 title，不使用文件名覆盖
       const migrated = migrateResumeColors(data)
       resumeList.value.push(migrated)
       await saveToStorageNow()

@@ -16,12 +16,31 @@
         <div class="header__logo">
           <div class="logo__icon">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect x="2" y="2" width="28" height="28" rx="8" stroke="url(#logo-gradient)" stroke-width="2"/>
-              <path d="M10 12H22M10 16H18M10 20H22" stroke="url(#logo-gradient)" stroke-width="2" stroke-linecap="round"/>
+              <rect
+                x="2"
+                y="2"
+                width="28"
+                height="28"
+                rx="8"
+                stroke="url(#logo-gradient)"
+                stroke-width="2"
+              />
+              <path
+                d="M10 12H22M10 16H18M10 20H22"
+                stroke="url(#logo-gradient)"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
               <defs>
-                <linearGradient id="logo-gradient" x1="2" y1="2" x2="30" y2="30">
-                  <stop stop-color="#7c5cfc"/>
-                  <stop offset="1" stop-color="#06b6d4"/>
+                <linearGradient
+                  id="logo-gradient"
+                  x1="2"
+                  y1="2"
+                  x2="30"
+                  y2="30"
+                >
+                  <stop stop-color="#7c5cfc" />
+                  <stop offset="1" stop-color="#06b6d4" />
                 </linearGradient>
               </defs>
             </svg>
@@ -43,11 +62,20 @@
           <div class="hero__label">
             <span class="label__icon">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 1L10.5 5.5L15.5 6L12 9.5L13 14.5L8 12L3 14.5L4 9.5L0.5 6L5.5 5.5L8 1Z" fill="url(#star-gradient)"/>
+                <path
+                  d="M8 1L10.5 5.5L15.5 6L12 9.5L13 14.5L8 12L3 14.5L4 9.5L0.5 6L5.5 5.5L8 1Z"
+                  fill="url(#star-gradient)"
+                />
                 <defs>
-                  <linearGradient id="star-gradient" x1="0.5" y1="1" x2="15.5" y2="14.5">
-                    <stop stop-color="#fbbf24"/>
-                    <stop offset="1" stop-color="#f59e0b"/>
+                  <linearGradient
+                    id="star-gradient"
+                    x1="0.5"
+                    y1="1"
+                    x2="15.5"
+                    y2="14.5"
+                  >
+                    <stop stop-color="#fbbf24" />
+                    <stop offset="1" stop-color="#f59e0b" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -65,24 +93,45 @@
             简洁优雅的在线简历编辑器，帮助你展现最好的自己
           </p>
           <div class="hero__actions">
-            <button class="action-btn action-btn--primary" @click="createNewResume">
+            <button
+              class="action-btn action-btn--primary"
+              @click="createNewResume"
+            >
               <span class="btn__icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 4V16M4 10H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path
+                    d="M10 4V16M4 10H16"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </span>
               创建新简历
             </button>
-            <label class="action-btn action-btn--secondary">
-              <input type="file" accept=".json" @change="handleImport" hidden />
+            <button
+              class="action-btn action-btn--secondary"
+              @click="showImportModal = true"
+            >
               <span class="btn__icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 3V13M10 13L6 9M10 13L14 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M3 17H17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path
+                    d="M10 3V13M10 13L6 9M10 13L14 9"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M3 17H17"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </span>
               导入简历
-            </label>
+            </button>
           </div>
         </div>
         <div class="hero__visual">
@@ -136,12 +185,32 @@
         <div class="empty__content">
           <div class="empty__icon">
             <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-              <rect x="10" y="10" width="60" height="60" rx="16" stroke="url(#empty-gradient)" stroke-width="2" stroke-dasharray="4 4"/>
-              <path d="M28 35H52M28 45H44" stroke="url(#empty-gradient)" stroke-width="2" stroke-linecap="round"/>
+              <rect
+                x="10"
+                y="10"
+                width="60"
+                height="60"
+                rx="16"
+                stroke="url(#empty-gradient)"
+                stroke-width="2"
+                stroke-dasharray="4 4"
+              />
+              <path
+                d="M28 35H52M28 45H44"
+                stroke="url(#empty-gradient)"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
               <defs>
-                <linearGradient id="empty-gradient" x1="10" y1="10" x2="70" y2="70">
-                  <stop stop-color="#7c5cfc"/>
-                  <stop offset="1" stop-color="#06b6d4"/>
+                <linearGradient
+                  id="empty-gradient"
+                  x1="10"
+                  y1="10"
+                  x2="70"
+                  y2="70"
+                >
+                  <stop stop-color="#7c5cfc" />
+                  <stop offset="1" stop-color="#06b6d4" />
                 </linearGradient>
               </defs>
             </svg>
@@ -152,8 +221,19 @@
 
       <section v-else class="resume-section">
         <h2 class="section__title">
-          <svg class="title__icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M3 7V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V9C21 7.89543 20.1046 7 19 7H13L11 5H5C3.89543 5 3 5.89543 3 7Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <svg
+            class="title__icon"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M3 7V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V9C21 7.89543 20.1046 7 19 7H13L11 5H5C3.89543 5 3 5.89543 3 7Z"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
           </svg>
           我的简历
           <span class="title__count">{{ store.resumeCount }}</span>
@@ -169,28 +249,60 @@
             <div class="card__glow"></div>
             <div class="card__content">
               <div class="card__header">
-                <h3 class="card__title">{{ resume.title || '未命名简历' }}</h3>
-                <span class="card__date">{{ formatDate(resume.updatedAt) }}</span>
+                <h3 class="card__title">{{ resume.title || "未命名简历" }}</h3>
+                <span class="card__date">{{
+                  formatDate(resume.updatedAt)
+                }}</span>
               </div>
-              <p class="card__name">{{ resume.basicInfo.name || '未填写姓名' }}</p>
+              <p class="card__name">
+                {{ resume.basicInfo.name || "未填写姓名" }}
+              </p>
               <div class="card__footer">
                 <span class="card__meta">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M7 4V7L9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    <circle
+                      cx="7"
+                      cy="7"
+                      r="6"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M7 4V7L9 9"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                    />
                   </svg>
                   更新于 {{ formatDate(resume.updatedAt) }}
                 </span>
                 <div class="card__actions">
-                  <button class="action-item action-item--edit" @click.stop="openResume(resume.id)">
+                  <button
+                    class="action-item action-item--edit"
+                    @click.stop="openResume(resume.id)"
+                  >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M10.5 2.5L11.5 3.5L4 11H3V10L10.5 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                      <path
+                        d="M10.5 2.5L11.5 3.5L4 11H3V10L10.5 2.5Z"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linejoin="round"
+                      />
                     </svg>
                     编辑
                   </button>
-                  <button class="action-item action-item--delete" @click.stop="deleteResume(resume.id)">
+                  <button
+                    class="action-item action-item--delete"
+                    @click.stop="deleteResume(resume.id)"
+                  >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M3 4H11M5 4V3C5 2.44772 5.44772 2 6 2H8C8.55228 2 9 2.44772 9 3V4M6 6V10M8 6V10M4 4L5 11H9L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path
+                        d="M3 4H11M5 4V3C5 2.44772 5.44772 2 6 2H8C8.55228 2 9 2.44772 9 3V4M6 6V10M8 6V10M4 4L5 11H9L10 4"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
                     </svg>
                     删除
                   </button>
@@ -202,76 +314,63 @@
       </section>
     </main>
 
-    <!-- 底部 -->
-    <footer class="home__footer">
-      <p class="footer__text">
-        <span class="footer__heart">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 14S2 10 2 5.5C2 3.567 3.567 2 5.5 2C6.5 2 7.5 2.5 8 3.5C8.5 2.5 9.5 2 10.5 2C12.433 2 14 3.567 14 5.5C14 10 8 14 8 14Z" fill="url(#heart-gradient)"/>
-            <defs>
-              <linearGradient id="heart-gradient" x1="2" y1="2" x2="14" y2="14">
-                <stop stop-color="#f472b6"/>
-                <stop offset="1" stop-color="#7c5cfc"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </span>
-        Made with Vue 3 + Vite + Sass
-      </p>
-    </footer>
+    <!-- 导入简历弹窗 -->
+    <ImportModal
+      :visible="showImportModal"
+      @close="showImportModal = false"
+      @import="handleImportFile"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { useResumeStore } from '@/stores/resumeStore'
-import { readJSONFile } from '@/utils/export'
+import { useRouter } from "vue-router";
+import { ref } from "vue";
+import { useResumeStore } from "@/stores/resumeStore";
+import { readJSONFile } from "@/utils/export";
+import ImportModal from "@/components/home/ImportModal.vue";
 
-const router = useRouter()
-const store = useResumeStore()
+const router = useRouter();
+const store = useResumeStore();
+const showImportModal = ref(false);
 
 const createNewResume = async () => {
-  const id = await store.createResume()
-  router.push(`/templates/${id}`)
-}
+  const id = await store.createResume();
+  router.push(`/templates/${id}`);
+};
 
 const openResume = (id: string) => {
-  router.push(`/editor/${id}`)
-}
+  router.push(`/editor/${id}`);
+};
 
 const deleteResume = async (id: string) => {
-  if (confirm('确定要删除这个简历吗？')) {
-    await store.deleteResume(id)
+  if (confirm("确定要删除这个简历吗？")) {
+    await store.deleteResume(id);
   }
-}
+};
 
-const handleImport = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (file) {
-    try {
-      const json = await readJSONFile(file)
-      if (await store.importFromJSON(json)) {
-        alert('导入成功！')
-      } else {
-        alert('导入失败，请检查文件格式')
-      }
-    } catch (e) {
-      alert('导入失败：' + (e as Error).message)
+const handleImportFile = async (file: File) => {
+  try {
+    const json = await readJSONFile(file);
+    if (await store.importFromJSON(json)) {
+      showImportModal.value = false;
+      alert("导入成功！");
+    } else {
+      alert("导入失败，请检查文件格式");
     }
-    input.value = ''
+  } catch (e) {
+    alert("导入失败：" + (e as Error).message);
   }
-}
+};
 
 const formatDate = (date: string) => {
-  if (!date) return ''
-  const d = new Date(date)
-  return d.toLocaleDateString('zh-CN')
-}
+  if (!date) return "";
+  const d = new Date(date);
+  return d.toLocaleDateString("zh-CN");
+};
 </script>
 
 <style lang="scss" scoped>
-
 .home {
   min-height: 100vh;
   background: $bg-secondary;
@@ -296,7 +395,11 @@ const formatDate = (date: string) => {
   &--purple {
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, rgba(124, 92, 252, 0.4) 0%, transparent 70%);
+    background: radial-gradient(
+      circle,
+      rgba(124, 92, 252, 0.4) 0%,
+      transparent 70%
+    );
     top: -150px;
     right: -100px;
     animation-delay: 0s;
@@ -305,7 +408,11 @@ const formatDate = (date: string) => {
   &--cyan {
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, transparent 70%);
+    background: radial-gradient(
+      circle,
+      rgba(6, 182, 212, 0.35) 0%,
+      transparent 70%
+    );
     bottom: 10%;
     left: -100px;
     animation-delay: -3s;
@@ -314,7 +421,11 @@ const formatDate = (date: string) => {
   &--pink {
     width: 300px;
     height: 300px;
-    background: radial-gradient(circle, rgba(244, 114, 182, 0.25) 0%, transparent 70%);
+    background: radial-gradient(
+      circle,
+      rgba(244, 114, 182, 0.25) 0%,
+      transparent 70%
+    );
     top: 40%;
     right: 5%;
     animation-delay: -6s;
@@ -323,7 +434,11 @@ const formatDate = (date: string) => {
   &--amber {
     width: 250px;
     height: 250px;
-    background: radial-gradient(circle, rgba(251, 191, 36, 0.2) 0%, transparent 70%);
+    background: radial-gradient(
+      circle,
+      rgba(251, 191, 36, 0.2) 0%,
+      transparent 70%
+    );
     bottom: 30%;
     right: 30%;
     animation-delay: -9s;
@@ -401,7 +516,7 @@ const formatDate = (date: string) => {
 .home__main {
   position: relative;
   z-index: 10;
-  padding: $spacing-xl $spacing-2xl $spacing-3xl;
+  padding: $spacing-xl $spacing-2xl 20px;
   max-width: 1400px;
   margin: 0 auto;
 }
@@ -466,13 +581,17 @@ const formatDate = (date: string) => {
   position: relative;
 
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
     height: 8px;
-    background: linear-gradient(90deg, rgba(124, 92, 252, 0.3), rgba(6, 182, 212, 0.3));
+    background: linear-gradient(
+      90deg,
+      rgba(124, 92, 252, 0.3),
+      rgba(6, 182, 212, 0.3)
+    );
     border-radius: $radius-full;
     z-index: -1;
   }
@@ -519,11 +638,15 @@ const formatDate = (date: string) => {
   &--primary {
     background: $primary-gradient;
     color: $text-white;
-    box-shadow: $shadow-primary, 0 0 40px rgba(124, 92, 252, 0.2);
+    box-shadow:
+      $shadow-primary,
+      0 0 40px rgba(124, 92, 252, 0.2);
 
     &:hover {
       transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 8px 32px rgba(124, 92, 252, 0.4), 0 0 60px rgba(124, 92, 252, 0.25);
+      box-shadow:
+        0 8px 32px rgba(124, 92, 252, 0.4),
+        0 0 60px rgba(124, 92, 252, 0.25);
     }
   }
 
@@ -632,7 +755,9 @@ const formatDate = (date: string) => {
 
   &--accent {
     border-color: rgba(244, 114, 182, 0.3);
-    box-shadow: $shadow-md, 0 0 30px rgba(244, 114, 182, 0.1);
+    box-shadow:
+      $shadow-md,
+      0 0 30px rgba(244, 114, 182, 0.1);
 
     .preview-card__avatar {
       background: linear-gradient(135deg, $accent-color, $accent-light);
@@ -641,7 +766,9 @@ const formatDate = (date: string) => {
 
   &--secondary {
     border-color: rgba(6, 182, 212, 0.3);
-    box-shadow: $shadow-md, 0 0 30px rgba(6, 182, 212, 0.1);
+    box-shadow:
+      $shadow-md,
+      0 0 30px rgba(6, 182, 212, 0.1);
 
     .preview-card__avatar {
       background: linear-gradient(135deg, $secondary-color, $secondary-light);
@@ -738,7 +865,11 @@ const formatDate = (date: string) => {
   left: 0;
   right: 0;
   height: 100%;
-  background: linear-gradient(135deg, rgba(124, 92, 252, 0.1) 0%, transparent 60%);
+  background: linear-gradient(
+    135deg,
+    rgba(124, 92, 252, 0.1) 0%,
+    transparent 60%
+  );
   opacity: 0;
   transition: opacity $transition-base;
   pointer-events: none;
@@ -841,27 +972,5 @@ const formatDate = (date: string) => {
       color: $text-white;
     }
   }
-}
-
-// 底部
-.home__footer {
-  position: relative;
-  z-index: 10;
-  text-align: center;
-  padding: $spacing-xl;
-}
-
-.footer__text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: $spacing-sm;
-  font-size: $font-size-sm;
-  color: $text-light;
-}
-
-.footer__heart {
-  display: flex;
-  animation: pulse-glow 2s ease-in-out infinite;
 }
 </style>
