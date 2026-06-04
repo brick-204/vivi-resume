@@ -32,11 +32,13 @@ provide(ResumeDocumentKey, ctx)
 <style lang="scss" scoped>
 .resume--sidebar {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  max-width: 800px;
+  grid-template-columns: minmax(160px, 240px) 1fr;
+  width: 100%;
+  max-width: var(--t-max-width, 800px);
+  margin: 0 auto;
   min-height: 1050px;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   font-size: var(--t-body-font-size, 13px);
   font-family: var(--t-font-family, $font-family);
 }
@@ -217,7 +219,9 @@ provide(ResumeDocumentKey, ctx)
   padding: 8px 16px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--t-module-spacing, 20px);
+  overflow: hidden;
+  min-width: 0;
 }
 
 :deep(.sidebar__section) {
@@ -261,7 +265,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.main__entry) {
-  margin-top: 12px;
+  margin-top: var(--t-paragraph-spacing, 12px);
   padding-bottom: 16px;
   border-bottom: 1px solid var(--sidebar-entry-border);
   content-visibility: auto;

@@ -130,6 +130,9 @@ export interface Resume {
   bodyFontSize?: number
   sectionTitleFontSize?: number
   entryTitleFontSize?: number
+  pagePadding?: number
+  moduleSpacing?: number
+  paragraphSpacing?: number
   basicInfo: BasicInfo
   workExperience: WorkItem[]
   education: EducationItem[]
@@ -205,6 +208,9 @@ export const DEFAULT_FIELD_ORDER = [
 
 // 行高默认值
 export const DEFAULT_LINE_HEIGHT = 1.7
+export const DEFAULT_PAGE_PADDING = 48
+export const DEFAULT_MODULE_SPACING = 16
+export const DEFAULT_PARAGRAPH_SPACING = 12
 
 // 创建新简历的默认模板
 export const createEmptyResume = (): Resume => {
@@ -250,6 +256,9 @@ export const createEmptyResume = (): Resume => {
     sectionOrder: [...DEFAULT_SECTION_ORDER],
     hiddenSections: [],
     lineHeight: DEFAULT_LINE_HEIGHT,
+    pagePadding: DEFAULT_PAGE_PADDING,
+    moduleSpacing: DEFAULT_MODULE_SPACING,
+    paragraphSpacing: DEFAULT_PARAGRAPH_SPACING,
     createdAt: now,
     updatedAt: now
   }

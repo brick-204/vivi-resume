@@ -88,6 +88,7 @@
   .resume--elegant,
   .resume--twocolumn {
     page-break-inside: auto;
+    overflow: hidden !important;
   }
 
   // 仅对单条 entry 避免截断（条目较短，被截断概率低）

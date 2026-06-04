@@ -102,9 +102,19 @@
             <option v-for="f in FONT_FAMILY_OPTIONS" :key="f.value" :value="f.value">{{ f.label }}</option>
           </select>
         </div>
-        <div class="font-settings-panel__row">
+        <div class="font-settings-panel__row font-settings-panel__row--line-height">
           <span class="font-settings-panel__label">行高</span>
-          <select class="font-settings-panel__select" :value="currentLineHeight" @change="onLineHeightChange" aria-label="选择行高">
+          <input
+            type="range"
+            class="font-settings-panel__slider"
+            :value="currentLineHeight"
+            min="1"
+            max="2"
+            step="0.1"
+            aria-label="滑动调整行高"
+            @input="onLineHeightSlider"
+          />
+          <select class="font-settings-panel__select font-settings-panel__select--sm" :value="currentLineHeight" @change="onLineHeightChange" aria-label="选择行高">
             <option v-for="lh in LINE_HEIGHT_OPTIONS" :key="lh" :value="lh">{{ lh }}</option>
           </select>
         </div>
@@ -125,6 +135,89 @@
           <select class="font-settings-panel__select" :value="currentEntryTitleFontSize" @change="onEntryTitleFontSizeChange" aria-label="选择二级标题字号">
             <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
           </select>
+        </div>
+      </div>
+
+      <!-- 间距设置面板 -->
+      <div v-if="!isCollapsed" class="spacing-settings-panel">
+        <div class="spacing-settings-panel__header">
+          <Icon icon="mdi:arrow-expand-vertical" :width="16" />
+          <span>间距设置</span>
+        </div>
+
+        <!-- 页边距 -->
+        <div class="spacing-settings-panel__row">
+          <span class="spacing-settings-panel__label">页边距</span>
+          <input
+            type="range"
+            class="spacing-settings-panel__slider"
+            :value="currentPagePadding"
+            min="0"
+            max="100"
+            step="1"
+            aria-label="滑动调整页边距"
+            @input="onPagePaddingSlider"
+          />
+          <input
+            type="number"
+            class="spacing-settings-panel__number"
+            :value="currentPagePadding"
+            min="0"
+            max="100"
+            aria-label="输入页边距"
+            @change="onPagePaddingChange"
+          />
+          <span class="spacing-settings-panel__unit">px</span>
+        </div>
+
+        <!-- 模块间距 -->
+        <div class="spacing-settings-panel__row">
+          <span class="spacing-settings-panel__label">模块间距</span>
+          <input
+            type="range"
+            class="spacing-settings-panel__slider"
+            :value="currentModuleSpacing"
+            min="0"
+            max="50"
+            step="1"
+            aria-label="滑动调整模块间距"
+            @input="onModuleSpacingSlider"
+          />
+          <input
+            type="number"
+            class="spacing-settings-panel__number"
+            :value="currentModuleSpacing"
+            min="0"
+            max="50"
+            aria-label="输入模块间距"
+            @change="onModuleSpacingChange"
+          />
+          <span class="spacing-settings-panel__unit">px</span>
+        </div>
+
+        <!-- 段落间距 -->
+        <div class="spacing-settings-panel__row">
+          <span class="spacing-settings-panel__label">段落间距</span>
+          <input
+            type="range"
+            class="spacing-settings-panel__slider"
+            :value="currentParagraphSpacing"
+            min="0"
+            max="50"
+            step="1"
+            aria-label="滑动调整段落间距"
+            @input="onParagraphSpacingSlider"
+          />
+          <input
+            type="number"
+            class="spacing-settings-panel__number"
+            :value="currentParagraphSpacing"
+            min="0"
+            max="50"
+            aria-label="输入段落间距"
+            @change="onParagraphSpacingChange"
+          />
+          <span class="spacing-settings-panel__unit">px</span>
         </div>
       </div>
     </div>
@@ -218,7 +311,7 @@ import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
-import { SECTION_CONFIG, getSectionTitle, isCustomSection, DEFAULT_LINE_HEIGHT } from '@/types/resume'
+import { SECTION_CONFIG, getSectionTitle, isCustomSection, DEFAULT_LINE_HEIGHT, DEFAULT_PAGE_PADDING, DEFAULT_MODULE_SPACING, DEFAULT_PARAGRAPH_SPACING } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
 import { FONT_SIZE_OPTIONS, FONT_FAMILY_OPTIONS, DEFAULT_FONT_FAMILY } from '@/config/fonts'
 import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
@@ -545,6 +638,9 @@ const onFontFamilyChange = (e: Event) => {
 const onLineHeightChange = (e: Event) => {
   resumeStore.updateCurrentResume({ lineHeight: Number((e.target as HTMLSelectElement).value) })
 }
+const onLineHeightSlider = (e: Event) => {
+  resumeStore.updateCurrentResume({ lineHeight: Number((e.target as HTMLInputElement).value) })
+}
 const currentLineHeight = computed(() =>
   resumeStore.currentResume?.lineHeight || DEFAULT_LINE_HEIGHT
 )
@@ -558,6 +654,41 @@ const onSectionTitleFontSizeChange = (e: Event) => {
 }
 const onEntryTitleFontSizeChange = (e: Event) => {
   resumeStore.updateCurrentResume({ entryTitleFontSize: Number((e.target as HTMLSelectElement).value) })
+}
+
+// ---- 间距设置功能 ----
+const currentPagePadding = computed(() =>
+  resumeStore.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING
+)
+const currentModuleSpacing = computed(() =>
+  resumeStore.currentResume?.moduleSpacing ?? DEFAULT_MODULE_SPACING
+)
+const currentParagraphSpacing = computed(() =>
+  resumeStore.currentResume?.paragraphSpacing ?? DEFAULT_PARAGRAPH_SPACING
+)
+
+const onPagePaddingSlider = (e: Event) => {
+  resumeStore.updateCurrentResume({ pagePadding: Number((e.target as HTMLInputElement).value) })
+}
+const onPagePaddingChange = (e: Event) => {
+  const v = Number((e.target as HTMLInputElement).value)
+  resumeStore.updateCurrentResume({ pagePadding: Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : DEFAULT_PAGE_PADDING })
+}
+
+const onModuleSpacingSlider = (e: Event) => {
+  resumeStore.updateCurrentResume({ moduleSpacing: Number((e.target as HTMLInputElement).value) })
+}
+const onModuleSpacingChange = (e: Event) => {
+  const v = Number((e.target as HTMLInputElement).value)
+  resumeStore.updateCurrentResume({ moduleSpacing: Number.isFinite(v) ? Math.max(0, Math.min(50, v)) : DEFAULT_MODULE_SPACING })
+}
+
+const onParagraphSpacingSlider = (e: Event) => {
+  resumeStore.updateCurrentResume({ paragraphSpacing: Number((e.target as HTMLInputElement).value) })
+}
+const onParagraphSpacingChange = (e: Event) => {
+  const v = Number((e.target as HTMLInputElement).value)
+  resumeStore.updateCurrentResume({ paragraphSpacing: Number.isFinite(v) ? Math.max(0, Math.min(50, v)) : DEFAULT_PARAGRAPH_SPACING })
 }
 
 // Sync from store on mount and when accent color changes externally
@@ -1354,6 +1485,90 @@ const removeSection = (sectionId: string) => {
       background: $bg-primary;
       color: $text-primary;
     }
+  }
+
+  &__row--line-height {
+    gap: $spacing-sm;
+  }
+
+  &__slider {
+    @include range-slider;
+  }
+
+  &__select--sm {
+    flex: none;
+    width: 56px;
+    text-align: center;
+  }
+}
+
+// ---- 间距设置面板 ----
+.spacing-settings-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding: $spacing-sm;
+  background: $bg-glass;
+  border-radius: $radius-lg;
+  border: 1px solid $border-glass;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__label {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    flex-shrink: 0;
+    width: 56px;
+  }
+
+  &__slider {
+    @include range-slider;
+  }
+
+  &__number {
+    flex-shrink: 0;
+    width: 48px;
+    padding: 3px 4px;
+    background: $bg-glass;
+    border: 1px solid $border-glass;
+    border-radius: $radius-sm;
+    color: $text-primary;
+    font-size: $font-size-xs;
+    font-family: $font-family;
+    text-align: center;
+    outline: none;
+
+    &:focus {
+      border-color: $primary-color;
+    }
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    -moz-appearance: textfield;
+  }
+
+  &__unit {
+    font-size: $font-size-xs;
+    color: $text-light;
+    flex-shrink: 0;
+    width: 16px;
   }
 }
 </style>

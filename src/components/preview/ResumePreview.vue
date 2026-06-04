@@ -1,5 +1,5 @@
 <template>
-  <div class="resume-preview" ref="previewRef">
+  <div class="resume-preview" ref="previewRef" :style="previewStyle">
     <ResumeDocument
       v-if="resume"
       :resume="resume"
@@ -12,6 +12,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import ResumeDocument from './ResumeDocument.vue'
 
 const store = useResumeStore()
@@ -19,6 +20,16 @@ const previewRef = ref<HTMLElement>()
 
 const templateId = computed(() => store.currentResume?.templateId || 'classic')
 const resume = computed(() => store.currentResume)
+const pagePadding = computed(() =>
+  store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING
+)
+
+const previewStyle = computed(() => {
+  const p = pagePadding.value
+  return {
+    padding: `${p}px`,
+  }
+})
 
 const emit = defineEmits<{
   'click-section': [tabId: string, itemId?: string]
@@ -47,7 +58,6 @@ defineExpose({
 
 <style lang="scss" scoped>
 .resume-preview {
-  padding: $spacing-2xl;
   min-height: 100%;
   background: #ffffff;
   @include scrollbar;
