@@ -186,7 +186,7 @@ export const TEMPLATES: TemplateConfig[] = [
   {
     id: 'professional',
     name: '专业风格',
-    description: '黑色标题栏 + 三栏布局，商务正式',
+    description: '深色标题栏 + 简洁排版，沉稳干练',
     preview: 'linear-gradient(135deg, #1a1a2e, #000000)',
     style: {
       headerBg: '#ffffff',
