@@ -27,6 +27,8 @@
               }"
               :data-flip-id="item.id"
               @click="handleSelect(item.id)"
+              @mouseenter="showTooltip($event, item.label)"
+              @mouseleave="hideTooltip"
             >
               <!-- 拖拽手柄 -->
               <span
@@ -98,6 +100,12 @@
           <span class="font-settings-panel__label">字体</span>
           <select class="font-settings-panel__select" :value="currentFontFamily" @change="onFontFamilyChange" aria-label="选择字体">
             <option v-for="f in FONT_FAMILY_OPTIONS" :key="f.value" :value="f.value">{{ f.label }}</option>
+          </select>
+        </div>
+        <div class="font-settings-panel__row">
+          <span class="font-settings-panel__label">行高</span>
+          <select class="font-settings-panel__select" :value="currentLineHeight" @change="onLineHeightChange" aria-label="选择行高">
+            <option v-for="lh in LINE_HEIGHT_OPTIONS" :key="lh" :value="lh">{{ lh }}</option>
           </select>
         </div>
         <div class="font-settings-panel__row">
@@ -175,6 +183,11 @@
     <Icon :icon="isCollapsed ? COLLAPSE_RIGHT_ICON : COLLAPSE_LEFT_ICON" :width="14" :height="14" />
   </button>
 
+  <!-- 气泡提示（Teleport 到 body，避免被父容器 overflow 裁剪） -->
+  <Teleport to="body">
+    <div v-if="tooltipVisible" class="nav-tooltip" :style="tooltipStyle">{{ tooltipText }}</div>
+  </Teleport>
+
   <!-- 添加模块弹窗 -->
     <AddSectionModal
       :visible="showAddModal"
@@ -205,7 +218,7 @@ import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
-import { SECTION_CONFIG, getSectionTitle, isCustomSection } from '@/types/resume'
+import { SECTION_CONFIG, getSectionTitle, isCustomSection, DEFAULT_LINE_HEIGHT } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
 import { FONT_SIZE_OPTIONS, FONT_FAMILY_OPTIONS, DEFAULT_FONT_FAMILY } from '@/config/fonts'
 import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRASH_ICON, DRAG_HANDLE_ICON, EYE_ICON, EYE_OFF_ICON } from '@/components/icons/SectionIcons'
@@ -529,6 +542,14 @@ const currentEntryTitleFontSize = computed(() => {
 const onFontFamilyChange = (e: Event) => {
   resumeStore.updateCurrentResume({ fontFamily: (e.target as HTMLSelectElement).value })
 }
+const onLineHeightChange = (e: Event) => {
+  resumeStore.updateCurrentResume({ lineHeight: Number((e.target as HTMLSelectElement).value) })
+}
+const currentLineHeight = computed(() =>
+  resumeStore.currentResume?.lineHeight || DEFAULT_LINE_HEIGHT
+)
+const LINE_HEIGHT_OPTIONS = Array.from({ length: 11 }, (_, i) => +(1 + i * 0.1).toFixed(1))
+
 const onBodyFontSizeChange = (e: Event) => {
   resumeStore.updateCurrentResume({ bodyFontSize: Number((e.target as HTMLSelectElement).value) })
 }
@@ -649,6 +670,28 @@ watch(hiddenSections, (val) => {
 
 // 删除确认状态
 const removeConfirmId = ref<string | null>(null)
+
+// 气泡提示
+const tooltipVisible = ref(false)
+const tooltipText = ref('')
+const tooltipStyle = ref<Record<string, string>>({})
+
+const showTooltip = (e: MouseEvent, label: string) => {
+  if (!isCollapsed.value) return
+  const el = e.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  tooltipText.value = label
+  tooltipStyle.value = {
+    top: `${rect.top + rect.height / 2}px`,
+    left: `${rect.right + 8}px`,
+    transform: 'translateY(-50%)',
+  }
+  tooltipVisible.value = true
+}
+
+const hideTooltip = () => {
+  tooltipVisible.value = false
+}
 
 // 确保选中的模块始终可见
 watch(sortableSections, (sections) => {
@@ -1312,5 +1355,30 @@ const removeSection = (sectionId: string) => {
       color: $text-primary;
     }
   }
+}
+</style>
+
+<!-- 气泡提示样式（非 scoped，确保 Teleport 到 body 后样式生效） -->
+<style lang="scss">
+.nav-tooltip {
+  position: fixed;
+  padding: 4px 10px;
+  background: rgba(30, 30, 40, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #f0f0f5;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: tooltip-fade-in 0.15s ease;
+}
+
+@keyframes tooltip-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

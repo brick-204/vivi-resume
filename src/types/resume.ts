@@ -126,6 +126,7 @@ export interface Resume {
   headerTextColor?: HeaderTextColor
   headerIconColor?: HeaderIconColor
   fontFamily?: string
+  lineHeight?: number
   bodyFontSize?: number
   sectionTitleFontSize?: number
   entryTitleFontSize?: number
@@ -202,6 +203,9 @@ export const DEFAULT_FIELD_ORDER = [
   'phone', 'wechat', 'qq', 'website'
 ]
 
+// 行高默认值
+export const DEFAULT_LINE_HEIGHT = 1.7
+
 // 创建新简历的默认模板
 export const createEmptyResume = (): Resume => {
   const now = new Date().toISOString()
@@ -245,6 +249,7 @@ export const createEmptyResume = (): Resume => {
     sectionTitles: {},
     sectionOrder: [...DEFAULT_SECTION_ORDER],
     hiddenSections: [],
+    lineHeight: DEFAULT_LINE_HEIGHT,
     createdAt: now,
     updatedAt: now
   }

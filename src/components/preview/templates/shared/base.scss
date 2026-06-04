@@ -7,17 +7,17 @@
   margin: 0 auto;
   font-family: var(--t-font-family, $font-family);
   font-size: var(--t-body-font-size, $font-size-sm);
-  line-height: 1.7;
+  line-height: var(--t-line-height, 1.7);
   color: var(--t-text);
   background: #ffffff;
   padding: 24px;
-
   // ===== 头部 =====
   .resume__header {
     text-align: center;
     padding-bottom: $spacing-md;
     margin-bottom: $spacing-md;
     position: relative;
+    line-height: 1.7;
 
     &::after {
       content: '';
@@ -291,7 +291,7 @@
   .section__text {
     color: var(--t-text, #202429);
     font-size: var(--t-section-text-font-size, $font-size-sm);
-    line-height: 1.8;
+    line-height: var(--t-line-height, 1.7);
     margin-top: 12px;
 
     @include rich-text-content;
@@ -332,6 +332,7 @@
     align-items: flex-start;
     justify-content: space-between;
     margin-bottom: $spacing-xs;
+    line-height: 1.7;
   }
 
   .entry__info {
@@ -363,7 +364,7 @@
     font-size: var(--t-entry-desc-font-size, $font-size-xs);
     color: var(--t-text, #202429);
     margin-top: $spacing-xs;
-    line-height: 1.7;
+    line-height: var(--t-line-height, 1.7);
 
     @include rich-text-content;
   }
@@ -373,6 +374,7 @@
     flex-wrap: wrap;
     gap: $spacing-xs;
     margin-top: $spacing-sm;
+    line-height: normal;
   }
 
   // ===== 时间线 =====

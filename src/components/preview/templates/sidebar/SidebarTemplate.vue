@@ -186,7 +186,7 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__section-title) {
-  font-size: var(--sidebar-section-title-font-size, 11px);
+  font-size: var(--t-section-title-font-size, 11px);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -205,9 +205,9 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__skill-text) {
-  font-size: var(--sidebar-skill-font-size, 11px);
+  font-size: var(--t-body-font-size, 11px);
   color: var(--sidebar-text);
-  line-height: 1.8;
+  line-height: var(--t-line-height, 1.7);
 
   @include rich-text-content;
 }
@@ -255,7 +255,7 @@ provide(ResumeDocumentKey, ctx)
 :deep(.main__section-text) {
   font-size: var(--t-section-text-font-size, 12px);
   color: var(--t-text, #202429);
-  line-height: 1.8;
+  line-height: var(--t-line-height, 1.7);
 
   @include rich-text-content;
 }
@@ -311,7 +311,7 @@ provide(ResumeDocumentKey, ctx)
 :deep(.main__entry-desc) {
   font-size: var(--t-entry-desc-font-size, 11px);
   color: var(--t-text, #202429);
-  line-height: 1.7;
+  line-height: var(--t-line-height, 1.7);
   margin-top: 6px;
 
   @include rich-text-content;

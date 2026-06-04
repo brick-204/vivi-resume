@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import type { Resume, FieldDisplayMode, WorkItem, EducationItem, ProjectItem, CustomCardItem, HeaderTextColor, HeaderIconColor } from '@/types/resume'
-import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomSectionIndex } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomSectionIndex, DEFAULT_LINE_HEIGHT } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
 import {
   DEFAULT_FONT_FAMILY,
@@ -95,6 +95,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const entryTitleFS = resume.value.entryTitleFontSize || fd.entryTitleFontSize || 14
     const entrySubtitleFS = deriveSubtitleSize(entryTitleFS)
     const ff = resume.value.fontFamily || DEFAULT_FONT_FAMILY
+    const lh = resume.value.lineHeight || DEFAULT_LINE_HEIGHT
 
     return {
       '--t-header-bg': headerBg,
@@ -124,6 +125,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--t-entry-desc-font-size': `${bodyFS}px`,
       '--t-tag-font-size': `${deriveTagSize(bodyFS)}px`,
       '--t-section-text-font-size': `${bodyFS}px`,
+      '--t-line-height': `${lh}`,
     }
   })
 
@@ -163,6 +165,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     const entryTitleFS = resume.value.entryTitleFontSize || fd.entryTitleFontSize || 13
     const entrySubtitleFS = deriveSubtitleSize(entryTitleFS)
     const ff = resume.value.fontFamily || DEFAULT_FONT_FAMILY
+    const lh = resume.value.lineHeight || DEFAULT_LINE_HEIGHT
 
     return {
       '--sidebar-bg': sidebarBg,
@@ -205,6 +208,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--sidebar-field-font-size': `${deriveSidebarSmallSize(bodyFS)}px`,
       '--sidebar-section-title-font-size': `${deriveSidebarSmallSize(bodyFS)}px`,
       '--sidebar-skill-font-size': `${deriveSidebarSmallSize(bodyFS)}px`,
+      '--t-line-height': `${lh}`,
     }
   })
 

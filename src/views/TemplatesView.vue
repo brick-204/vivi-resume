@@ -35,6 +35,11 @@ import { TEMPLATES } from '@/config/templates'
 import { getSampleResume } from '@/config/sampleData'
 import TemplateCard from '@/components/template/TemplateCard.vue'
 
+// 模板对应的默认主题色
+const TEMPLATE_ACCENT_COLORS = Object.fromEntries(
+  TEMPLATES.map(t => [t.id, t.style.accentColor])
+)
+
 const route = useRoute()
 const router = useRouter()
 const store = useResumeStore()
@@ -84,10 +89,18 @@ const applyTemplate = async () => {
                   resume?.education.length === 0
 
   if (isEmpty) {
-    // 带入示例数据，让用户在此基础上修改
+    // 第一次选择模板：带入示例数据 + 主题色/文字设置
     const sampleData = getSampleResume()
+    const templateConfig = TEMPLATES.find(t => t.id === selectedId.value)
+    const fontDefaults = templateConfig?.style.fontDefaults
     store.updateCurrentResume({
       templateId: selectedId.value,
+      themeAccentColor: TEMPLATE_ACCENT_COLORS[selectedId.value] || 'rgba(124, 92, 252, 1.00)',
+      headerTextColor: templateConfig?.style.headerTextMode || 'black',
+      headerIconColor: templateConfig?.style.headerIconMode || 'black',
+      ...(fontDefaults?.bodyFontSize != null && { bodyFontSize: fontDefaults.bodyFontSize }),
+      ...(fontDefaults?.sectionTitleFontSize != null && { sectionTitleFontSize: fontDefaults.sectionTitleFontSize }),
+      ...(fontDefaults?.entryTitleFontSize != null && { entryTitleFontSize: fontDefaults.entryTitleFontSize }),
       basicInfo: sampleData.basicInfo,
       workExperience: sampleData.workExperience,
       education: sampleData.education,
@@ -96,8 +109,10 @@ const applyTemplate = async () => {
       selfEvaluation: sampleData.selfEvaluation
     })
   } else {
-    // 只更新模板
-    store.updateCurrentResume({ templateId: selectedId.value })
+    // 已有内容：只更新模板，不改变主题色和文字设置
+    store.updateCurrentResume({
+      templateId: selectedId.value,
+    })
   }
 
   // 等待保存完成后再跳转，确保 resumeList 已同步更新

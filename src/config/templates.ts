@@ -15,6 +15,9 @@ export interface TemplateStyle {
   // sidebar 模板专用
   sidebarBg?: string
   sidebarTextColor?: string
+  // 头部文字/图标颜色模式，直接映射到 Resume 的 HeaderTextColor / HeaderIconColor
+  headerTextMode?: 'black' | 'white' | 'accent'
+  headerIconMode?: 'black' | 'white' | 'accent'
   // 字体默认值
   fontDefaults?: {
     bodyFontSize?: number
@@ -180,6 +183,8 @@ export const TEMPLATES: TemplateConfig[] = [
       showTimeline: false,
       sidebarBg: 'linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%)',
       sidebarTextColor: '#1e3a5f',
+      headerTextMode: 'white',
+      headerIconMode: 'accent',
       fontDefaults: { bodyFontSize: 13, sectionTitleFontSize: 14, entryTitleFontSize: 13 }
     }
   },
@@ -191,7 +196,7 @@ export const TEMPLATES: TemplateConfig[] = [
     style: {
       headerBg: '#ffffff',
       headerTextColor: 'black',
-      accentColor: '#000000',
+      accentColor: '#475569',
       sectionTitleColor: '#ffffff',
       textColor: '#202429',
       textSecondaryColor: '#6b7280',
