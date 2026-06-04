@@ -26,7 +26,6 @@
                 'nav-item--hidden': !item.visible
               }"
               :data-flip-id="item.id"
-              :data-tooltip="item.label"
               @click="handleSelect(item.id)"
             >
               <!-- 拖拽手柄 -->
@@ -734,10 +733,6 @@ const removeSection = (sectionId: string) => {
     .nav-item {
       justify-content: center;
       padding: $spacing-sm;
-
-      &:hover::after {
-        opacity: 1;
-      }
     }
 
     .navigator__add {
@@ -774,34 +769,6 @@ const removeSection = (sectionId: string) => {
   transition: all 0.15s;
   user-select: none;
   position: relative;
-
-  // 气泡提示（收缩状态下显示）
-  &[data-tooltip]::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
-    padding: 4px 10px;
-    background: rgba($bg-primary, 0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid $border-glass;
-    border-radius: $radius-sm;
-    color: $text-primary;
-    font-size: $font-size-xs;
-    font-weight: 500;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 100;
-    box-shadow: $shadow-md;
-  }
-
-  &--hidden[data-tooltip]::after {
-    text-decoration: line-through;
-    opacity: 0.6;
-  }
 
   &__icon {
     flex-shrink: 0;
