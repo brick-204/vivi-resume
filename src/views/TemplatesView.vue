@@ -56,9 +56,23 @@ onMounted(async () => {
   }
 })
 
-const goBack = () => {
-  // 返回编辑器
-  router.push(`/editor/${resumeId.value}`)
+const goBack = async () => {
+  // 判断简历是否为空（从首页新建但未选择模板）
+  const resume = store.currentResume
+  const isEmpty = !resume?.basicInfo.name &&
+                  resume?.workExperience.length === 0 &&
+                  resume?.education.length === 0 &&
+                  resume?.projects.length === 0 &&
+                  resume?.skills.length === 0
+
+  if (isEmpty) {
+    // 删除空简历，返回首页
+    await store.deleteResume(resumeId.value)
+    router.push('/')
+  } else {
+    // 返回编辑器
+    router.push(`/editor/${resumeId.value}`)
+  }
 }
 
 const applyTemplate = async () => {
