@@ -207,6 +207,21 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  // 复制简历
+  const copyResume = async (id: string): Promise<string> => {
+    const source = resumeList.value.find(r => r.id === id)
+    if (!source) return ''
+    const json = await serialize(source)
+    const copy = await parse<Resume>(json)
+    copy.id = generateId()
+    copy.title = `${source.title} (副本)`
+    copy.createdAt = new Date().toISOString()
+    copy.updatedAt = new Date().toISOString()
+    resumeList.value.push(copy)
+    await saveToStorageNow()
+    return copy.id
+  }
+
   // 导出 JSON（用户手动触发，不需要 Worker 优化；保留格式化输出提高可读性）
   const exportToJSON = (): string | null => {
     if (!currentResume.value) return null
@@ -540,6 +555,7 @@ export const useResumeStore = defineStore('resume', () => {
     updateCurrentResume,
     saveCurrentResume,
     deleteResume,
+    copyResume,
     exportToJSON,
     importFromJSON,
     clearCurrentResume,

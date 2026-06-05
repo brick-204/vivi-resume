@@ -239,77 +239,14 @@
           <span class="title__count">{{ store.resumeCount }}</span>
         </h2>
         <div class="resume-grid">
-          <div
-            v-for="(resume, index) in store.resumeList"
+          <ResumeCard
+            v-for="resume in store.resumeList"
             :key="resume.id"
-            class="resume-card"
-            :style="{ animationDelay: `${index * 0.1}s` }"
-            @click="openResume(resume.id)"
-          >
-            <div class="card__glow"></div>
-            <div class="card__content">
-              <div class="card__header">
-                <h3 class="card__title">{{ resume.title || "未命名简历" }}</h3>
-                <span class="card__date">{{
-                  formatDate(resume.updatedAt)
-                }}</span>
-              </div>
-              <p class="card__name">
-                {{ resume.basicInfo.name || "未填写姓名" }}
-              </p>
-              <div class="card__footer">
-                <span class="card__meta">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <circle
-                      cx="7"
-                      cy="7"
-                      r="6"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                    />
-                    <path
-                      d="M7 4V7L9 9"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                    />
-                  </svg>
-                  更新于 {{ formatDate(resume.updatedAt) }}
-                </span>
-                <div class="card__actions">
-                  <button
-                    class="action-item action-item--edit"
-                    @click.stop="openResume(resume.id)"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path
-                        d="M10.5 2.5L11.5 3.5L4 11H3V10L10.5 2.5Z"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    编辑
-                  </button>
-                  <button
-                    class="action-item action-item--delete"
-                    @click.stop="deleteResume(resume.id)"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path
-                        d="M3 4H11M5 4V3C5 2.44772 5.44772 2 6 2H8C8.55228 2 9 2.44772 9 3V4M6 6V10M8 6V10M4 4L5 11H9L10 4"
-                        stroke="currentColor"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      />
-                    </svg>
-                    删除
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+            :resume="resume"
+            @edit="openResume(resume.id)"
+            @copy="onCopyResume(resume.id)"
+            @delete="onDeleteResume(resume.id)"
+          />
         </div>
       </section>
     </main>
@@ -329,6 +266,7 @@ import { ref } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { readJSONFile } from "@/utils/export";
 import ImportModal from "@/components/home/ImportModal.vue";
+import ResumeCard from "@/components/home/ResumeCard.vue";
 
 const router = useRouter();
 const store = useResumeStore();
@@ -343,9 +281,18 @@ const openResume = (id: string) => {
   router.push(`/editor/${id}`);
 };
 
-const deleteResume = async (id: string) => {
+const onDeleteResume = async (id: string) => {
   if (confirm("确定要删除这个简历吗？")) {
     await store.deleteResume(id);
+  }
+};
+
+const onCopyResume = async (id: string) => {
+  try {
+    await store.copyResume(id);
+  } catch (e) {
+    console.error("复制简历失败:", e);
+    alert("复制失败，请重试");
   }
 };
 
@@ -361,12 +308,6 @@ const handleImportFile = async (file: File) => {
   } catch (e) {
     alert("导入失败：" + (e as Error).message);
   }
-};
-
-const formatDate = (date: string) => {
-  if (!date) return "";
-  const d = new Date(date);
-  return d.toLocaleDateString("zh-CN");
 };
 </script>
 
@@ -838,139 +779,8 @@ const formatDate = (date: string) => {
 // 简历网格
 .resume-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: $spacing-lg;
-}
-
-.resume-card {
-  position: relative;
-  @include glass-card;
-  overflow: hidden;
-  cursor: pointer;
-  animation: slide-up 0.6s ease forwards;
-
-  &:hover {
-    transform: translateY(-8px);
-    border-color: rgba(124, 92, 252, 0.4);
-
-    .card__glow {
-      opacity: 1;
-    }
-  }
-}
-
-.card__glow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100%;
-  background: linear-gradient(
-    135deg,
-    rgba(124, 92, 252, 0.1) 0%,
-    transparent 60%
-  );
-  opacity: 0;
-  transition: opacity $transition-base;
-  pointer-events: none;
-}
-
-.card__content {
-  position: relative;
-  z-index: 1;
-}
-
-.card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: $spacing-sm;
-}
-
-.card__title {
-  font-size: $font-size-lg;
-  font-weight: 700;
-  color: $text-primary;
-}
-
-.card__date {
-  font-size: $font-size-xs;
-  color: $text-light;
-  padding: $spacing-xs $spacing-sm;
-  background: $bg-glass;
-  border-radius: $radius-sm;
-}
-
-.card__name {
-  font-size: $font-size-sm;
-  color: $text-secondary;
-  margin-bottom: $spacing-md;
-}
-
-.card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.card__meta {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-  font-size: $font-size-xs;
-  color: $text-light;
-
-  svg {
-    color: $text-light;
-  }
-}
-
-.card__actions {
-  display: flex;
-  gap: $spacing-sm;
-  opacity: 0;
-  transform: translateX(10px);
-  transition: all $transition-base;
-}
-
-.resume-card:hover .card__actions {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.action-item {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-xs $spacing-md;
-  border-radius: $radius-md;
-  font-size: $font-size-xs;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all $transition-fast;
-  border: none;
-  font-family: $font-family;
-
-  &--edit {
-    background: rgba(124, 92, 252, 0.2);
-    color: $primary-light;
-    border: 1px solid rgba(124, 92, 252, 0.3);
-
-    &:hover {
-      background: $primary-color;
-      color: $text-white;
-    }
-  }
-
-  &--delete {
-    background: transparent;
-    color: $error-color;
-    border: 1px solid rgba($error-color, 0.3);
-
-    &:hover {
-      background: $error-color;
-      color: $text-white;
-    }
-  }
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-auto-rows: min-content;
+  gap: $spacing-xl;
 }
 </style>
