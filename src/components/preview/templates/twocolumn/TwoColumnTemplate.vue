@@ -32,11 +32,9 @@ provide(ResumeDocumentKey, ctx)
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 0;
-  width: 100%;
-  max-width: var(--t-max-width, 800px);
   margin: 0 auto;
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 8px;
 
   :deep(.resume__header) {

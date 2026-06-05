@@ -40,8 +40,8 @@ defineEmits<{
 const sampleResume = getSampleResume()
 const previewContainer = ref<HTMLElement | null>(null)
 
-const DOC_WIDTH = 800
-const DOC_HEIGHT = 1050
+const DOC_WIDTH = 794
+const DOC_HEIGHT = 1123
 
 const scale = ref(0.35)
 

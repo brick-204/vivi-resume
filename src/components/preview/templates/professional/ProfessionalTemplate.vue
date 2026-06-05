@@ -29,7 +29,9 @@ provide(ResumeDocumentKey, ctx)
 
 <style lang="scss" scoped>
 .resume--professional {
-  padding: 24px 0;
+  // 不覆盖 base.scss 的 padding: var(--page-padding)
+  // professional 的 24px 0 padding 已移除，由 --page-padding CSS var 统一控制
+  padding: var(--page-padding, 48px) var(--page-padding, 48px) var(--page-padding, 48px) 0;
 
   // 隐藏默认 header 底部装饰线
   :deep(.resume__header) {

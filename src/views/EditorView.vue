@@ -189,7 +189,35 @@ const exportJSON = () => {
 }
 
 const exportPDF = () => {
-  window.print()
+  // 打印前临时强制 content-visibility: visible，
+  // 确保所有内容被浏览器渲染（否则离屏内容不会输出到 PDF）
+  const selectors = '.resume__section, .entry, .sidebar__section, .main__entry'
+  const sections = document.querySelectorAll(selectors)
+  const originalStyles: Array<{ el: HTMLElement; style: string }> = []
+
+  sections.forEach(s => {
+    if (s instanceof HTMLElement) {
+      originalStyles.push({ el: s, style: s.style.contentVisibility })
+      s.style.contentVisibility = 'visible'
+    }
+  })
+
+  // 等待一帧让浏览器完成布局后再打印
+  requestAnimationFrame(() => {
+    window.print()
+
+    // window.print() 在大多数浏览器中是同步阻塞的（打印对话框期间 JS 暂停），
+    // 但 Firefox 的打印预览可能是异步的。加一个小延时确保安全恢复。
+    setTimeout(() => {
+      originalStyles.forEach(({ el, style }) => {
+        if (style) {
+          el.style.contentVisibility = style
+        } else {
+          el.style.removeProperty('content-visibility')
+        }
+      })
+    }, 100)
+  })
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
