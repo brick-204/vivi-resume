@@ -191,21 +191,15 @@ const exportJSON = () => {
 }
 
 const exportPDF = async () => {
-  try {
-    const el = previewRef.value?.getElement()
-    if (!el) {
-      console.warn('[exportPDF] 预览元素未就绪，降级到 window.print()')
-      window.print()
-      return
-    }
-    await printViaIframe({
-      target: el,
-      margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
-    })
-  } catch (e) {
-    console.warn('[exportPDF] iframe 打印失败，降级到 window.print()', e)
-    window.print()
+  const el = previewRef.value?.getElement()
+  if (!el) {
+    console.warn('[exportPDF] 预览元素未就绪')
+    return
   }
+  await printViaIframe({
+    target: el,
+    margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+  })
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
