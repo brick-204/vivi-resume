@@ -34,8 +34,7 @@ provide(ResumeDocumentKey, ctx)
   display: grid;
   grid-template-columns: minmax(160px, 240px) 1fr;
   width: 100%;
-  max-width: var(--t-max-width, 800px);
-  margin: 0 auto;
+  margin: 0;
   min-height: 1050px;
   padding: 0;
   overflow: visible;

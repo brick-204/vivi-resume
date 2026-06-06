@@ -4,8 +4,6 @@
 
 .resume-document {
   width: 100%;
-  max-width: var(--t-max-width, 720px);
-  margin: 0 auto;
   font-family: var(--t-font-family, $font-family);
   font-size: var(--t-body-font-size, $font-size-sm);
   line-height: var(--t-line-height, 1.7);

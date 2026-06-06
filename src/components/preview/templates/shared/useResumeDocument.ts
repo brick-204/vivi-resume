@@ -128,8 +128,8 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--t-line-height': `${lh}`,
       '--t-module-spacing': `${resume.value.moduleSpacing ?? DEFAULT_MODULE_SPACING}px`,
       '--t-paragraph-spacing': `${resume.value.paragraphSpacing ?? DEFAULT_PARAGRAPH_SPACING}px`,
-      // 页边距为 0 时取消 max-width，让文档撑满；否则保留默认 max-width 居中
-      '--t-max-width': resume.value.pagePadding === 0 ? 'none' : undefined,
+      // 取消 max-width，让文档撑满 resume-preview，页边距完全由 resume-preview 的 padding 控制
+      '--t-max-width': 'none',
     }
   })
 
@@ -215,8 +215,8 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--t-line-height': `${lh}`,
       '--t-module-spacing': `${resume.value.moduleSpacing ?? DEFAULT_MODULE_SPACING}px`,
       '--t-paragraph-spacing': `${resume.value.paragraphSpacing ?? DEFAULT_PARAGRAPH_SPACING}px`,
-      // 页边距为 0 时取消 max-width，让文档撑满；否则保留默认 max-width 居中
-      '--t-max-width': resume.value.pagePadding === 0 ? 'none' : undefined,
+      // 取消 max-width，让文档撑满 resume-preview，页边距完全由 resume-preview 的 padding 控制
+      '--t-max-width': 'none',
     }
   })
 

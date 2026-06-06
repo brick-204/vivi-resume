@@ -30,11 +30,10 @@ provide(ResumeDocumentKey, ctx)
 <style lang="scss" scoped>
 .resume--twocolumn {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: minmax(140px, 220px) minmax(0, 1fr);
   gap: 0;
   width: 100%;
-  max-width: var(--t-max-width, 800px);
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   overflow: hidden;
   border-radius: 8px;

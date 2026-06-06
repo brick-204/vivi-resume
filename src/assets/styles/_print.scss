@@ -66,9 +66,9 @@
 
   // 简历文档
   .resume-document {
-    max-width: 720px !important;
-    margin: 0 auto !important;
-    padding: 24px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
     box-shadow: none !important;
 
     // 移除 hover 效果
