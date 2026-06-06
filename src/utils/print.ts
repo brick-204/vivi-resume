@@ -156,6 +156,12 @@ function generatePrintOverrides(margin: number): string {
       background: white;
     }
 
+    /* 隐藏分页线和页码指示器 */
+    .page-break-line,
+    .page-break-label {
+      display: none !important;
+    }
+
     /* content-visibility 在打印时必须强制可见 */
     .resume__section,
     .entry,
