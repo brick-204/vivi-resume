@@ -109,7 +109,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
+import { printViaIframe } from '@/utils/print'
 import { getTemplate } from '@/config/templates'
+import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
@@ -188,8 +190,22 @@ const exportJSON = () => {
   }
 }
 
-const exportPDF = () => {
-  window.print()
+const exportPDF = async () => {
+  try {
+    const el = previewRef.value?.getElement()
+    if (!el) {
+      console.warn('[exportPDF] 预览元素未就绪，降级到 window.print()')
+      window.print()
+      return
+    }
+    await printViaIframe({
+      target: el,
+      margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+    })
+  } catch (e) {
+    console.warn('[exportPDF] iframe 打印失败，降级到 window.print()', e)
+    window.print()
+  }
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
