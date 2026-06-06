@@ -180,7 +180,7 @@ function generatePrintOverrides(margin: number): string {
       print-color-adjust: exact !important;
     }
 
-    /* 分页控制 */
+    /* 分页控制：允许所有元素内部分页，避免页尾大片空白 */
     .resume-document,
     .resume--sidebar,
     .resume--classic,
@@ -188,12 +188,10 @@ function generatePrintOverrides(margin: number): string {
     .resume--minimal,
     .resume--timeline,
     .resume--elegant,
-    .resume--twocolumn {
-      page-break-inside: auto;
-    }
-
+    .resume--twocolumn,
     .entry {
-      page-break-inside: avoid;
+      page-break-inside: auto;
+      break-inside: auto;
     }
   `
 }

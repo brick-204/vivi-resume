@@ -80,7 +80,7 @@
     }
   }
 
-  // 分页控制：允许 section 内部分页，避免大片空白
+  // 分页控制：允许所有元素内部分页，避免页尾大片空白
   .resume-document,
   .resume--sidebar,
   .resume--classic,
@@ -88,14 +88,10 @@
   .resume--minimal,
   .resume--timeline,
   .resume--elegant,
-  .resume--twocolumn {
-    page-break-inside: auto;
-    overflow: hidden !important;
-  }
-
-  // 仅对单条 entry 避免截断（条目较短，被截断概率低）
+  .resume--twocolumn,
   .entry {
-    page-break-inside: avoid;
+    page-break-inside: auto;
+    break-inside: auto;
   }
 
   // 确保颜色精确打印
