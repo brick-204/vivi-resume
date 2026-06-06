@@ -33,10 +33,11 @@ provide(ResumeDocumentKey, ctx)
 .resume--sidebar {
   display: grid;
   grid-template-columns: minmax(160px, 240px) 1fr;
+  width: 100%;
+  max-width: var(--t-max-width, 800px);
   margin: 0 auto;
-  // sidebar 特殊处理：左侧边栏延伸到文档边缘，不使用 base.scss 的统一 padding
-  // 用 CSS var 控制右侧内容区的页边距
-  padding: var(--page-padding, 48px) var(--page-padding, 48px) var(--page-padding, 48px) 0;
+  min-height: 1050px;
+  padding: 0;
   overflow: visible;
   font-size: var(--t-body-font-size, 13px);
   font-family: var(--t-font-family, $font-family);
@@ -219,7 +220,7 @@ provide(ResumeDocumentKey, ctx)
   display: flex;
   flex-direction: column;
   gap: var(--t-module-spacing, 20px);
-  overflow: visible;
+  overflow: hidden;
   min-width: 0;
 }
 

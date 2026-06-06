@@ -2,11 +2,8 @@
 
 @media print {
   // 去除页眉页脚（时间、标题、URL、页码）
-  // margin: 0 让文档自身的 padding (pagePadding) 控制页边距
-  // 实现 WYSIWYG：预览和打印使用完全相同的边距
   @page {
     size: A4;
-    margin: 0;
   }
 
   // 隐藏非打印内容
@@ -67,27 +64,21 @@
     background: white !important;
   }
 
-  // 打印时移除 scale transform（文档已是 794px = A4 宽度）
-  .resume-preview__scaler {
-    transform: none !important;
-    width: 794px !important;
-  }
-
   // 简历文档
   .resume-document {
-    width: 794px !important;
-    // padding 由 --page-padding CSS var 控制（来自 useResumeDocument），
-    // 与预览完全一致，实现 WYSIWYG
+    max-width: 720px !important;
+    margin: 0 auto !important;
+    padding: 24px !important;
     box-shadow: none !important;
 
     // 移除 hover 效果
-    .resume__section {
+    &__section {
       cursor: default !important;
       opacity: 1 !important;
     }
   }
 
-  // 分页控制：允许 section 内部分页
+  // 分页控制：允许 section 内部分页，避免大片空白
   .resume-document,
   .resume--sidebar,
   .resume--classic,
@@ -97,10 +88,10 @@
   .resume--elegant,
   .resume--twocolumn {
     page-break-inside: auto;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
 
-  // 仅对单条 entry 避免截断（与预览的智能分页算法一致）
+  // 仅对单条 entry 避免截断（条目较短，被截断概率低）
   .entry {
     page-break-inside: avoid;
   }
@@ -111,17 +102,12 @@
     print-color-adjust: exact !important;
   }
 
-  // content-visibility 在打印时必须强制可见
+  // content-visibility 在打印时必须强制可见，否则离屏内容不会渲染到 PDF
   .resume__section,
   .entry,
   .sidebar__section,
   .main__entry {
     content-visibility: visible !important;
     contain-intrinsic-size: none !important;
-  }
-
-  // 隐藏分页标记
-  .page-break-indicators {
-    display: none !important;
   }
 }

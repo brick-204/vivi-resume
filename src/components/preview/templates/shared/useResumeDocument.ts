@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import type { Resume, FieldDisplayMode, WorkItem, EducationItem, ProjectItem, CustomCardItem, HeaderTextColor, HeaderIconColor } from '@/types/resume'
-import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomSectionIndex, DEFAULT_LINE_HEIGHT, DEFAULT_MODULE_SPACING, DEFAULT_PARAGRAPH_SPACING, DEFAULT_PAGE_PADDING } from '@/types/resume'
+import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER, getSectionTitle, getCustomSectionIndex, DEFAULT_LINE_HEIGHT, DEFAULT_MODULE_SPACING, DEFAULT_PARAGRAPH_SPACING } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
 import {
   DEFAULT_FONT_FAMILY,
@@ -128,8 +128,8 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--t-line-height': `${lh}`,
       '--t-module-spacing': `${resume.value.moduleSpacing ?? DEFAULT_MODULE_SPACING}px`,
       '--t-paragraph-spacing': `${resume.value.paragraphSpacing ?? DEFAULT_PARAGRAPH_SPACING}px`,
-      // 页边距 CSS var，由 base.scss 的 .resume-document padding 使用
-      '--page-padding': `${resume.value.pagePadding ?? DEFAULT_PAGE_PADDING}px`,
+      // 页边距为 0 时取消 max-width，让文档撑满；否则保留默认 max-width 居中
+      '--t-max-width': resume.value.pagePadding === 0 ? 'none' : undefined,
     }
   })
 
@@ -215,8 +215,8 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
       '--t-line-height': `${lh}`,
       '--t-module-spacing': `${resume.value.moduleSpacing ?? DEFAULT_MODULE_SPACING}px`,
       '--t-paragraph-spacing': `${resume.value.paragraphSpacing ?? DEFAULT_PARAGRAPH_SPACING}px`,
-      // 页边距 CSS var，由 base.scss 的 .resume-document padding 使用
-      '--page-padding': `${resume.value.pagePadding ?? DEFAULT_PAGE_PADDING}px`,
+      // 页边距为 0 时取消 max-width，让文档撑满；否则保留默认 max-width 居中
+      '--t-max-width': resume.value.pagePadding === 0 ? 'none' : undefined,
     }
   })
 
