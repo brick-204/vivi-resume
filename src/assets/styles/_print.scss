@@ -2,8 +2,10 @@
 
 @media print {
   // 去除页眉页脚（时间、标题、URL、页码）
+  // margin: 0 让页边距完全由 .resume-preview 的 padding 控制，实现预览与打印所见即所得
   @page {
     size: A4;
+    margin: 0;
   }
 
   // 隐藏非打印内容
@@ -60,7 +62,7 @@
   }
 
   .resume-preview {
-    padding: 0 !important;
+    // 保留用户设置的页边距，与预览一致
     background: white !important;
   }
 
