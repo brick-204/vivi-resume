@@ -27,13 +27,6 @@ export function usePageBreaks(
       return
     }
 
-    const pad = padding.value
-    const contentHeight = A4_HEIGHT_PX - pad * 2
-    if (contentHeight <= 0) {
-      pageBreaks.value = []
-      return
-    }
-
     // content-visibility: auto 会让浏览器用 contain-intrinsic-size 估算高度，
     // 导致 scrollHeight 不准确。临时切换为 visible 以读取真实高度。
     const cvEls = el.querySelectorAll('.resume__section, .entry, .sidebar__section, .main__entry')
@@ -52,9 +45,12 @@ export function usePageBreaks(
       htmlEl.style.contentVisibility = saved[idx] || ''
     })
 
+    // 打印分页按 A4 整页高度切割，padding 是元素内部间距，
+    // 顶部 padding 只在第 1 页占空间，底部 padding 只在最后一页占空间，
+    // 中间页无 padding，所以分页线位置 = A4_HEIGHT_PX 的整数倍。
     const breaks: number[] = []
-    for (let y = contentHeight; y < totalHeight; y += contentHeight) {
-      breaks.push(y + pad)
+    for (let y = A4_HEIGHT_PX; y < totalHeight; y += A4_HEIGHT_PX) {
+      breaks.push(y)
     }
     pageBreaks.value = breaks
   }

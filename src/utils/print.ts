@@ -145,15 +145,25 @@ function generatePrintOverrides(margin: number): string {
       margin: 0;
     }
 
+    html {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
     body {
       margin: 0;
       padding: 0;
       background: white;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     .resume-preview {
+      width: 794px;
       padding: ${margin}px;
       background: white;
+      box-sizing: border-box;
     }
 
     /* 隐藏分页线和页码指示器 */
