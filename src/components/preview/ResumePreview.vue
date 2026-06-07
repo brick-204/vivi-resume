@@ -31,7 +31,7 @@
 import { computed, ref } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
-import { usePageBreaks } from '@/composables/usePageBreaks'
+import { usePageBreaks, A4_WIDTH_PX } from '@/composables/usePageBreaks'
 import { Icon } from '@iconify/vue'
 import ResumeDocument from './ResumeDocument.vue'
 
@@ -47,6 +47,7 @@ const pagePadding = computed(() =>
 const previewStyle = computed(() => {
   const p = pagePadding.value
   return {
+    width: `${A4_WIDTH_PX}px`,
     padding: `${p}px`,
   }
 })

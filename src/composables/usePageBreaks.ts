@@ -34,7 +34,24 @@ export function usePageBreaks(
       return
     }
 
+    // content-visibility: auto 会让浏览器用 contain-intrinsic-size 估算高度，
+    // 导致 scrollHeight 不准确。临时切换为 visible 以读取真实高度。
+    const cvEls = el.querySelectorAll('.resume__section, .entry, .sidebar__section, .main__entry')
+    const saved: string[] = []
+    cvEls.forEach((e, idx) => {
+      const htmlEl = e as HTMLElement
+      saved[idx] = htmlEl.style.contentVisibility
+      htmlEl.style.contentVisibility = 'visible'
+    })
+
     const totalHeight = el.scrollHeight
+
+    // 恢复原始 content-visibility
+    cvEls.forEach((e, idx) => {
+      const htmlEl = e as HTMLElement
+      htmlEl.style.contentVisibility = saved[idx] || ''
+    })
+
     const breaks: number[] = []
     for (let y = contentHeight; y < totalHeight; y += contentHeight) {
       breaks.push(y + pad)
