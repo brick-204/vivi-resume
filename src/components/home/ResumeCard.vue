@@ -24,9 +24,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import type { Resume } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
+import { useScaledPreview } from '@/composables/useScaledPreview'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 import { Icon } from '@iconify/vue'
 
@@ -50,35 +51,7 @@ const onCopy = () => {
 
 const templateName = computed(() => getTemplate(props.resume.templateId).name)
 
-const previewContainer = ref<HTMLElement | null>(null)
-
-const DOC_WIDTH = 800
-const DOC_HEIGHT = 1050
-
-const scale = ref(0.35)
-
-const updateScale = () => {
-  if (previewContainer.value) {
-    const containerWidth = previewContainer.value.clientWidth
-    scale.value = containerWidth / DOC_WIDTH
-  }
-}
-
-onMounted(() => {
-  updateScale()
-  const observer = new ResizeObserver(updateScale)
-  if (previewContainer.value) {
-    observer.observe(previewContainer.value)
-  }
-  onUnmounted(() => observer.disconnect())
-})
-
-const scaleStyle = computed(() => ({
-  width: `${DOC_WIDTH}px`,
-  minHeight: `${DOC_HEIGHT}px`,
-  transform: `scale(${scale.value})`,
-  transformOrigin: 'top left'
-}))
+const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pagePadding)
 </script>
 
 <style lang="scss" scoped>

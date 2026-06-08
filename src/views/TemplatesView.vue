@@ -21,6 +21,7 @@
         :key="template.id"
         :template="template"
         :selected="selectedId === template.id"
+        :style-overrides="resumeStyleOverrides"
         @select="selectedId = $event"
       />
     </main>
@@ -32,13 +33,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { TEMPLATES } from '@/config/templates'
-import { getSampleResume } from '@/config/sampleData'
+import { applyTemplateToCurrentResume } from '@/utils/templateApply'
 import TemplateCard from '@/components/template/TemplateCard.vue'
-
-// 模板对应的默认主题色
-const TEMPLATE_ACCENT_COLORS = Object.fromEntries(
-  TEMPLATES.map(t => [t.id, t.style.accentColor])
-)
 
 const route = useRoute()
 const router = useRouter()
@@ -49,6 +45,9 @@ const selectedId = ref('sidebar')
 
 const resumeId = computed(() => route.params.id as string)
 
+// 判断是否为"更换模板"模式（非空简历进入模板选择页）
+const isChangingTemplate = ref(false)
+
 onMounted(async () => {
   // 等待 store 初始化完成，确保 resumeList 已加载
   await store.ready
@@ -57,7 +56,29 @@ onMounted(async () => {
     const loaded = await store.loadResume(resumeId.value)
     if (loaded && store.currentResume) {
       selectedId.value = store.currentResume.templateId || 'sidebar'
+      // 有内容的简历 → 更换模板模式，预览使用当前简历样式
+      const r = store.currentResume
+      isChangingTemplate.value = !!(r.basicInfo.name ||
+        r.workExperience.length > 0 ||
+        r.education.length > 0)
     }
+  }
+})
+
+// 提取当前简历的样式覆盖，传给 TemplateCard 预览
+const resumeStyleOverrides = computed(() => {
+  if (!isChangingTemplate.value || !store.currentResume) return undefined
+  const r = store.currentResume
+  return {
+    ...(r.themeAccentColor && { themeAccentColor: r.themeAccentColor }),
+    ...(r.headerTextColor && { headerTextColor: r.headerTextColor }),
+    ...(r.headerIconColor && { headerIconColor: r.headerIconColor }),
+    ...(r.fontFamily && { fontFamily: r.fontFamily }),
+    ...(r.bodyFontSize && { bodyFontSize: r.bodyFontSize }),
+    ...(r.sectionTitleFontSize && { sectionTitleFontSize: r.sectionTitleFontSize }),
+    ...(r.entryTitleFontSize && { entryTitleFontSize: r.entryTitleFontSize }),
+    ...(r.lineHeight && { lineHeight: r.lineHeight }),
+    ...(r.pagePadding != null && { pagePadding: r.pagePadding }),
   }
 })
 
@@ -89,25 +110,8 @@ const applyTemplate = async () => {
                   resume?.education.length === 0
 
   if (isEmpty) {
-    // 第一次选择模板：带入示例数据 + 主题色/文字设置
-    const sampleData = getSampleResume()
-    const templateConfig = TEMPLATES.find(t => t.id === selectedId.value)
-    const fontDefaults = templateConfig?.style.fontDefaults
-    store.updateCurrentResume({
-      templateId: selectedId.value,
-      themeAccentColor: TEMPLATE_ACCENT_COLORS[selectedId.value] || 'rgba(124, 92, 252, 1.00)',
-      headerTextColor: templateConfig?.style.headerTextMode || 'black',
-      headerIconColor: templateConfig?.style.headerIconMode || 'black',
-      ...(fontDefaults?.bodyFontSize != null && { bodyFontSize: fontDefaults.bodyFontSize }),
-      ...(fontDefaults?.sectionTitleFontSize != null && { sectionTitleFontSize: fontDefaults.sectionTitleFontSize }),
-      ...(fontDefaults?.entryTitleFontSize != null && { entryTitleFontSize: fontDefaults.entryTitleFontSize }),
-      basicInfo: sampleData.basicInfo,
-      workExperience: sampleData.workExperience,
-      education: sampleData.education,
-      projects: sampleData.projects,
-      skills: sampleData.skills,
-      selfEvaluation: sampleData.selfEvaluation
-    })
+    // 第一次选择模板：使用共享函数应用模板 + 示例数据
+    applyTemplateToCurrentResume(selectedId.value)
   } else {
     // 已有内容：只更新模板，不改变主题色和文字设置
     store.updateCurrentResume({

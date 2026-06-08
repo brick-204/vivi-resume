@@ -6,7 +6,7 @@
   >
     <div class="template-card__preview" ref="previewContainer">
       <div class="template-card__scale" :style="scaleStyle">
-        <ResumeDocument :resume="sampleResume" :template-id="template.id" />
+        <ResumeDocument :resume="previewResume" :template-id="template.id" />
       </div>
     </div>
     <div class="template-card__info">
@@ -23,14 +23,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed } from 'vue'
 import type { TemplateConfig } from '@/config/templates'
+import type { HeaderTextColor, HeaderIconColor } from '@/types/resume'
 import { getSampleResume } from '@/config/sampleData'
+import { useScaledPreview } from '@/composables/useScaledPreview'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 
-defineProps<{
+interface StyleOverrides {
+  themeAccentColor?: string
+  headerTextColor?: HeaderTextColor
+  headerIconColor?: HeaderIconColor
+  fontFamily?: string
+  bodyFontSize?: number
+  sectionTitleFontSize?: number
+  entryTitleFontSize?: number
+  lineHeight?: number
+  pagePadding?: number
+}
+
+const props = defineProps<{
   template: TemplateConfig
   selected: boolean
+  styleOverrides?: StyleOverrides
 }>()
 
 defineEmits<{
@@ -38,35 +53,14 @@ defineEmits<{
 }>()
 
 const sampleResume = getSampleResume()
-const previewContainer = ref<HTMLElement | null>(null)
 
-const DOC_WIDTH = 800
-const DOC_HEIGHT = 1050
-
-const scale = ref(0.35)
-
-const updateScale = () => {
-  if (previewContainer.value) {
-    const containerWidth = previewContainer.value.clientWidth
-    scale.value = containerWidth / DOC_WIDTH
-  }
-}
-
-onMounted(() => {
-  updateScale()
-  const observer = new ResizeObserver(updateScale)
-  if (previewContainer.value) {
-    observer.observe(previewContainer.value)
-  }
-  onUnmounted(() => observer.disconnect())
+// 合并样式覆盖：更换模板时预览使用当前简历的样式配置
+const previewResume = computed(() => {
+  if (!props.styleOverrides) return sampleResume
+  return { ...sampleResume, ...props.styleOverrides }
 })
 
-const scaleStyle = computed(() => ({
-  width: `${DOC_WIDTH}px`,
-  minHeight: `${DOC_HEIGHT}px`,
-  transform: `scale(${scale.value})`,
-  transformOrigin: 'top left'
-}))
+const { previewContainer, scaleStyle } = useScaledPreview(() => previewResume.value.pagePadding)
 </script>
 
 <style lang="scss" scoped>
