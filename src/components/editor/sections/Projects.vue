@@ -25,9 +25,14 @@
               <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
-              <button class="card__delete" aria-label="删除" @click.stop="confirmDeleteId = item.id">
-                <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-              </button>
+              <n-popconfirm negative-text="取消" positive-text="删除" @positive-click="deleteItem(item.id)">
+                <template #trigger>
+                  <button class="card__delete" aria-label="删除" @click.stop>
+                    <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+                  </button>
+                </template>
+                确定要删除这条项目经验吗？
+              </n-popconfirm>
               <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click.stop="toggleCollapse(item.id)">
                 <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />
               </button>
@@ -35,24 +40,27 @@
           </div>
           <div v-show="!collapsedIds.has(item.id)" class="card__form">
             <div class="form__row">
-              <BaseInput
-                v-model="item.name"
-                label="项目名称"
-                placeholder="请输入项目名称"
-              />
-              <BaseInput
-                v-model="item.role"
-                label="担任角色"
-                placeholder="如：前端负责人"
-              />
+              <div class="form-field">
+                <span class="form-field__label">项目名称</span>
+                <n-input v-model:value="item.name" placeholder="请输入项目名称" size="small" />
+              </div>
+              <div class="form-field">
+                <span class="form-field__label">担任角色</span>
+                <n-input v-model:value="item.role" placeholder="如：前端负责人" size="small" />
+              </div>
             </div>
             <div class="form__row">
-              <BaseInput v-model="item.startDate" label="开始时间" type="month" />
+              <div class="form-field">
+                <span class="form-field__label">开始时间</span>
+                <n-input v-model:value="item.startDate" placeholder="YYYY-MM" size="small" />
+              </div>
               <div class="date-field">
-                <BaseInput :model-value="item.endDate === '至今' ? '' : item.endDate" @update:model-value="item.endDate = $event" label="结束时间" type="month" :disabled="item.endDate === '至今'" />
+                <div class="form-field">
+                  <span class="form-field__label">结束时间</span>
+                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="item.endDate = $event" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
+                </div>
                 <div class="date-field__present">
-                  <input type="checkbox" :checked="item.endDate === '至今'" @change="item.endDate = ($event.target as HTMLInputElement).checked ? '至今' : ''" />
-                  至今
+                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="item.endDate = $event ? '至今' : ''">至今</n-checkbox>
                 </div>
               </div>
             </div>
@@ -64,14 +72,7 @@
             />
             <div class="tech-section">
               <label class="tech__label">技术栈</label>
-              <div class="tech__input-wrap">
-                <input
-                  v-model="newTech"
-                  class="tech__input"
-                  placeholder="输入技术后按回车添加"
-                  @keydown.enter.prevent="addTech(item)"
-                />
-              </div>
+                <n-input v-model:value="newTech" placeholder="输入技术后按回车添加" size="small" @keydown.enter.prevent="addTech(item)" />
               <div class="tech__list">
                 <span
                   v-for="(tech, index) in item.technologies"
@@ -90,13 +91,6 @@
       </template>
     </draggable>
 
-    <BaseModal :visible="confirmDeleteId !== null" title="确认删除" size="sm" @close="confirmDeleteId = null">
-      <p>确定要删除这条项目经验吗？此操作不可撤销。</p>
-      <template #footer>
-        <button class="btn btn--cancel" @click="confirmDeleteId = null">取消</button>
-        <button class="btn btn--danger" @click="deleteItem(confirmDeleteId!)">确认删除</button>
-      </template>
-    </BaseModal>
   </div>
 </template>
 
@@ -109,9 +103,8 @@ import draggable from 'vuedraggable'
 import type { ProjectItem } from "@/types/resume";
 import { TRASH_ICON, ROCKET_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from "@/components/icons/SectionIcons";
 import { Icon } from "@iconify/vue";
-import BaseInput from "@/components/common/BaseInput.vue";
+import { NInput, NPopconfirm, NCheckbox } from 'naive-ui';
 import RichTextEditor from "@/components/common/RichTextEditor.vue";
-import BaseModal from "@/components/common/BaseModal.vue";
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
 
@@ -121,7 +114,6 @@ const flipCards = useFlipAnimation(() => scrollContainer?.value, '.card')
 const { saveTitle, getSectionTitle } = useSectionTitle();
 const emit = defineEmits<{ 'click-entry': [itemId: string] }>()
 const newTech = ref("");
-const confirmDeleteId = ref<string | null>(null);
 const collapsedIds = ref<Set<string>>(new Set());
 
 const toggleCollapse = (id: string) => {
@@ -154,7 +146,6 @@ const deleteItem = (id: string) => {
   store.updateCurrentResume({
     projects: items.value.filter((item) => item.id !== id),
   });
-  confirmDeleteId.value = null;
 };
 
 const addTech = (item: ProjectItem) => {
@@ -289,8 +280,19 @@ defineExpose({ addItem });
 @include date-field;
 @include card-actions;
 @include card-drag;
-@include modal-btn;
 @include editable-title;
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+
+  &__label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
 
 .tech-section {
   margin-top: $spacing-sm;
@@ -302,14 +304,6 @@ defineExpose({ addItem });
   font-weight: 600;
   color: $text-primary;
   margin-bottom: $spacing-sm;
-}
-
-.tech__input-wrap {
-  margin-bottom: $spacing-sm;
-}
-
-.tech__input {
-  @include input-base;
 }
 
 .tech__list {

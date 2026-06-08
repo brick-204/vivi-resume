@@ -48,13 +48,14 @@
               >
                 <Icon :icon="item.visible ? EYE_ICON : EYE_OFF_ICON" :width="20" :height="20" />
               </button>
-              <button
-                v-if="!isCollapsed && item.id !== 'basic'"
-                class="nav-item__remove"
-                @click.stop="confirmRemove(item.id)"
-              >
-                <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-              </button>
+              <n-popconfirm v-if="!isCollapsed && item.id !== 'basic'" negative-text="取消" positive-text="删除" @positive-click="removeSection(item.id)">
+                <template #trigger>
+                  <button class="nav-item__remove" @click.stop>
+                    <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+                  </button>
+                </template>
+                确定删除「{{ resumeStore.currentResume ? getSectionTitle(resumeStore.currentResume, item.id) : item.label }}」？删除后可通过「添加模块」恢复。
+              </n-popconfirm>
             </div>
           </template>
         </draggable>
@@ -77,17 +78,27 @@
           />
         </div>
         <div class="theme-color-panel__alpha-row">
-          <span class="alpha-label">透明度</span>
-          <div class="alpha-slider-wrap" ref="themeAlphaSliderRef" @mousedown="onThemeAlphaStart" @touchstart.prevent="onThemeAlphaTouchStart">
-            <div class="alpha-rail" :style="{ background: themeAlphaTrackBg }" />
-            <div class="alpha-thumb" :style="{ left: themeAlpha + '%' }" />
-          </div>
-          <span class="alpha-value">{{ themeAlpha }}%</span>
+          <span class="setting-label">透明度</span>
+          <n-slider v-model:value="themeAlpha" :min="0" :max="100" :step="1" size="small" @update:value="onThemeAlphaChange" />
+          <span class="setting-value">{{ themeAlpha }}%</span>
         </div>
-        <button ref="themeMoreBtnRef" class="theme-color-panel__more-btn" @click="toggleThemePopup">
-          <span>自定义</span>
-          <Icon icon="mdi:chevron-right" :width="14" />
-        </button>
+        <n-color-picker
+          :value="themeAccentHex"
+          :show-alpha="false"
+          :modes="['hex', 'rgb']"
+          :swatches="THEME_EXTRA_COLORS"
+          size="small"
+          placement="right"
+          @update:value="onThemeColorPickerChange"
+        >
+          <template #trigger="{ onClick }">
+            <button class="theme-color-panel__more-btn" @click="onClick">
+              <span class="theme-color-panel__more-swatch" :style="{ background: themeAccentHex }" />
+              <span>更多颜色</span>
+              <Icon icon="mdi:palette-outline" :width="14" />
+            </button>
+          </template>
+        </n-color-picker>
       </div>
 
       <!-- 文字设置面板 -->
@@ -97,44 +108,51 @@
           <span>文字设置</span>
         </div>
         <div class="font-settings-panel__row">
-          <span class="font-settings-panel__label">字体</span>
-          <select class="font-settings-panel__select" :value="currentFontFamily" @change="onFontFamilyChange" aria-label="选择字体">
-            <option v-for="f in FONT_FAMILY_OPTIONS" :key="f.value" :value="f.value">{{ f.label }}</option>
-          </select>
-        </div>
-        <div class="font-settings-panel__row font-settings-panel__row--line-height">
-          <span class="font-settings-panel__label">行高</span>
-          <input
-            type="range"
-            class="font-settings-panel__slider"
-            :value="currentLineHeight"
-            min="1"
-            max="2"
-            step="0.1"
-            aria-label="滑动调整行高"
-            @input="onLineHeightSlider"
+          <span class="setting-label">字体</span>
+          <n-select
+            :value="currentFontFamily"
+            :options="fontFamilyOptions"
+            size="tiny"
+            @update:value="v => resumeStore.updateCurrentResume({ fontFamily: v })"
           />
-          <select class="font-settings-panel__select font-settings-panel__select--sm" :value="currentLineHeight" @change="onLineHeightChange" aria-label="选择行高">
-            <option v-for="lh in LINE_HEIGHT_OPTIONS" :key="lh" :value="lh">{{ lh }}</option>
-          </select>
         </div>
         <div class="font-settings-panel__row">
-          <span class="font-settings-panel__label">正文字号</span>
-          <select class="font-settings-panel__select" :value="currentBodyFontSize" @change="onBodyFontSizeChange" aria-label="选择正文字号">
-            <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
-          </select>
+          <span class="setting-label">行高</span>
+          <n-slider v-model:value="lineHeightValue" :min="1" :max="2" :step="0.1" size="small" @update:value="v => resumeStore.updateCurrentResume({ lineHeight: v })" />
+          <n-select
+            :value="currentLineHeight"
+            :options="lineHeightSelectOptions"
+            size="tiny"
+            style="width: 64px; flex-shrink: 0;"
+            @update:value="v => resumeStore.updateCurrentResume({ lineHeight: Number(v) })"
+          />
         </div>
         <div class="font-settings-panel__row">
-          <span class="font-settings-panel__label">一级标题</span>
-          <select class="font-settings-panel__select" :value="currentSectionTitleFontSize" @change="onSectionTitleFontSizeChange" aria-label="选择一级标题字号">
-            <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
-          </select>
+          <span class="setting-label">正文字号</span>
+          <n-select
+            :value="currentBodyFontSize"
+            :options="fontSizeSelectOptions"
+            size="tiny"
+            @update:value="v => resumeStore.updateCurrentResume({ bodyFontSize: Number(v) })"
+          />
         </div>
         <div class="font-settings-panel__row">
-          <span class="font-settings-panel__label">二级标题</span>
-          <select class="font-settings-panel__select" :value="currentEntryTitleFontSize" @change="onEntryTitleFontSizeChange" aria-label="选择二级标题字号">
-            <option v-for="s in FONT_SIZE_OPTIONS" :key="s" :value="s">{{ s }}px</option>
-          </select>
+          <span class="setting-label">一级标题</span>
+          <n-select
+            :value="currentSectionTitleFontSize"
+            :options="fontSizeSelectOptions"
+            size="tiny"
+            @update:value="v => resumeStore.updateCurrentResume({ sectionTitleFontSize: Number(v) })"
+          />
+        </div>
+        <div class="font-settings-panel__row">
+          <span class="setting-label">二级标题</span>
+          <n-select
+            :value="currentEntryTitleFontSize"
+            :options="fontSizeSelectOptions"
+            size="tiny"
+            @update:value="v => resumeStore.updateCurrentResume({ entryTitleFontSize: Number(v) })"
+          />
         </div>
       </div>
 
@@ -146,124 +164,36 @@
         </div>
 
         <!-- 页边距 -->
-        <div class="spacing-settings-panel__row">
-          <span class="spacing-settings-panel__label">页边距</span>
-          <input
-            type="range"
-            class="spacing-settings-panel__slider"
-            :value="currentPagePadding"
-            min="0"
-            max="100"
-            step="1"
-            aria-label="滑动调整页边距"
-            @input="onPagePaddingSlider"
-          />
-          <input
-            type="number"
-            class="spacing-settings-panel__number"
-            :value="currentPagePadding"
-            min="0"
-            max="100"
-            aria-label="输入页边距"
-            @change="onPagePaddingChange"
-          />
-          <span class="spacing-settings-panel__unit">px</span>
+        <div class="spacing-settings-panel__item">
+          <span class="setting-label">页边距</span>
+          <div class="spacing-settings-panel__slider-row">
+            <n-slider :value="currentPagePadding" :min="0" :max="100" :step="1" size="small" @update:value="v => resumeStore.updateCurrentResume({ pagePadding: v })" />
+            <n-input-number :value="currentPagePadding" :min="0" :max="100" size="tiny" @update:value="v => { if (v !== null) resumeStore.updateCurrentResume({ pagePadding: v }) }" />
+            <span class="setting-unit">px</span>
+          </div>
         </div>
 
         <!-- 模块间距 -->
-        <div class="spacing-settings-panel__row">
-          <span class="spacing-settings-panel__label">模块间距</span>
-          <input
-            type="range"
-            class="spacing-settings-panel__slider"
-            :value="currentModuleSpacing"
-            min="0"
-            max="50"
-            step="1"
-            aria-label="滑动调整模块间距"
-            @input="onModuleSpacingSlider"
-          />
-          <input
-            type="number"
-            class="spacing-settings-panel__number"
-            :value="currentModuleSpacing"
-            min="0"
-            max="50"
-            aria-label="输入模块间距"
-            @change="onModuleSpacingChange"
-          />
-          <span class="spacing-settings-panel__unit">px</span>
+        <div class="spacing-settings-panel__item">
+          <span class="setting-label">模块间距</span>
+          <div class="spacing-settings-panel__slider-row">
+            <n-slider :value="currentModuleSpacing" :min="0" :max="50" :step="1" size="small" @update:value="v => resumeStore.updateCurrentResume({ moduleSpacing: v })" />
+            <n-input-number :value="currentModuleSpacing" :min="0" :max="50" size="tiny" @update:value="v => { if (v !== null) resumeStore.updateCurrentResume({ moduleSpacing: v }) }" />
+            <span class="setting-unit">px</span>
+          </div>
         </div>
 
         <!-- 段落间距 -->
-        <div class="spacing-settings-panel__row">
-          <span class="spacing-settings-panel__label">段落间距</span>
-          <input
-            type="range"
-            class="spacing-settings-panel__slider"
-            :value="currentParagraphSpacing"
-            min="0"
-            max="50"
-            step="1"
-            aria-label="滑动调整段落间距"
-            @input="onParagraphSpacingSlider"
-          />
-          <input
-            type="number"
-            class="spacing-settings-panel__number"
-            :value="currentParagraphSpacing"
-            min="0"
-            max="50"
-            aria-label="输入段落间距"
-            @change="onParagraphSpacingChange"
-          />
-          <span class="spacing-settings-panel__unit">px</span>
+        <div class="spacing-settings-panel__item">
+          <span class="setting-label">段落间距</span>
+          <div class="spacing-settings-panel__slider-row">
+            <n-slider :value="currentParagraphSpacing" :min="0" :max="50" :step="1" size="small" @update:value="v => resumeStore.updateCurrentResume({ paragraphSpacing: v })" />
+            <n-input-number :value="currentParagraphSpacing" :min="0" :max="50" size="tiny" @update:value="v => { if (v !== null) resumeStore.updateCurrentResume({ paragraphSpacing: v }) }" />
+            <span class="setting-unit">px</span>
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- 更多颜色弹窗（Teleport 到 body，避免被任何父容器 overflow 裁剪） -->
-    <Teleport to="body">
-      <!-- 点击遮罩关闭弹窗 -->
-      <div v-if="!isCollapsed && themeShowMore" class="theme-color-popup-backdrop" @click="themeShowMore = false" />
-      <Transition name="color-popup">
-        <div v-if="!isCollapsed && themeShowMore" class="theme-color-popup" :style="themePopupStyle" @click.stop>
-          <div class="theme-color-popup__header">
-            <Icon icon="mdi:palette-outline" :width="14" />
-            <span>自定义颜色</span>
-            <button class="theme-color-popup__close" @click="themeShowMore = false">
-              <Icon icon="mdi:close" :width="14" />
-            </button>
-          </div>
-          <div class="sv-panel-wrap">
-            <canvas ref="themeSvCanvasRef" class="sv-canvas" width="200" height="150" @mousedown="onThemeSvStart" />
-            <div class="sv-cursor" :style="themeSvCursorStyle" />
-          </div>
-          <div class="hue-row" ref="themeHueSliderRef" @mousedown="onThemeHueStart" @touchstart.prevent="onThemeHueTouchStart">
-            <div class="hue-track" />
-            <div class="hue-thumb" :style="{ left: (themeHue / 360 * 100) + '%' }" />
-          </div>
-          <div class="input-row">
-            <div class="input-group">
-              <label>R</label>
-              <input type="number" min="0" max="255" :value="themeR" @input="onThemeRgbInput('r', $event)" />
-            </div>
-            <div class="input-group">
-              <label>G</label>
-              <input type="number" min="0" max="255" :value="themeG" @input="onThemeRgbInput('g', $event)" />
-            </div>
-            <div class="input-group">
-              <label>B</label>
-              <input type="number" min="0" max="255" :value="themeB" @input="onThemeRgbInput('b', $event)" />
-            </div>
-            <div class="input-group input-group--hex">
-              <label>#</label>
-              <input type="text" maxlength="6" :value="themeHexNoHash" @input="onThemeHexInput" />
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
 
   <!-- 添加模块按钮（常驻） -->
   <button class="navigator__add" @click="showAddModal = true">
@@ -288,26 +218,12 @@
       @close="showAddModal = false"
       @add="handleAddSection"
     />
-
-    <!-- 删除确认弹窗 -->
-    <BaseModal
-      v-if="removeConfirmId"
-      :visible="true"
-      title="删除模块"
-      size="sm"
-      @close="removeConfirmId = null"
-    >
-      <p class="confirm-text">确定要删除「{{ removeConfirmId && resumeStore.currentResume ? getSectionTitle(resumeStore.currentResume, removeConfirmId) : '' }}」模块吗？删除后可通过「添加模块」恢复。</p>
-      <template #footer>
-        <BaseButton variant="secondary" size="sm" @click="removeConfirmId = null">取消</BaseButton>
-        <BaseButton variant="danger" size="sm" @click="removeSection(removeConfirmId!)">删除</BaseButton>
-      </template>
-    </BaseModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { NPopconfirm, NColorPicker, NSelect, NSlider, NInputNumber } from 'naive-ui'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
@@ -318,8 +234,6 @@ import { getSectionIcon, PLUS_ICON, COLLAPSE_LEFT_ICON, COLLAPSE_RIGHT_ICON, TRA
 import { Icon } from '@iconify/vue'
 import draggable from 'vuedraggable'
 import AddSectionModal from './AddSectionModal.vue'
-import BaseModal from '@/components/common/BaseModal.vue'
-import BaseButton from '@/components/common/BaseButton.vue'
 
 const resumeStore = useResumeStore()
 const layoutStore = useEditorLayoutStore()
@@ -330,288 +244,79 @@ const THEME_PRESET_COLORS = [
   '#059669', '#2563eb', '#3b82f6', '#db2777',
   '#dc2626', '#ca8a04', '#7c3aed', '#92400e',
 ]
+// 更多颜色弹窗中的色板——排除与预设重复的颜色
+const THEME_EXTRA_COLORS = [
+  '#ef4444', '#f59e0b', '#84cc16', '#22c55e',
+  '#14b8a6', '#0ea5e9', '#6366f1', '#a855f7',
+  '#ec4899', '#f43f5e', '#8b5cf6', '#d946ef',
+]
 
-const themeAlphaSliderRef = ref<HTMLElement>()
-const themeHueSliderRef = ref<HTMLElement>()
-const themeSvCanvasRef = ref<HTMLCanvasElement>()
-const themeShowMore = ref(false)
-const themeHue = ref(0)
-const themeSat = ref(100)
-const themeVal = ref(100)
 const themeAlpha = ref(100)
-const themeR = ref(0)
-const themeG = ref(0)
-const themeB = ref(0)
 
-function themeHsvToRgb(h: number, s: number, v: number): [number, number, number] {
-  s /= 100; v /= 100
-  const c = v * s
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
-  const m = v - c
-  let rr = 0, gg = 0, bb = 0
-  if (h < 60) { rr = c; gg = x }
-  else if (h < 120) { rr = x; gg = c }
-  else if (h < 180) { gg = c; bb = x }
-  else if (h < 240) { gg = x; bb = c }
-  else if (h < 300) { rr = x; bb = c }
-  else { rr = c; bb = x }
-  return [Math.round((rr + m) * 255), Math.round((gg + m) * 255), Math.round((bb + m) * 255)]
-}
-
-function themeRgbToHsv(rr: number, gg: number, bb: number): [number, number, number] {
-  const r2 = rr / 255, g2 = gg / 255, b2 = bb / 255
-  const max = Math.max(r2, g2, b2), min = Math.min(r2, g2, b2), d = max - min
-  let h = 0
-  if (d !== 0) {
-    if (max === r2) h = 60 * (((g2 - b2) / d) % 6)
-    else if (max === g2) h = 60 * ((b2 - r2) / d + 2)
-    else h = 60 * ((r2 - g2) / d + 4)
-  }
-  if (h < 0) h += 360
-  const s = max === 0 ? 0 : (d / max) * 100
-  const v = max * 100
-  return [Math.round(h), Math.round(s), Math.round(v)]
-}
-
-function themeHexToRgb(hex: string): [number, number, number] | null {
-  const clean = hex.replace('#', '')
-  if (clean.length !== 6) return null
-  const n = parseInt(clean, 16)
-  if (isNaN(n)) return null
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
-}
-
-function themeRgbToHex(rr: number, gg: number, bb: number): string {
-  return [rr, gg, bb].map(c => c.toString(16).padStart(2, '0')).join('')
-}
-
-function themeParseColor(color: string): { r: number; g: number; b: number; a: number } | null {
-  if (!color) return null
+// 从 store 同步颜色状态
+function parseColorToHex(color: string): string {
+  if (!color) return '#7c5cfc'
   const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
   if (rgbaMatch) {
-    return { r: +rgbaMatch[1], g: +rgbaMatch[2], b: +rgbaMatch[3], a: rgbaMatch[4] !== undefined ? Math.round(+rgbaMatch[4] * 100) : 100 }
+    const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0')
+    const g = parseInt(rgbaMatch[2]).toString(16).padStart(2, '0')
+    const b = parseInt(rgbaMatch[3]).toString(16).padStart(2, '0')
+    if (rgbaMatch[4] !== undefined) {
+      themeAlpha.value = Math.round(parseFloat(rgbaMatch[4]) * 100)
+    } else {
+      themeAlpha.value = 100
+    }
+    return `#${r}${g}${b}`
   }
-  const hex = themeHexToRgb(color)
-  if (hex) return { r: hex[0], g: hex[1], b: hex[2], a: 100 }
-  return null
+  // 已经是 hex
+  if (color.startsWith('#')) return color
+  return '#7c5cfc'
 }
 
-function themeBuildRgba(): string {
-  return `rgba(${themeR.value}, ${themeG.value}, ${themeB.value}, ${(themeAlpha.value / 100).toFixed(2)})`
-}
-
-function themeSyncFromStore() {
-  const color = resumeStore.currentResume?.themeAccentColor
-  const parsed = themeParseColor(color || '')
-  if (parsed) {
-    themeR.value = parsed.r; themeG.value = parsed.g; themeB.value = parsed.b; themeAlpha.value = parsed.a
-    const [h, s, v] = themeRgbToHsv(parsed.r, parsed.g, parsed.b)
-    themeHue.value = h; themeSat.value = s; themeVal.value = v
-  } else {
-    themeR.value = 124; themeG.value = 92; themeB.value = 252; themeAlpha.value = 100
-    themeHue.value = 252; themeSat.value = 63; themeVal.value = 99
-  }
-}
-
-function themeSave() {
-  resumeStore.updateCurrentResume({ themeAccentColor: themeBuildRgba() })
-}
+const themeAccentHex = computed(() => {
+  return parseColorToHex(resumeStore.currentResume?.themeAccentColor || '')
+})
 
 const isThemeSwatchActive = (swatchHex: string): boolean => {
-  const parsed = themeParseColor(resumeStore.currentResume?.themeAccentColor || '')
-  if (!parsed) return false
-  const swatchRgb = themeHexToRgb(swatchHex)
-  if (!swatchRgb) return false
-  return parsed.r === swatchRgb[0] && parsed.g === swatchRgb[1] && parsed.b === swatchRgb[2] && parsed.a === 100
+  return themeAccentHex.value.toLowerCase() === swatchHex.toLowerCase() && themeAlpha.value === 100
 }
 
 const selectThemeColor = (color: string) => {
-  const parsed = themeHexToRgb(color)
-  if (!parsed) return
-  themeR.value = parsed[0]; themeG.value = parsed[1]; themeB.value = parsed[2]
   themeAlpha.value = 100
-  const [h, s, v] = themeRgbToHsv(parsed[0], parsed[1], parsed[2])
-  themeHue.value = h; themeSat.value = s; themeVal.value = v
-  themeSave()
+  resumeStore.updateCurrentResume({ themeAccentColor: color })
 }
 
-// Alpha slider
-const themeAlphaTrackBg = computed(() => {
-  const rgb = `${themeR.value},${themeG.value},${themeB.value}`
-  return `linear-gradient(to right, rgba(${rgb},0), rgba(${rgb},1))`
-})
-
-let themeAlphaDragging = false
-const updateThemeAlphaFromX = (clientX: number) => {
-  const el = themeAlphaSliderRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-  themeAlpha.value = Math.round(ratio * 100)
+const onThemeAlphaChange = () => {
+  const hex = themeAccentHex.value
+  resumeStore.updateCurrentResume({ themeAccentColor: buildRgba(hex, themeAlpha.value) })
 }
 
-const onThemeAlphaStart = (e: MouseEvent) => {
-  e.preventDefault()
-  themeAlphaDragging = true
-  updateThemeAlphaFromX(e.clientX)
-  const onMove = (ev: MouseEvent) => { if (themeAlphaDragging) updateThemeAlphaFromX(ev.clientX) }
-  const onUp = () => {
-    themeAlphaDragging = false
-    themeSave()
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+const onThemeColorPickerChange = (value: string) => {
+  // NColorPicker with show-alpha=false always returns hex like "#7c5cfc"
+  // Only update the hue/saturation, keep alpha controlled by the external slider
+  resumeStore.updateCurrentResume({ themeAccentColor: buildRgba(value, themeAlpha.value) })
 }
 
-const onThemeAlphaTouchStart = (e: TouchEvent) => {
-  themeAlphaDragging = true
-  updateThemeAlphaFromX(e.touches[0].clientX)
-  const onMove = (ev: TouchEvent) => { if (themeAlphaDragging) updateThemeAlphaFromX(ev.touches[0].clientX) }
-  const onUp = () => {
-    themeAlphaDragging = false
-    themeSave()
-    window.removeEventListener('touchmove', onMove)
-    window.removeEventListener('touchend', onUp)
-  }
-  window.addEventListener('touchmove', onMove)
-  window.addEventListener('touchend', onUp)
+function buildRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  if (clean.length !== 6) return hex
+  const n = parseInt(clean, 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return `rgba(${r}, ${g}, ${b}, ${(alpha / 100).toFixed(2)})`
 }
 
-// SV Canvas
-const drawThemeSvCanvas = () => {
-  const canvas = themeSvCanvasRef.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  const w = canvas.width, h = canvas.height
-  const hueColor = themeHsvToRgb(themeHue.value, 100, 100)
-  ctx.fillStyle = `rgb(${hueColor[0]},${hueColor[1]},${hueColor[2]})`
-  ctx.fillRect(0, 0, w, h)
-  const whiteGrad = ctx.createLinearGradient(0, 0, w, 0)
-  whiteGrad.addColorStop(0, 'rgba(255,255,255,1)')
-  whiteGrad.addColorStop(1, 'rgba(255,255,255,0)')
-  ctx.fillStyle = whiteGrad
-  ctx.fillRect(0, 0, w, h)
-  const blackGrad = ctx.createLinearGradient(0, 0, 0, h)
-  blackGrad.addColorStop(0, 'rgba(0,0,0,0)')
-  blackGrad.addColorStop(1, 'rgba(0,0,0,1)')
-  ctx.fillStyle = blackGrad
-  ctx.fillRect(0, 0, w, h)
-}
-
-const themeSvCursorStyle = computed(() => ({
-  left: `${themeSat.value}%`,
-  top: `${100 - themeVal.value}%`,
-}))
-
-let themeSvDragging = false
-const onThemeSvStart = (e: MouseEvent) => {
-  themeSvDragging = true
-  updateThemeSvFromEvent(e)
-  const onMove = (ev: MouseEvent) => { if (themeSvDragging) updateThemeSvFromEvent(ev) }
-  const onUp = () => {
-    themeSvDragging = false
-    themeSave()
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
-const updateThemeSvFromEvent = (e: MouseEvent) => {
-  const canvas = themeSvCanvasRef.value
-  if (!canvas) return
-  const rect = canvas.getBoundingClientRect()
-  const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-  const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
-  themeSat.value = Math.round(x * 100)
-  themeVal.value = Math.round((1 - y) * 100)
-  const rgb = themeHsvToRgb(themeHue.value, themeSat.value, themeVal.value)
-  themeR.value = rgb[0]; themeG.value = rgb[1]; themeB.value = rgb[2]
-}
-
-// Hue slider
-let themeHueDragging = false
-const updateThemeHueFromX = (clientX: number) => {
-  const el = themeHueSliderRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
-  themeHue.value = Math.round(ratio * 360)
-  const rgb = themeHsvToRgb(themeHue.value, themeSat.value, themeVal.value)
-  themeR.value = rgb[0]; themeG.value = rgb[1]; themeB.value = rgb[2]
-}
-
-const onThemeHueStart = (e: MouseEvent) => {
-  e.preventDefault()
-  themeHueDragging = true
-  updateThemeHueFromX(e.clientX)
-  drawThemeSvCanvas()
-  const onMove = (ev: MouseEvent) => {
-    if (!themeHueDragging) return
-    updateThemeHueFromX(ev.clientX)
-    drawThemeSvCanvas()
-  }
-  const onUp = () => {
-    themeHueDragging = false
-    themeSave()
-    drawThemeSvCanvas()
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
-const onThemeHueTouchStart = (e: TouchEvent) => {
-  themeHueDragging = true
-  updateThemeHueFromX(e.touches[0].clientX)
-  drawThemeSvCanvas()
-  const onMove = (ev: TouchEvent) => {
-    if (!themeHueDragging) return
-    updateThemeHueFromX(ev.touches[0].clientX)
-    drawThemeSvCanvas()
-  }
-  const onUp = () => {
-    themeHueDragging = false
-    themeSave()
-    drawThemeSvCanvas()
-    window.removeEventListener('touchmove', onMove)
-    window.removeEventListener('touchend', onUp)
-  }
-  window.addEventListener('touchmove', onMove)
-  window.addEventListener('touchend', onUp)
-}
-
-// RGB / HEX inputs
-const themeHexNoHash = computed(() => themeRgbToHex(themeR.value, themeG.value, themeB.value))
-
-const onThemeRgbInput = (channel: 'r' | 'g' | 'b', e: Event) => {
-  let v = parseInt((e.target as HTMLInputElement).value) || 0
-  v = Math.max(0, Math.min(255, v))
-  if (channel === 'r') themeR.value = v
-  else if (channel === 'g') themeG.value = v
-  else themeB.value = v
-  const [h, s, val] = themeRgbToHsv(themeR.value, themeG.value, themeB.value)
-  themeHue.value = h; themeSat.value = s; themeVal.value = val
-  themeSave()
-  drawThemeSvCanvas()
-}
-
-const onThemeHexInput = (e: Event) => {
-  const parsed = themeHexToRgb((e.target as HTMLInputElement).value)
-  if (!parsed) return
-  themeR.value = parsed[0]; themeG.value = parsed[1]; themeB.value = parsed[2]
-  const [h, s, v] = themeRgbToHsv(themeR.value, themeG.value, themeB.value)
-  themeHue.value = h; themeSat.value = s; themeVal.value = v
-  themeSave()
-  drawThemeSvCanvas()
-}
+// Sync alpha from store — parseColorToHex has a side effect: it updates themeAlpha ref
+watch(() => resumeStore.currentResume?.themeAccentColor, () => {
+  parseColorToHex(resumeStore.currentResume?.themeAccentColor || '')
+}, { immediate: true })
 
 // ---- 文字设置功能 ----
+const fontFamilyOptions = FONT_FAMILY_OPTIONS.map(f => ({ label: f.label, value: f.value }))
+const fontSizeSelectOptions = FONT_SIZE_OPTIONS.map(s => ({ label: `${s}px`, value: s }))
+const LINE_HEIGHT_OPTIONS = Array.from({ length: 11 }, (_, i) => +(1 + i * 0.1).toFixed(1))
+const lineHeightSelectOptions = LINE_HEIGHT_OPTIONS.map(lh => ({ label: `${lh}`, value: lh }))
 
 const currentFontFamily = computed(() =>
   resumeStore.currentResume?.fontFamily || DEFAULT_FONT_FAMILY
@@ -631,30 +336,14 @@ const currentEntryTitleFontSize = computed(() => {
   const fd = t.style.fontDefaults || {}
   return resumeStore.currentResume?.entryTitleFontSize || fd.entryTitleFontSize || 14
 })
-
-const onFontFamilyChange = (e: Event) => {
-  resumeStore.updateCurrentResume({ fontFamily: (e.target as HTMLSelectElement).value })
-}
-const onLineHeightChange = (e: Event) => {
-  resumeStore.updateCurrentResume({ lineHeight: Number((e.target as HTMLSelectElement).value) })
-}
-const onLineHeightSlider = (e: Event) => {
-  resumeStore.updateCurrentResume({ lineHeight: Number((e.target as HTMLInputElement).value) })
-}
 const currentLineHeight = computed(() =>
   resumeStore.currentResume?.lineHeight || DEFAULT_LINE_HEIGHT
 )
-const LINE_HEIGHT_OPTIONS = Array.from({ length: 11 }, (_, i) => +(1 + i * 0.1).toFixed(1))
-
-const onBodyFontSizeChange = (e: Event) => {
-  resumeStore.updateCurrentResume({ bodyFontSize: Number((e.target as HTMLSelectElement).value) })
-}
-const onSectionTitleFontSizeChange = (e: Event) => {
-  resumeStore.updateCurrentResume({ sectionTitleFontSize: Number((e.target as HTMLSelectElement).value) })
-}
-const onEntryTitleFontSizeChange = (e: Event) => {
-  resumeStore.updateCurrentResume({ entryTitleFontSize: Number((e.target as HTMLSelectElement).value) })
-}
+// NSlider v-model:value needs a number ref for line height
+const lineHeightValue = computed({
+  get: () => currentLineHeight.value,
+  set: (v: number) => resumeStore.updateCurrentResume({ lineHeight: v }),
+})
 
 // ---- 间距设置功能 ----
 const currentPagePadding = computed(() =>
@@ -666,77 +355,6 @@ const currentModuleSpacing = computed(() =>
 const currentParagraphSpacing = computed(() =>
   resumeStore.currentResume?.paragraphSpacing ?? DEFAULT_PARAGRAPH_SPACING
 )
-
-const onPagePaddingSlider = (e: Event) => {
-  resumeStore.updateCurrentResume({ pagePadding: Number((e.target as HTMLInputElement).value) })
-}
-const onPagePaddingChange = (e: Event) => {
-  const v = Number((e.target as HTMLInputElement).value)
-  resumeStore.updateCurrentResume({ pagePadding: Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : DEFAULT_PAGE_PADDING })
-}
-
-const onModuleSpacingSlider = (e: Event) => {
-  resumeStore.updateCurrentResume({ moduleSpacing: Number((e.target as HTMLInputElement).value) })
-}
-const onModuleSpacingChange = (e: Event) => {
-  const v = Number((e.target as HTMLInputElement).value)
-  resumeStore.updateCurrentResume({ moduleSpacing: Number.isFinite(v) ? Math.max(0, Math.min(50, v)) : DEFAULT_MODULE_SPACING })
-}
-
-const onParagraphSpacingSlider = (e: Event) => {
-  resumeStore.updateCurrentResume({ paragraphSpacing: Number((e.target as HTMLInputElement).value) })
-}
-const onParagraphSpacingChange = (e: Event) => {
-  const v = Number((e.target as HTMLInputElement).value)
-  resumeStore.updateCurrentResume({ paragraphSpacing: Number.isFinite(v) ? Math.max(0, Math.min(50, v)) : DEFAULT_PARAGRAPH_SPACING })
-}
-
-// Sync from store on mount and when accent color changes externally
-watch(() => resumeStore.currentResume?.themeAccentColor, () => {
-  themeSyncFromStore()
-  if (themeShowMore.value) nextTick(drawThemeSvCanvas)
-}, { immediate: true })
-
-watch(themeShowMore, (v) => {
-  if (v) {
-    nextTick(repositionPopup)
-    nextTick(drawThemeSvCanvas)
-    window.addEventListener('resize', repositionPopup)
-  } else {
-    window.removeEventListener('resize', repositionPopup)
-  }
-})
-
-// 主题色弹窗定位：监听按钮位置，动态设置弹窗 top/left
-const themeMoreBtnRef = ref<HTMLElement>()
-const themePopupStyle = ref<Record<string, string>>({})
-
-const repositionPopup = () => {
-  const btn = themeMoreBtnRef.value
-  if (!btn || !themeShowMore.value) return
-  const btnRect = btn.getBoundingClientRect()
-  // 弹窗垂直居中对齐主题色面板（按钮的父容器），而非仅对齐按钮
-  const panel = btn.closest('.theme-color-panel') as HTMLElement
-  const panelRect = panel?.getBoundingClientRect() || btnRect
-  const popupHeight = 280 // 弹窗大致高度，用于居中计算
-  const top = panelRect.top + (panelRect.height - popupHeight) / 2
-  themePopupStyle.value = {
-    top: Math.max(8, top) + 'px',
-    left: (btnRect.right + 4) + 'px',
-  }
-}
-
-const toggleThemePopup = () => {
-  themeShowMore.value = !themeShowMore.value
-  if (themeShowMore.value) {
-    nextTick(repositionPopup)
-    drawThemeSvCanvas()
-  }
-}
-
-onBeforeUnmount(() => {
-  // cleanup not needed since we use window listeners that self-remove on mouseup
-})
 
 const navigatorListRef = ref<HTMLElement>()
 
@@ -760,13 +378,13 @@ const sortableSections = computed({
     }))
   },
   set: (newList) => {
-    // 不允许 basic 被移到非首位
-    const basicIndex = newList.findIndex(item => item.id === 'basic')
+    const sorted = [...newList]
+    const basicIndex = sorted.findIndex(item => item.id === 'basic')
     if (basicIndex > 0) {
-      const [basic] = newList.splice(basicIndex, 1)
-      newList.unshift(basic)
+      const [basic] = sorted.splice(basicIndex, 1)
+      sorted.unshift(basic)
     }
-    resumeStore.updateSectionOrder(newList.map(item => item.id))
+    resumeStore.updateSectionOrder(sorted.map(item => item.id))
   }
 })
 
@@ -774,33 +392,22 @@ const sortableSections = computed({
 const hiddenSections = computed(() => {
   const visibleIds = resumeStore.getSectionOrder()
   const result: string[] = []
-  // 内置模块（排除自定义模块模板类型，它们单独处理）
   for (const id of Object.keys(SECTION_CONFIG)) {
     if (!visibleIds.includes(id) && id !== 'basic' && id !== 'customText' && id !== 'customCard') {
       result.push(id)
     }
   }
-  // 自定义模块类型（始终可添加）
   result.push('customText', 'customCard')
   return result
 })
 
-// 当前选中模块
 const activeSectionId = computed(() => layoutStore.activeSectionId)
-
-// 收缩状态
 const isCollapsed = computed(() => layoutStore.navCollapsed)
-
-// 弹窗状态
 const showAddModal = ref(false)
 
-// 所有模块都添加完后自动关闭弹窗
 watch(hiddenSections, (val) => {
   if (val.length === 0) showAddModal.value = false
 })
-
-// 删除确认状态
-const removeConfirmId = ref<string | null>(null)
 
 // 气泡提示
 const tooltipVisible = ref(false)
@@ -824,27 +431,22 @@ const hideTooltip = () => {
   tooltipVisible.value = false
 }
 
-// 确保选中的模块始终可见
 watch(sortableSections, (sections) => {
   if (!sections.find(s => s.id === activeSectionId.value)) {
     layoutStore.setActiveSection(sections[0]?.id || 'basic')
   }
 }, { immediate: true })
 
-// 选择模块
 const handleSelect = (sectionId: string) => {
   layoutStore.setActiveSection(sectionId)
-  // 如果编辑区收缩，自动展开
   layoutStore.expandEditor()
   emit('click-section', sectionId)
 }
 
-// 切换收缩状态
 const toggleCollapse = () => {
   layoutStore.toggleNavCollapse()
 }
 
-// 添加模块
 const handleAddSection = (sectionId: string) => {
   let newSectionId = sectionId
   if (sectionId === 'customText') {
@@ -858,13 +460,6 @@ const handleAddSection = (sectionId: string) => {
   layoutStore.expandEditor()
 }
 
-// 确认删除
-const confirmRemove = (sectionId: string) => {
-  if (sectionId === 'basic') return
-  removeConfirmId.value = sectionId
-}
-
-// 切换模块可见性
 const handleToggleVisible = (sectionId: string) => {
   if (sectionId === 'basic') return
   const hidden = resumeStore.currentResume?.hiddenSections || []
@@ -875,7 +470,6 @@ const handleToggleVisible = (sectionId: string) => {
   }
 }
 
-// 删除模块
 const removeSection = (sectionId: string) => {
   if (sectionId === 'basic') return
   if (isCustomSection(sectionId)) {
@@ -883,8 +477,6 @@ const removeSection = (sectionId: string) => {
   } else {
     resumeStore.removeSection(sectionId)
   }
-  removeConfirmId.value = null
-  // 如果删除的是当前选中的，切换到第一个
   if (activeSectionId.value === sectionId) {
     layoutStore.setActiveSection(sortableSections.value[0]?.id || 'basic')
   }
@@ -1131,11 +723,27 @@ const removeSection = (sectionId: string) => {
   }
 }
 
-.confirm-text {
+// ---- 通用设置标签 ----
+.setting-label {
+  font-size: $font-size-xs;
   color: $text-secondary;
-  font-size: $font-size-sm;
-  line-height: 1.6;
-  margin: 0;
+  flex-shrink: 0;
+  min-width: 42px;
+}
+
+.setting-value {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  min-width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.setting-unit {
+  font-size: $font-size-xs;
+  color: $text-light;
+  flex-shrink: 0;
+  width: 16px;
 }
 
 // ---- 主题色面板 ----
@@ -1192,78 +800,14 @@ const removeSection = (sectionId: string) => {
       background: rgba($primary-color, 0.08);
     }
   }
-}
 
-// ---- 更多颜色弹窗遮罩层 ----
-.theme-color-popup-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-}
-
-// ---- 更多颜色弹窗（Teleport 到 body，fixed 定位） ----
-.theme-color-popup {
-  position: fixed;
-  width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
-  padding: $spacing-md;
-  background: rgba($bg-primary, 0.95);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
-  border-radius: $radius-lg;
-  border: 1px solid $border-glass;
-  box-shadow: $shadow-xl, 0 0 40px rgba($primary-color, 0.08);
-  z-index: 9999;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-    font-size: $font-size-xs;
-    font-weight: 600;
-    color: $text-secondary;
+  &__more-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
   }
-
-  &__close {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: transparent;
-    border: none;
-    border-radius: $radius-sm;
-    color: $text-light;
-    cursor: pointer;
-    transition: all $transition-fast;
-
-    &:hover {
-      background: $bg-glass-hover;
-      color: $text-primary;
-    }
-  }
-}
-
-// 弹窗进出动画
-.color-popup-enter-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.color-popup-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.color-popup-enter-from {
-  opacity: 0;
-  transform: translateX(-8px);
-}
-
-.color-popup-leave-to {
-  opacity: 0;
-  transform: translateX(-8px);
 }
 
 .theme-swatch {
@@ -1282,145 +826,6 @@ const removeSection = (sectionId: string) => {
   &--active {
     border-color: $primary-light;
     box-shadow: 0 0 0 2px rgba($primary-color, 0.3);
-  }
-}
-
-.alpha-label {
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  flex-shrink: 0;
-}
-
-.alpha-slider-wrap {
-  flex: 1;
-  position: relative;
-  height: 16px;
-  border-radius: 8px;
-  background: repeating-conic-gradient(#808080 0% 25%, #fff 0% 50%) 0 0 / 8px 8px;
-  cursor: pointer;
-}
-
-.alpha-rail {
-  position: absolute;
-  inset: 0;
-  border-radius: 8px;
-}
-
-.alpha-thumb {
-  position: absolute;
-  top: 50%;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.alpha-value {
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  min-width: 32px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.sv-panel-wrap {
-  position: relative;
-  width: 100%;
-  height: 120px;
-  border-radius: $radius-sm;
-  overflow: hidden;
-  cursor: crosshair;
-}
-
-.sv-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.sv-cursor {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.hue-row {
-  position: relative;
-  height: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.hue-track {
-  position: absolute;
-  inset: 0;
-  border-radius: 8px;
-  background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
-}
-
-.hue-thumb {
-  position: absolute;
-  top: 50%;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid rgba(0, 0, 0, 0.25);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.input-row {
-  display: flex;
-  gap: 6px;
-}
-
-.input-group {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  label {
-    font-size: 10px;
-    color: $text-light;
-    text-align: center;
-  }
-
-  input {
-    width: 100%;
-    padding: 3px 4px;
-    background: $bg-glass;
-    border: 1px solid $border-glass;
-    border-radius: $radius-sm;
-    color: $text-primary;
-    font-size: $font-size-xs;
-    text-align: center;
-    font-family: $font-family;
-    outline: none;
-
-    &:focus {
-      border-color: $primary-color;
-    }
-
-    &::-webkit-inner-spin-button,
-    &::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-    }
-  }
-
-  &--hex {
-    flex: 1.4;
   }
 }
 
@@ -1447,58 +852,7 @@ const removeSection = (sectionId: string) => {
   &__row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: $spacing-xs;
-  }
-
-  &__label {
-    font-size: $font-size-xs;
-    color: $text-secondary;
-    flex-shrink: 0;
-  }
-
-  &__select {
-    flex: 1;
-    min-width: 0;
-    padding: 3px 6px;
-    padding-right: 20px;
-    background: $bg-glass;
-    border: 1px solid $border-glass;
-    border-radius: $radius-sm;
-    color: $text-primary;
-    font-size: $font-size-xs;
-    font-family: $font-family;
-    outline: none;
-    cursor: pointer;
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 4px center;
-    background-size: 12px;
-
-    &:focus {
-      border-color: $primary-color;
-    }
-
-    option {
-      background: $bg-primary;
-      color: $text-primary;
-    }
-  }
-
-  &__row--line-height {
-    gap: $spacing-sm;
-  }
-
-  &__slider {
-    @include range-slider;
-  }
-
-  &__select--sm {
-    flex: none;
-    width: 56px;
-    text-align: center;
   }
 }
 
@@ -1522,53 +876,21 @@ const removeSection = (sectionId: string) => {
     color: $text-secondary;
   }
 
-  &__row {
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__slider-row {
     display: flex;
     align-items: center;
     gap: $spacing-sm;
-  }
 
-  &__label {
-    font-size: $font-size-xs;
-    color: $text-secondary;
-    flex-shrink: 0;
-    width: 56px;
-  }
-
-  &__slider {
-    @include range-slider;
-  }
-
-  &__number {
-    flex-shrink: 0;
-    width: 48px;
-    padding: 3px 4px;
-    background: $bg-glass;
-    border: 1px solid $border-glass;
-    border-radius: $radius-sm;
-    color: $text-primary;
-    font-size: $font-size-xs;
-    font-family: $font-family;
-    text-align: center;
-    outline: none;
-
-    &:focus {
-      border-color: $primary-color;
+    .n-input-number {
+      width: 86px;
+      flex-shrink: 0;
     }
-
-    &::-webkit-inner-spin-button,
-    &::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    -moz-appearance: textfield;
-  }
-
-  &__unit {
-    font-size: $font-size-xs;
-    color: $text-light;
-    flex-shrink: 0;
-    width: 16px;
   }
 }
 </style>

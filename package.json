@@ -23,6 +23,7 @@
     "@tiptap/vue-3": "^3.23.5",
     "idb": "^8.0.3",
     "isomorphic-dompurify": "^3.14.0",
+    "naive-ui": "^2.44.1",
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0",

@@ -265,6 +265,7 @@ import { useRouter } from "vue-router";
 import { ref } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { readJSONFile } from "@/utils/export";
+import { message, dialog } from "@/plugins/naive-ui";
 import ImportModal from "@/components/home/ImportModal.vue";
 import ResumeCard from "@/components/home/ResumeCard.vue";
 
@@ -282,9 +283,15 @@ const openResume = (id: string) => {
 };
 
 const onDeleteResume = async (id: string) => {
-  if (confirm("确定要删除这个简历吗？")) {
-    await store.deleteResume(id);
-  }
+  dialog.warning({
+    title: '删除简历',
+    content: '确定要删除这个简历吗？此操作不可撤销。',
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      await store.deleteResume(id);
+    },
+  });
 };
 
 const onCopyResume = async (id: string) => {
@@ -292,7 +299,7 @@ const onCopyResume = async (id: string) => {
     await store.copyResume(id);
   } catch (e) {
     console.error("复制简历失败:", e);
-    alert("复制失败，请重试");
+    message.error("复制失败，请重试");
   }
 };
 
@@ -301,12 +308,12 @@ const handleImportFile = async (file: File) => {
     const json = await readJSONFile(file);
     if (await store.importFromJSON(json)) {
       showImportModal.value = false;
-      alert("导入成功！");
+      message.success("导入成功！");
     } else {
-      alert("导入失败，请检查文件格式");
+      message.error("导入失败，请检查文件格式");
     }
   } catch (e) {
-    alert("导入失败：" + (e as Error).message);
+    message.error("导入失败：" + (e as Error).message);
   }
 };
 </script>

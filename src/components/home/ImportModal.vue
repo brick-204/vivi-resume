@@ -1,5 +1,12 @@
 <template>
-  <BaseModal :visible="visible" title="导入简历" size="md" @close="$emit('close')">
+  <n-modal
+    :show="visible"
+    preset="card"
+    title="导入简历"
+    :style="{ maxWidth: '520px' }"
+    :mask-closable="true"
+    @update:show="v => !v && $emit('close')"
+  >
     <div class="import-modal">
       <!-- 拖拽/点击上传区域 -->
       <div
@@ -22,13 +29,13 @@
         <input ref="fileInput" type="file" accept=".json" @change="onFileSelect" hidden />
       </div>
     </div>
-  </BaseModal>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { NModal } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import BaseModal from '@/components/common/BaseModal.vue'
 
 defineProps<{ visible: boolean }>()
 
@@ -60,10 +67,9 @@ const onDragEnter = (e: DragEvent) => {
   isDragOver.value = true
   const items = e.dataTransfer?.items
   if (items && items.length > 0) {
-    // 尝试通过 type 或文件名判断
     const item = items[0]
     isValidType.value = item.type === 'application/json' ||
-      item.type === '' // 某些系统不提供 MIME，先标记为有效，drop 时再校验
+      item.type === ''
   }
 }
 

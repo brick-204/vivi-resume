@@ -28,24 +28,68 @@
         <span class="toolbar-divider" />
 
         <!-- 颜色 -->
-        <ColorPicker
-          :model-value="currentFontColor"
-          :preset-colors="FONT_PRESET_COLORS"
-          icon="mdi:format-color-text"
-          title="字体颜色"
-          :is-active="editor.isActive('textStyle')"
-          @update:model-value="onFontColorChange"
-          @clear="onFontColorClear"
-        />
-        <ColorPicker
-          :model-value="currentBgColor"
-          :preset-colors="BG_PRESET_COLORS"
-          icon="mdi:format-color-fill"
-          title="背景颜色"
-          :is-active="editor.isActive('highlight')"
-          @update:model-value="onBgColorChange"
-          @clear="onBgColorClear"
-        />
+        <NPopover trigger="click" placement="bottom" :width="272">
+          <template #trigger>
+            <button type="button" class="toolbar-btn" :class="{ 'is-active': currentFontColor }" title="文字颜色">
+              <Icon icon="mdi:format-color-text" :width="18" />
+              <span v-if="currentFontColor" class="toolbar-btn__color-bar" :style="{ background: currentFontColor }" />
+            </button>
+          </template>
+          <div class="color-palette">
+            <div class="color-palette__swatches">
+              <button class="color-palette__swatch color-palette__swatch--clear" title="去除颜色" @click="onFontColorClear">
+                <Icon icon="mdi:close" :width="12" />
+              </button>
+              <button
+                v-for="color in FONT_PRESET_COLORS"
+                :key="color"
+                class="color-palette__swatch"
+                :class="{ 'color-palette__swatch--active': currentFontColor === color }"
+                :style="{ background: color }"
+                :title="color"
+                @click="onFontColorChange(color)"
+              />
+            </div>
+            <n-color-picker
+              :value="currentFontColor || '#000000'"
+              size="small"
+              :show-alpha="false"
+              :modes="['hex']"
+              @update:value="onFontColorChange"
+            />
+          </div>
+        </NPopover>
+        <NPopover trigger="click" placement="bottom" :width="272">
+          <template #trigger>
+            <button type="button" class="toolbar-btn" :class="{ 'is-active': currentBgColor }" title="背景颜色">
+              <Icon icon="mdi:format-color-fill" :width="18" />
+              <span v-if="currentBgColor" class="toolbar-btn__color-bar" :style="{ background: currentBgColor }" />
+            </button>
+          </template>
+          <div class="color-palette">
+            <div class="color-palette__swatches">
+              <button class="color-palette__swatch color-palette__swatch--clear" title="去除颜色" @click="onBgColorClear">
+                <Icon icon="mdi:close" :width="12" />
+              </button>
+              <button
+                v-for="color in BG_PRESET_COLORS"
+                :key="color"
+                class="color-palette__swatch"
+                :class="{ 'color-palette__swatch--active': currentBgColor === color }"
+                :style="{ background: color }"
+                :title="color"
+                @click="onBgColorChange(color)"
+              />
+            </div>
+            <n-color-picker
+              :value="currentBgColor || '#ffffff'"
+              size="small"
+              :show-alpha="false"
+              :modes="['hex']"
+              @update:value="onBgColorChange"
+            />
+          </div>
+        </NPopover>
         <span class="toolbar-divider" />
 
         <!-- 对齐 -->
@@ -102,7 +146,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import { Icon } from '@iconify/vue'
 import { normalizeContent } from '@/utils/normalizeContent'
-import ColorPicker from './ColorPicker.vue'
+import { NColorPicker, NPopover } from 'naive-ui'
 
 const props = withDefaults(defineProps<{
   label?: string
@@ -146,8 +190,6 @@ const editor = useEditor({
       codeBlock: false,
       blockquote: false,
       horizontalRule: false,
-      link: false,
-      underline: false,
     }),
     Placeholder.configure({
       placeholder: props.placeholder || '',
@@ -313,6 +355,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   transition: all $transition-fast;
   flex-shrink: 0;
+  position: relative;
 
   &:hover:not(:disabled) {
     background: rgba($text-secondary, 0.15);
@@ -327,6 +370,15 @@ onBeforeUnmount(() => {
     opacity: 0.3;
     cursor: not-allowed;
   }
+
+  &__color-bar {
+    position: absolute;
+    bottom: 2px;
+    left: 5px;
+    right: 5px;
+    height: 3px;
+    border-radius: 1px;
+  }
 }
 
 .toolbar-divider {
@@ -335,6 +387,48 @@ onBeforeUnmount(() => {
   background: $border-glass;
   margin: 0 $spacing-xs;
   flex-shrink: 0;
+}
+
+// 自定义色板
+.color-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  &__swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+    transition: transform 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &:hover {
+      transform: scale(1.15);
+    }
+
+    &--clear {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: $error-color;
+      font-size: 0;
+    }
+
+    &--active {
+      border-color: $primary-light;
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.3);
+    }
+  }
 }
 
 // ProseMirror 内容区样式

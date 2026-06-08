@@ -1,5 +1,12 @@
 <template>
-  <BaseModal :visible="visible" title="添加模块" size="sm" @close="$emit('close')">
+  <n-modal
+    :show="visible"
+    preset="card"
+    title="添加模块"
+    :style="{ maxWidth: '360px' }"
+    :mask-closable="true"
+    @update:show="v => { if (!v) $emit('close') }"
+  >
     <div class="add-section-list">
       <button
         v-for="section in sections"
@@ -11,16 +18,16 @@
         <span>{{ section.label }}</span>
       </button>
     </div>
-  </BaseModal>
+  </n-modal>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { NModal } from 'naive-ui'
 import { useResumeStore } from '@/stores/resumeStore'
 import { SECTION_CONFIG, getSectionTitle } from '@/types/resume'
 import { getSectionIcon } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
-import BaseModal from '@/components/common/BaseModal.vue'
 
 const props = defineProps<{
   visible: boolean

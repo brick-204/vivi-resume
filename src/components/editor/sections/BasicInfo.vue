@@ -112,11 +112,11 @@
                 </button>
               </div>
             </div>
-            <BaseInput
-              :model-value="basicInfo[fieldKey as keyof BasicInfo] as string"
-              @update:model-value="updateFieldValue(fieldKey, $event)"
-              :type="getFieldType(fieldKey)"
+            <n-input
+              :value="basicInfo[fieldKey as keyof BasicInfo] as string"
+              @update:value="updateFieldValue(fieldKey, $event)"
               :placeholder="getFieldPlaceholder(fieldKey)"
+              size="small"
             />
           </div>
         </div>
@@ -161,19 +161,20 @@
               </div>
               <!-- 自定义字段 -->
               <template v-if="isCustomField(element.key)">
-                <BaseInput
-                  :model-value="getCustomField(element.key)?.value ?? ''"
-                  @update:model-value="updateCustomFieldValue(element.key, $event)"
-                  :placeholder="'请输入内容'"
+                <n-input
+                  :value="getCustomField(element.key)?.value ?? ''"
+                  @update:value="updateCustomFieldValue(element.key, $event)"
+                  placeholder="请输入内容"
+                  size="small"
                 />
               </template>
               <!-- 固定字段 -->
               <template v-else>
-                <BaseInput
-                  :model-value="basicInfo[element.key as keyof BasicInfo] as string"
-                  @update:model-value="updateFieldValue(element.key, $event)"
-                  :type="getFieldType(element.key)"
+                <n-input
+                  :value="basicInfo[element.key as keyof BasicInfo] as string"
+                  @update:value="updateFieldValue(element.key, $event)"
                   :placeholder="getFieldPlaceholder(element.key)"
+                  size="small"
                 />
               </template>
             </div>
@@ -203,7 +204,8 @@ import { computed, inject, ref, h } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
-import BaseInput from '@/components/common/BaseInput.vue'
+import { NInput } from 'naive-ui'
+import { message } from '@/plugins/naive-ui'
 import PhotoEditor from './PhotoEditor.vue'
 import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
@@ -324,26 +326,24 @@ const basicInfo = computed({
 })
 
 // 字段元信息
-type InputType = 'text' | 'email' | 'tel' | 'url' | 'date' | 'month'
-
-const FIELD_META: Record<string, { label: string; placeholder: string; type: InputType }> = {
-  name: { label: '姓名', placeholder: '请输入姓名', type: 'text' },
-  title: { label: '职位', placeholder: '如：前端工程师', type: 'text' },
-  gender: { label: '性别', placeholder: '如：男', type: 'text' },
-  birthday: { label: '生日', placeholder: '选择月份', type: 'month' },
-  age: { label: '年龄', placeholder: '如：28', type: 'text' },
-  maritalStatus: { label: '婚姻状态', placeholder: '如：未婚', type: 'text' },
-  politicalStatus: { label: '政治面貌', placeholder: '如：中共党员', type: 'text' },
-  hometown: { label: '籍贯', placeholder: '如：湖南长沙', type: 'text' },
-  location: { label: '所在地', placeholder: '如：北京', type: 'text' },
-  expectedCity: { label: '期望城市', placeholder: '如：上海', type: 'text' },
-  workExperience: { label: '工作经验', placeholder: '如：5', type: 'text' },
-  salaryRange: { label: '薪资要求', placeholder: '如：15k-25k', type: 'text' },
-  email: { label: '邮箱', placeholder: '请输入邮箱', type: 'text' },
-  phone: { label: '电话', placeholder: '请输入电话', type: 'text' },
-  wechat: { label: '微信号', placeholder: '如：wxid_xxx', type: 'text' },
-  qq: { label: 'QQ', placeholder: '如：123456789', type: 'text' },
-  website: { label: '个人网站', placeholder: '如：github.com/xxx', type: 'text' },
+const FIELD_META: Record<string, { label: string; placeholder: string }> = {
+  name: { label: '姓名', placeholder: '请输入姓名' },
+  title: { label: '职位', placeholder: '如：前端工程师' },
+  gender: { label: '性别', placeholder: '如：男' },
+  birthday: { label: '生日', placeholder: '选择月份' },
+  age: { label: '年龄', placeholder: '如：28' },
+  maritalStatus: { label: '婚姻状态', placeholder: '如：未婚' },
+  politicalStatus: { label: '政治面貌', placeholder: '如：中共党员' },
+  hometown: { label: '籍贯', placeholder: '如：湖南长沙' },
+  location: { label: '所在地', placeholder: '如：北京' },
+  expectedCity: { label: '期望城市', placeholder: '如：上海' },
+  workExperience: { label: '工作经验', placeholder: '如：5' },
+  salaryRange: { label: '薪资要求', placeholder: '如：15k-25k' },
+  email: { label: '邮箱', placeholder: '请输入邮箱' },
+  phone: { label: '电话', placeholder: '请输入电话' },
+  wechat: { label: '微信号', placeholder: '如：wxid_xxx' },
+  qq: { label: 'QQ', placeholder: '如：123456789' },
+  website: { label: '个人网站', placeholder: '如：github.com/xxx' },
 }
 
 const getFieldLabel = (key: string): string => {
@@ -355,8 +355,6 @@ const getFieldLabel = (key: string): string => {
 }
 
 const getFieldPlaceholder = (key: string): string => FIELD_META[key]?.placeholder || ''
-
-const getFieldType = (key: string): InputType => FIELD_META[key]?.type || 'text'
 
 // 可作为字符串值访问的 BasicInfo 字段 key
 type StringFieldKey = 'name' | 'title' | 'gender' | 'birthday' | 'age' | 'maritalStatus' | 'politicalStatus' | 'hometown' | 'location' | 'expectedCity' | 'workExperience' | 'salaryRange' | 'email' | 'phone' | 'wechat' | 'qq' | 'website' | 'photo' | 'summary'
@@ -492,7 +490,7 @@ const handlePhotoUpload = (event: Event) => {
   const file = input.files?.[0]
   if (!file) return
   if (file.size > 2 * 1024 * 1024) {
-    alert('图片大小不能超过 2MB')
+    message.error('图片大小不能超过 2MB')
     input.value = ''
     return
   }

@@ -25,9 +25,14 @@
               <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
-              <button class="card__delete" aria-label="删除" @click.stop="confirmDeleteId = item.id">
-                <Icon :icon="TRASH_ICON" :width="20" :height="20" />
-              </button>
+              <n-popconfirm negative-text="取消" positive-text="删除" @positive-click="deleteItem(item.id)">
+                <template #trigger>
+                  <button class="card__delete" aria-label="删除" @click.stop>
+                    <Icon :icon="TRASH_ICON" :width="20" :height="20" />
+                  </button>
+                </template>
+                确定要删除这条记录吗？
+              </n-popconfirm>
               <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click.stop="toggleCollapse(item.id)">
                 <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />
               </button>
@@ -35,25 +40,34 @@
           </div>
           <div v-show="!collapsedIds.has(item.id)" class="card__form">
             <div class="form__row">
-              <BaseInput v-model="item.name" label="名称" placeholder="请输入名称" />
-              <BaseInput v-model="item.role" label="角色" placeholder="如：负责人" />
+              <div class="form-field">
+                <span class="form-field__label">名称</span>
+                <n-input v-model:value="item.name" placeholder="请输入名称" size="small" />
+              </div>
+              <div class="form-field">
+                <span class="form-field__label">角色</span>
+                <n-input v-model:value="item.role" placeholder="如：负责人" size="small" />
+              </div>
             </div>
             <div class="form__row">
-              <BaseInput v-model="item.startDate" label="开始时间" type="month" />
+              <div class="form-field">
+                <span class="form-field__label">开始时间</span>
+                <n-input v-model:value="item.startDate" placeholder="YYYY-MM" size="small" />
+              </div>
               <div class="date-field">
-                <BaseInput :model-value="item.endDate === '至今' ? '' : item.endDate" @update:model-value="item.endDate = $event" label="结束时间" type="month" :disabled="item.endDate === '至今'" />
+                <div class="form-field">
+                  <span class="form-field__label">结束时间</span>
+                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="item.endDate = $event" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
+                </div>
                 <div class="date-field__present">
-                  <input type="checkbox" :checked="item.endDate === '至今'" @change="item.endDate = ($event.target as HTMLInputElement).checked ? '至今' : ''" />
-                  至今
+                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="item.endDate = $event ? '至今' : ''">至今</n-checkbox>
                 </div>
               </div>
             </div>
             <RichTextEditor v-model="item.description" label="描述" placeholder="描述内容..." :rows="3" />
             <div class="keyword-section">
               <label class="keyword__label">关键词</label>
-              <div class="keyword__input-wrap">
-                <input v-model="newKeyword" class="keyword__input" placeholder="输入关键词后按回车添加" @keydown.enter.prevent="addKeyword(item)" />
-              </div>
+                <n-input v-model:value="newKeyword" placeholder="输入关键词后按回车添加" size="small" @keydown.enter.prevent="addKeyword(item)" />
               <div class="keyword__list">
                 <span v-for="(kw, index) in item.keywords" :key="index" class="keyword__tag">
                   {{ kw }}
@@ -66,13 +80,6 @@
       </template>
     </draggable>
 
-    <BaseModal :visible="confirmDeleteId !== null" title="确认删除" size="sm" @close="confirmDeleteId = null">
-      <p>确定要删除这条记录吗？此操作不可撤销。</p>
-      <template #footer>
-        <button class="btn btn--cancel" @click="confirmDeleteId = null">取消</button>
-        <button class="btn btn--danger" @click="deleteItem(confirmDeleteId!)">确认删除</button>
-      </template>
-    </BaseModal>
   </div>
 </template>
 
@@ -85,9 +92,8 @@ import { generateId } from '@/types/resume'
 import type { CustomCardItem } from '@/types/resume'
 import { TRASH_ICON, LIST_BOX_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, CHEVRON_UP_ICON, CHEVRON_DOWN_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
-import BaseInput from '@/components/common/BaseInput.vue'
+import { NInput, NPopconfirm, NCheckbox } from 'naive-ui'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
-import BaseModal from '@/components/common/BaseModal.vue'
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
 
@@ -101,7 +107,6 @@ const flipCards = useFlipAnimation(() => scrollContainer?.value, '.card')
 const emit = defineEmits<{ 'click-entry': [itemId: string] }>()
 const { saveTitle, getSectionTitle } = useSectionTitle()
 const newKeyword = ref('')
-const confirmDeleteId = ref<string | null>(null)
 const collapsedIds = ref<Set<string>>(new Set())
 
 const toggleCollapse = (id: string) => {
@@ -118,15 +123,15 @@ const sectionIndex = computed(() => {
 const items = computed({
   get: () => store.currentResume?.customCards[sectionIndex.value]?.items || [],
   set: (value) => {
-    if (sectionIndex.value < 0) return
-    const cards = [...store.currentResume!.customCards]
+    if (sectionIndex.value < 0 || !store.currentResume) return
+    const cards = [...store.currentResume.customCards]
     cards[sectionIndex.value] = { ...cards[sectionIndex.value], items: value }
     store.updateCurrentResume({ customCards: cards })
   }
 })
 
 const addItem = () => {
-  if (sectionIndex.value < 0) return
+  if (sectionIndex.value < 0 || !store.currentResume) return
   const newItem: CustomCardItem = {
     id: generateId(),
     name: '',
@@ -136,7 +141,7 @@ const addItem = () => {
     description: '',
     keywords: [],
   }
-  const cards = [...store.currentResume!.customCards]
+  const cards = [...store.currentResume.customCards]
   cards[sectionIndex.value] = {
     ...cards[sectionIndex.value],
     items: [...cards[sectionIndex.value].items, newItem]
@@ -145,13 +150,13 @@ const addItem = () => {
 }
 
 const deleteItem = (id: string) => {
-  const cards = [...store.currentResume!.customCards]
+  if (!store.currentResume) return
+  const cards = [...store.currentResume.customCards]
   cards[sectionIndex.value] = {
     ...cards[sectionIndex.value],
     items: cards[sectionIndex.value].items.filter(item => item.id !== id)
   }
   store.updateCurrentResume({ customCards: cards })
-  confirmDeleteId.value = null
 }
 
 const addKeyword = (item: CustomCardItem) => {
@@ -286,8 +291,19 @@ defineExpose({ addItem })
 @include date-field;
 @include card-actions;
 @include card-drag;
-@include modal-btn;
 @include editable-title;
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+
+  &__label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
 
 .keyword-section {
   margin-top: $spacing-sm;
@@ -299,14 +315,6 @@ defineExpose({ addItem })
   font-weight: 600;
   color: $text-primary;
   margin-bottom: $spacing-sm;
-}
-
-.keyword__input-wrap {
-  margin-bottom: $spacing-sm;
-}
-
-.keyword__input {
-  @include input-base;
 }
 
 .keyword__list {
