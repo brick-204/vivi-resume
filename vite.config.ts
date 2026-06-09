@@ -31,5 +31,41 @@ export default defineConfig({
         api: 'modern-compiler'
       }
     }
-  }
+  },
+  server: {
+    proxy: {
+      // AI 服务代理 — 开发环境下解决 CORS 问题
+      // 使用方式：在 AI 配置中将 endpoint 设为 /api/ai/openai 等
+      '/api/ai/openai': {
+        target: 'https://api.openai.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai\/openai/, ''),
+      },
+      '/api/ai/zhipu': {
+        target: 'https://open.bigmodel.cn',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai\/zhipu/, ''),
+      },
+      '/api/ai/qwen': {
+        target: 'https://dashscope.aliyuncs.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai\/qwen/, ''),
+      },
+      '/api/ai/minimax': {
+        target: 'https://api.minimax.chat',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai\/minimax/, ''),
+      },
+      '/api/ai/baichuan': {
+        target: 'https://api.baichuan-ai.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai\/baichuan/, ''),
+      },
+      '/api/ai/yi': {
+        target: 'https://api.lingyiwanwu.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai\/yi/, ''),
+      },
+    },
+  },
 })

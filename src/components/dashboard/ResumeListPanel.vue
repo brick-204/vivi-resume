@@ -54,7 +54,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { readJSONFile } from '@/utils/export'
-import { message, dialog } from '@/plugins/naive-ui'
+import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import ImportModal from '@/components/home/ImportModal.vue'
 import ResumeCard from '@/components/home/ResumeCard.vue'
@@ -89,7 +89,7 @@ const onCopyResume = async (id: string) => {
     await store.copyResume(id)
   } catch (e) {
     console.error('复制简历失败:', e)
-    message.error('复制失败，请重试')
+    naiveMessage.error('复制失败，请重试')
   }
 }
 
@@ -98,12 +98,12 @@ const handleImportFile = async (file: File) => {
     const json = await readJSONFile(file)
     if (await store.importFromJSON(json)) {
       showImportModal.value = false
-      message.success('导入成功！')
+      naiveMessage.success('导入成功！')
     } else {
-      message.error('导入失败，请检查文件格式')
+      naiveMessage.error('导入失败，请检查文件格式')
     }
   } catch (e) {
-    message.error('导入失败：' + (e as Error).message)
+    naiveMessage.error('导入失败：' + (e as Error).message)
   }
 }
 </script>

@@ -127,9 +127,30 @@
           <Icon icon="mdi:format-clear" :width="18" />
         </button>
       </div>
+
+      <!-- AI 操作按钮 -->
+      <AIButtonGroup
+        v-if="showAIBtns"
+        :current-operation="currentAIOperation"
+        :has-active-config="!!aiConfigStore.activeConfig"
+        :disabled="disabled"
+        @operation="handleAIOperation"
+        @go-settings="goToAISettings"
+      />
+
       <EditorContent :editor="editor" class="rich-text-editor__body" :style="{ minHeight }" />
     </div>
     <span v-if="error" class="rich-text-editor__error">{{ error }}</span>
+
+    <!-- AI 结果预览弹窗 -->
+    <AIResultPreview
+      :visible="showAIPreview"
+      :config="aiConfigStore.activeConfig ?? null"
+      :operation="currentAIOperation"
+      :original-text="aiOriginalText"
+      @close="showAIPreview = false"
+      @apply="applyAIResult"
+    />
   </div>
 </template>
 
@@ -147,6 +168,14 @@ import Highlight from '@tiptap/extension-highlight'
 import { Icon } from '@iconify/vue'
 import { normalizeContent } from '@/utils/normalizeContent'
 import { NColorPicker, NPopover } from 'naive-ui'
+import { message as naiveMessage } from '@/plugins/naive-ui'
+import { useRouter } from 'vue-router'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
+import type { AIOperation } from '@/types/aiConfig'
+import { htmlToPlainText } from '@/services/aiService'
+import { sanitizeHtml } from '@/utils/sanitizeHtml'
+import AIButtonGroup from '@/components/ai/AIButtonGroup.vue'
+import AIResultPreview from '@/components/ai/AIResultPreview.vue'
 
 const props = withDefaults(defineProps<{
   label?: string
@@ -155,13 +184,18 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   rows?: number
   error?: string
+  showAIBtns?: boolean
 }>(), {
   rows: 3,
+  showAIBtns: true,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const router = useRouter()
+const aiConfigStore = useAIConfigStore()
 
 const minHeight = computed(() => {
   const rowHeight = 24
@@ -181,6 +215,11 @@ const BG_PRESET_COLORS = [
 const currentFontColor = ref('')
 const currentBgColor = ref('')
 
+// AI 相关状态
+const currentAIOperation = ref<AIOperation | null>(null)
+const showAIPreview = ref(false)
+const aiOriginalText = ref('')
+
 const editor = useEditor({
   content: normalizeContent(props.modelValue),
   extensions: [
@@ -190,6 +229,8 @@ const editor = useEditor({
       codeBlock: false,
       blockquote: false,
       horizontalRule: false,
+      link: false,
+      underline: false,
     }),
     Placeholder.configure({
       placeholder: props.placeholder || '',
@@ -228,6 +269,41 @@ const editor = useEditor({
     emit('update:modelValue', editor.getHTML())
   },
 })
+
+// ========== AI 操作 ==========
+
+const handleAIOperation = (operation: AIOperation) => {
+  if (!aiConfigStore.activeConfig) {
+    naiveMessage.warning('请先配置 AI 服务')
+    return
+  }
+
+  const text = editor.value?.getText() || ''
+  if (!text.trim()) {
+    naiveMessage.warning('内容为空，无法处理')
+    return
+  }
+
+  // 提取纯文本并打开预览弹窗
+  aiOriginalText.value = htmlToPlainText(editor.value?.getHTML() || '')
+  currentAIOperation.value = operation
+  showAIPreview.value = true
+}
+
+const applyAIResult = (html: string) => {
+  if (!editor.value) return
+  const safeHtml = sanitizeHtml(html)
+  editor.value.commands.setContent(safeHtml)
+  emit('update:modelValue', safeHtml)
+  naiveMessage.success('已应用 AI 生成结果')
+}
+
+const goToAISettings = () => {
+  router.push({ path: '/' })
+  // TODO: 切换到 AI tab，可能需要通过 URL query 或 store
+}
+
+// ========== 原有逻辑 ==========
 
 const onFontColorChange = (color: string) => {
   currentFontColor.value = color

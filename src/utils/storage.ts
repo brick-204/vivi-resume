@@ -8,11 +8,13 @@
 
 import { openDB, type IDBPDatabase } from 'idb'
 import type { Resume, BasicInfo } from '@/types/resume'
+import type { AIServiceConfig } from '@/types/aiConfig'
 
 const DB_NAME = 'vivi-resume-db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const RESUMES_STORE = 'resumes'
 const META_STORE = 'meta'
+const AI_CONFIGS_STORE = 'aiConfigs'
 
 // localStorage 旧 key（用于迁移检测）
 const LEGACY_LIST_KEY = 'vivi-resume-list'
@@ -34,12 +36,16 @@ async function getDB(): Promise<IDBPDatabase> {
   if (dbInstance) return dbInstance
 
   dbInstance = await openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion) {
       if (!db.objectStoreNames.contains(RESUMES_STORE)) {
         db.createObjectStore(RESUMES_STORE, { keyPath: 'id' })
       }
       if (!db.objectStoreNames.contains(META_STORE)) {
         db.createObjectStore(META_STORE, { keyPath: 'key' })
+      }
+      // v2: 新增 AI 配置 store
+      if (oldVersion < 2 && !db.objectStoreNames.contains(AI_CONFIGS_STORE)) {
+        db.createObjectStore(AI_CONFIGS_STORE, { keyPath: 'id' })
       }
     },
   })
@@ -229,5 +235,43 @@ export async function setCurrentId(id: string | null): Promise<void> {
     await db.put(META_STORE, { key: 'currentId', value: id })
   } else {
     await db.delete(META_STORE, 'currentId')
+  }
+}
+
+// ========== AI 配置 CRUD ==========
+
+/** 获取所有 AI 服务配置 */
+export async function getAllAIConfigs(): Promise<AIServiceConfig[]> {
+  const db = await getDB()
+  return db.getAll(AI_CONFIGS_STORE) as Promise<AIServiceConfig[]>
+}
+
+/** 保存单个 AI 服务配置（新增或更新） */
+export async function saveAIConfig(config: AIServiceConfig): Promise<void> {
+  const db = await getDB()
+  const plain = toPlain(config)
+  await db.put(AI_CONFIGS_STORE, plain)
+}
+
+/** 删除 AI 服务配置 */
+export async function deleteAIConfig(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete(AI_CONFIGS_STORE, id)
+}
+
+/** 获取当前激活的 AI 配置 ID */
+export async function getActiveAIConfigId(): Promise<string | null> {
+  const db = await getDB()
+  const record = await db.get(META_STORE, 'activeAIConfigId')
+  return record?.value ?? null
+}
+
+/** 设置当前激活的 AI 配置 ID */
+export async function setActiveAIConfigId(id: string | null): Promise<void> {
+  const db = await getDB()
+  if (id) {
+    await db.put(META_STORE, { key: 'activeAIConfigId', value: id })
+  } else {
+    await db.delete(META_STORE, 'activeAIConfigId')
   }
 }

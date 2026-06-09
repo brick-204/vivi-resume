@@ -33,6 +33,14 @@
         <Icon icon="mdi:view-grid-outline" :width="20" />
         <span class="sidebar-nav__item-label">模版市场</span>
       </button>
+      <button
+        class="sidebar-nav__item"
+        :class="{ 'sidebar-nav__item--active': activeTab === 'ai' }"
+        @click="$emit('update:activeTab', 'ai')"
+      >
+        <Icon icon="mdi:robot-outline" :width="20" />
+        <span class="sidebar-nav__item-label">AI 服务</span>
+      </button>
     </nav>
 
     <!-- 底部 -->
@@ -50,13 +58,13 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 
 defineProps<{
-  activeTab: 'resumes' | 'templates'
+  activeTab: 'resumes' | 'templates' | 'ai'
   /** 是否为移动端抽屉模式（始终完整显示，不受 mobile 媒体查询隐藏） */
   mobile?: boolean
 }>()
 
 defineEmits<{
-  'update:activeTab': [value: 'resumes' | 'templates']
+  'update:activeTab': [value: 'resumes' | 'templates' | 'ai']
 }>()
 
 const router = useRouter()

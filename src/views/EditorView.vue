@@ -107,6 +107,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
 import { printViaIframe } from '@/utils/print'
@@ -120,6 +121,7 @@ import ResumePreview from '@/components/preview/ResumePreview.vue'
 const route = useRoute()
 const router = useRouter()
 const store = useResumeStore()
+const aiConfigStore = useAIConfigStore()
 const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
@@ -240,6 +242,7 @@ onMounted(async () => {
 
   // 等待 store 初始化完成（Worker 异步加载 IndexedDB 数据）
   await store.ready
+  await aiConfigStore.ready
   const id = route.params.id as string
   if (id) {
     if (!(await store.loadResume(id))) {

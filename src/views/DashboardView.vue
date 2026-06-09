@@ -27,7 +27,8 @@
     <div class="dashboard__content">
       <div class="dashboard__content-inner">
         <ResumeListPanel v-if="activeTab === 'resumes'" />
-        <TemplateMarketPanel v-else />
+        <TemplateMarketPanel v-else-if="activeTab === 'templates'" />
+        <AISettingsPanel v-else-if="activeTab === 'ai'" />
       </div>
     </div>
   </div>
@@ -36,23 +37,27 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { Icon } from '@iconify/vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
 import ResumeListPanel from '@/components/dashboard/ResumeListPanel.vue'
 import TemplateMarketPanel from '@/components/dashboard/TemplateMarketPanel.vue'
+import AISettingsPanel from '@/components/dashboard/AISettingsPanel.vue'
 
 const store = useResumeStore()
+const aiConfigStore = useAIConfigStore()
 
-const activeTab = ref<'resumes' | 'templates'>('resumes')
+const activeTab = ref<'resumes' | 'templates' | 'ai'>('resumes')
 const mobileMenuOpen = ref(false)
 
-const onMobileNavChange = (tab: 'resumes' | 'templates') => {
+const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai') => {
   activeTab.value = tab
   mobileMenuOpen.value = false
 }
 
 onMounted(async () => {
   await store.ready
+  await aiConfigStore.ready
   // 无简历时默认显示模版市场
   if (store.resumeCount === 0) {
     activeTab.value = 'templates'

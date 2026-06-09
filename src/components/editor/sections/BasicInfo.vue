@@ -205,7 +205,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
 import { NInput } from 'naive-ui'
-import { message } from '@/plugins/naive-ui'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 import PhotoEditor from './PhotoEditor.vue'
 import draggable from 'vuedraggable'
 import { generateId, DEFAULT_FIELD_ORDER, createEmptyResume } from '@/types/resume'
@@ -490,7 +490,7 @@ const handlePhotoUpload = (event: Event) => {
   const file = input.files?.[0]
   if (!file) return
   if (file.size > 2 * 1024 * 1024) {
-    message.error('图片大小不能超过 2MB')
+    naiveMessage.error('图片大小不能超过 2MB')
     input.value = ''
     return
   }

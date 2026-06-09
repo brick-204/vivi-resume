@@ -27,7 +27,7 @@
 import { useRouter } from 'vue-router'
 import { TEMPLATES } from '@/config/templates'
 import { createResumeFromTemplate } from '@/utils/templateApply'
-import { message } from '@/plugins/naive-ui'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import TemplateShowcaseCard from './TemplateShowcaseCard.vue'
 
@@ -40,7 +40,7 @@ const handleUseTemplate = async (templateId: string) => {
     router.push(`/editor/${id}`)
   } catch (e) {
     console.error('使用模板失败:', e)
-    message.error('创建简历失败，请重试')
+    naiveMessage.error('创建简历失败，请重试')
   }
 }
 </script>
