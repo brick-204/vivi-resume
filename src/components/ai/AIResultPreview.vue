@@ -8,10 +8,65 @@
   >
     <template #header>
       <div class="preview-header">
-        <Icon :icon="operationInfo.icon" :width="20" />
-        <span>AI {{ operationInfo.label }}</span>
+        <Icon :icon="currentOpInfo.icon" :width="20" />
+        <span>AI {{ currentOpInfo.label }}</span>
       </div>
     </template>
+
+    <!-- 操作类型选择 -->
+    <div class="operation-selector">
+      <div class="operation-selector__options">
+        <button
+          v-for="op in operations"
+          :key="op.id"
+          class="op-chip"
+          :class="{
+            'op-chip--active': selectedOperation === op.id,
+            'op-chip--disabled': !opAvailable(op.id) && selectedOperation !== op.id,
+          }"
+          :disabled="isStreaming || (!opAvailable(op.id) && selectedOperation !== op.id)"
+          :title="opTip(op.id)"
+          @click="selectOperation(op.id)"
+        >
+          <Icon :icon="op.icon" :width="14" />
+          <span>{{ op.label }}</span>
+          <span v-if="op.minChars" class="op-chip__badge">≥{{ op.minChars }}字</span>
+        </button>
+      </div>
+      <div v-if="selectedOpMinChars && charCount < selectedOpMinChars" class="operation-selector__warn">
+        <Icon icon="mdi:alert-circle-outline" :width="14" />
+        当前内容仅 {{ charCount }} 字，{{ currentOpInfo.label }}需要至少 {{ selectedOpMinChars }} 字
+      </div>
+    </div>
+
+    <!-- 自定义指令输入 -->
+    <div class="custom-instruction">
+      <n-input
+        v-model:value="localCustomInstruction"
+        type="textarea"
+        :placeholder="instructionPlaceholder"
+        :autosize="{ minRows: 1, maxRows: 3 }"
+        :disabled="isStreaming"
+        @keydown.enter.ctrl="handleStartIfReady"
+      />
+    </div>
+
+    <!-- 开始 / 重新生成按钮 -->
+    <div v-if="showStartButton" class="start-bar">
+      <n-button
+        type="primary"
+        :disabled="!canStart"
+        @click="handleStartGenerate"
+      >
+        <template #icon>
+          <Icon :icon="hasResult ? 'mdi:refresh' : 'mdi:play'" :width="16" />
+        </template>
+        {{ hasResult ? '重新生成' : '开始' }}
+      </n-button>
+      <span v-if="!canStart && selectedOperation === 'write'" class="start-bar__hint">
+        帮写需要输入要求才能开始
+      </span>
+    </div>
 
     <div class="preview-body">
       <div class="preview-pane">
@@ -23,11 +78,18 @@
         <div class="preview-pane__header">
           AI 生成结果
           <NSpin v-if="isStreaming" :size="14" />
+          <span v-if="isStreaming" class="preview-pane__status">
+            {{ isConnected ? `${elapsedSeconds}s` : '连接中...' }}
+          </span>
         </div>
         <div class="preview-pane__content preview-pane__content--result">
-          <template v-if="resultText">{{ resultText }}</template>
+          <template v-if="hasResult">
+            <!-- 流式期间显示纯文本（打字机效果），结束后渲染 HTML -->
+            <template v-if="isStreaming">{{ resultText }}</template>
+            <div v-else class="preview-pane__rich" v-html="renderedResult" />
+          </template>
           <span v-else class="preview-pane__placeholder">
-            {{ isStreaming ? '正在生成...' : '等待生成...' }}
+            {{ isStreaming && !isConnected ? '正在连接 AI 服务...' : isStreaming ? '正在生成...' : '等待生成...' }}
           </span>
           <span v-if="isStreaming" class="preview-pane__cursor">▌</span>
         </div>
@@ -41,7 +103,7 @@
         </n-button>
         <n-button
           type="primary"
-          :disabled="isStreaming || !resultText"
+          :disabled="isStreaming || !hasResult"
           @click="handleApply"
         >
           <template #icon>
@@ -57,10 +119,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NButton, NSpin } from 'naive-ui'
+import { NModal, NButton, NSpin, NInput } from 'naive-ui'
 import type { AIOperation, AIServiceConfig } from '@/types/aiConfig'
 import { AI_OPERATIONS } from '@/types/aiConfig'
-import { performAIOperation, plainTextToHtml, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
+import { markdownToHtml } from '@/utils/markdownConverter'
+import { sanitizeHtml } from '@/utils/sanitizeHtml'
+import { performAIOperation, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
 const props = defineProps<{
@@ -75,52 +139,188 @@ const emit = defineEmits<{
   apply: [html: string]
 }>()
 
+const operations = AI_OPERATIONS
 const resultText = ref('')
 const isStreaming = ref(false)
+const isConnected = ref(false)  // 首个 chunk 是否已到达
+const elapsedSeconds = ref(0)   // 生成耗时（秒）
+const selectedOperation = ref<AIOperation>('write')
+const localCustomInstruction = ref('')
 let abortController: AbortController | null = null
+let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
-const operationInfo = computed(() => {
-  const op = AI_OPERATIONS.find(o => o.id === props.operation)
-  return op || { id: 'polish', label: '润色', icon: 'mdi:auto-fix' }
+/** 原文纯文本字符数（去除 Markdown 格式标记） */
+const charCount = computed(() => {
+  const plain = props.originalText
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // 去粗体
+    .replace(/\*(.+?)\*/g, '$1')       // 去斜体
+    .replace(/__(.+?)__/g, '$1')       // 去下划线
+    .replace(/==(.+?)==/g, '$1')       // 去高亮
+    .replace(/~~(.+?)~~/g, '$1')       // 去删除线
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1') // 去链接，保留文字
+    .replace(/^[#\-*>\s]+/gm, '')     // 去列表标记等
+  return plain.replace(/\s/g, '').length
 })
 
-// 当弹窗打开时，启动 AI 调用
-watch(() => props.visible, async (val) => {
-  if (val && props.config && props.operation) {
-    // 取消上一个未完成的请求，防止竞态
+/** 当前选中操作的配置 */
+const currentOpInfo = computed(() => {
+  const op = AI_OPERATIONS.find(o => o.id === selectedOperation.value)
+  return op || { id: 'write' as AIOperation, label: '帮写', icon: 'mdi:pencil-plus' }
+})
+
+/** 当前选中操作的最少字数要求 */
+const selectedOpMinChars = computed(() => {
+  const op = AI_OPERATIONS.find(o => o.id === selectedOperation.value)
+  return op?.minChars ?? 0
+})
+
+/** 是否已有生成结果 */
+const hasResult = computed(() => resultText.value.length > 0)
+
+/** 是否显示「开始」按钮（生成未开始 或 生成已完成） */
+const showStartButton = computed(() => !isStreaming.value)
+
+/** 是否可以开始生成 */
+const canStart = computed(() => {
+  // 帮写必须输入要求
+  if (selectedOperation.value === 'write') {
+    return localCustomInstruction.value.trim().length > 0
+  }
+  // 其他操作需满足字数要求
+  if (selectedOpMinChars.value && charCount.value < selectedOpMinChars.value) {
+    return false
+  }
+  return true
+})
+
+/** 指令输入框 placeholder */
+const instructionPlaceholder = computed(() => {
+  if (selectedOperation.value === 'write') {
+    return '请输入撰写要求，如：写一段前端开发的工作经历...'
+  }
+  return '输入额外要求（可选），如：使用更正式的语气、突出技术细节... Ctrl+Enter 快速开始'
+})
+
+/** 将结果 Markdown 渲染为安全的 HTML（仅非流式时使用） */
+const renderedResult = computed(() => {
+  if (!resultText.value || isStreaming.value) return ''
+  const html = markdownToHtml(resultText.value)
+  return sanitizeHtml(html)
+})
+
+/** 某个操作是否可用（字数是否满足） */
+function opAvailable(opId: AIOperation): boolean {
+  const op = AI_OPERATIONS.find(o => o.id === opId)
+  if (!op?.minChars) return true
+  return charCount.value >= op.minChars
+}
+
+/** 操作的提示文字 */
+function opTip(opId: AIOperation): string {
+  const op = AI_OPERATIONS.find(o => o.id === opId)
+  if (!op?.minChars) return op?.label || ''
+  if (charCount.value >= op.minChars) return op.label
+  return `${op.label}（需至少 ${op.minChars} 字，当前 ${charCount.value} 字）`
+}
+
+/** 选择操作类型 */
+function selectOperation(opId: AIOperation) {
+  if (isStreaming.value) return
+  selectedOperation.value = opId
+}
+
+/** 弹窗打开时初始化状态 */
+watch(() => props.visible, (val) => {
+  if (val) {
+    // 取消上一个未完成的请求
     if (abortController) {
       abortController.abort()
       abortController = null
     }
-
+    // 重置状态
     resultText.value = ''
-    isStreaming.value = true
-    abortController = new AbortController()
-
-    try {
-      await performAIOperation(
-        props.config,
-        props.operation,
-        props.originalText,
-        (chunk) => {
-          resultText.value += chunk
-        },
-        abortController.signal,
-      )
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        // 用户取消，静默
-      } else if (err instanceof AIServiceError) {
-        naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
-      } else {
-        naiveMessage.error('AI 处理失败，请重试')
-      }
-    } finally {
-      isStreaming.value = false
-      abortController = null
+    isStreaming.value = false
+    isConnected.value = false
+    elapsedSeconds.value = 0
+    localCustomInstruction.value = ''
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer)
+      elapsedTimer = null
     }
+
+    // 根据传入的 operation 决定默认选中
+    if (props.operation) {
+      // 如果原操作不是 write，检查字数是否满足
+      const op = AI_OPERATIONS.find(o => o.id === props.operation)
+      if (op && (!op.minChars || charCount.value >= op.minChars)) {
+        selectedOperation.value = props.operation
+      } else {
+        // 不满足字数要求，回退到 write
+        selectedOperation.value = 'write'
+      }
+    } else {
+      selectedOperation.value = 'write'
+    }
+    // 不自动开始，等用户点击
   }
 })
+
+/** 启动 AI 生成 */
+const startGenerate = async () => {
+  if (!props.config) return
+  if (isStreaming.value) return
+  if (!canStart.value) return
+
+  // 取消上一个未完成的请求
+  if (abortController) {
+    abortController.abort()
+    abortController = null
+  }
+
+  resultText.value = ''
+  isStreaming.value = true
+  isConnected.value = false
+  elapsedSeconds.value = 0
+  abortController = new AbortController()
+
+  // 启动计时器
+  elapsedTimer = setInterval(() => {
+    elapsedSeconds.value++
+  }, 1000)
+
+  try {
+    await performAIOperation(
+      props.config,
+      selectedOperation.value,
+      props.originalText,
+      (chunk) => {
+        resultText.value += chunk
+      },
+      abortController.signal,
+      localCustomInstruction.value,
+      () => {
+        // 首个 chunk 到达，连接已建立
+        isConnected.value = true
+      },
+    )
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      // 用户取消，静默
+    } else if (err instanceof AIServiceError) {
+      naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+    } else {
+      naiveMessage.error('AI 处理失败，请重试')
+    }
+  } finally {
+    isStreaming.value = false
+    isConnected.value = false
+    abortController = null
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer)
+      elapsedTimer = null
+    }
+  }
+}
 
 const handleCancel = () => {
   if (isStreaming.value && abortController) {
@@ -129,9 +329,21 @@ const handleCancel = () => {
   emit('close')
 }
 
+/** 点击开始 / 重新生成 */
+const handleStartGenerate = () => {
+  startGenerate()
+}
+
+/** Ctrl+Enter 快速开始 */
+const handleStartIfReady = () => {
+  if (canStart.value) {
+    startGenerate()
+  }
+}
+
 const handleApply = () => {
-  if (!resultText.value) return
-  const html = plainTextToHtml(resultText.value)
+  if (!hasResult.value) return
+  const html = markdownToHtml(resultText.value)
   emit('apply', html)
   emit('close')
 }
@@ -146,6 +358,92 @@ const handleApply = () => {
   @include gradient-text;
 }
 
+// ========== 操作类型选择器 ==========
+.operation-selector {
+  padding: $spacing-sm $spacing-md;
+  border-bottom: 1px solid $border-glass;
+  background: rgba($primary-color, 0.03);
+
+  &__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+
+  &__warn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: $warning-color;
+  }
+}
+
+.op-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid $border-glass;
+  border-radius: $radius-lg;
+  background: transparent;
+  color: $text-secondary;
+  font-size: $font-size-xs;
+  font-family: $font-family;
+  cursor: pointer;
+  transition: all $transition-fast;
+  white-space: nowrap;
+
+  &:hover:not(&--disabled):not(:disabled) {
+    border-color: rgba($primary-color, 0.3);
+    color: $primary-light;
+    background: rgba($primary-color, 0.06);
+  }
+
+  &--active {
+    border-color: $primary-color;
+    color: $primary-light;
+    background: rgba($primary-color, 0.12);
+
+    &:hover {
+      background: rgba($primary-color, 0.18);
+    }
+  }
+
+  &--disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &__badge {
+    font-size: 10px;
+    opacity: 0.6;
+  }
+}
+
+// ========== 自定义指令 ==========
+.custom-instruction {
+  padding: $spacing-sm $spacing-md;
+  border-bottom: 1px solid $border-glass;
+  background: rgba($primary-color, 0.02);
+}
+
+// ========== 开始按钮栏 ==========
+.start-bar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-xs $spacing-md;
+  border-bottom: 1px solid $border-glass;
+
+  &__hint {
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+}
+
+// ========== 预览区域 ==========
 .preview-body {
   display: flex;
   gap: 0;
@@ -185,6 +483,27 @@ const handleApply = () => {
     &--result {
       color: $primary-light;
     }
+  }
+
+  &__status {
+    font-size: 11px;
+    color: $text-light;
+    font-weight: 400;
+  }
+
+  &__rich {
+    :deep(p) {
+      margin: 0 0 0.5em;
+      &:last-child { margin-bottom: 0; }
+    }
+    :deep(strong) { font-weight: 700; }
+    :deep(em) { font-style: italic; }
+    :deep(u) { text-decoration: underline; }
+    :deep(s) { text-decoration: line-through; }
+    :deep(mark) { border-radius: 2px; padding: 0 2px; }
+    :deep(a) { color: $primary-light; text-decoration: underline; }
+    :deep(ul) { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
+    :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
   }
 
   &__placeholder {

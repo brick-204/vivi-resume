@@ -479,19 +479,23 @@
 }
 
 // 富文本内容渲染样式
+// 注意：不使用 :deep()，因为此 mixin 被同时用于 unscoped 和 scoped 样式中。
+// - unscoped（base.scss）：:deep() 不会被 Vue 处理，原样输出后浏览器不识别，导致规则失效
+// - scoped（SidebarTemplate）：mixin 嵌套在 :deep(.xxx) 内部，Vue 处理外层 :deep() 时
+//   已将内部选择器解除了作用域限制，普通后代选择器即可正常匹配
 @mixin rich-text-content {
   white-space: pre-wrap;
   word-break: break-word;
-  :deep(p) { margin: 0 0 0.5em; min-height: 1em; &:last-child { margin-bottom: 0; } }
-  :deep(ul) { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
-  :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
-  :deep(li) { margin-bottom: 0.25em; }
-  :deep(strong) { font-weight: 700; }
-  :deep(em) { font-style: italic; }
-  :deep(u) { text-decoration: underline; }
-  :deep(s) { text-decoration: line-through; }
-  :deep(a) { color: inherit; text-decoration: underline; }
-  :deep(mark) { border-radius: 2px; padding: 0 2px; }
+  p { margin: 0 0 0.5em; min-height: 1em; &:last-child { margin-bottom: 0; } }
+  ul { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
+  ol { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
+  li { margin-bottom: 0.25em; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  u { text-decoration: underline; }
+  s { text-decoration: line-through; }
+  a { color: inherit; text-decoration: underline; }
+  mark { border-radius: 2px; padding: 0 2px; }
 }
 
 // ==================== Range Slider ====================

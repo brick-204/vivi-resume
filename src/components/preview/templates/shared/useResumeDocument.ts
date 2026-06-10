@@ -302,9 +302,6 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     gender: 'mdi:gender-male-female',
     birthday: 'mdi:cake-variant-outline',
     age: 'mdi:calendar-clock',
-    maritalStatus: 'mdi:heart-outline',
-    politicalStatus: 'mdi:flag-outline',
-    hometown: 'mdi:home-outline',
     location: 'mdi:map-marker-outline',
     expectedCity: 'mdi:city-variant-outline',
     workExperience: 'mdi:briefcase-clock',
@@ -321,9 +318,9 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
 
   // 字段标签映射
   const FIELD_LABELS: Record<string, string> = {
-    name: '姓名', title: '职位', gender: '性别', birthday: '生日',
-    age: '年龄', maritalStatus: '婚姻状态', politicalStatus: '政治面貌',
-    hometown: '籍贯', location: '所在地', expectedCity: '期望城市',
+    name: '姓名', title: '职位', gender: '性别', birthday: '出生日期',
+    age: '年龄',
+    location: '所在地', expectedCity: '期望城市',
     workExperience: '工作经验', salaryRange: '薪资', email: '邮箱',
     phone: '电话', wechat: '微信', qq: 'QQ', website: '网站',
   }
@@ -355,7 +352,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
   }
 
   // 标签字段 key 列表
-  const TAG_KEYS = ['gender', 'age', 'maritalStatus', 'politicalStatus', 'birthday', 'hometown', 'workExperience', 'salaryRange', 'expectedCity']
+  const TAG_KEYS = ['gender', 'age', 'birthday', 'workExperience', 'salaryRange', 'expectedCity']
   // 联系字段 key 列表
   const CONTACT_KEYS = ['phone', 'email', 'wechat', 'qq', 'location', 'website']
 

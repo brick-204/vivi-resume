@@ -6,7 +6,7 @@
 export type AIProvider = 'openai' | 'deepseek' | 'moonshot' | 'siliconflow' | 'openrouter' | 'zhipu' | 'qwen' | 'minimax' | 'baichuan' | 'yi' | 'custom'
 
 // AI 操作类型
-export type AIOperation = 'polish' | 'simplify' | 'expand' | 'summarize'
+export type AIOperation = 'polish' | 'simplify' | 'expand' | 'summarize' | 'write'
 
 // 服务商信息
 export interface AIProviderInfo {
@@ -111,11 +111,12 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
 ]
 
 // AI 操作配置
-export const AI_OPERATIONS: { id: AIOperation; label: string; icon: string }[] = [
-  { id: 'polish', label: '润色', icon: 'mdi:auto-fix' },
-  { id: 'simplify', label: '简化', icon: 'mdi:text-short' },
-  { id: 'expand', label: '扩展', icon: 'mdi:arrow-expand-horizontal' },
-  { id: 'summarize', label: '总结', icon: 'mdi:format-list-bulleted' },
+export const AI_OPERATIONS: { id: AIOperation; label: string; icon: string; minChars?: number }[] = [
+  { id: 'polish', label: '润色', icon: 'mdi:auto-fix', minChars: 30 },
+  { id: 'simplify', label: '简化', icon: 'mdi:text-short', minChars: 30 },
+  { id: 'expand', label: '扩展', icon: 'mdi:arrow-expand-horizontal', minChars: 30 },
+  { id: 'summarize', label: '总结', icon: 'mdi:format-list-bulleted', minChars: 30 },
+  { id: 'write', label: '帮写', icon: 'mdi:pencil-plus' },
 ]
 
 // 根据 provider id 获取服务商信息

@@ -98,12 +98,14 @@ interface ChatMessage {
  * @param messages 消息列表
  * @param onChunk 每收到一段文本时的回调
  * @param signal 取消信号
+ * @param onConnected 连接建立、首个 chunk 到达时的回调（用于更新 UI 状态）
  */
 export async function streamChat(
   config: AIServiceConfig,
   messages: ChatMessage[],
   onChunk: (text: string) => void,
   signal?: AbortSignal,
+  onConnected?: () => void,
 ): Promise<void> {
   const url = getRequestUrl(config)
 
@@ -164,6 +166,7 @@ export async function streamChat(
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let connected = false  // onConnected 仅首次调用
 
   try {
     while (true) {
@@ -187,6 +190,11 @@ export async function streamChat(
             const content = parsed?.choices?.[0]?.delta?.content
             if (content) {
               onChunk(content)
+              // 仅首次收到内容时通知连接已建立
+              if (!connected) {
+                connected = true
+                onConnected?.()
+              }
             }
           } catch {
             // 单行 JSON 解析失败，跳过
@@ -232,9 +240,11 @@ export async function performAIOperation(
   content: string,
   onChunk: (text: string) => void,
   signal?: AbortSignal,
+  customInstruction?: string,
+  onConnected?: () => void,
 ): Promise<void> {
-  const messages = buildMessages(operation, content)
-  await streamChat(config, messages, onChunk, signal)
+  const messages = buildMessages(operation, content, customInstruction)
+  await streamChat(config, messages, onChunk, signal, onConnected)
 }
 
 /**

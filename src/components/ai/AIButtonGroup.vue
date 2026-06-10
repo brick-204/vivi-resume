@@ -1,19 +1,18 @@
 <template>
   <div class="ai-button-group">
     <button
-      v-for="op in operations"
-      :key="op.id"
+      v-if="hasActiveConfig"
       class="ai-btn"
-      :class="{ 'ai-btn--loading': currentOperation === op.id }"
-      :disabled="disabled || !hasActiveConfig"
-      :title="hasActiveConfig ? op.label : '请先配置 AI 服务'"
-      @click="$emit('operation', op.id)"
+      :class="{ 'ai-btn--loading': currentOperation !== null }"
+      :disabled="disabled"
+      title="AI 帮写"
+      @click="$emit('operation', 'write')"
     >
-      <NSpin v-if="currentOperation === op.id" :size="14" />
-      <Icon v-else :icon="op.icon" :width="14" />
-      <span class="ai-btn__label">{{ op.label }}</span>
+      <NSpin v-if="currentOperation !== null" :size="14" />
+      <Icon v-else icon="mdi:robot-happy-outline" :width="14" />
+      <span class="ai-btn__label">AI 帮写</span>
     </button>
-    <n-popover v-if="!hasActiveConfig" trigger="hover" placement="top">
+    <n-popover v-else trigger="hover" placement="top">
       <template #trigger>
         <button class="ai-btn ai-btn--warning" @click="$emit('go-settings')">
           <Icon icon="mdi:alert-circle-outline" :width="14" />
@@ -28,7 +27,7 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
 import { NPopover, NSpin } from 'naive-ui'
-import { AI_OPERATIONS, type AIOperation } from '@/types/aiConfig'
+import type { AIOperation } from '@/types/aiConfig'
 
 defineProps<{
   currentOperation: AIOperation | null
@@ -40,8 +39,6 @@ defineEmits<{
   operation: [value: AIOperation]
   'go-settings': []
 }>()
-
-const operations = AI_OPERATIONS
 </script>
 
 <style lang="scss" scoped>

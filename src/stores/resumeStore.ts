@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor } from '@/types/resume'
+import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult } from '@/types/resume'
 import {
   createEmptyResume,
   generateId,
@@ -448,6 +448,22 @@ export const useResumeStore = defineStore('resume', () => {
     saveCurrentResume()
   }
 
+  // ========== AI 评估结果 ==========
+
+  /** 保存评估结果到当前简历（立即持久化，不走防抖） */
+  const saveEvaluationResult = (resumeId: string, result: EvaluationResult) => {
+    const idx = resumeList.value.findIndex(r => r.id === resumeId)
+    if (idx !== -1) {
+      resumeList.value[idx].lastEvaluation = result
+      // 同步到 currentResume
+      if (currentResume.value?.id === resumeId) {
+        currentResume.value.lastEvaluation = result
+      }
+      // 立即写入 IndexedDB，避免防抖期间数据丢失
+      saveToStorageNow()
+    }
+  }
+
   // ========== Undo/Redo 历史 ==========
 
   const MAX_HISTORY = 50
@@ -570,6 +586,7 @@ export const useResumeStore = defineStore('resume', () => {
     addCustomTextSection,
     addCustomCardSection,
     removeCustomSection,
+    saveEvaluationResult,
     canUndo,
     canRedo,
     undo,

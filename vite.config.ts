@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 import viteCompression from 'vite-plugin-compression'
+import type { ProxyOptions } from 'vite'
 
 export default defineConfig({
   plugins: [
@@ -36,36 +37,28 @@ export default defineConfig({
     proxy: {
       // AI 服务代理 — 开发环境下解决 CORS 问题
       // 使用方式：在 AI 配置中将 endpoint 设为 /api/ai/openai 等
-      '/api/ai/openai': {
-        target: 'https://api.openai.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai\/openai/, ''),
-      },
-      '/api/ai/zhipu': {
-        target: 'https://open.bigmodel.cn',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai\/zhipu/, ''),
-      },
-      '/api/ai/qwen': {
-        target: 'https://dashscope.aliyuncs.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai\/qwen/, ''),
-      },
-      '/api/ai/minimax': {
-        target: 'https://api.minimax.chat',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai\/minimax/, ''),
-      },
-      '/api/ai/baichuan': {
-        target: 'https://api.baichuan-ai.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai\/baichuan/, ''),
-      },
-      '/api/ai/yi': {
-        target: 'https://api.lingyiwanwu.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/ai\/yi/, ''),
-      },
+      // 注意：必须禁用 proxy 缓冲以支持 SSE 流式响应
+      '/api/ai/openai': sseProxy('https://api.openai.com', '/api/ai/openai'),
+      '/api/ai/zhipu': sseProxy('https://open.bigmodel.cn', '/api/ai/zhipu'),
+      '/api/ai/qwen': sseProxy('https://dashscope.aliyuncs.com', '/api/ai/qwen'),
+      '/api/ai/minimax': sseProxy('https://api.minimax.chat', '/api/ai/minimax'),
+      '/api/ai/baichuan': sseProxy('https://api.baichuan-ai.com', '/api/ai/baichuan'),
+      '/api/ai/yi': sseProxy('https://api.lingyiwanwu.com', '/api/ai/yi'),
     },
   },
 })
+
+/** 创建支持 SSE 流式响应的代理配置 */
+function sseProxy(target: string, prefix: string): ProxyOptions {
+  return {
+    target,
+    changeOrigin: true,
+    rewrite: (path) => path.replace(new RegExp(`^${prefix}`), ''),
+    configure: (proxy) => {
+      proxy.on('proxyRes', (proxyRes) => {
+        // 禁用代理缓冲，让 SSE chunk 立即转发到浏览器
+        proxyRes.headers['x-accel-buffering'] = 'no'
+      })
+    },
+  }
+}

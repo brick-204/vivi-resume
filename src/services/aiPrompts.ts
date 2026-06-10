@@ -10,6 +10,19 @@ interface PromptConfig {
   userTemplate: string
 }
 
+// ========== 公共 Markdown 格式说明 ==========
+
+const MARKDOWN_FORMAT_INSTRUCTION = `
+Markdown 格式要求：
+- **粗体** 表示加粗
+- *斜体* 表示斜体
+- __下划线__ 表示下划线
+- ==高亮== 表示高亮
+- ~~删除线~~ 表示删除线
+- - 或 * 表示无序列表
+- 1. 2. 3. 表示有序列表
+- [文字](链接) 表示链接`
+
 export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
   polish: {
     system: `你是一位专业的简历润色专家，擅长将简历文本优化为更加专业、有力、吸引人的表达。
@@ -21,8 +34,10 @@ export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
 4. 尽可能将描述转化为成果导向的表达，突出影响和结果
 5. 使用量化数据（如百分比、数量、时间范围）增强说服力，但仅基于原文已有信息推演，不编造数据
 6. 保持原文的语言（中文/英文），不改变语言
-7. 保持原文的格式结构（段落、列表等）
-8. 直接输出润色后的文本，不要添加任何解释、说明或前缀
+7. 保持原文的格式结构（段落、列表、加粗、斜体等）
+8. 以 Markdown 格式输出，保留原文的格式标记
+9. 直接输出润色后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
 
 润色技巧：
 - 将"负责"替换为更具体的动词（主导、推动、搭建、优化、重构）
@@ -44,8 +59,10 @@ export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
 3. 合并表达相同含义的句子
 4. 去除修饰性废话（如"主要负责"、"日常工作中"等）
 5. 保持原文的语言（中文/英文），不改变语言
-6. 保持原文的格式结构（段落、列表等）
-7. 直接输出简化后的文本，不要添加任何解释、说明或前缀
+6. 保持原文的格式结构（段落、列表、加粗、斜体等）
+7. 以 Markdown 格式输出，保留原文的格式标记
+8. 直接输出简化后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
 
 精简技巧：
 - 将长句压缩为短句或短语
@@ -68,7 +85,10 @@ export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
 4. 为模糊的成果补充合理的量化框架（用 [XX] 标记需要用户填入的具体数据）
 5. 保持原文的语言（中文/英文），不改变语言
 6. 保持专业性和真实性，不使用夸大或虚假的表述
-7. 直接输出扩展后的文本，不要添加任何解释、说明或前缀
+7. 保持原文的格式结构（段落、列表、加粗、斜体等）
+8. 以 Markdown 格式输出，保留原文的格式标记
+9. 直接输出扩展后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
 
 扩展技巧：
 - 将简单的职责描述扩展为包含背景、行动、结果的完整叙述
@@ -88,9 +108,11 @@ export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
 1. 提取 3-5 个最核心的要点
 2. 每个要点用一句话概括，突出关键成就、技能或经验
 3. 优先提炼最有价值的信息（成果 > 职责 > 过程）
-4. 使用项目符号（•）列表格式输出
+4. 使用项目符号列表格式输出
 5. 保持原文的语言（中文/英文），不改变语言
-6. 直接输出总结，不要添加任何解释、说明或前缀
+6. 以 Markdown 格式输出，保留原文的格式标记
+7. 直接输出总结，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
 
 总结技巧：
 - 聚焦于"做了什么"和"取得了什么结果"
@@ -102,13 +124,51 @@ export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
 
 {content}`,
   },
+
+  write: {
+    system: `你是一位专业的简历撰写专家，擅长根据用户的要求撰写高质量的简历内容。
+
+核心原则：
+1. 根据用户的要求和上下文撰写简历内容
+2. 使用专业、有力、吸引人的表达方式
+3. 尽可能使用成果导向的表述，突出影响和结果
+4. 使用量化数据（如百分比、数量、时间范围）增强说服力
+5. 保持专业性和真实性，不使用夸大或虚假的表述
+6. 以 Markdown 格式输出
+7. 直接输出撰写的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
+
+撰写技巧：
+- 用动词开头（推动、搭建、优化、主导、设计、实现）
+- 每条经历包含具体行动和成果
+- 用 [XX%] 或 [XX人] 等占位符提示用户补充量化数据
+- 保持语言简洁有力，避免冗余表述`,
+
+    userTemplate: `请根据以下要求撰写简历内容：
+
+{content}`,
+  },
 }
 
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
-export function buildMessages(operation: AIOperation, content: string) {
+export function buildMessages(operation: AIOperation, content: string, customInstruction?: string) {
   const config = AI_OPERATION_PROMPTS[operation]
+
+  let userPrompt: string
+
+  // 帮写模式下，如果原文为空，只用自定义指令作为 prompt
+  if (operation === 'write' && !content.trim() && customInstruction?.trim()) {
+    userPrompt = `请根据以下要求撰写简历内容：\n\n${customInstruction.trim()}`
+  } else {
+    userPrompt = config.userTemplate.replace('{content}', content)
+    // 拼接用户自定义指令
+    if (customInstruction?.trim()) {
+      userPrompt += `\n\n额外要求：${customInstruction.trim()}`
+    }
+  }
+
   return [
     { role: 'system' as const, content: config.system },
-    { role: 'user' as const, content: config.userTemplate.replace('{content}', content) },
+    { role: 'user' as const, content: userPrompt },
   ]
 }

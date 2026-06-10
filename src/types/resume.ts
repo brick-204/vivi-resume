@@ -30,9 +30,6 @@ export interface BasicInfo {
   gender: string
   birthday: string
   age: string
-  maritalStatus: string
-  politicalStatus: string
-  hometown: string
   expectedCity: string
   workExperience: string
   wechat: string
@@ -115,6 +112,13 @@ export interface CustomCardSection {
   items: CustomCardItem[]
 }
 
+// AI 评估结果
+export interface EvaluationResult {
+  score: number | null
+  text: string        // Markdown 原文
+  evaluatedAt: string // ISO 时间戳
+}
+
 // 简历完整数据
 export interface Resume {
   id: string
@@ -144,6 +148,7 @@ export interface Resume {
   sectionOrder: string[]
   sectionTitles: Record<string, string>  // 自定义模块标题
   hiddenSections: string[]  // 已隐藏/删除的模块
+  lastEvaluation?: EvaluationResult
   createdAt: string
   updatedAt: string
 }
@@ -201,7 +206,7 @@ export const generateCustomSectionId = (type: CustomSectionType, index: number):
 // 默认基本信息字段顺序
 export const DEFAULT_FIELD_ORDER = [
   'photo', 'name', 'title', 'gender', 'birthday', 'age',
-  'maritalStatus', 'politicalStatus', 'hometown', 'location',
+  'location',
   'expectedCity', 'workExperience', 'salaryRange', 'email',
   'phone', 'wechat', 'qq', 'website'
 ]
@@ -231,9 +236,6 @@ export const createEmptyResume = (): Resume => {
       gender: '',
       birthday: '',
       age: '',
-      maritalStatus: '',
-      politicalStatus: '',
-      hometown: '',
       expectedCity: '',
       workExperience: '',
       wechat: '',

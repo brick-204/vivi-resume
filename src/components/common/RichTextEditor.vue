@@ -128,7 +128,7 @@
         </button>
       </div>
 
-      <!-- AI 操作按钮 -->
+      <!-- AI 操作按钮：只显示一个「AI帮写」入口 -->
       <AIButtonGroup
         v-if="showAIBtns"
         :current-operation="currentAIOperation"
@@ -148,7 +148,7 @@
       :config="aiConfigStore.activeConfig ?? null"
       :operation="currentAIOperation"
       :original-text="aiOriginalText"
-      @close="showAIPreview = false"
+      @close="onAIPreviewClose"
       @apply="applyAIResult"
     />
   </div>
@@ -172,7 +172,7 @@ import { message as naiveMessage } from '@/plugins/naive-ui'
 import { useRouter } from 'vue-router'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import type { AIOperation } from '@/types/aiConfig'
-import { htmlToPlainText } from '@/services/aiService'
+import { htmlToMarkdown } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import AIButtonGroup from '@/components/ai/AIButtonGroup.vue'
 import AIResultPreview from '@/components/ai/AIResultPreview.vue'
@@ -278,16 +278,16 @@ const handleAIOperation = (operation: AIOperation) => {
     return
   }
 
-  const text = editor.value?.getText() || ''
-  if (!text.trim()) {
-    naiveMessage.warning('内容为空，无法处理')
-    return
-  }
-
-  // 提取纯文本并打开预览弹窗
-  aiOriginalText.value = htmlToPlainText(editor.value?.getHTML() || '')
+  // 打开预览弹窗，由弹窗内部选择具体操作类型
+  aiOriginalText.value = htmlToMarkdown(editor.value?.getHTML() || '')
   currentAIOperation.value = operation
   showAIPreview.value = true
+}
+
+const onAIPreviewClose = () => {
+  showAIPreview.value = false
+  // 关闭弹窗时清除当前操作状态，避免按钮图标继续转圈
+  currentAIOperation.value = null
 }
 
 const applyAIResult = (html: string) => {
@@ -295,6 +295,7 @@ const applyAIResult = (html: string) => {
   const safeHtml = sanitizeHtml(html)
   editor.value.commands.setContent(safeHtml)
   emit('update:modelValue', safeHtml)
+  currentAIOperation.value = null
   naiveMessage.success('已应用 AI 生成结果')
 }
 

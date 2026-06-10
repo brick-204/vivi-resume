@@ -330,11 +330,8 @@ const FIELD_META: Record<string, { label: string; placeholder: string }> = {
   name: { label: '姓名', placeholder: '请输入姓名' },
   title: { label: '职位', placeholder: '如：前端工程师' },
   gender: { label: '性别', placeholder: '如：男' },
-  birthday: { label: '生日', placeholder: '选择月份' },
+  birthday: { label: '出生日期', placeholder: '如：1996-06' },
   age: { label: '年龄', placeholder: '如：28' },
-  maritalStatus: { label: '婚姻状态', placeholder: '如：未婚' },
-  politicalStatus: { label: '政治面貌', placeholder: '如：中共党员' },
-  hometown: { label: '籍贯', placeholder: '如：湖南长沙' },
   location: { label: '所在地', placeholder: '如：北京' },
   expectedCity: { label: '期望城市', placeholder: '如：上海' },
   workExperience: { label: '工作经验', placeholder: '如：5' },
@@ -357,7 +354,7 @@ const getFieldLabel = (key: string): string => {
 const getFieldPlaceholder = (key: string): string => FIELD_META[key]?.placeholder || ''
 
 // 可作为字符串值访问的 BasicInfo 字段 key
-type StringFieldKey = 'name' | 'title' | 'gender' | 'birthday' | 'age' | 'maritalStatus' | 'politicalStatus' | 'hometown' | 'location' | 'expectedCity' | 'workExperience' | 'salaryRange' | 'email' | 'phone' | 'wechat' | 'qq' | 'website' | 'photo' | 'summary'
+type StringFieldKey = 'name' | 'title' | 'gender' | 'birthday' | 'age' | 'location' | 'expectedCity' | 'workExperience' | 'salaryRange' | 'email' | 'phone' | 'wechat' | 'qq' | 'website' | 'photo' | 'summary'
 
 const updateFieldValue = (key: string, value: string) => {
   if (!FIELD_META[key] || !basicInfo.value) return

@@ -19,6 +19,12 @@
         <span v-if="templateName" class="header__template-badge">{{ templateName }}</span>
       </div>
       <div class="header__right">
+        <button class="header-btn header-btn--eval" @click="showEvalModal = true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L10 5.5L15 6.2L11.5 9.6L12.4 14.5L8 12.1L3.6 14.5L4.5 9.6L1 6.2L6 5.5L8 1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+          AI 评估
+        </button>
         <button class="header-btn header-btn--template" @click="goToTemplates">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <rect x="1.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
@@ -100,6 +106,12 @@
         </div>
       </section>
     </main>
+
+    <!-- AI 简历评估弹窗 -->
+    <ResumeEvaluationModal
+      :show="showEvalModal"
+      @close="showEvalModal = false"
+    />
   </div>
 </template>
 
@@ -117,6 +129,7 @@ import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
 import ResumePreview from '@/components/preview/ResumePreview.vue'
+import ResumeEvaluationModal from '@/components/ai/ResumeEvaluationModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -125,6 +138,7 @@ const aiConfigStore = useAIConfigStore()
 const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
+const showEvalModal = ref(false)
 
 const resumeTitle = computed({
   get: () => store.currentResume?.title || '',
@@ -365,6 +379,21 @@ onMounted(async () => {
   transition: all $transition-base;
   border: none;
   font-family: $font-family;
+
+  &--eval {
+    background: $bg-glass;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: $text-secondary;
+    border: 1px solid $border-glass;
+
+    &:hover {
+      background: rgba($primary-color, 0.08);
+      color: $primary-light;
+      border-color: $primary-color;
+      box-shadow: 0 4px 20px rgba(124, 92, 252, 0.2);
+    }
+  }
 
   &--template {
     background: $bg-glass;
