@@ -12,6 +12,8 @@
 - **模块化管理** - 自由添加、删除、排序简历模块（基本信息除外）
 - **拖拽排序** - 模块和基本信息字段均支持拖拽调整顺序
 - **富文本编辑** - 基于 Tiptap 的富文本编辑器，支持加粗、斜体、列表等
+- **AI 文本处理** - 润色、简化、扩展、总结、帮写五种 AI 操作，流式实时生成（兼容 OpenAI API 格式）
+- **AI 简历评估** - 全模块逐一评估（含评分），评估结果自动持久化，下次打开可查看历史
 - **自定义模块** - 支持自定义文本模块和自定义列表模块，数量不限
 - **头部布局** - 居中 / 左对齐+照片居左 / 左对齐+照片居右三种布局
 - **头部配色** - 文字颜色和图标颜色独立设置（黑色 / 白色 / 主题色）
@@ -35,6 +37,9 @@
 | 拖拽 | vuedraggable 4.1 |
 | 富文本 | Tiptap 3.23 |
 | 图标 | Iconify (mdi + simple-icons) |
+| UI 组件库 | Naive UI 2.44（AI 弹窗、配置表单等） |
+| AI 文本 | SSE 流式调用（兼容 OpenAI API 格式） |
+| Markdown | marked（解析）+ turndown（反转） |
 | 存储 | IndexedDB (idb 8.0) |
 | 安全 | isomorphic-dompurify |
 | PDF | html2pdf.js |
@@ -44,9 +49,9 @@
 ```
 src/
 ├── assets/
-│   └── styles/            # 全局样式、变量、混入（含 range-slider mixin）
+│   └── styles/            # 全局样式、变量、混入（含 range-slider、rich-text-content mixin）
 ├── components/
-│   ├── common/            # 公共组件（Modal、Button、Input）
+│   ├── common/            # 公共组件（Modal、Button、Input、RichTextEditor）
 │   ├── editor/            # 编辑器组件
 │   │   ├── sections/      # 各模块编辑组件（BasicInfo、WorkExperience…）
 │   │   ├── SectionNavigator.vue  # 左侧导航 + 主题色 + 文字/间距设置
@@ -56,27 +61,44 @@ src/
 │   │   ├── ResumeDocument.vue    # 模板路由组件
 │   │   └── templates/     # 8 种模板组件 + 共享样式
 │   │       └── shared/    # base.scss、useResumeDocument、CSS vars
+│   ├── ai/                # AI 功能组件
+│   │   ├── AIConfigModal.vue     # AI 服务配置弹窗
+│   │   ├── AIConfigCard.vue      # AI 服务配置卡片
+│   │   ├── AIButtonGroup.vue     # AI 操作按钮组（润色/简化/扩展/总结/帮写）
+│   │   ├── AIResultPreview.vue   # AI 生成结果预览
+│   │   └── ResumeEvaluationModal.vue  # AI 简历评估弹窗（流式 + 持久化）
 │   ├── home/              # 首页组件（ResumeCard、ImportModal）
 │   └── template/          # 模板卡片组件
 ├── config/
 │   ├── templates.ts       # 8 种模板配置（样式、字体默认值、头部模式）
 │   ├── fonts.ts           # 字体选项 + 字号派生逻辑
 │   └── sampleData.ts      # 示例简历数据
+├── services/
+│   ├── aiService.ts       # AI SSE 流式调用 + OpenAI 兼容 API
+│   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写）
+│   └── resumeSerializer.ts # 简历序列化（Resume → 结构化纯文本，供 AI 使用）
 ├── stores/
-│   └── resumeStore.ts     # Pinia 状态管理（含 undo/redo）
+│   ├── resumeStore.ts     # Pinia 状态管理（含 undo/redo、评估结果持久化）
+│   ├── aiConfigStore.ts   # AI 服务配置（多服务商、密钥管理）
+│   └── editorLayoutStore.ts # 编辑器布局状态 + localStorage 持久化
 ├── types/
-│   └── resume.ts          # TypeScript 类型 + 默认常量
+│   ├── resume.ts          # TypeScript 类型 + 默认常量（含 EvaluationResult）
+│   └── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口）
 ├── utils/
 │   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移）
 │   ├── colorUtils.ts      # 主题色派生（标题色、标签色等）
 │   ├── sanitizeHtml.ts    # HTML 安全过滤
+│   ├── normalizeContent.ts # 内容标准化
+│   ├── markdownConverter.ts # Markdown ↔ HTML 转换（marked + turndown）
 │   └── export.ts          # PDF/JSON 导出
+├── plugins/
+│   └── naive-ui.ts        # Naive UI 按需引入 + Provider 注册
 ├── workers/
 │   ├── serializer.worker.ts    # JSON 序列化 Worker
 │   └── imageProcessor.worker.ts # 图片裁剪/缩放 Worker
 ├── views/
 │   ├── HomeView.vue       # 首页（简历列表）
-│   ├── EditorView.vue     # 编辑器页面
+│   ├── EditorView.vue     # 编辑器页面（含 AI 评估按钮）
 │   └── TemplatesView.vue  # 模板选择页面
 ├── App.vue
 ├── main.ts
@@ -124,10 +146,10 @@ pnpm preview
 编辑器左侧为编辑面板，包含以下模块：
 
 - **基本信息** - 姓名、职位、联系方式、头像（支持本地上传，字段可拖拽排序、隐藏、切换显示模式）
-- **个人简介** - 富文本编辑，支持加粗、斜体、列表、对齐等
-- **工作经历** - 公司、职位、时间、描述（支持条目拖拽排序）
+- **个人简介** - 富文本编辑，支持加粗、斜体、列表、对齐等，AI 辅助润色/精简/扩展
+- **工作经历** - 公司、职位、时间、描述（支持条目拖拽排序，AI 辅助优化）
 - **教育经历** - 学校、学位、专业、时间
-- **项目经验** - 项目名称、角色、技术栈、描述
+- **项目经验** - 项目名称、角色、技术栈、描述，AI 辅助优化
 - **技能** - 富文本编辑
 - **自我评价** - 综合评价文字
 - **自定义文本** - 自由添加的富文本模块
@@ -158,6 +180,29 @@ pnpm preview
 - **导出 PDF** - 生成可直接打印或发送的 PDF 文件
 - **导出 JSON** - 保存为 JSON 文件，完整保留模板、主题色、文字/间距设置等全部数据
 
+### AI 辅助功能
+
+#### 文本处理
+
+在富文本编辑器（个人简介、工作经历、项目经验等）中，选中或输入内容后可使用 AI 操作：
+
+- **润色** - 将口语化表述优化为专业表达，保持核心信息不变
+- **简化** - 去除冗余，保留核心信息，使描述更简洁有力
+- **扩展** - 基于 STAR 法则补充合理细节，用量化占位符提示用户补充数据
+- **总结** - 提炼 3-5 个核心要点，生成项目符号列表
+- **帮写** - 根据用户输入的要求撰写简历内容，支持自定义指令
+
+所有操作均使用 SSE 流式实时生成，兼容 OpenAI API 格式，支持 10+ 服务商（DeepSeek、Moonshot、智谱、通义千问、硅基流动等）。
+
+#### 简历评估
+
+点击编辑器顶部「AI 评估」按钮，对整份简历进行全面分析：
+
+- 全模块逐一评估（内容完整性、表述专业性、逻辑清晰度、信息密度、格式规范）
+- 每个模块给出优点、不足、可操作建议
+- 生成 0-100 总体评分
+- 评估结果自动持久化，下次打开可查看历史结果
+
 ## 模板展示
 
 | 模板名称 | 特点 |
@@ -175,6 +220,7 @@ pnpm preview
 
 - **Glassmorphism** - 玻璃拟态设计风格
 - **深色主题** - 舒适的深色背景配色
+- **Naive UI** - AI 弹窗、配置表单等使用 Naive UI 组件库，可爱风深色主题
 - **流畅动画** - 平滑的过渡和 FLIP 动画效果
 - **CSS 变量** - 模板样式通过 CSS 自定义属性灵活控制，支持主题色 / 字号 / 行高 / 间距全链路传递
 - **Web Worker** - JSON 序列化和图片处理在 Worker 线程完成，不阻塞主线程
@@ -233,6 +279,22 @@ Resume 数据 (resumeStore)
 - `SECTION_CONFIG` - 模块配置（名称、图标等）
 
 编辑器使用 vuedraggable 实现模块和条目的拖拽排序。
+
+### AI 功能架构
+
+```
+用户操作（润色/评估/…）
+  → aiConfigStore（选择 AI 服务配置）
+    → aiPrompts（构建 system + user messages）
+      → aiService.streamChat（SSE 流式调用 OpenAI 兼容 API）
+        → onChunk 回调（实时更新 UI）
+```
+
+- **服务商支持**：10+ 服务商预设 + 自定义 endpoint，部分服务商需 Vite 开发代理解决 CORS
+- **SSE 代理**：`vite.config.ts` 中 `sseProxy()` 工厂函数统一配置，禁用 `x-accel-buffering` 保证流式响应
+- **文本处理流程**：Tiptap HTML → turndown 转 Markdown → AI 流式生成 Markdown → marked 转 HTML → sanitizeHtml → 写回编辑器
+- **简历序列化**：`resumeSerializer.ts` 将 Resume 对象转为结构化纯文本，空模块标记为`（未填写）`
+- **评估持久化**：结果存储在 `Resume.lastEvaluation`（IndexedDB 自动兼容新字段），使用 `saveToStorageNow()` 立即写入
 
 ## License
 
