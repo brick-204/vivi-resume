@@ -7,17 +7,22 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { generateId } from '@/types/resume'
+import { useSyncLock } from '@/composables/useSyncLock'
+import { useSettingsStore } from '@/stores/settingsStore'
 import {
   getAllAIConfigs,
   saveAIConfig,
   deleteAIConfig as deleteAIConfigFromStorage,
   getActiveAIConfigId,
   setActiveAIConfigId,
-} from '@/utils/storage'
+} from '@/utils/storageAdapter'
 
 export const useAIConfigStore = defineStore('aiConfig', () => {
   const configs = ref<AIServiceConfig[]>([])
   const activeConfigId = ref<string | null>(null)
+
+  // 同步锁
+  const { isLocked } = useSyncLock()
 
   // ========== 初始化就绪 Promise（与 resumeStore 一致）==========
   let _readyResolve!: () => void
@@ -34,6 +39,10 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   // ========== 初始化 ==========
 
   const init = async () => {
+    // 等待 settingsStore 就绪（确保 isDirectoryMode 已正确设置）
+    const settingsStore = useSettingsStore()
+    await settingsStore.ready
+
     try {
       const [allConfigs, savedActiveId] = await Promise.all([
         getAllAIConfigs(),
@@ -59,6 +68,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
 
   /** 添加新配置 */
   const addConfig = async (data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (isLocked.value) return undefined
+
     const now = new Date().toISOString()
     const config: AIServiceConfig = {
       ...data,
@@ -79,6 +90,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
 
   /** 更新配置 */
   const updateConfig = async (id: string, updates: Partial<Omit<AIServiceConfig, 'id' | 'createdAt'>>) => {
+    if (isLocked.value) return
+
     const index = configs.value.findIndex(c => c.id === id)
     if (index === -1) return
 
@@ -93,6 +106,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
 
   /** 删除配置 */
   const deleteConfig = async (id: string) => {
+    if (isLocked.value) return
+
     await deleteAIConfigFromStorage(id)
     configs.value = configs.value.filter(c => c.id !== id)
 
@@ -109,6 +124,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
 
   /** 复制配置（API Key 需重新输入） */
   const duplicateConfig = async (id: string) => {
+    if (isLocked.value) return undefined
+
     const source = configs.value.find(c => c.id === id)
     if (!source) return
 
@@ -135,6 +152,29 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   // 初始化
   init()
 
+  // ========== 重新加载（目录模式切换后调用） ==========
+
+  /** 从当前存储后端重新加载全部数据 */
+  const reloadFromStorage = async () => {
+    try {
+      const [allConfigs, savedActiveId] = await Promise.all([
+        getAllAIConfigs(),
+        getActiveAIConfigId(),
+      ])
+      configs.value = allConfigs
+      if (savedActiveId && allConfigs.some(c => c.id === savedActiveId)) {
+        activeConfigId.value = savedActiveId
+      } else if (allConfigs.length > 0) {
+        activeConfigId.value = allConfigs[0].id
+        await setActiveAIConfigId(allConfigs[0].id)
+      } else {
+        activeConfigId.value = null
+      }
+    } catch (e) {
+      console.error('[aiConfigStore] reloadFromStorage 失败:', e)
+    }
+  }
+
   return {
     configs,
     activeConfigId,
@@ -146,5 +186,6 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     deleteConfig,
     duplicateConfig,
     setActiveConfig,
+    reloadFromStorage,
   }
 })

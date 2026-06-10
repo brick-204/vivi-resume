@@ -10,14 +10,15 @@ import {
   generateCustomSectionId,
 } from '@/types/resume'
 import { useWorkerSerializer } from '@/composables/useWorkerSerializer'
+import { useSyncLock } from '@/composables/useSyncLock'
+import { useSettingsStore } from '@/stores/settingsStore'
 import {
   migrateFromLocalStorage,
   getAllResumes,
   saveResumeList,
   getCurrentId,
   setCurrentId,
-} from '@/utils/storage'
-
+} from '@/utils/storageAdapter'
 // 颜色设置迁移 — 将旧的 boolean 字段迁移到新的三态枚举
 const migrateResumeColors = (resume: Resume): Resume => {
   const updates: Partial<Resume> = {}
@@ -33,8 +34,8 @@ const migrateResumeColors = (resume: Resume): Resume => {
 // highlights 迁移 — 将旧的 highlights[] 合并到 description 中
 const migrateHighlights = (resume: Resume): Resume => {
   let changed = false
-  const work = resume.workExperience.map(item => {
-    if (item.highlights?.length && !item.description.includes(item.highlights[0])) {
+  const work = (resume.workExperience || []).map(item => {
+    if (item.highlights?.length && !(item.description || '').includes(item.highlights[0])) {
       changed = true
       const merged = item.description
         ? item.description + '\n- ' + item.highlights.join('\n- ')
@@ -43,8 +44,8 @@ const migrateHighlights = (resume: Resume): Resume => {
     }
     return item
   })
-  const projects = resume.projects.map(item => {
-    if (item.highlights?.length && !item.description.includes(item.highlights[0])) {
+  const projects = (resume.projects || []).map(item => {
+    if (item.highlights?.length && !(item.description || '').includes(item.highlights[0])) {
       changed = true
       const merged = item.description
         ? item.description + '\n- ' + item.highlights.join('\n- ')
@@ -69,6 +70,9 @@ export const useResumeStore = defineStore('resume', () => {
   // 序列化 Worker（persistent 模式：store 生命周期内持续存在，不依赖 onUnmounted）
   const { serialize, parse } = useWorkerSerializer({ persistent: true })
 
+  // 同步锁（模块级单例）
+  const { isLocked } = useSyncLock()
+
   // ========== 初始化就绪 Promise ==========
   // init() 改为异步后，组件需要等待数据加载完成才能安全访问 resumeList
   let _readyResolve!: () => void
@@ -76,16 +80,20 @@ export const useResumeStore = defineStore('resume', () => {
 
   // 初始化：从 IndexedDB 加载数据（首次使用时自动从 localStorage 迁移）
   const init = async () => {
+    // Step 0: 等待 settingsStore 就绪（确保 isDirectoryMode 已正确设置）
+    const settingsStore = useSettingsStore()
+    await settingsStore.ready
+
     // Step 1: 检测并执行 localStorage → IndexedDB 迁移（一次性）
     await migrateFromLocalStorage()
 
-    // Step 2: 从 IndexedDB 加载所有简历
+    // Step 2: 从当前存储后端加载所有简历
     try {
       const loaded = await getAllResumes()
       const migrated = loaded.map(r => migrateHighlights(migrateResumeColors(r)))
       resumeList.value = migrated
 
-      // 如果迁移产生了变化，保存回 IndexedDB
+      // 如果迁移产生了变化，保存回存储
       const needsSave = loaded.some(r =>
         (r.headerTextColor === undefined && r.whiteHeaderText !== undefined)
         || r.workExperience?.some(w => (w as any).highlights?.length)
@@ -120,6 +128,9 @@ export const useResumeStore = defineStore('resume', () => {
 
   // 立即写入 IndexedDB（用于创建/删除等不可丢失操作）
   const saveToStorageNow = async (): Promise<void> => {
+    // 同步期间禁止写入
+    if (isLocked.value) return
+
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
 
     // 先保存完整列表（包含当前简历的最新状态）
@@ -134,6 +145,9 @@ export const useResumeStore = defineStore('resume', () => {
   // 防抖写入 IndexedDB（用于拖拽等高频操作）
   // 使用串行化确保不会出现并发写入导致旧数据覆盖新数据
   const saveToStorage = () => {
+    // 同步期间禁止写入
+    if (isLocked.value) return
+
     if (saveTimer) clearTimeout(saveTimer)
     saveTimer = setTimeout(() => {
       // 串行化：等待上一次保存完成后再执行本次保存
@@ -560,6 +574,32 @@ export const useResumeStore = defineStore('resume', () => {
   // 初始化
   init()
 
+  // ========== 重新加载（目录模式切换后调用） ==========
+
+  /** 从当前存储后端重新加载全部数据 */
+  const reloadFromStorage = async () => {
+    // 清除旧数据的撤销/重做历史
+    clearHistory()
+    try {
+      const loaded = await getAllResumes()
+      const migrated = loaded.map(r => migrateHighlights(migrateResumeColors(r)))
+      resumeList.value = migrated
+
+      const currentId = await getCurrentId()
+      if (currentId) {
+        const resume = resumeList.value.find(r => r.id === currentId)
+        if (resume) {
+          const json = await serialize(resume)
+          currentResume.value = await parse<Resume>(json)
+        }
+      } else {
+        currentResume.value = null
+      }
+    } catch (e) {
+      console.error('[resumeStore] reloadFromStorage 失败:', e)
+    }
+  }
+
   return {
     resumeList,
     currentResume,
@@ -591,5 +631,6 @@ export const useResumeStore = defineStore('resume', () => {
     canRedo,
     undo,
     redo,
+    reloadFromStorage,
   }
 })

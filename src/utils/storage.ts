@@ -275,3 +275,38 @@ export async function setActiveAIConfigId(id: string | null): Promise<void> {
     await db.delete(META_STORE, 'activeAIConfigId')
   }
 }
+
+// ========== 通用 Meta 读写 ==========
+
+/** 获取 meta store 中的值 */
+export async function getMeta<T = unknown>(key: string): Promise<T | undefined> {
+  const db = await getDB()
+  const record = await db.get(META_STORE, key)
+  return record?.value as T | undefined
+}
+
+/** 设置 meta store 中的值 */
+export async function setMeta(key: string, value: unknown): Promise<void> {
+  const db = await getDB()
+  await db.put(META_STORE, { key, value })
+}
+
+/** 删除 meta store 中的某个键 */
+export async function deleteMeta(key: string): Promise<void> {
+  const db = await getDB()
+  await db.delete(META_STORE, key)
+}
+
+// ========== 清空 Store（同步后清理用） ==========
+
+/** 清空 resumes store 中的所有记录 */
+export async function clearResumesStore(): Promise<void> {
+  const db = await getDB()
+  await db.clear(RESUMES_STORE)
+}
+
+/** 清空 aiConfigs store 中的所有记录 */
+export async function clearAIConfigsStore(): Promise<void> {
+  const db = await getDB()
+  await db.clear(AI_CONFIGS_STORE)
+}

@@ -29,8 +29,12 @@
         <ResumeListPanel v-if="activeTab === 'resumes'" />
         <TemplateMarketPanel v-else-if="activeTab === 'templates'" />
         <AISettingsPanel v-else-if="activeTab === 'ai'" />
+        <SettingsPanel v-else-if="activeTab === 'settings'" />
       </div>
     </div>
+
+    <!-- 同步遮罩 -->
+    <SyncOverlay />
   </div>
 </template>
 
@@ -38,24 +42,29 @@
 import { ref, onMounted } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { Icon } from '@iconify/vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
 import ResumeListPanel from '@/components/dashboard/ResumeListPanel.vue'
 import TemplateMarketPanel from '@/components/dashboard/TemplateMarketPanel.vue'
 import AISettingsPanel from '@/components/dashboard/AISettingsPanel.vue'
+import SettingsPanel from '@/components/dashboard/SettingsPanel.vue'
+import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
 
 const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
+const settingsStore = useSettingsStore()
 
-const activeTab = ref<'resumes' | 'templates' | 'ai'>('resumes')
+const activeTab = ref<'resumes' | 'templates' | 'ai' | 'settings'>('resumes')
 const mobileMenuOpen = ref(false)
 
-const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai') => {
+const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'settings') => {
   activeTab.value = tab
   mobileMenuOpen.value = false
 }
 
 onMounted(async () => {
+  await settingsStore.ready
   await store.ready
   await aiConfigStore.ready
   // 无简历时默认显示模版市场
