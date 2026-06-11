@@ -215,7 +215,7 @@ onMounted(async () => {
   &__nav {
     flex-shrink: 0;
     min-width: 200px;
-    background: rgba($bg-primary, 0.6);
+    background: var(--editor-panel-bg);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid $border-glass;
@@ -231,7 +231,7 @@ onMounted(async () => {
 
   &__editor {
     flex-shrink: 0;
-    background: rgba($bg-primary, 0.6);
+    background: var(--editor-panel-bg);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid $border-glass;

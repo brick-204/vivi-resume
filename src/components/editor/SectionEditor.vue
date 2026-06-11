@@ -99,7 +99,7 @@ defineExpose({ scrollToCard })
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: rgba($bg-primary, 0.6);
+  background: var(--editor-panel-bg);
   backdrop-filter: blur(8px);
 }
 

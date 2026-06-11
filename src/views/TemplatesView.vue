@@ -139,9 +139,9 @@ const applyTemplate = async () => {
     align-items: center;
     justify-content: space-between;
     padding: $spacing-md $spacing-xl;
-    background: rgba($bg-primary, 0.8);
+    background: var(--header-bg);
     backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--border-light);
     flex-shrink: 0;
     z-index: 10;
   }
@@ -171,7 +171,7 @@ const applyTemplate = async () => {
   align-items: center;
   gap: $spacing-xs;
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-glass);
   color: $text-secondary;
   padding: $spacing-sm $spacing-md;
   border-radius: $radius-md;
@@ -181,8 +181,8 @@ const applyTemplate = async () => {
 
   &:hover {
     color: $text-primary;
-    border-color: rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-hover);
+    background: var(--hover-bg);
   }
 }
 

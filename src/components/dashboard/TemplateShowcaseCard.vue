@@ -78,8 +78,8 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
   overflow: hidden;
   cursor: pointer;
   transition: all $transition-base;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid var(--border-glass);
+  background: var(--bg-glass);
   display: flex;
   flex-direction: column;
 
@@ -116,9 +116,9 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
 
   &__info {
     padding: $spacing-lg;
-    background: rgba($bg-primary, 0.6);
+    background: var(--card-info-bg);
     backdrop-filter: blur(5px);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border-light);
     flex: 1;
     display: flex;
     flex-direction: column;

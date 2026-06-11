@@ -38,7 +38,7 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
   &__backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--overlay-bg);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
   }
@@ -46,7 +46,7 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
   &__card {
     position: relative;
     z-index: 1;
-    background: rgba($bg-primary, 0.9);
+    background: var(--card-overlay-bg);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid $border-glass;
@@ -55,7 +55,7 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
     min-width: 320px;
     max-width: 420px;
     text-align: center;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-card);
   }
 
   &__spinner {
@@ -72,7 +72,7 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
   &__progress {
     width: 100%;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--progress-track);
     border-radius: 3px;
     overflow: hidden;
     margin-bottom: $spacing-xs;

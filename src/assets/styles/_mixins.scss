@@ -116,7 +116,7 @@
     flex-shrink: 0;
 
     &:hover {
-      background: rgba($text-secondary, 0.15);
+      background: var(--hover-bg);
     }
   }
 
@@ -135,7 +135,7 @@
     flex-shrink: 0;
 
     &:hover {
-      background: rgba($text-secondary, 0.15);
+      background: var(--hover-bg);
     }
   }
 
@@ -183,7 +183,7 @@
     transition: border-color $transition-fast;
 
     &:hover {
-      border-bottom-color: rgba($text-secondary, 0.3);
+      border-bottom-color: var(--border-hover);
     }
 
     &:focus {
@@ -202,8 +202,8 @@
 
 @mixin glass-hover {
   background: $bg-glass-hover;
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-card);
 }
 
 @mixin glass-card {
@@ -240,7 +240,7 @@
 
   &:hover {
     background: $bg-glass-hover;
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--border-hover);
     box-shadow: $shadow-lg;
   }
 }
@@ -344,13 +344,13 @@
   &:focus {
     outline: none;
     border-color: $primary-color;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--input-focus-bg);
     box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15),
                 0 0 20px rgba(124, 92, 252, 0.1);
   }
 
   &:disabled {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--input-disabled-bg);
     cursor: not-allowed;
     opacity: 0.5;
   }
@@ -368,11 +368,11 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--scrollbar-thumb);
     border-radius: $radius-full;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--scrollbar-thumb-hover);
     }
   }
 }
@@ -400,10 +400,10 @@
 }
 
 @mixin glass-effect {
-  background: rgba(255, 255, 255, 0.05);
+  background: $bg-glass;
   backdrop-filter: blur(10px) saturate(1.8);
   -webkit-backdrop-filter: blur(10px) saturate(1.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid $border-glass;
 }
 
 // ==================== 流动光球 ====================
@@ -505,7 +505,7 @@
   height: 14px;
   border-radius: 50%;
   background: $primary-color;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--border-glass);
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
@@ -535,7 +535,7 @@
     height: 14px;
     border-radius: 50%;
     background: $primary-color;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid var(--border-glass);
     cursor: pointer;
   }
 }

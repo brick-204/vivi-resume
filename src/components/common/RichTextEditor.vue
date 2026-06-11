@@ -484,7 +484,7 @@ onBeforeUnmount(() => {
     width: 20px;
     height: 20px;
     border-radius: 3px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid var(--border-hover);
     cursor: pointer;
     transition: transform 0.15s;
     display: flex;
@@ -498,7 +498,7 @@ onBeforeUnmount(() => {
 
     &--clear {
       background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1px solid var(--border-hover);
       color: $error-color;
       font-size: 0;
     }

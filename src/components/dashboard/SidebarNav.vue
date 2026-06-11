@@ -72,7 +72,7 @@ defineEmits<{
   flex-shrink: 0;
   width: 240px;
   height: 100%;
-  background: rgba($bg-primary, 0.6);
+  background: var(--sidebar-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-right: 1px solid $border-glass;

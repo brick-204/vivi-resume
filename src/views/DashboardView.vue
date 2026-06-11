@@ -175,7 +175,7 @@ onMounted(async () => {
 .dashboard__mobile-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay-bg);
   z-index: 90;
 }
 

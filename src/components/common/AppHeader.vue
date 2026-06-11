@@ -30,21 +30,29 @@
       <span v-if="templateName" class="app-header__template-badge">{{ templateName }}</span>
     </div>
 
-    <!-- 右侧：编辑模式操作按钮 -->
-    <div v-if="showEditorRight" class="app-header__right">
-      <button class="header-btn header-btn--eval" @click="emit('ai-eval')">
-        <Icon icon="mdi:star-outline" :width="16" />
-        <span class="header-btn__text">AI 评估</span>
-      </button>
-      <button class="header-btn header-btn--template" @click="emit('change-template')">
-        <Icon icon="mdi:view-grid-outline" :width="16" />
-        <span class="header-btn__text">更换模板</span>
-      </button>
-      <n-dropdown :options="exportOptions" @select="onExportSelect" placement="bottom-end">
-        <button class="header-btn header-btn--export">
-          <Icon icon="mdi:download" :width="16" />
-          <span class="header-btn__text">导出</span>
-          <Icon icon="mdi:chevron-down" :width="16" />
+    <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
+    <div class="app-header__right">
+      <template v-if="showEditorRight">
+        <button class="header-btn header-btn--eval" @click="emit('ai-eval')">
+          <Icon icon="mdi:star-outline" :width="16" />
+          <span class="header-btn__text">AI 评估</span>
+        </button>
+        <button class="header-btn header-btn--template" @click="emit('change-template')">
+          <Icon icon="mdi:view-grid-outline" :width="16" />
+          <span class="header-btn__text">更换模板</span>
+        </button>
+        <n-dropdown :options="exportOptions" @select="onExportSelect" placement="bottom-end">
+          <button class="header-btn header-btn--export">
+            <Icon icon="mdi:download" :width="16" />
+            <span class="header-btn__text">导出</span>
+            <Icon icon="mdi:chevron-down" :width="16" />
+          </button>
+        </n-dropdown>
+      </template>
+
+      <n-dropdown :options="themeOptions" @select="onThemeSelect" placement="bottom-end">
+        <button class="app-header__theme-btn">
+          <Icon :icon="themeIcon" :width="18" />
         </button>
       </n-dropdown>
     </div>
@@ -58,6 +66,8 @@ import type { DropdownOption } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { getTemplate } from '@/config/templates'
+import { useTheme } from '@/composables/useTheme'
+import type { ThemeMode } from '@/composables/useTheme'
 
 defineProps<{
   /** 是否显示编辑模式中间区域（简历名称输入框 + 模板标签） */
@@ -75,6 +85,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useResumeStore()
+const { mode, resolvedTheme, setMode } = useTheme()
 
 const resumeTitle = computed({
   get: () => store.currentResume?.title || '',
@@ -85,6 +96,22 @@ const templateName = computed(() => {
   const id = store.currentResume?.templateId
   return id ? getTemplate(id).name : ''
 })
+
+// 主题图标：浅色时显示月亮（可切换到深色），深色时显示太阳（可切换到浅色）
+const themeIcon = computed(() => {
+  return resolvedTheme.value === 'dark' ? 'mdi:white-balance-sunny' : 'mdi:moon-waning-crescent'
+})
+
+// 主题下拉选项（当前选中项加 ✓ 标识）
+const themeOptions = computed<DropdownOption[]>(() => [
+  { label: mode.value === 'light' ? '✓ ☀️ 浅色模式' : '☀️ 浅色模式', key: 'light' },
+  { label: mode.value === 'dark' ? '✓ 🌙 深色模式' : '🌙 深色模式', key: 'dark' },
+  { label: mode.value === 'system' ? '✓ 💻 跟随系统' : '💻 跟随系统', key: 'system' },
+])
+
+const onThemeSelect = (key: string) => {
+  setMode(key as ThemeMode)
+}
 
 const exportOptions: DropdownOption[] = [
   { label: '导出 JSON', key: 'json' },
@@ -104,7 +131,7 @@ const onExportSelect = (key: string) => {
   justify-content: space-between;
   height: $header-height;
   padding: 0 $spacing-lg;
-  background: rgba($bg-primary, 0.8);
+  background: var(--header-bg);
   backdrop-filter: blur(10px) saturate(1.8);
   -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border-bottom: 1px solid $border-glass;
@@ -175,7 +202,7 @@ const onExportSelect = (key: string) => {
     white-space: nowrap;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.06);
+      background: var(--hover-bg);
       color: $text-primary;
     }
 
@@ -208,7 +235,7 @@ const onExportSelect = (key: string) => {
     &:focus {
       outline: none;
       background: $bg-glass;
-      box-shadow: 0 0 0 2px rgba(124, 92, 252, 0.2);
+      box-shadow: 0 0 0 2px var(--focus-ring);
     }
 
     &::placeholder {
@@ -235,6 +262,27 @@ const onExportSelect = (key: string) => {
     display: flex;
     align-items: center;
     gap: $spacing-sm;
+  }
+
+  &__theme-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-lg;
+    border: 1px solid $border-glass;
+    background: $bg-glass;
+    color: $text-secondary;
+    cursor: pointer;
+    transition: all $transition-fast;
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--hover-bg);
+      color: $text-primary;
+      border-color: var(--border-hover);
+    }
   }
 }
 

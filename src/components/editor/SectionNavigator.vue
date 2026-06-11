@@ -805,7 +805,7 @@ const removeSection = (sectionId: string) => {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid var(--border-hover);
     flex-shrink: 0;
   }
 }
@@ -814,7 +814,7 @@ const removeSection = (sectionId: string) => {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  border: 2px solid var(--border-hover);
   cursor: pointer;
   transition: all $transition-fast;
   flex-shrink: 0;
@@ -900,17 +900,17 @@ const removeSection = (sectionId: string) => {
 .nav-tooltip {
   position: fixed;
   padding: 4px 10px;
-  background: rgba(30, 30, 40, 0.95);
+  background: var(--tooltip-bg);
   backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--tooltip-border);
   border-radius: 6px;
-  color: #f0f0f5;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   pointer-events: none;
   z-index: 10000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--tooltip-shadow);
   animation: tooltip-fade-in 0.15s ease;
 }
 
