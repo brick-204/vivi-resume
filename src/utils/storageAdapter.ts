@@ -7,6 +7,7 @@
  * `@/utils/storage` 改为 `@/utils/storageAdapter`，无需修改任何逻辑。
  */
 
+import { toRaw } from 'vue'
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import * as idb from './storage'
@@ -36,7 +37,7 @@ function getHandle(): FileSystemDirectoryHandle {
 
 /** 剥离 Vue Proxy */
 function toPlain<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value))
+  return structuredClone(toRaw(value as object)) as T
 }
 
 // ========== Resume 操作 ==========
@@ -158,4 +159,14 @@ export async function setActiveAIConfigId(id: string | null): Promise<void> {
 /** localStorage 迁移（仅 IndexedDB 模式需要） */
 export async function migrateFromLocalStorage(): Promise<boolean> {
   return idb.migrateFromLocalStorage()
+}
+
+/** 读取 meta 数据 */
+export async function getMeta<T = unknown>(key: string): Promise<T | undefined> {
+  return idb.getMeta<T>(key)
+}
+
+/** 写入 meta 数据 */
+export async function setMeta(key: string, value: unknown): Promise<void> {
+  return idb.setMeta(key, value)
 }

@@ -17,6 +17,7 @@
         v-for="template in templates"
         :key="template.id"
         :template="template"
+        :preview-resume-data="userResume"
         @use="handleUseTemplate"
       />
     </div>
@@ -24,15 +25,21 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { TEMPLATES } from '@/config/templates'
 import { createResumeFromTemplate } from '@/utils/templateApply'
+import { useResumeStore } from '@/stores/resumeStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import TemplateShowcaseCard from './TemplateShowcaseCard.vue'
 
 const router = useRouter()
+const store = useResumeStore()
 const templates = TEMPLATES
+
+// 如果用户已有简历，用第一份简历的数据预览模板
+const userResume = computed(() => store.currentResume || store.resumeList[0] || undefined)
 
 const handleUseTemplate = async (templateId: string) => {
   try {

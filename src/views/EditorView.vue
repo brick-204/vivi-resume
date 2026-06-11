@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -220,40 +220,18 @@ const exportPDF = async () => {
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  () => store.currentResume,
-  () => {
-    if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => {
-      // saveCurrentResume 已改为异步（Worker 序列化），不阻塞 UI
-      store.saveCurrentResume()
-    }, 1000)
-  },
-  { deep: true }
+  () => store.isDirty,
+  (dirty) => {
+    if (dirty) {
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => {
+        store.saveCurrentResume()
+      }, 1000)
+    }
+  }
 )
 
 onMounted(async () => {
-  // Undo/Redo 全局快捷键（必须在第一个 await 之前注册 onUnmounted）
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!(e.ctrlKey || e.metaKey)) return
-    // 排除焦点在可编辑元素内（这些组件有自己的 undo 逻辑）
-    const tag = (e.target as HTMLElement).tagName
-    const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' ||
-      (e.target as HTMLElement).isContentEditable
-    if (isEditable) return
-
-    if (e.key === 'z' && !e.shiftKey) {
-      e.preventDefault()
-      store.undo()
-    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
-      e.preventDefault()
-      store.redo()
-    }
-  }
-  window.addEventListener('keydown', handleKeyDown)
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown)
-  })
-
   // 等待 store 初始化完成（Worker 异步加载 IndexedDB 数据）
   await store.ready
   await aiConfigStore.ready
@@ -285,8 +263,8 @@ onMounted(async () => {
   height: $header-height;
   padding: 0 $spacing-lg;
   background: rgba($bg-primary, 0.8);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(10px) saturate(1.8);
+  -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border-bottom: 1px solid $border-glass;
   z-index: 100;
 }
@@ -382,8 +360,8 @@ onMounted(async () => {
 
   &--eval {
     background: $bg-glass;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     color: $text-secondary;
     border: 1px solid $border-glass;
 
@@ -397,8 +375,8 @@ onMounted(async () => {
 
   &--template {
     background: $bg-glass;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     color: $text-secondary;
     border: 1px solid $border-glass;
 
@@ -412,8 +390,8 @@ onMounted(async () => {
 
   &--export {
     background: $bg-glass;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     color: $text-secondary;
     border: 1px solid $border-glass;
 
@@ -447,8 +425,8 @@ onMounted(async () => {
     flex-shrink: 0;
     min-width: 200px;
     background: rgba($bg-primary, 0.6);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid $border-glass;
     overflow-x: hidden;
     overflow-y: auto;
@@ -463,8 +441,8 @@ onMounted(async () => {
   &__editor {
     flex-shrink: 0;
     background: rgba($bg-primary, 0.6);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid $border-glass;
     overflow: hidden;
     will-change: width;

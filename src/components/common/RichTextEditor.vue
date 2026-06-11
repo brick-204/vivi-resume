@@ -148,6 +148,7 @@
       :config="aiConfigStore.activeConfig ?? null"
       :operation="currentAIOperation"
       :original-text="aiOriginalText"
+      :prefilled-instruction="props.aiContext"
       @close="onAIPreviewClose"
       @apply="applyAIResult"
     />
@@ -185,6 +186,7 @@ const props = withDefaults(defineProps<{
   rows?: number
   error?: string
   showAIBtns?: boolean
+  aiContext?: string
 }>(), {
   rows: 3,
   showAIBtns: true,

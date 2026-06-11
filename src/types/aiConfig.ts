@@ -6,7 +6,7 @@
 export type AIProvider = 'openai' | 'deepseek' | 'moonshot' | 'siliconflow' | 'openrouter' | 'zhipu' | 'qwen' | 'minimax' | 'baichuan' | 'yi' | 'custom'
 
 // AI 操作类型
-export type AIOperation = 'polish' | 'simplify' | 'expand' | 'summarize' | 'write'
+export type AIOperation = 'polish' | 'simplify' | 'expand' | 'summarize' | 'write' | 'translate' | 'tailor'
 
 // 服务商信息
 export interface AIProviderInfo {
@@ -117,6 +117,8 @@ export const AI_OPERATIONS: { id: AIOperation; label: string; icon: string; minC
   { id: 'expand', label: '扩展', icon: 'mdi:arrow-expand-horizontal', minChars: 30 },
   { id: 'summarize', label: '总结', icon: 'mdi:format-list-bulleted', minChars: 30 },
   { id: 'write', label: '帮写', icon: 'mdi:pencil-plus' },
+  { id: 'translate', label: '翻译', icon: 'mdi:translate', minChars: 10 },
+  { id: 'tailor', label: '定制', icon: 'mdi:target', minChars: 30 },
 ]
 
 // 根据 provider id 获取服务商信息

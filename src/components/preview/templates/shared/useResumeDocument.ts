@@ -275,9 +275,22 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     return !resume.value.basicInfo.hiddenFields?.[field]
   }
 
+  const renderCache = new Map<string, string>()
+  const MAX_CACHE_SIZE = 200
+
   const renderHtml = (value: string | undefined): string => {
     if (!value) return ''
-    return sanitizeHtml(normalizeContent(value))
+    const cached = renderCache.get(value)
+    if (cached !== undefined) return cached
+
+    const result = sanitizeHtml(normalizeContent(value))
+
+    if (renderCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = renderCache.keys().next().value
+      if (firstKey !== undefined) renderCache.delete(firstKey)
+    }
+    renderCache.set(value, result)
+    return result
   }
 
   const formatBirthday = (date: string): string => {

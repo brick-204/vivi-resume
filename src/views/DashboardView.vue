@@ -143,8 +143,8 @@ onMounted(async () => {
   right: 0;
   height: 56px;
   background: rgba($bg-primary, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid $border-glass;
   align-items: center;
   padding: 0 $spacing-md;

@@ -88,8 +88,8 @@ const goHome = () => {
   width: 240px;
   height: 100%;
   background: rgba($bg-primary, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-right: 1px solid $border-glass;
   display: flex;
   flex-direction: column;

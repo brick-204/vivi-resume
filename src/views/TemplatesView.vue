@@ -22,6 +22,7 @@
         :template="template"
         :selected="selectedId === template.id"
         :style-overrides="resumeStyleOverrides"
+        :preview-resume-data="isChangingTemplate ? store.currentResume ?? undefined : undefined"
         @select="selectedId = $event"
       />
     </main>
@@ -139,7 +140,7 @@ const applyTemplate = async () => {
     justify-content: space-between;
     padding: $spacing-md $spacing-xl;
     background: rgba($bg-primary, 0.8);
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
     z-index: 10;

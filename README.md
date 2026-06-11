@@ -4,6 +4,8 @@
 
 ## 功能特性
 
+### 简历编辑
+
 - **8 种简历模板** - 经典、现代、简约、时间轴、优雅、双栏、侧边栏、专业风格
 - **实时预览** - 编辑内容时即时查看简历效果
 - **主题色定制** - 12 种预设主题色 + 自定义 RGBA 取色器
@@ -12,18 +14,29 @@
 - **模块化管理** - 自由添加、删除、排序简历模块（基本信息除外）
 - **拖拽排序** - 模块和基本信息字段均支持拖拽调整顺序
 - **富文本编辑** - 基于 Tiptap 的富文本编辑器，支持加粗、斜体、列表等
-- **AI 文本处理** - 润色、简化、扩展、总结、帮写五种 AI 操作，流式实时生成（兼容 OpenAI API 格式）
-- **AI 简历评估** - 全模块逐一评估（含评分），评估结果自动持久化，下次打开可查看历史
 - **自定义模块** - 支持自定义文本模块和自定义列表模块，数量不限
 - **头部布局** - 居中 / 左对齐+照片居左 / 左对齐+照片居右三种布局
 - **头部配色** - 文字颜色和图标颜色独立设置（黑色 / 白色 / 主题色）
 - **本地图片上传** - 支持本地上传头像照片，Web Worker 异步裁剪处理
 - **智能导航** - 点击左侧模块标签，右侧预览自动滚动到对应区域
-- **撤销/重做** - 支持最多 50 步操作历史
 - **JSON 导入导出** - 导出 JSON 保留全部设置，导入时完整还原
-- **PDF 导出** - 生成可直接打印或发送的 PDF 文件
-- **IndexedDB 存储** - 数据保存在浏览器 IndexedDB，支持照片 Blob 存储
-- **响应式设计** - 适配桌面端和移动端
+- **PDF 导出** - iframe 打印方案，生成可直接打印或发送的 PDF 文件
+
+### AI 辅助
+
+- **7 种 AI 操作** - 润色、简化、扩展、总结、帮写、翻译、JD 定制
+- **SSE 流式生成** - 兼容 OpenAI API 格式，10+ 服务商（DeepSeek、Moonshot、智谱、通义千问等）
+- **自动续写** - 检测 token 截断后自动续写，确保完整输出
+- **空段落上下文预填** - AI 帮写时自动注入当前条目上下文（职位@公司、项目名等）
+- **AI 简历评估** - 全模块逐一评估（含评分），评估结果自动持久化
+- **Token 用量追踪** - 实时显示累计输入/输出 token 用量，防抖持久化
+
+### Dashboard
+
+- **两列布局** - 侧边导航 + 内容区，移动端自动折叠为抽屉
+- **模板市场** - 用户数据实时预览，每个模板展示自身主题色
+- **AI 设置面板** - 多服务商配置管理，Token 用量置顶高亮
+- **目录模式同步** - 绑定本地目录后自动双向同步，支持进度显示和冲突保护
 
 ## 技术栈
 
@@ -32,17 +45,17 @@
 | 框架 | Vue 3.4 + TypeScript 5 |
 | 状态管理 | Pinia 2.1 |
 | 路由 | Vue Router 4.3 |
-| 构建 | Vite 5 |
+| 构建 | Vite 5 + manualChunks 拆包 |
 | 样式 | Sass + CSS 自定义属性 |
 | 拖拽 | vuedraggable 4.1 |
 | 富文本 | Tiptap 3.23 |
-| 图标 | Iconify (mdi + simple-icons) |
+| 图标 | Iconify (mdi + simple-icons)，按需 bundle |
 | UI 组件库 | Naive UI 2.44（AI 弹窗、配置表单等） |
-| AI 文本 | SSE 流式调用（兼容 OpenAI API 格式） |
+| AI 文本 | SSE 流式调用（兼容 OpenAI API 格式）+ 自动续写 |
 | Markdown | marked（解析）+ turndown（反转） |
-| 存储 | IndexedDB (idb 8.0) |
+| 存储 | IndexedDB (idb 8.0)，支持目录模式同步 |
 | 安全 | isomorphic-dompurify |
-| PDF | html2pdf.js |
+| PDF | iframe 打印方案 |
 
 ## 项目结构
 
@@ -51,10 +64,19 @@ src/
 ├── assets/
 │   └── styles/            # 全局样式、变量、混入（含 range-slider、rich-text-content mixin）
 ├── components/
-│   ├── common/            # 公共组件（Modal、Button、Input、RichTextEditor）
+│   ├── common/            # 公共组件（Modal、Button、Input、RichTextEditor、ResizeHandle）
+│   ├── dashboard/         # Dashboard 页面组件
+│   │   ├── SidebarNav.vue         # 侧边导航
+│   │   ├── ResumeListPanel.vue    # 简历列表面板
+│   │   ├── TemplateMarketPanel.vue # 模板市场面板
+│   │   ├── TemplateShowcaseCard.vue # 模板展示卡片
+│   │   ├── AISettingsPanel.vue    # AI 设置面板（Token 用量置顶）
+│   │   ├── SettingsPanel.vue      # 通用设置面板
+│   │   └── SyncOverlay.vue       # 同步遮罩（进度、冲突保护）
 │   ├── editor/            # 编辑器组件
 │   │   ├── sections/      # 各模块编辑组件（BasicInfo、WorkExperience…）
 │   │   ├── SectionNavigator.vue  # 左侧导航 + 主题色 + 文字/间距设置
+│   │   ├── SectionEditor.vue     # 右侧编辑面板
 │   │   └── AddSectionModal.vue   # 添加模块弹窗
 │   ├── preview/           # 预览组件
 │   │   ├── ResumePreview.vue     # 预览容器（页边距控制）
@@ -62,42 +84,55 @@ src/
 │   │   └── templates/     # 8 种模板组件 + 共享样式
 │   │       └── shared/    # base.scss、useResumeDocument、CSS vars
 │   ├── ai/                # AI 功能组件
-│   │   ├── AIConfigModal.vue     # AI 服务配置弹窗
-│   │   ├── AIConfigCard.vue      # AI 服务配置卡片
-│   │   ├── AIButtonGroup.vue     # AI 操作按钮组（润色/简化/扩展/总结/帮写）
-│   │   ├── AIResultPreview.vue   # AI 生成结果预览
-│   │   └── ResumeEvaluationModal.vue  # AI 简历评估弹窗（流式 + 持久化）
+│   │   ├── AIResultPreview.vue   # AI 生成结果预览（7 种操作 + 上下文预填）
+│   │   └── ResumeEvaluationModal.vue  # AI 简历评估弹窗（流式 + 自动续写 + 持久化）
 │   ├── home/              # 首页组件（ResumeCard、ImportModal）
 │   └── template/          # 模板卡片组件
+├── composables/
+│   ├── useWorkerSerializer.ts    # Worker JSON 序列化（toRaw + structuredClone）
+│   ├── useWorkerImageProcessor.ts # Worker 图片处理
+│   ├── useSyncWorker.ts          # 目录同步 Worker
+│   ├── useSyncLock.ts            # 同步锁（防并发）
+│   ├── useScaledPreview.ts       # 缩放预览
+│   ├── useSectionTitle.ts        # 模块标题
+│   ├── useFlipAnimation.ts       # FLIP 动画
+│   └── usePageBreaks.ts          # 分页计算
 ├── config/
 │   ├── templates.ts       # 8 种模板配置（样式、字体默认值、头部模式）
 │   ├── fonts.ts           # 字体选项 + 字号派生逻辑
 │   └── sampleData.ts      # 示例简历数据
 ├── services/
-│   ├── aiService.ts       # AI SSE 流式调用 + OpenAI 兼容 API
-│   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写）
+│   ├── aiService.ts       # AI SSE 流式调用 + 自动续写 + 缓冲区限制
+│   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写/翻译/定制）
 │   └── resumeSerializer.ts # 简历序列化（Resume → 结构化纯文本，供 AI 使用）
 ├── stores/
-│   ├── resumeStore.ts     # Pinia 状态管理（含 undo/redo、评估结果持久化）
-│   ├── aiConfigStore.ts   # AI 服务配置（多服务商、密钥管理）
-│   └── editorLayoutStore.ts # 编辑器布局状态 + localStorage 持久化
+│   ├── resumeStore.ts     # Pinia 状态管理（shallowRef + dirty flag + 评估结果持久化）
+│   ├── aiConfigStore.ts   # AI 服务配置 + Token 用量追踪（防抖持久化）
+│   ├── editorLayoutStore.ts # 编辑器布局状态 + localStorage 持久化
+│   └── settingsStore.ts   # 全局设置（目录模式、存储后端切换）
 ├── types/
 │   ├── resume.ts          # TypeScript 类型 + 默认常量（含 EvaluationResult）
 │   └── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口）
 ├── utils/
-│   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移）
+│   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移、Blob 照片存储）
+│   ├── storageAdapter.ts  # 存储适配层（IndexedDB / 目录模式切换）
 │   ├── colorUtils.ts      # 主题色派生（标题色、标签色等）
+│   ├── resumeStyle.ts     # 简历样式工具（样式覆盖字段剥离）
 │   ├── sanitizeHtml.ts    # HTML 安全过滤
 │   ├── normalizeContent.ts # 内容标准化
 │   ├── markdownConverter.ts # Markdown ↔ HTML 转换（marked + turndown）
-│   └── export.ts          # PDF/JSON 导出
+│   ├── templateApply.ts   # 模板应用逻辑
+│   ├── export.ts          # JSON 导出
+│   └── print.ts           # iframe 打印方案
 ├── plugins/
 │   └── naive-ui.ts        # Naive UI 按需引入 + Provider 注册
 ├── workers/
 │   ├── serializer.worker.ts    # JSON 序列化 Worker
-│   └── imageProcessor.worker.ts # 图片裁剪/缩放 Worker
+│   ├── imageProcessor.worker.ts # 图片裁剪/缩放 Worker
+│   ├── sync.worker.ts          # 目录同步 Worker
+│   └── types.ts                # Worker 消息类型
 ├── views/
-│   ├── HomeView.vue       # 首页（简历列表）
+│   ├── DashboardView.vue  # Dashboard 主页（两列布局）
 │   ├── EditorView.vue     # 编辑器页面（含 AI 评估按钮）
 │   └── TemplatesView.vue  # 模板选择页面
 ├── App.vue
@@ -137,7 +172,7 @@ pnpm preview
 
 ### 创建简历
 
-1. 点击首页「创建新简历」按钮
+1. 在 Dashboard 简历列表中点击「新建简历」按钮
 2. 进入模板选择页面，选择喜欢的模板
 3. 点击「应用模板」进入编辑器（自动填入示例数据）
 
@@ -169,7 +204,6 @@ pnpm preview
 - **删除模块** - 点击模块标签上的「×」按钮（基本信息不可删除）
 - **拖拽排序** - 拖动模块标签左侧的手柄图标调整顺序
 - **导航跳转** - 点击模块标签，预览区自动滚动到对应区域
-- **撤销/重做** - 支持 Ctrl+Z / Ctrl+Shift+Z
 
 ### 更换模板
 
@@ -177,7 +211,7 @@ pnpm preview
 
 ### 导出简历
 
-- **导出 PDF** - 生成可直接打印或发送的 PDF 文件
+- **导出 PDF** - 使用 iframe 打印方案，生成可直接打印或发送的 PDF 文件
 - **导出 JSON** - 保存为 JSON 文件，完整保留模板、主题色、文字/间距设置等全部数据
 
 ### AI 辅助功能
@@ -190,9 +224,11 @@ pnpm preview
 - **简化** - 去除冗余，保留核心信息，使描述更简洁有力
 - **扩展** - 基于 STAR 法则补充合理细节，用量化占位符提示用户补充数据
 - **总结** - 提炼 3-5 个核心要点，生成项目符号列表
-- **帮写** - 根据用户输入的要求撰写简历内容，支持自定义指令
+- **帮写** - 根据用户输入的要求撰写简历内容，支持自定义指令；空段落自动注入上下文
+- **翻译** - 自动检测源语言，在中英文之间翻译，保持格式结构
+- **定制** - 粘贴目标职位 JD，针对性优化简历内容，突出匹配度
 
-所有操作均使用 SSE 流式实时生成，兼容 OpenAI API 格式，支持 10+ 服务商（DeepSeek、Moonshot、智谱、通义千问、硅基流动等）。
+所有操作均使用 SSE 流式实时生成，兼容 OpenAI API 格式，支持 10+ 服务商。当输出因 token 上限截断时，自动检测 `finish_reason: "length"` 并续写，确保完整输出。
 
 #### 简历评估
 
@@ -202,6 +238,7 @@ pnpm preview
 - 每个模块给出优点、不足、可操作建议
 - 生成 0-100 总体评分
 - 评估结果自动持久化，下次打开可查看历史结果
+- 配合自动续写，确保所有模块都能被完整评估
 
 ## 模板展示
 
@@ -218,21 +255,36 @@ pnpm preview
 
 ## 设计特点
 
-- **Glassmorphism** - 玻璃拟态设计风格
+- **Glassmorphism** - 玻璃拟态设计风格，backdrop-filter 适度降级优化性能
 - **深色主题** - 舒适的深色背景配色
 - **Naive UI** - AI 弹窗、配置表单等使用 Naive UI 组件库，可爱风深色主题
 - **流畅动画** - 平滑的过渡和 FLIP 动画效果
 - **CSS 变量** - 模板样式通过 CSS 自定义属性灵活控制，支持主题色 / 字号 / 行高 / 间距全链路传递
-- **Web Worker** - JSON 序列化和图片处理在 Worker 线程完成，不阻塞主线程
+- **Web Worker** - JSON 序列化、图片处理、目录同步在 Worker 线程完成，不阻塞主线程
+- **Reduced Motion** - `prefers-reduced-motion: reduce` 下自动禁用 backdrop-filter
+
+## 性能优化
+
+| 优化项 | 方案 |
+|--------|------|
+| 响应式追踪 | `shallowRef` 管理简历列表，mutation 时整体替换 |
+| 自动保存 | `dirty flag` 替代 `deep watch`，O(1) 判断变更 |
+| Proxy 剥离 | `toRaw()` + `structuredClone()` 替代 `JSON.parse(stringify())` |
+| 代码拆分 | `manualChunks` 拆分 naive-ui、tiptap、vuedraggable |
+| 渲染缓存 | `renderHtml` LRU 缓存（200 条），避免重复 sanitize |
+| SSE 安全 | 缓冲区大小限制（1MB），防止异常响应耗尽内存 |
+| 视觉性能 | backdrop-filter 降级 + reduced-motion 禁用 |
+| Token 持久化 | 用量防抖写入（5 秒），避免高频 IndexedDB 操作 |
 
 ## 数据存储
 
-简历数据存储在浏览器 **IndexedDB**（`vivi-resume` 数据库）：
+简历数据存储在浏览器 **IndexedDB**（`vivi-resume-db` 数据库）：
 
 - 照片以 Blob 形式存储，避免 Base64 字符串占用过多内存
 - 高频写入（拖拽排序）使用 300ms 防抖
 - 串行化写入防止竞态条件
 - 首次启动自动从旧版 localStorage 迁移数据
+- 支持目录模式：绑定本地文件夹后自动双向同步
 
 ## 开发说明
 
@@ -283,18 +335,21 @@ Resume 数据 (resumeStore)
 ### AI 功能架构
 
 ```
-用户操作（润色/评估/…）
-  → aiConfigStore（选择 AI 服务配置）
+用户操作（润色/翻译/评估/…）
+  → aiConfigStore（选择 AI 服务配置 + Token 用量追踪）
     → aiPrompts（构建 system + user messages）
-      → aiService.streamChat（SSE 流式调用 OpenAI 兼容 API）
+      → aiService.streamChat（SSE 流式调用 + 自动续写 + 缓冲区限制）
         → onChunk 回调（实时更新 UI）
+          → onUsage 回调（Token 用量防抖持久化）
 ```
 
 - **服务商支持**：10+ 服务商预设 + 自定义 endpoint，部分服务商需 Vite 开发代理解决 CORS
 - **SSE 代理**：`vite.config.ts` 中 `sseProxy()` 工厂函数统一配置，禁用 `x-accel-buffering` 保证流式响应
+- **自动续写**：检测 `finish_reason: "length"` 后追加 assistant + 续写提示发起新请求，最多续写 3 次
 - **文本处理流程**：Tiptap HTML → turndown 转 Markdown → AI 流式生成 Markdown → marked 转 HTML → sanitizeHtml → 写回编辑器
 - **简历序列化**：`resumeSerializer.ts` 将 Resume 对象转为结构化纯文本，空模块标记为`（未填写）`
 - **评估持久化**：结果存储在 `Resume.lastEvaluation`（IndexedDB 自动兼容新字段），使用 `saveToStorageNow()` 立即写入
+- **Token 用量**：`aiConfigStore.totalTokens` 累加输入/输出/总计，5 秒防抖写入 IndexedDB `meta` store
 
 ## License
 

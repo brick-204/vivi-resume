@@ -15,7 +15,15 @@ import {
   deleteAIConfig as deleteAIConfigFromStorage,
   getActiveAIConfigId,
   setActiveAIConfigId,
+  getMeta,
+  setMeta,
 } from '@/utils/storageAdapter'
+
+export interface TokenUsage {
+  prompt: number
+  completion: number
+  total: number
+}
 
 export const useAIConfigStore = defineStore('aiConfig', () => {
   const configs = ref<AIServiceConfig[]>([])
@@ -23,6 +31,9 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
 
   // 同步锁
   const { isLocked } = useSyncLock()
+
+  // Token 用量追踪
+  const totalTokens = ref<TokenUsage>({ prompt: 0, completion: 0, total: 0 })
 
   // ========== 初始化就绪 Promise（与 resumeStore 一致）==========
   let _readyResolve!: () => void
@@ -61,6 +72,16 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       console.error('[aiConfigStore] 初始化失败:', e)
     } finally {
       _readyResolve()
+    }
+
+    // 加载历史 token 用量
+    try {
+      const savedUsage = await getMeta<TokenUsage>('aiTokenUsage')
+      if (savedUsage) {
+        totalTokens.value = savedUsage
+      }
+    } catch {
+      // token 用量加载失败不影响初始化
     }
   }
 
@@ -149,6 +170,47 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     await setActiveAIConfigId(id)
   }
 
+  /** 累加 token 用量（内存），防抖持久化到 IndexedDB */
+  let _usageSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+  const addUsage = (usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }) => {
+    totalTokens.value = {
+      prompt: totalTokens.value.prompt + (usage.prompt_tokens || 0),
+      completion: totalTokens.value.completion + (usage.completion_tokens || 0),
+      total: totalTokens.value.total + (usage.total_tokens || 0),
+    }
+    // 防抖持久化：5 秒内不再有新 usage 才写入 IndexedDB
+    if (_usageSaveTimer) clearTimeout(_usageSaveTimer)
+    _usageSaveTimer = setTimeout(async () => {
+      _usageSaveTimer = null
+      try {
+        await setMeta('aiTokenUsage', totalTokens.value)
+      } catch {
+        // 持久化失败不影响功能
+      }
+    }, 5000)
+  }
+
+  /** 立即持久化 token 用量（防抖窗口内关闭页面时调用） */
+  const flushUsage = async () => {
+    if (_usageSaveTimer) {
+      clearTimeout(_usageSaveTimer)
+      _usageSaveTimer = null
+    }
+    try {
+      await setMeta('aiTokenUsage', totalTokens.value)
+    } catch {
+      // 持久化失败不影响功能
+    }
+  }
+
+  // 页面关闭时 flush 未持久化的 token 用量
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+      if (_usageSaveTimer) flushUsage()
+    })
+  }
+
   // 初始化
   init()
 
@@ -181,6 +243,9 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     activeConfig,
     hasConfigs,
     ready,
+    totalTokens,
+    addUsage,
+    flushUsage,
     addConfig,
     updateConfig,
     deleteConfig,

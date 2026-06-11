@@ -287,9 +287,12 @@ const startEvaluation = async () => {
         }
         resultText.value += chunk
       },
-      abortController.signal,
-      () => {
-        // onConnected 已在 onChunk 内部处理
+      {
+        signal: abortController.signal,
+        onUsage: (usage) => {
+          aiConfigStore.addUsage(usage)
+        },
+        maxTokens: 4096, // 配合自动续写，单次 4096 足长输出截断后自动续写
       },
     )
   } catch (err) {

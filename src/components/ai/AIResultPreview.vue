@@ -125,13 +125,17 @@ import { AI_OPERATIONS } from '@/types/aiConfig'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import { performAIOperation, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+
+const aiConfigStore = useAIConfigStore()
 
 const props = defineProps<{
   visible: boolean
   config: AIServiceConfig | null
   operation: AIOperation | null
   originalText: string
+  prefilledInstruction?: string
 }>()
 
 const emit = defineEmits<{
@@ -186,6 +190,11 @@ const canStart = computed(() => {
   if (selectedOperation.value === 'write') {
     return localCustomInstruction.value.trim().length > 0
   }
+  // 定制模式需要原文 + JD
+  if (selectedOperation.value === 'tailor') {
+    if (selectedOpMinChars.value && charCount.value < selectedOpMinChars.value) return false
+    return localCustomInstruction.value.trim().length > 0
+  }
   // 其他操作需满足字数要求
   if (selectedOpMinChars.value && charCount.value < selectedOpMinChars.value) {
     return false
@@ -197,6 +206,9 @@ const canStart = computed(() => {
 const instructionPlaceholder = computed(() => {
   if (selectedOperation.value === 'write') {
     return '请输入撰写要求，如：写一段前端开发的工作经历...'
+  }
+  if (selectedOperation.value === 'tailor') {
+    return '粘贴目标职位的职位描述 (JD)... Ctrl+Enter 快速开始'
   }
   return '输入额外要求（可选），如：使用更正式的语气、突出技术细节... Ctrl+Enter 快速开始'
 })
@@ -242,7 +254,7 @@ watch(() => props.visible, (val) => {
     isStreaming.value = false
     isConnected.value = false
     elapsedSeconds.value = 0
-    localCustomInstruction.value = ''
+    localCustomInstruction.value = props.prefilledInstruction || ''
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
       elapsedTimer = null
@@ -296,11 +308,16 @@ const startGenerate = async () => {
       (chunk) => {
         resultText.value += chunk
       },
-      abortController.signal,
-      localCustomInstruction.value,
-      () => {
-        // 首个 chunk 到达，连接已建立
-        isConnected.value = true
+      {
+        signal: abortController.signal,
+        customInstruction: localCustomInstruction.value,
+        onConnected: () => {
+          // 首个 chunk 到达，连接已建立
+          isConnected.value = true
+        },
+        onUsage: (usage) => {
+          aiConfigStore.addUsage(usage)
+        },
       },
     )
   } catch (err) {

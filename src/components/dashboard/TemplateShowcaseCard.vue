@@ -3,7 +3,7 @@
     <!-- 预览区 -->
     <div class="template-showcase-card__preview" ref="previewContainer">
       <div class="template-showcase-card__scale" :style="scaleStyle">
-        <ResumeDocument :resume="sampleResume" :template-id="template.id" />
+        <ResumeDocument :resume="displayResume" :template-id="template.id" />
       </div>
     </div>
 
@@ -35,8 +35,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TemplateConfig } from '@/config/templates'
+import type { Resume } from '@/types/resume'
 import { getSampleResume } from '@/config/sampleData'
 import { useScaledPreview } from '@/composables/useScaledPreview'
+import { stripStyleOverrides } from '@/utils/resumeStyle'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 import { Icon } from '@iconify/vue'
 
@@ -49,6 +51,7 @@ const LAYOUT_LABELS: Record<string, string> = {
 
 const props = defineProps<{
   template: TemplateConfig
+  previewResumeData?: Resume
 }>()
 
 defineEmits<{
@@ -57,9 +60,15 @@ defineEmits<{
 
 const sampleResume = getSampleResume()
 
+// 有用户真实数据时使用用户内容数据，但剥离样式覆盖字段，让每个模板展示自己的主题色
+const displayResume = computed(() => {
+  const base = props.previewResumeData || sampleResume
+  return { ...stripStyleOverrides(base), templateId: props.template.id } as Resume
+})
+
 const layoutLabel = computed(() => LAYOUT_LABELS[props.template.style.headerLayout] || '自定义布局')
 
-const { previewContainer, scaleStyle } = useScaledPreview(() => sampleResume.pagePadding)
+const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.value.pagePadding)
 </script>
 
 <style lang="scss" scoped>
@@ -108,7 +117,7 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => sampleResume.pag
   &__info {
     padding: $spacing-lg;
     background: rgba($bg-primary, 0.6);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(5px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     flex: 1;
     display: flex;

@@ -68,7 +68,7 @@
                 </div>
               </div>
             </div>
-            <RichTextEditor v-model="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" />
+            <RichTextEditor v-model="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" :ai-context="`${item.school || '学校'}`" />
           </div>
         </div>
       </template>
@@ -174,8 +174,8 @@ defineExpose({ addItem })
     padding: $spacing-xl;
     color: $text-light;
     background: $bg-glass;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border: 1px dashed $border-glass;
     border-radius: $radius-xl;
   }

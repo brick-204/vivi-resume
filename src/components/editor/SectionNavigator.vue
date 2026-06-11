@@ -901,7 +901,7 @@ const removeSection = (sectionId: string) => {
   position: fixed;
   padding: 4px 10px;
   background: rgba(30, 30, 40, 0.95);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   color: #f0f0f5;

@@ -9,7 +9,7 @@
  * - 支持 persistent 模式（不依赖 onUnmounted，适用于 Pinia store）
  */
 
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, toRaw } from 'vue'
 import { nextRequestId } from '@/workers/types'
 
 // 单例 Worker — 序列化操作全局共享一个 Worker 实例，避免重复创建
@@ -64,14 +64,10 @@ export function useWorkerSerializer(options?: UseWorkerSerializerOptions) {
   /**
    * 剥离 Vue Proxy：将 reactive/ref 数据转为纯 JS 对象。
    * Worker 的 postMessage 使用结构化克隆算法，无法克隆 Vue 的 Proxy 对象。
-   * 通过 JSON 往返可以剥离所有 Vue 内部属性，得到可安全传递的纯数据。
-   *
-   * 注意：这本身就是同步的 JSON.stringify/parse，对于大对象仍有开销。
-   * 但相比直接在主线程做最终的 JSON.stringify 输出，这里只是"清洗"Proxy，
-   * 真正耗时的序列化逻辑（如含 base64 头像的大 JSON）仍在 Worker 中完成。
+   * 使用 toRaw() 剥离 Proxy（O(1)），再 structuredClone 深拷贝确保纯数据。
    */
   const unwrapProxy = <T>(data: T): T => {
-    return JSON.parse(JSON.stringify(data))
+    return structuredClone(toRaw(data as object)) as T
   }
 
   // ========== Worker 消息收发（带请求 ID 隔离） ==========

@@ -12,6 +12,24 @@
       </button>
     </div>
 
+    <!-- Token 用量（置顶高亮） -->
+    <div v-if="aiConfigStore.totalTokens.total > 0" class="panel__usage">
+      <div class="panel__usage-icon">
+        <Icon icon="mdi:chart-bar" :width="20" />
+      </div>
+      <div class="panel__usage-body">
+        <div class="panel__usage-total">
+          {{ aiConfigStore.totalTokens.total.toLocaleString() }}
+          <span class="panel__usage-unit">tokens</span>
+        </div>
+        <div class="panel__usage-detail">
+          <span>输入 <strong>{{ aiConfigStore.totalTokens.prompt.toLocaleString() }}</strong></span>
+          <span class="panel__usage-sep">·</span>
+          <span>输出 <strong>{{ aiConfigStore.totalTokens.completion.toLocaleString() }}</strong></span>
+        </div>
+      </div>
+    </div>
+
     <!-- 空状态 -->
     <div v-if="!aiConfigStore.hasConfigs" class="panel__empty">
       <Icon icon="mdi:robot-confused-outline" :width="64" />
@@ -211,6 +229,66 @@ const handleDeactivate = async () => {
   gap: 4px;
   margin-top: $spacing-lg;
   font-size: $font-size-xs;
+  color: $text-light;
+}
+
+.panel__usage {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+  padding: $spacing-md $spacing-lg;
+  background: linear-gradient(135deg, rgba(124, 92, 252, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%);
+  border: 1px solid rgba(124, 92, 252, 0.25);
+  border-radius: $radius-lg;
+}
+
+.panel__usage-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-md;
+  background: rgba(124, 92, 252, 0.15);
+  color: $primary-light;
+  flex-shrink: 0;
+}
+
+.panel__usage-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel__usage-total {
+  font-size: $font-size-lg;
+  font-weight: 700;
+  color: $text-primary;
+  line-height: 1.2;
+}
+
+.panel__usage-unit {
+  font-size: $font-size-xs;
+  font-weight: 500;
+  color: $primary-light;
+  margin-left: 4px;
+}
+
+.panel__usage-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+
+  strong {
+    color: $text-primary;
+    font-weight: 600;
+  }
+}
+
+.panel__usage-sep {
   color: $text-light;
 }
 </style>

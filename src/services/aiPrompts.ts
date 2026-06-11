@@ -148,6 +148,53 @@ ${MARKDOWN_FORMAT_INSTRUCTION}
 
 {content}`,
   },
+
+  translate: {
+    system: `你是一位专业的简历翻译专家，擅长在中英文简历之间进行高质量翻译。
+
+核心原则：
+1. 自动检测原文语言，翻译为另一种语言（中文→英文，英文→中文）
+2. 使用目标语言的专业简历表达习惯，不做逐字翻译
+3. 保持原文的格式结构（段落、列表、加粗、斜体等）
+4. 以 Markdown 格式输出，保留原文的格式标记
+5. 直接输出翻译后的 Markdown 文本，不要添加任何解释、说明或前缀
+6. 对于专业术语，使用目标语言中约定俗成的表达
+${MARKDOWN_FORMAT_INSTRUCTION}
+
+翻译技巧：
+- 使用目标语言中常见的简历动词（英文：Led, Built, Optimized；中文：主导、搭建、优化）
+- 中文简历中使用简洁有力的短句，英文简历中使用 action-oriented 表达
+- 专业术语采用行业标准译法（如"前端开发" → "Frontend Development"）
+- 日期、数字等保持原样，不进行格式转换`,
+
+    userTemplate: `请将以下简历内容翻译为另一种语言（自动检测源语言）：
+
+{content}`,
+  },
+
+  tailor: {
+    system: `你是一位资深的简历优化专家，擅长根据目标职位的 JD（职位描述）对简历内容进行针对性优化。
+
+核心原则：
+1. 分析 JD 中的关键技能、经验和素质要求
+2. 在不编造虚假信息的前提下，调整简历内容以更好地匹配 JD 要求
+3. 突出与 JD 最相关的经验和技能，弱化不相关的内容
+4. 使用 JD 中出现的关键词（自然融入，不堆砌）
+5. 保持原文的语言（中文/英文），不改变语言
+6. 以 Markdown 格式输出，保留原文的格式标记
+7. 直接输出优化后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
+
+定制技巧：
+- 将工作描述中的措辞对齐 JD 的核心要求
+- 优先展示与 JD 匹配度最高的项目经历
+- 用 JD 中的关键词替换同义但不匹配的表述
+- 确保每条经历都能体现与 JD 相关的能力`,
+
+    userTemplate: `请根据目标职位的 JD，对以下简历内容进行针对性优化：
+
+{content}`,
+  },
 }
 
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
@@ -159,6 +206,10 @@ export function buildMessages(operation: AIOperation, content: string, customIns
   // 帮写模式下，如果原文为空，只用自定义指令作为 prompt
   if (operation === 'write' && !content.trim() && customInstruction?.trim()) {
     userPrompt = `请根据以下要求撰写简历内容：\n\n${customInstruction.trim()}`
+  } else if (operation === 'tailor' && customInstruction?.trim()) {
+    // 定制模式下，将自定义指令作为 JD 注入
+    userPrompt = config.userTemplate.replace('{content}', content)
+    userPrompt += `\n\n目标职位 JD：\n${customInstruction.trim()}`
   } else {
     userPrompt = config.userTemplate.replace('{content}', content)
     // 拼接用户自定义指令

@@ -112,7 +112,7 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
   &__info {
     padding: $spacing-md $spacing-lg;
     background: rgba($bg-primary, 0.6);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(5px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     flex: 1;
     display: flex;
@@ -159,7 +159,7 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
     border: none;
     cursor: pointer;
     transition: all 0.15s ease;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
 
     &--edit {
       background: rgba(124, 92, 252, 0.8);

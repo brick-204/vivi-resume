@@ -194,8 +194,8 @@
 
 @mixin glass {
   background: $bg-glass;
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(10px) saturate(1.8);
+  -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border: 1px solid $border-glass;
   border-radius: $radius-xl;
 }
@@ -231,8 +231,8 @@
 // ==================== 卡片样式 ====================
 @mixin card {
   background: $bg-glass;
-  backdrop-filter: blur(16px) saturate(1.5);
-  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  backdrop-filter: blur(8px) saturate(1.5);
+  -webkit-backdrop-filter: blur(8px) saturate(1.5);
   border: 1px solid $border-glass;
   border-radius: $radius-xl;
   box-shadow: $shadow-md;
@@ -296,8 +296,8 @@
 @mixin button-secondary {
   @include button-base;
   background: $bg-glass;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   color: $text-primary;
   border: 1px solid $border-glass;
 
@@ -332,8 +332,8 @@
   font-size: $font-size-sm;
   color: $text-primary;
   background: $bg-glass;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   transition: all $transition-base;
   font-family: $font-family;
 
@@ -401,8 +401,8 @@
 
 @mixin glass-effect {
   background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  backdrop-filter: blur(10px) saturate(1.8);
+  -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -537,5 +537,18 @@
     background: $primary-color;
     border: 2px solid rgba(255, 255, 255, 0.2);
     cursor: pointer;
+  }
+}
+
+// ==================== Reduced Motion ====================
+// prefers-reduced-motion 用户意图是减少动画，backdrop-filter 本身是视觉效果而非动画，
+// 完全禁用会让 glassmorphism 变成纯透明背景、影响可读性。
+// 因此仅降低 blur 值而非禁用，同时禁用 transition/animation。
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    backdrop-filter: blur(2px) !important;
+    -webkit-backdrop-filter: blur(2px) !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

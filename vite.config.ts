@@ -20,6 +20,28 @@ export default defineConfig({
       deleteOriginFile: false,
     }),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'naive-ui': ['naive-ui'],
+          'tiptap': [
+            '@tiptap/vue-3',
+            '@tiptap/starter-kit',
+            '@tiptap/extension-color',
+            '@tiptap/extension-highlight',
+            '@tiptap/extension-link',
+            '@tiptap/extension-placeholder',
+            '@tiptap/extension-text-align',
+            '@tiptap/extension-text-style',
+            '@tiptap/extension-underline',
+            '@tiptap/pm',
+          ],
+          'vuedraggable': ['vuedraggable'],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')

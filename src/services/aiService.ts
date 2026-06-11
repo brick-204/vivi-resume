@@ -92,139 +92,194 @@ interface ChatMessage {
   content: string
 }
 
+/** streamChat 可选参数 */
+export interface StreamChatOptions {
+  /** 取消信号 */
+  signal?: AbortSignal
+  /** 连接建立、首个 chunk 到达时的回调（用于更新 UI 状态） */
+  onConnected?: () => void
+  /** token 用量回调（每次续写请求单独上报） */
+  onUsage?: (usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }) => void
+  /** 单次请求最大生成 token 数（建议 4096，配合自动续写兜底） */
+  maxTokens?: number
+}
+
 /**
- * 流式调用 OpenAI 兼容 API
+ * 流式调用 OpenAI 兼容 API（带自动续写）
+ *
+ * 当 AI 因达到 max_tokens 上限而截断时（finish_reason === 'length'），
+ * 自动将已生成内容追加为 assistant 消息 + 续写提示发起新请求，
+ * 对调用方完全透明，onChunk 持续接收直至完整输出。
+ *
  * @param config AI 服务配置
  * @param messages 消息列表
  * @param onChunk 每收到一段文本时的回调
- * @param signal 取消信号
- * @param onConnected 连接建立、首个 chunk 到达时的回调（用于更新 UI 状态）
+ * @param options 可选参数（signal、onConnected、onUsage、maxTokens）
  */
 export async function streamChat(
   config: AIServiceConfig,
   messages: ChatMessage[],
   onChunk: (text: string) => void,
-  signal?: AbortSignal,
-  onConnected?: () => void,
+  options: StreamChatOptions = {},
 ): Promise<void> {
-  const url = getRequestUrl(config)
+  const { signal, onConnected, onUsage, maxTokens } = options
+  const MAX_CONTINUATIONS = 3          // 最大续写次数，防止无限循环
+  const conversationMessages: ChatMessage[] = [...messages]
+  let accumulatedText = ''              // 跨续写累积的完整文本
+  let hasConnected = false              // onConnected 仅首次触发
 
-  let response: Response
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.modelId,
-        messages,
-        stream: true,
-        temperature: 0.7,
-      }),
-      signal,
-    })
-  } catch (err: unknown) {
-    // 网络错误分类
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      return // 用户取消，静默返回
-    }
-    if (err instanceof TypeError) {
-      // TypeError 通常是 CORS 或网络不可达
-      throw new AIServiceError('网络请求被阻止，可能是 CORS 限制或网络不可达', 'cors')
-    }
-    throw new AIServiceError('网络连接失败', 'network')
-  }
+  for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
+    // ---- 发起请求 ----
+    const url = getRequestUrl(config)
 
-  // HTTP 状态码检查
-  if (!response.ok) {
-    const status = response.status
-    if (status === 401 || status === 403) {
-      throw new AIServiceError('API Key 无效或无权限', 'auth')
-    }
-    if (status === 429) {
-      throw new AIServiceError('请求过于频繁', 'rate_limit')
-    }
-    // 尝试读取错误详情
-    let detail = ''
+    let response: Response
     try {
-      const body = await response.json()
-      detail = body?.error?.message || body?.message || ''
-    } catch { /* ignore */ }
-    throw new AIServiceError(
-      detail || `请求失败 (${status})`,
-      status >= 500 ? 'network' : 'unknown',
-    )
-  }
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: config.modelId,
+          messages: conversationMessages,
+          stream: true,
+          temperature: 0.7,
+          ...(maxTokens ? { max_tokens: maxTokens } : {}),
+        }),
+        signal,
+      })
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (err instanceof TypeError) {
+        throw new AIServiceError('网络请求被阻止，可能是 CORS 限制或网络不可达', 'cors')
+      }
+      throw new AIServiceError('网络连接失败', 'network')
+    }
 
-  // 解析 SSE 流
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new AIServiceError('响应体不可读', 'invalid_response')
-  }
+    // HTTP 状态码检查
+    if (!response.ok) {
+      const status = response.status
+      if (status === 401 || status === 403) {
+        throw new AIServiceError('API Key 无效或无权限', 'auth')
+      }
+      if (status === 429) {
+        throw new AIServiceError('请求过于频繁', 'rate_limit')
+      }
+      let detail = ''
+      try {
+        const body = await response.json()
+        detail = body?.error?.message || body?.message || ''
+      } catch { /* ignore */ }
+      throw new AIServiceError(
+        detail || `请求失败 (${status})`,
+        status >= 500 ? 'network' : 'unknown',
+      )
+    }
 
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let connected = false  // onConnected 仅首次调用
+    // ---- 解析 SSE 流 ----
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new AIServiceError('响应体不可读', 'invalid_response')
+    }
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let finishReason: string | null = null
+    const MAX_BUFFER_SIZE = 1024 * 1024
+    let totalBufferedSize = 0
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      // 最后一行可能不完整，保留到下次
-      buffer = lines.pop() || ''
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
 
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || trimmed.startsWith(':')) continue // 空行或注释
-        if (trimmed === 'data: [DONE]') return
+        buffer += decoder.decode(value, { stream: true })
+        totalBufferedSize += value?.byteLength || 0
+        if (totalBufferedSize > MAX_BUFFER_SIZE) {
+          throw new AIServiceError('响应数据超过大小限制 (1MB)', 'invalid_response')
+        }
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
 
-        if (trimmed.startsWith('data: ')) {
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || trimmed.startsWith(':')) continue
+          if (trimmed === 'data: [DONE]') continue  // 结束当前 SSE 流，不 return（可能需要续写）
+
+          if (trimmed.startsWith('data: ')) {
+            const jsonStr = trimmed.slice(6)
+            try {
+              const parsed = JSON.parse(jsonStr)
+              const choice = parsed?.choices?.[0]
+              const content = choice?.delta?.content
+              if (content) {
+                accumulatedText += content
+                onChunk(content)
+                if (!hasConnected) {
+                  hasConnected = true
+                  onConnected?.()
+                }
+              }
+              // 提取 finish_reason（最后一个 chunk 携带）
+              if (choice?.finish_reason) {
+                finishReason = choice.finish_reason
+              }
+              if (parsed?.usage && onUsage) {
+                onUsage(parsed.usage)
+              }
+            } catch {
+              // 单行 JSON 解析失败，跳过
+            }
+          }
+        }
+      }
+
+      // 流结束后排空缓冲区残余内容
+      if (buffer.trim()) {
+        const trimmed = buffer.trim()
+        if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
           const jsonStr = trimmed.slice(6)
           try {
             const parsed = JSON.parse(jsonStr)
-            const content = parsed?.choices?.[0]?.delta?.content
-            if (content) {
-              onChunk(content)
-              // 仅首次收到内容时通知连接已建立
-              if (!connected) {
-                connected = true
-                onConnected?.()
-              }
+            const choice = parsed?.choices?.[0]
+            if (choice?.delta?.content) {
+              accumulatedText += choice.delta.content
+              onChunk(choice.delta.content)
             }
-          } catch {
-            // 单行 JSON 解析失败，跳过
-          }
+            if (choice?.finish_reason) {
+              finishReason = choice.finish_reason
+            }
+          } catch { /* skip */ }
         }
       }
+    } finally {
+      reader.releaseLock()
     }
 
-    // 流结束后排空缓冲区残余内容
-    if (buffer.trim()) {
-      const trimmed = buffer.trim()
-      if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
-        const jsonStr = trimmed.slice(6)
-        try {
-          const parsed = JSON.parse(jsonStr)
-          const content = parsed?.choices?.[0]?.delta?.content
-          if (content) {
-            onChunk(content)
-          }
-        } catch {
-          // 最后一块 JSON 解析失败，跳过
-        }
-      }
+    // ---- 续写判定 ----
+    if (finishReason !== 'length') break    // 正常结束（stop）或未知，直接退出
+    if (attempt >= MAX_CONTINUATIONS) {
+      // 达到最大续写次数，输出可能被截断
+      console.warn('[aiService] 达到最大续写次数，输出可能不完整')
+      break
     }
-  } finally {
-    reader.releaseLock()
+
+    // 追加已生成的 assistant 回复 + 续写提示，对调用方透明
+    conversationMessages.push(
+      { role: 'assistant', content: accumulatedText },
+      { role: 'user', content: '请继续，从你中断的地方接着说，不要重复已经说过的内容。' },
+    )
   }
 }
 
 // ========== 便捷方法 ==========
+
+/** performAIOperation 可选参数 */
+export interface PerformAIOperationOptions extends StreamChatOptions {
+  /** 自定义指令（帮写/定制模式） */
+  customInstruction?: string
+}
 
 /**
  * 执行 AI 文本操作
@@ -232,19 +287,18 @@ export async function streamChat(
  * @param operation 操作类型
  * @param content 纯文本内容
  * @param onChunk 流式回调
- * @param signal 取消信号
+ * @param options 可选参数（signal、customInstruction、onConnected、onUsage、maxTokens）
  */
 export async function performAIOperation(
   config: AIServiceConfig,
   operation: AIOperation,
   content: string,
   onChunk: (text: string) => void,
-  signal?: AbortSignal,
-  customInstruction?: string,
-  onConnected?: () => void,
+  options: PerformAIOperationOptions = {},
 ): Promise<void> {
+  const { customInstruction, ...streamOptions } = options
   const messages = buildMessages(operation, content, customInstruction)
-  await streamChat(config, messages, onChunk, signal, onConnected)
+  await streamChat(config, messages, onChunk, streamOptions)
 }
 
 /**

@@ -69,6 +69,7 @@
               label="项目描述"
               placeholder="描述项目背景、你的职责和成果..."
               :rows="3"
+              :ai-context="`${item.name || '项目'}`"
             />
             <div class="tech-section">
               <label class="tech__label">技术栈</label>
@@ -202,8 +203,8 @@ defineExpose({ addItem });
     padding: $spacing-xl;
     color: $text-light;
     background: $bg-glass;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border: 1px dashed $border-glass;
     border-radius: $radius-xl;
   }

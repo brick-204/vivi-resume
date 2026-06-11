@@ -7,11 +7,12 @@
  */
 
 import { openDB, type IDBPDatabase } from 'idb'
+import { toRaw } from 'vue'
 import type { Resume, BasicInfo } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 
 const DB_NAME = 'vivi-resume-db'
-const DB_VERSION = 2
+const DB_VERSION = 4
 const RESUMES_STORE = 'resumes'
 const META_STORE = 'meta'
 const AI_CONFIGS_STORE = 'aiConfigs'
@@ -46,6 +47,10 @@ async function getDB(): Promise<IDBPDatabase> {
       // v2: 新增 AI 配置 store
       if (oldVersion < 2 && !db.objectStoreNames.contains(AI_CONFIGS_STORE)) {
         db.createObjectStore(AI_CONFIGS_STORE, { keyPath: 'id' })
+      }
+      // v3→v4: 清理 v3 遗留的 thumbnails store（如有）
+      if (oldVersion < 4 && db.objectStoreNames.contains('thumbnails')) {
+        db.deleteObjectStore('thumbnails')
       }
     },
   })
@@ -86,7 +91,7 @@ export function blobToBase64(blob: Blob): Promise<string> {
 
 /** 递归剥离 Vue Proxy，返回可被 structured clone 的纯对象 */
 function toPlain<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value))
+  return structuredClone(toRaw(value as object)) as T
 }
 
 // ========== Resume ↔ StoredResume 转换 ==========

@@ -39,16 +39,16 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
     position: absolute;
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 
   &__card {
     position: relative;
     z-index: 1;
     background: rgba($bg-primary, 0.9);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid $border-glass;
     border-radius: $radius-xl;
     padding: $spacing-2xl $spacing-2xl;

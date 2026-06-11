@@ -200,8 +200,8 @@ const handleImportFile = async (file: File) => {
 
   &--secondary {
     background: $bg-glass;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     color: $text-primary;
     border: 1px solid $border-glass;
 

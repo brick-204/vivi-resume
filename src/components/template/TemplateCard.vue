@@ -25,9 +25,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TemplateConfig } from '@/config/templates'
-import type { HeaderTextColor, HeaderIconColor } from '@/types/resume'
+import type { Resume, HeaderTextColor, HeaderIconColor } from '@/types/resume'
 import { getSampleResume } from '@/config/sampleData'
 import { useScaledPreview } from '@/composables/useScaledPreview'
+import { stripStyleOverrides } from '@/utils/resumeStyle'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 
 interface StyleOverrides {
@@ -46,6 +47,7 @@ const props = defineProps<{
   template: TemplateConfig
   selected: boolean
   styleOverrides?: StyleOverrides
+  previewResumeData?: Resume
 }>()
 
 defineEmits<{
@@ -54,10 +56,12 @@ defineEmits<{
 
 const sampleResume = getSampleResume()
 
-// 合并样式覆盖：更换模板时预览使用当前简历的样式配置
+// 合并样式覆盖：有用户真实数据时使用用户内容数据，但剥离样式覆盖字段，让每个模板展示自己的主题色
 const previewResume = computed(() => {
-  if (!props.styleOverrides) return sampleResume
-  return { ...sampleResume, ...props.styleOverrides }
+  const base = props.previewResumeData || sampleResume
+  const contentOnly = stripStyleOverrides(base)
+  if (!props.styleOverrides) return { ...contentOnly, templateId: props.template.id } as Resume
+  return { ...contentOnly, ...props.styleOverrides, templateId: props.template.id } as Resume
 })
 
 const { previewContainer, scaleStyle } = useScaledPreview(() => previewResume.value.pagePadding)
@@ -113,7 +117,7 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => previewResume.va
   &__info {
     padding: $spacing-md $spacing-lg;
     background: rgba($bg-primary, 0.6);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(5px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     flex: 1;
     display: flex;

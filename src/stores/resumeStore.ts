@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, shallowRef } from 'vue'
 import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult } from '@/types/resume'
 import {
   createEmptyResume,
@@ -59,10 +59,13 @@ const migrateHighlights = (resume: Resume): Resume => {
 
 export const useResumeStore = defineStore('resume', () => {
   // 简历列表
-  const resumeList = ref<Resume[]>([])
+  const resumeList = shallowRef<Resume[]>([])
 
   // 当前编辑的简历
   const currentResume = ref<Resume | null>(null)
+
+  // 脏标记：updateCurrentResume 时置 true，saveCurrentResume 后置 false
+  const isDirty = ref(false)
 
   // 计算属性：简历数量
   const resumeCount = computed(() => resumeList.value.length)
@@ -158,7 +161,7 @@ export const useResumeStore = defineStore('resume', () => {
   // 创建新简历
   const createResume = async (): Promise<string> => {
     const newResume = createEmptyResume()
-    resumeList.value.push(newResume)
+    resumeList.value = [...resumeList.value, newResume]
     currentResume.value = newResume
     // 创建操作不可丢失，await 确保写入完成
     await saveToStorageNow()
@@ -176,8 +179,6 @@ export const useResumeStore = defineStore('resume', () => {
     if (resume) {
       const json = await serialize(resume)
       currentResume.value = await parse<Resume>(json)
-      // 切换简历时清空撤销/重做历史
-      clearHistory()
       return true
     }
     return false
@@ -187,9 +188,7 @@ export const useResumeStore = defineStore('resume', () => {
   const updateCurrentResume = (data: Partial<Resume>) => {
     if (!currentResume.value) return
 
-    // 推入防抖快照（捕获编辑前状态）
-    pushHistoryDebounced()
-
+    isDirty.value = true
     Object.assign(currentResume.value, data, {
       updatedAt: new Date().toISOString()
     })
@@ -203,8 +202,12 @@ export const useResumeStore = defineStore('resume', () => {
     if (index !== -1) {
       currentResume.value.updatedAt = new Date().toISOString()
       const json = await serialize(currentResume.value)
-      resumeList.value[index] = await parse<Resume>(json)
+      const parsed = await parse<Resume>(json)
+      const newList = [...resumeList.value]
+      newList[index] = parsed
+      resumeList.value = newList
       saveToStorage()
+      isDirty.value = false
     }
   }
 
@@ -212,7 +215,7 @@ export const useResumeStore = defineStore('resume', () => {
   const deleteResume = async (id: string) => {
     const index = resumeList.value.findIndex(r => r.id === id)
     if (index !== -1) {
-      resumeList.value.splice(index, 1)
+      resumeList.value = resumeList.value.filter(r => r.id !== id)
       if (currentResume.value?.id === id) {
         currentResume.value = null
       }
@@ -231,7 +234,7 @@ export const useResumeStore = defineStore('resume', () => {
     copy.title = `${source.title} (副本)`
     copy.createdAt = new Date().toISOString()
     copy.updatedAt = new Date().toISOString()
-    resumeList.value.push(copy)
+    resumeList.value = [...resumeList.value, copy]
     await saveToStorageNow()
     return copy.id
   }
@@ -251,7 +254,7 @@ export const useResumeStore = defineStore('resume', () => {
       data.updatedAt = new Date().toISOString()
       // 保留 JSON 中的 title，不使用文件名覆盖
       const migrated = migrateResumeColors(data)
-      resumeList.value.push(migrated)
+      resumeList.value = [...resumeList.value, migrated]
       await saveToStorageNow()
       return true
     } catch (e) {
@@ -264,7 +267,6 @@ export const useResumeStore = defineStore('resume', () => {
   const clearCurrentResume = async () => {
     currentResume.value = null
     await setCurrentId(null)
-    clearHistory()
   }
 
   // ========== 模块管理方法 ==========
@@ -468,7 +470,9 @@ export const useResumeStore = defineStore('resume', () => {
   const saveEvaluationResult = (resumeId: string, result: EvaluationResult) => {
     const idx = resumeList.value.findIndex(r => r.id === resumeId)
     if (idx !== -1) {
-      resumeList.value[idx].lastEvaluation = result
+      const newList = [...resumeList.value]
+      newList[idx] = { ...newList[idx], lastEvaluation: result }
+      resumeList.value = newList
       // 同步到 currentResume
       if (currentResume.value?.id === resumeId) {
         currentResume.value.lastEvaluation = result
@@ -478,98 +482,7 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
-  // ========== Undo/Redo 历史 ==========
-
-  const MAX_HISTORY = 50
-  const undoStack: string[] = []   // JSON 字符串快照
-  const redoStack: string[] = []
-
-  const canUndo = ref(false)
-  const canRedo = ref(false)
-
-  // 防抖快照：首次变更捕获编辑前状态，500ms 无新变更后推入 undoStack
-  let _historyTimer: ReturnType<typeof setTimeout> | null = null
-  let _preEditSnapshot: string | null = null
-
-  const pushHistoryDebounced = () => {
-    if (!currentResume.value) return
-
-    // 首次变更：同步捕获编辑前的状态快照
-    if (!_preEditSnapshot) {
-      _preEditSnapshot = JSON.stringify(currentResume.value)
-    }
-
-    if (_historyTimer) clearTimeout(_historyTimer)
-    _historyTimer = setTimeout(() => {
-      if (_preEditSnapshot) {
-        undoStack.push(_preEditSnapshot)
-        if (undoStack.length > MAX_HISTORY) {
-          undoStack.shift()
-        }
-        redoStack.length = 0
-        canUndo.value = true
-        canRedo.value = false
-        _preEditSnapshot = null
-      }
-      _historyTimer = null
-    }, 500)
-  }
-
-  /** 清空历史栈（切换简历 / 清空当前简历时调用） */
-  const clearHistory = () => {
-    undoStack.length = 0
-    redoStack.length = 0
-    _preEditSnapshot = null
-    if (_historyTimer) { clearTimeout(_historyTimer); _historyTimer = null }
-    canUndo.value = false
-    canRedo.value = false
-  }
-
-  const undo = () => {
-    if (undoStack.length === 0) return
-
-    // 当前状态推入 redo 栈
-    if (currentResume.value) {
-      redoStack.push(JSON.stringify(currentResume.value))
-    }
-
-    // 恢复上一个快照（快照已是纯 JSON 字符串，直接 JSON.parse 即可）
-    const snapshot = undoStack.pop()!
-    currentResume.value = JSON.parse(snapshot) as Resume
-
-    // 同步更新列表中的对应条目
-    const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
-    if (index !== -1) {
-      resumeList.value[index] = currentResume.value!
-    }
-
-    canUndo.value = undoStack.length > 0
-    canRedo.value = true
-    saveToStorage()
-  }
-
-  const redo = () => {
-    if (redoStack.length === 0) return
-
-    // 当前状态推入 undo 栈
-    if (currentResume.value) {
-      undoStack.push(JSON.stringify(currentResume.value))
-    }
-
-    // 恢复下一个快照
-    const snapshot = redoStack.pop()!
-    currentResume.value = JSON.parse(snapshot) as Resume
-
-    // 同步更新列表中的对应条目
-    const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
-    if (index !== -1) {
-      resumeList.value[index] = currentResume.value!
-    }
-
-    canUndo.value = true
-    canRedo.value = redoStack.length > 0
-    saveToStorage()
-  }
+  // ========== Undo/Redo 已移除 ==========
 
   // 初始化
   init()
@@ -578,8 +491,6 @@ export const useResumeStore = defineStore('resume', () => {
 
   /** 从当前存储后端重新加载全部数据 */
   const reloadFromStorage = async () => {
-    // 清除旧数据的撤销/重做历史
-    clearHistory()
     try {
       const loaded = await getAllResumes()
       const migrated = loaded.map(r => migrateHighlights(migrateResumeColors(r)))
@@ -603,6 +514,7 @@ export const useResumeStore = defineStore('resume', () => {
   return {
     resumeList,
     currentResume,
+    isDirty,
     resumeCount,
     ready,
     createResume,
@@ -627,10 +539,6 @@ export const useResumeStore = defineStore('resume', () => {
     addCustomCardSection,
     removeCustomSection,
     saveEvaluationResult,
-    canUndo,
-    canRedo,
-    undo,
-    redo,
     reloadFromStorage,
   }
 })

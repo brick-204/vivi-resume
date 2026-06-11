@@ -76,6 +76,7 @@
               label="工作描述"
               placeholder="描述你的主要职责和成就..."
               :rows="3"
+              :ai-context="`${item.position || '职位'} @ ${item.company || '公司'}`"
             />
           </div>
         </div>
@@ -180,8 +181,8 @@ defineExpose({ addItem });
     padding: $spacing-xl;
     color: $text-light;
     background: $bg-glass;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border: 1px dashed $border-glass;
     border-radius: $radius-xl;
   }

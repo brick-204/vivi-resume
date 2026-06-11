@@ -6,7 +6,7 @@
  * 发送给 Worker 进行 JSON 序列化，避免主线程阻塞。
  */
 
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, toRaw } from 'vue'
 import { nextRequestId } from '@/workers/types'
 import type { SyncWorkerResponse, SyncPreparedResponse } from '@/workers/types'
 
@@ -49,7 +49,7 @@ export function useSyncWorker(options?: UseSyncWorkerOptions) {
 
   /** 剥离 Vue Proxy */
   const unwrapProxy = <T>(data: T): T => {
-    return JSON.parse(JSON.stringify(data))
+    return structuredClone(toRaw(data as object)) as T
   }
 
   /** 主线程 fallback：同步序列化 */
