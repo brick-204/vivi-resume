@@ -6,4 +6,5 @@ test_*.py
 test_screenshots/
 
 .claude/
+CLAUDE.md
 pnpm-lock.yaml

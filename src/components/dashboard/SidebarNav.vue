@@ -50,19 +50,10 @@
         <span class="sidebar-nav__item-label">设置</span>
       </button>
     </nav>
-
-    <!-- 底部 -->
-    <div class="sidebar-nav__footer">
-      <button class="sidebar-nav__back" @click="goHome">
-        <Icon icon="mdi:home-outline" :width="18" />
-        <span class="sidebar-nav__back-label">返回主界面</span>
-      </button>
-    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 
 defineProps<{
@@ -74,12 +65,6 @@ defineProps<{
 defineEmits<{
   'update:activeTab': [value: 'resumes' | 'templates' | 'ai' | 'settings']
 }>()
-
-const router = useRouter()
-
-const goHome = () => {
-  router.push({ name: 'home' })
-}
 </script>
 
 <style lang="scss" scoped>
@@ -162,40 +147,6 @@ const goHome = () => {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-
-  &__footer {
-    padding: $spacing-sm $spacing-md;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
-    margin-top: auto;
-  }
-
-  &__back {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-    padding: $spacing-sm $spacing-md;
-    border-radius: $radius-md;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: none;
-    color: $text-secondary;
-    cursor: pointer;
-    font-size: $font-size-sm;
-    font-family: $font-family;
-    transition: all $transition-base;
-    width: 100%;
-    white-space: nowrap;
-
-    &:hover {
-      color: $text-primary;
-      border-color: rgba(255, 255, 255, 0.2);
-      background: rgba(255, 255, 255, 0.05);
-    }
-  }
-
-  &__back-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
 // 响应式：平板缩至图标模式
@@ -220,15 +171,6 @@ const goHome = () => {
     }
 
     &__item-label {
-      display: none;
-    }
-
-    &__back {
-      justify-content: center;
-      padding: $spacing-sm;
-    }
-
-    &__back-label {
       display: none;
     }
   }

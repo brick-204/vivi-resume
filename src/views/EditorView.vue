@@ -1,54 +1,15 @@
 <template>
   <div class="editor-view">
-    <!-- 顶部栏 -->
-    <header class="editor-header">
-      <div class="header__left">
-        <router-link to="/" class="header__back">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <path d="M11 4L6 9L11 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span class="back__text">返回</span>
-        </router-link>
-        <div class="header__divider"></div>
-        <input
-          v-model="resumeTitle"
-          class="header__title-input"
-          placeholder="给简历起个名字..."
-          @blur="saveTitle"
-        />
-        <span v-if="templateName" class="header__template-badge">{{ templateName }}</span>
-      </div>
-      <div class="header__right">
-        <button class="header-btn header-btn--eval" @click="showEvalModal = true">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1L10 5.5L15 6.2L11.5 9.6L12.4 14.5L8 12.1L3.6 14.5L4.5 9.6L1 6.2L6 5.5L8 1Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          </svg>
-          AI 评估
-        </button>
-        <button class="header-btn header-btn--template" @click="goToTemplates">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <rect x="1.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="9.5" y="1.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="1.5" y="9.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            <rect x="9.5" y="9.5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-          更换模板
-        </button>
-        <button class="header-btn header-btn--export" @click="exportJSON">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M5 3H12V10M12 3L5 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          导出 JSON
-        </button>
-        <button class="header-btn header-btn--pdf" @click="exportPDF">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M4 8H12M8 4V12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            <rect x="2" y="2" width="12" height="12" rx="3" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-          导出 PDF
-        </button>
-      </div>
-    </header>
+    <!-- 公共头部 -->
+    <AppHeader
+      show-editor-center
+      show-editor-right
+      @export-json="exportJSON"
+      @export-pdf="exportPDF"
+      @ai-eval="showEvalModal = true"
+      @change-template="goToTemplates"
+      @save-title="saveTitle"
+    />
 
     <!-- 主体 - 三列布局 -->
     <main class="editor-body">
@@ -116,15 +77,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { ref, nextTick, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
 import { printViaIframe } from '@/utils/print'
-import { getTemplate } from '@/config/templates'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
+import AppHeader from '@/components/common/AppHeader.vue'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
@@ -139,16 +100,6 @@ const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const showEvalModal = ref(false)
-
-const resumeTitle = computed({
-  get: () => store.currentResume?.title || '',
-  set: (value) => store.updateCurrentResume({ title: value })
-})
-
-const templateName = computed(() => {
-  const id = store.currentResume?.templateId
-  return id ? getTemplate(id).name : ''
-})
 
 const saveTitle = () => {
   store.saveCurrentResume()
@@ -202,7 +153,7 @@ const goToTemplates = () => {
 const exportJSON = () => {
   const json = store.exportToJSON()
   if (json) {
-    downloadJSON(json, `${resumeTitle.value || 'resume'}.json`)
+    downloadJSON(json, `${store.currentResume?.title || 'resume'}.json`)
   }
 }
 
@@ -253,166 +204,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: $bg-secondary;
-}
-
-// 顶部栏
-.editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: $header-height;
-  padding: 0 $spacing-lg;
-  background: rgba($bg-primary, 0.8);
-  backdrop-filter: blur(10px) saturate(1.8);
-  -webkit-backdrop-filter: blur(10px) saturate(1.8);
-  border-bottom: 1px solid $border-glass;
-  z-index: 100;
-}
-
-.header__left {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-}
-
-.header__back {
-  display: flex;
-  align-items: center;
-  gap: $spacing-xs;
-  color: $text-secondary;
-  font-size: $font-size-sm;
-  font-weight: 500;
-  padding: $spacing-sm $spacing-md;
-  border-radius: $radius-lg;
-  transition: all $transition-fast;
-
-  &:hover {
-    background: $bg-glass;
-    color: $primary-light;
-  }
-}
-
-.back__arrow {
-  font-size: 18px;
-}
-
-.header__divider {
-  width: 1px;
-  height: 24px;
-  background: $border-glass;
-}
-
-.header__title-input {
-  border: none;
-  background: transparent;
-  font-size: $font-size-lg;
-  font-weight: 600;
-  color: $text-primary;
-  padding: $spacing-sm $spacing-md;
-  border-radius: $radius-lg;
-  min-width: 200px;
-  transition: all $transition-fast;
-  font-family: $font-family;
-
-  &:focus {
-    outline: none;
-    background: $bg-glass;
-    box-shadow: 0 0 0 2px rgba(124, 92, 252, 0.2);
-  }
-
-  &::placeholder {
-    color: $text-light;
-  }
-}
-
-.header__template-badge {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: $text-light;
-  background: $bg-glass;
-  border-radius: $radius-sm;
-  border: 1px solid $border-glass;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.header__right {
-  display: flex;
-  gap: $spacing-sm;
-}
-
-.header-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: $spacing-xs;
-  padding: $spacing-sm $spacing-lg;
-  border-radius: $radius-lg;
-  font-size: $font-size-sm;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all $transition-base;
-  border: none;
-  font-family: $font-family;
-
-  &--eval {
-    background: $bg-glass;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    color: $text-secondary;
-    border: 1px solid $border-glass;
-
-    &:hover {
-      background: rgba($primary-color, 0.08);
-      color: $primary-light;
-      border-color: $primary-color;
-      box-shadow: 0 4px 20px rgba(124, 92, 252, 0.2);
-    }
-  }
-
-  &--template {
-    background: $bg-glass;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    color: $text-secondary;
-    border: 1px solid $border-glass;
-
-    &:hover {
-      background: $bg-glass-hover;
-      color: $text-primary;
-      border-color: $primary-color;
-      box-shadow: 0 4px 20px rgba(124, 92, 252, 0.15);
-    }
-  }
-
-  &--export {
-    background: $bg-glass;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    color: $text-secondary;
-    border: 1px solid $border-glass;
-
-    &:hover {
-      background: $bg-glass-hover;
-      color: $text-primary;
-      border-color: $accent-color;
-      box-shadow: 0 4px 20px rgba(244, 114, 182, 0.15);
-    }
-  }
-
-  &--pdf {
-    background: $primary-gradient;
-    color: $text-white;
-    box-shadow: $shadow-primary;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(124, 92, 252, 0.4);
-    }
-  }
 }
 
 // 主体 - 三列布局

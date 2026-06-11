@@ -1,35 +1,39 @@
 <template>
   <div class="dashboard">
-    <!-- 移动端顶部栏 -->
-    <div class="dashboard__mobile-header">
-      <button class="mobile-menu-btn" @click="mobileMenuOpen = true">
-        <Icon icon="mdi:menu" :width="24" />
-      </button>
-      <span class="mobile-logo">Vivi Resume</span>
-    </div>
+    <!-- 公共头部 -->
+    <AppHeader>
+      <template #left-extra>
+        <button class="dashboard__mobile-menu-btn" @click="mobileMenuOpen = true">
+          <Icon icon="mdi:menu" :width="24" />
+        </button>
+      </template>
+    </AppHeader>
 
-    <!-- 移动端遮罩 -->
-    <Transition name="fade">
-      <div v-if="mobileMenuOpen" class="dashboard__mobile-overlay" @click="mobileMenuOpen = false" />
-    </Transition>
+    <!-- 主体区域 -->
+    <div class="dashboard__body">
+      <!-- 移动端遮罩 -->
+      <Transition name="fade">
+        <div v-if="mobileMenuOpen" class="dashboard__mobile-overlay" @click="mobileMenuOpen = false" />
+      </Transition>
 
-    <!-- 移动端侧边栏抽屉 -->
-    <Transition name="slide">
-      <div v-if="mobileMenuOpen" class="dashboard__mobile-sidebar">
-        <SidebarNav :active-tab="activeTab" mobile @update:active-tab="onMobileNavChange" />
-      </div>
-    </Transition>
+      <!-- 移动端侧边栏抽屉 -->
+      <Transition name="slide">
+        <div v-if="mobileMenuOpen" class="dashboard__mobile-sidebar">
+          <SidebarNav :active-tab="activeTab" mobile @update:active-tab="onMobileNavChange" />
+        </div>
+      </Transition>
 
-    <!-- 桌面端侧边栏 -->
-    <SidebarNav :active-tab="activeTab" @update:active-tab="activeTab = $event" class="dashboard__sidebar" />
+      <!-- 桌面端侧边栏 -->
+      <SidebarNav :active-tab="activeTab" @update:active-tab="activeTab = $event" class="dashboard__sidebar" />
 
-    <!-- 内容区 -->
-    <div class="dashboard__content">
-      <div class="dashboard__content-inner">
-        <ResumeListPanel v-if="activeTab === 'resumes'" />
-        <TemplateMarketPanel v-else-if="activeTab === 'templates'" />
-        <AISettingsPanel v-else-if="activeTab === 'ai'" />
-        <SettingsPanel v-else-if="activeTab === 'settings'" />
+      <!-- 内容区 -->
+      <div class="dashboard__content">
+        <div class="dashboard__content-inner">
+          <ResumeListPanel v-if="activeTab === 'resumes'" />
+          <TemplateMarketPanel v-else-if="activeTab === 'templates'" />
+          <AISettingsPanel v-else-if="activeTab === 'ai'" />
+          <SettingsPanel v-else-if="activeTab === 'settings'" />
+        </div>
       </div>
     </div>
 
@@ -44,6 +48,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { Icon } from '@iconify/vue'
+import AppHeader from '@/components/common/AppHeader.vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
 import ResumeListPanel from '@/components/dashboard/ResumeListPanel.vue'
 import TemplateMarketPanel from '@/components/dashboard/TemplateMarketPanel.vue'
@@ -78,9 +83,41 @@ onMounted(async () => {
 .dashboard {
   height: 100vh;
   display: flex;
+  flex-direction: column;
   background: $bg-secondary;
   overflow: hidden;
   position: relative;
+}
+
+// 主体区域（头部下方的侧边栏 + 内容）
+.dashboard__body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+// 移动端汉堡菜单按钮（默认隐藏，移动端显示）
+.dashboard__mobile-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: $bg-glass;
+  border-radius: $radius-md;
+  color: $text-primary;
+  cursor: pointer;
+  transition: all $transition-base;
+  flex-shrink: 0;
+
+  &:hover {
+    background: $bg-glass-hover;
+  }
+
+  @include mobile {
+    display: flex;
+  }
 }
 
 // 桌面端侧边栏
@@ -134,48 +171,6 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-// 移动端顶部栏（默认隐藏）
-.dashboard__mobile-header {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 56px;
-  background: rgba($bg-primary, 0.8);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 1px solid $border-glass;
-  align-items: center;
-  padding: 0 $spacing-md;
-  gap: $spacing-md;
-  z-index: 50;
-}
-
-.mobile-menu-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: $bg-glass;
-  border-radius: $radius-md;
-  color: $text-primary;
-  cursor: pointer;
-  transition: all $transition-base;
-
-  &:hover {
-    background: $bg-glass-hover;
-  }
-}
-
-.mobile-logo {
-  font-size: $font-size-lg;
-  font-weight: 700;
-  @include gradient-text;
-}
-
 // 移动端遮罩
 .dashboard__mobile-overlay {
   position: fixed;
@@ -221,20 +216,8 @@ onMounted(async () => {
 }
 
 @include mobile {
-  .dashboard {
-    flex-direction: column;
-  }
-
-  .dashboard__mobile-header {
-    display: flex;
-  }
-
   .dashboard__sidebar {
     display: none;
-  }
-
-  .dashboard__content {
-    padding-top: 56px; // 为移动端顶部栏留空间
   }
 
   .dashboard__content-inner {

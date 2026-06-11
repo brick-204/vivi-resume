@@ -10,30 +10,8 @@
       <div class="grid-overlay"></div>
     </div>
 
-    <!-- 头部 -->
-    <header class="home__header">
-      <div class="header__container">
-        <div class="header__logo">
-          <div class="logo__icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect x="2" y="2" width="28" height="28" rx="8" stroke="url(#logo-gradient)" stroke-width="2" />
-              <path d="M10 12H22M10 16H18M10 20H22" stroke="url(#logo-gradient)" stroke-width="2" stroke-linecap="round" />
-              <defs>
-                <linearGradient id="logo-gradient" x1="2" y1="2" x2="30" y2="30">
-                  <stop stop-color="#7c5cfc" />
-                  <stop offset="1" stop-color="#06b6d4" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-          <span class="logo__text">Vivi Resume</span>
-        </div>
-        <div class="header__badge">
-          <span class="badge__dot"></span>
-          在线简历编辑器
-        </div>
-      </div>
-    </header>
+    <!-- 公共头部 -->
+    <AppHeader />
 
     <!-- 主区域 -->
     <main class="home__main">
@@ -115,6 +93,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import AppHeader from '@/components/common/AppHeader.vue'
 
 const router = useRouter()
 
@@ -129,6 +108,8 @@ const goToDashboard = () => {
   background: $bg-secondary;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 // 背景装饰
@@ -191,64 +172,6 @@ const goToDashboard = () => {
   background-size: 60px 60px;
 }
 
-// 头部
-.home__header {
-  position: relative;
-  z-index: 10;
-  padding: $spacing-lg $spacing-2xl;
-}
-
-.header__container {
-  max-width: 1400px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.header__logo {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-}
-
-.logo__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo__text {
-  font-size: $font-size-xl;
-  font-weight: 700;
-  @include gradient-text;
-  letter-spacing: -0.02em;
-}
-
-.header__badge {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  padding: $spacing-sm $spacing-lg;
-  background: $bg-glass;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid $border-glass;
-  border-radius: $radius-full;
-  font-size: $font-size-sm;
-  color: $text-secondary;
-  font-weight: 500;
-}
-
-.badge__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: $success-color;
-  box-shadow: 0 0 8px $success-color;
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
 // 主区域
 .home__main {
   position: relative;
@@ -256,6 +179,7 @@ const goToDashboard = () => {
   padding: $spacing-xl $spacing-2xl 20px;
   max-width: 1400px;
   margin: 0 auto;
+  flex: 1;
 }
 
 // Hero区域
