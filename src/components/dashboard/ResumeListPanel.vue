@@ -131,7 +131,7 @@ const handleImportFile = async (file: File) => {
 
   &__count {
     padding: $spacing-xs $spacing-md;
-    background: $primary-gradient;
+    background: $primary-bg-active;
     color: $text-white;
     border-radius: $radius-full;
     font-size: $font-size-sm;
@@ -188,20 +188,18 @@ const handleImportFile = async (file: File) => {
   font-family: $font-family;
 
   &--primary {
-    background: $primary-gradient;
+    background: $primary-color;
     color: $text-white;
-    box-shadow: $shadow-primary;
+    box-shadow: $shadow-sm;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(124, 92, 252, 0.4);
+      background: $primary-light;
+      box-shadow: $shadow-md;
     }
   }
 
   &--secondary {
     background: $bg-glass;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
     color: $text-primary;
     border: 1px solid $border-glass;
 

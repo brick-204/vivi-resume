@@ -132,8 +132,6 @@ const onExportSelect = (key: string) => {
   height: $header-height;
   padding: 0 $spacing-lg;
   background: var(--header-bg);
-  backdrop-filter: blur(10px) saturate(1.8);
-  -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border-bottom: 1px solid $border-glass;
   z-index: 100;
   flex-shrink: 0;
@@ -207,12 +205,12 @@ const onExportSelect = (key: string) => {
     }
 
     &--active {
-      background: $primary-gradient;
+      background: $primary-bg-active;
       color: $text-white;
       box-shadow: $shadow-primary;
 
       &:hover {
-        background: $primary-gradient;
+        background: $primary-bg-active;
         color: $text-white;
       }
     }
@@ -302,23 +300,19 @@ const onExportSelect = (key: string) => {
 
   &--eval {
     background: $bg-glass;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     color: $text-secondary;
     border: 1px solid $border-glass;
 
     &:hover {
-      background: rgba($primary-color, 0.08);
+      background: $bg-glass-hover;
       color: $primary-light;
       border-color: $primary-color;
-      box-shadow: 0 4px 20px rgba(124, 92, 252, 0.2);
+      box-shadow: $shadow-sm;
     }
   }
 
   &--template {
     background: $bg-glass;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
     color: $text-secondary;
     border: 1px solid $border-glass;
 
@@ -326,18 +320,18 @@ const onExportSelect = (key: string) => {
       background: $bg-glass-hover;
       color: $text-primary;
       border-color: $primary-color;
-      box-shadow: 0 4px 20px rgba(124, 92, 252, 0.15);
+      box-shadow: $shadow-sm;
     }
   }
 
   &--export {
-    background: $primary-gradient;
+    background: $primary-color;
     color: $text-white;
-    box-shadow: $shadow-primary;
+    box-shadow: $shadow-sm;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 32px rgba(124, 92, 252, 0.4);
+      background: $primary-light;
+      box-shadow: $shadow-md;
     }
   }
 }

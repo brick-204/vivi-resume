@@ -275,7 +275,7 @@ const handleReauthorize = () => {
   font-family: $font-family;
 
   &--primary {
-    background: $primary-gradient;
+    background: $primary-bg-active;
     color: $text-white;
     border: none;
 

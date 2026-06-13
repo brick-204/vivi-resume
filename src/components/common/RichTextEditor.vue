@@ -521,7 +521,7 @@ onBeforeUnmount(() => {
   word-break: break-word;
 
   ::selection {
-    background: rgba(124, 92, 252, 0.35);
+    background: rgba($primary-color, 0.25);
     color: inherit;
   }
 

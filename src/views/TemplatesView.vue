@@ -140,7 +140,6 @@ const applyTemplate = async () => {
     justify-content: space-between;
     padding: $spacing-md $spacing-xl;
     background: var(--header-bg);
-    backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border-light);
     flex-shrink: 0;
     z-index: 10;

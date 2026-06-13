@@ -132,35 +132,6 @@ onMounted(async () => {
   overflow-y: auto;
   position: relative;
   @include scrollbar;
-
-  // 轻量背景装饰
-  &::before {
-    content: '';
-    position: fixed;
-    top: -100px;
-    right: -100px;
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(124, 92, 252, 0.12) 0%, transparent 70%);
-    border-radius: 50%;
-    filter: blur(80px);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  &::after {
-    content: '';
-    position: fixed;
-    bottom: -80px;
-    left: 20%;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
-    border-radius: 50%;
-    filter: blur(60px);
-    pointer-events: none;
-    z-index: 0;
-  }
 }
 
 .dashboard__content-inner {

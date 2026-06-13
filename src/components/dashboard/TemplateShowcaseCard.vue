@@ -85,8 +85,8 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
 
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba(124, 92, 252, 0.4);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(124, 92, 252, 0.1);
+    border-color: $primary-color;
+    box-shadow: $shadow-md;
 
     .template-showcase-card__use-btn {
       opacity: 1;
@@ -117,7 +117,6 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
   &__info {
     padding: $spacing-lg;
     background: var(--card-info-bg);
-    backdrop-filter: blur(5px);
     border-top: 1px solid var(--border-light);
     flex: 1;
     display: flex;
@@ -151,7 +150,7 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
     justify-content: center;
     gap: $spacing-xs;
     padding: $spacing-sm $spacing-lg;
-    background: $primary-gradient;
+    background: $primary-bg-active;
     color: $text-white;
     border: none;
     border-radius: $radius-md;
@@ -177,11 +176,11 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
   align-items: center;
   gap: 4px;
   padding: 2px 10px;
-  background: rgba(124, 92, 252, 0.1);
-  border: 1px solid rgba(124, 92, 252, 0.2);
+  background: $bg-glass;
+  border: 1px solid $border-glass;
   border-radius: $radius-full;
   font-size: $font-size-xs;
-  color: $primary-light;
+  color: $primary-color;
   white-space: nowrap;
 
   &--color {

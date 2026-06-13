@@ -37,7 +37,7 @@
   flex-direction: column;
 }
 
-// ==================== 玻璃拟态 ====================
+// ==================== 极简卡片 ====================
 @mixin date-field {
   .date-field {
     display: flex;
@@ -73,7 +73,7 @@
   }
 
   .card--chosen {
-    box-shadow: $shadow-lg, 0 0 20px rgba($primary-color, 0.2);
+    box-shadow: $shadow-lg;
     transform: scale(1.01);
     z-index: 10;
     transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -81,8 +81,7 @@
   }
 
   .card--drag {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5),
-                0 0 30px rgba($primary-color, 0.25);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
     z-index: 100;
     opacity: 0.95;
   }
@@ -147,7 +146,7 @@
 @mixin modal-btn {
   .btn {
     padding: $spacing-sm $spacing-lg;
-    border-radius: $radius-lg;
+    border-radius: $radius-md;
     font-size: $font-size-sm;
     font-weight: 600;
     cursor: pointer;
@@ -194,16 +193,14 @@
 
 @mixin glass {
   background: $bg-glass;
-  backdrop-filter: blur(10px) saturate(1.8);
-  -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border: 1px solid $border-glass;
-  border-radius: $radius-xl;
+  border-radius: $radius-lg;
 }
 
 @mixin glass-hover {
   background: $bg-glass-hover;
   border-color: var(--border-hover);
-  box-shadow: var(--shadow-card);
+  box-shadow: $shadow-sm;
 }
 
 @mixin glass-card {
@@ -216,32 +213,27 @@
   }
 }
 
-// ==================== 光晕效果 ====================
+// ==================== 微妙阴影 ====================
 @mixin glow($color, $intensity: 0.3) {
-  box-shadow: 0 0 20px rgba($color, $intensity),
-              0 0 40px rgba($color, $intensity * 0.5);
+  box-shadow: 0 2px 8px rgba($color, 0.15);
 }
 
 @mixin glow-border($color, $intensity: 0.3) {
   border: 1px solid rgba($color, $intensity);
-  box-shadow: 0 0 15px rgba($color, $intensity * 0.3),
-              inset 0 0 15px rgba($color, $intensity * 0.1);
 }
 
 // ==================== 卡片样式 ====================
 @mixin card {
   background: $bg-glass;
-  backdrop-filter: blur(8px) saturate(1.5);
-  -webkit-backdrop-filter: blur(8px) saturate(1.5);
   border: 1px solid $border-glass;
-  border-radius: $radius-xl;
-  box-shadow: $shadow-md;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
   transition: all $transition-base;
 
   &:hover {
     background: $bg-glass-hover;
     border-color: var(--border-hover);
-    box-shadow: $shadow-lg;
+    box-shadow: $shadow-md;
   }
 }
 
@@ -250,7 +242,7 @@
   border-left: 3px solid $color;
 
   &:hover {
-    box-shadow: $shadow-lg, 0 0 20px rgba($color, 0.15);
+    box-shadow: $shadow-md;
   }
 }
 
@@ -261,7 +253,7 @@
   justify-content: center;
   gap: $spacing-sm;
   padding: $spacing-sm $spacing-lg;
-  border-radius: $radius-lg;
+  border-radius: $radius-md;
   font-size: $font-size-sm;
   font-weight: 600;
   cursor: pointer;
@@ -283,21 +275,19 @@
 
 @mixin button-primary {
   @include button-base;
-  background: $primary-gradient;
+  background: $primary-color;
   color: $text-white;
-  box-shadow: $shadow-primary, $shadow-glow-primary;
+  box-shadow: $shadow-sm;
 
   &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(124, 92, 252, 0.4), 0 0 50px rgba(124, 92, 252, 0.2);
+    background: $primary-light;
+    box-shadow: $shadow-md;
   }
 }
 
 @mixin button-secondary {
   @include button-base;
   background: $bg-glass;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   color: $text-primary;
   border: 1px solid $border-glass;
 
@@ -305,8 +295,7 @@
     background: $bg-glass-hover;
     border-color: $primary-color;
     color: $text-white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(124, 92, 252, 0.2);
+    box-shadow: $shadow-sm;
   }
 }
 
@@ -328,12 +317,10 @@
   width: 100%;
   padding: $spacing-md;
   border: 1px solid $border-glass;
-  border-radius: $radius-lg;
+  border-radius: $radius-md;
   font-size: $font-size-sm;
   color: $text-primary;
   background: $bg-glass;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   transition: all $transition-base;
   font-family: $font-family;
 
@@ -345,8 +332,7 @@
     outline: none;
     border-color: $primary-color;
     background: var(--input-focus-bg);
-    box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15),
-                0 0 20px rgba(124, 92, 252, 0.1);
+    box-shadow: 0 0 0 2px rgba($primary-color, 0.15);
   }
 
   &:disabled {
@@ -393,32 +379,18 @@
 
 // ==================== 装饰元素 ====================
 @mixin gradient-text {
-  background: $primary-gradient;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: $primary-color;
 }
 
 @mixin glass-effect {
   background: $bg-glass;
-  backdrop-filter: blur(10px) saturate(1.8);
-  -webkit-backdrop-filter: blur(10px) saturate(1.8);
   border: 1px solid $border-glass;
 }
 
-// ==================== 流动光球 ====================
+// ==================== 流动光球（已弃用） ====================
 @mixin orb($size, $color, $top, $left, $blur: 80px) {
-  position: absolute;
-  width: $size;
-  height: $size;
-  border-radius: 50%;
-  background: $color;
-  filter: blur($blur);
-  opacity: 0.5;
-  top: $top;
-  left: $left;
-  pointer-events: none;
-  animation: float 8s ease-in-out infinite;
+  // 极简风格不使用光球装饰
+  display: none;
 }
 
 // ==================== 动画 ====================
@@ -507,11 +479,10 @@
   background: $primary-color;
   border: 2px solid var(--border-glass);
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.15s ease;
 
   &:hover {
     transform: scale(1.2);
-    box-shadow: 0 0 0 4px rgba($primary-color, 0.2);
   }
 }
 
@@ -541,13 +512,8 @@
 }
 
 // ==================== Reduced Motion ====================
-// prefers-reduced-motion 用户意图是减少动画，backdrop-filter 本身是视觉效果而非动画，
-// 完全禁用会让 glassmorphism 变成纯透明背景、影响可读性。
-// 因此仅降低 blur 值而非禁用，同时禁用 transition/animation。
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    backdrop-filter: blur(2px) !important;
-    -webkit-backdrop-filter: blur(2px) !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }

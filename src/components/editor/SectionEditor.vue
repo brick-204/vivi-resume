@@ -100,7 +100,6 @@ defineExpose({ scrollToCard })
   display: flex;
   flex-direction: column;
   background: var(--editor-panel-bg);
-  backdrop-filter: blur(8px);
 }
 
 .editor__content {

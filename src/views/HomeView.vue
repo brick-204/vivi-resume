@@ -1,15 +1,5 @@
 <template>
   <div class="home">
-    <!-- 流动光球背景 -->
-    <div class="home__bg">
-      <div class="orb orb--purple"></div>
-      <div class="orb orb--cyan"></div>
-      <div class="orb orb--pink"></div>
-      <div class="orb orb--amber"></div>
-      <!-- 网格线装饰 -->
-      <div class="grid-overlay"></div>
-    </div>
-
     <!-- 公共头部 -->
     <AppHeader />
 
@@ -112,66 +102,6 @@ const goToDashboard = () => {
   flex-direction: column;
 }
 
-// 背景装饰
-.home__bg {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  animation: float 12s ease-in-out infinite;
-
-  &--purple {
-    width: 500px;
-    height: 500px;
-    background: radial-gradient(circle, rgba(124, 92, 252, 0.4) 0%, transparent 70%);
-    top: -150px;
-    right: -100px;
-    animation-delay: 0s;
-  }
-
-  &--cyan {
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, transparent 70%);
-    bottom: 10%;
-    left: -100px;
-    animation-delay: -3s;
-  }
-
-  &--pink {
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(244, 114, 182, 0.25) 0%, transparent 70%);
-    top: 40%;
-    right: 5%;
-    animation-delay: -6s;
-  }
-
-  &--amber {
-    width: 250px;
-    height: 250px;
-    background: radial-gradient(circle, rgba(251, 191, 36, 0.2) 0%, transparent 70%);
-    bottom: 30%;
-    right: 30%;
-    animation-delay: -9s;
-  }
-}
-
-.grid-overlay {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
 // 主区域
 .home__main {
   position: relative;
@@ -208,8 +138,6 @@ const goToDashboard = () => {
   gap: $spacing-sm;
   padding: $spacing-sm $spacing-lg;
   background: $bg-glass;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   border: 1px solid $border-glass;
   border-radius: $radius-full;
   font-size: $font-size-sm;
@@ -239,19 +167,6 @@ const goToDashboard = () => {
 .hero__title-highlight {
   @include gradient-text;
   font-weight: 800;
-  position: relative;
-
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 8px;
-    background: linear-gradient(90deg, rgba(124, 92, 252, 0.3), rgba(6, 182, 212, 0.3));
-    border-radius: $radius-full;
-    z-index: -1;
-  }
 }
 
 .hero__desc {
@@ -293,13 +208,13 @@ const goToDashboard = () => {
   font-family: $font-family;
 
   &--primary {
-    background: $primary-gradient;
+    background: $primary-color;
     color: $text-white;
-    box-shadow: $shadow-primary, 0 0 40px rgba(124, 92, 252, 0.2);
+    box-shadow: $shadow-sm;
 
     &:hover {
-      transform: translateY(-3px) scale(1.02);
-      box-shadow: 0 8px 32px rgba(124, 92, 252, 0.4), 0 0 60px rgba(124, 92, 252, 0.25);
+      background: $primary-light;
+      box-shadow: $shadow-md;
     }
   }
 }
@@ -322,27 +237,22 @@ const goToDashboard = () => {
     top: 20px;
     left: 60px;
     transform: rotate(-6deg);
-    animation: float 8s ease-in-out infinite;
   }
 
   &--2 {
     top: 70px;
     right: 30px;
     transform: rotate(4deg);
-    animation: float 10s ease-in-out infinite;
-    animation-delay: -2s;
   }
 
   &--3 {
     bottom: 30px;
     left: 20px;
     transform: rotate(2deg);
-    animation: float 9s ease-in-out infinite;
-    animation-delay: -4s;
   }
 
   &:hover {
-    transform: rotate(0deg) translateY(-12px) scale(1.03);
+    transform: rotate(0deg) translateY(-8px);
     z-index: 10;
   }
 }
@@ -362,7 +272,7 @@ const goToDashboard = () => {
     width: 44px;
     height: 44px;
     border-radius: $radius-lg;
-    background: linear-gradient(135deg, $primary-color, $secondary-color);
+    background: $primary-color;
   }
 
   &__info {
@@ -388,29 +298,29 @@ const goToDashboard = () => {
   }
 
   &--accent {
-    border-color: rgba(244, 114, 182, 0.3);
-    box-shadow: $shadow-md, 0 0 30px rgba(244, 114, 182, 0.1);
+    border-color: $accent-color;
+    box-shadow: $shadow-md;
 
     .preview-card__avatar {
-      background: linear-gradient(135deg, $accent-color, $accent-light);
+      background: $accent-color;
     }
   }
 
   &--secondary {
-    border-color: rgba(6, 182, 212, 0.3);
-    box-shadow: $shadow-md, 0 0 30px rgba(6, 182, 212, 0.1);
+    border-color: $secondary-color;
+    box-shadow: $shadow-md;
 
     .preview-card__avatar {
-      background: linear-gradient(135deg, $secondary-color, $secondary-light);
+      background: $secondary-color;
     }
   }
 }
 
 .skill-tag {
   padding: $spacing-xs $spacing-sm;
-  background: rgba(124, 92, 252, 0.15);
-  color: $primary-light;
-  border: 1px solid rgba(124, 92, 252, 0.2);
+  background: $bg-glass;
+  color: $primary-color;
+  border: 1px solid $border-glass;
   border-radius: $radius-full;
   font-size: $font-size-xs;
   font-weight: 500;

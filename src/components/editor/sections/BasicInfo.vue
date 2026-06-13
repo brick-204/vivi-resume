@@ -261,7 +261,7 @@ const iconColorOptions: { value: HeaderIconColor; label: string }[] = [
 ]
 
 // 颜色圆点样式
-const themeAccent = computed(() => store.currentResume?.themeAccentColor || '#7c5cfc')
+const themeAccent = computed(() => store.currentResume?.themeAccentColor || '#4f6df5')
 
 const colorDotStyle = (mode: 'black' | 'white' | 'accent') => ({
   background: mode === 'black' ? '#1a1a2e'

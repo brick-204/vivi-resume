@@ -238,8 +238,8 @@ const handleDeactivate = async () => {
   gap: $spacing-md;
   margin-bottom: $spacing-lg;
   padding: $spacing-md $spacing-lg;
-  background: linear-gradient(135deg, rgba(124, 92, 252, 0.12) 0%, rgba(6, 182, 212, 0.08) 100%);
-  border: 1px solid rgba(124, 92, 252, 0.25);
+  background: $bg-glass;
+  border: 1px solid $border-glass;
   border-radius: $radius-lg;
 }
 
@@ -250,8 +250,8 @@ const handleDeactivate = async () => {
   width: 40px;
   height: 40px;
   border-radius: $radius-md;
-  background: rgba(124, 92, 252, 0.15);
-  color: $primary-light;
+  background: rgba($primary-color, 0.1);
+  color: $primary-color;
   flex-shrink: 0;
 }
 

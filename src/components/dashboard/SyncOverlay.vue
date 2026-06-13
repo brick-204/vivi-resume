@@ -39,16 +39,12 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
     position: absolute;
     inset: 0;
     background: var(--overlay-bg);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
   }
 
   &__card {
     position: relative;
     z-index: 1;
     background: var(--card-overlay-bg);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border: 1px solid $border-glass;
     border-radius: $radius-xl;
     padding: $spacing-2xl $spacing-2xl;
@@ -80,7 +76,7 @@ const { isLocked, lockMessage, syncPercent } = useSyncLock()
 
   &__progress-bar {
     height: 100%;
-    background: $primary-gradient;
+    background: $primary-bg-active;
     border-radius: 3px;
     transition: width 0.3s ease;
   }

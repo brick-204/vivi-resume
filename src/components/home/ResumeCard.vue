@@ -68,8 +68,8 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
 
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba(124, 92, 252, 0.4);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(124, 92, 252, 0.1);
+    border-color: $primary-color;
+    box-shadow: $shadow-md;
 
     .resume-card__actions {
       opacity: 1;
@@ -112,7 +112,6 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
   &__info {
     padding: $spacing-md $spacing-lg;
     background: var(--card-info-bg);
-    backdrop-filter: blur(5px);
     border-top: 1px solid var(--border-light);
     flex: 1;
     display: flex;
@@ -159,14 +158,13 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
     border: none;
     cursor: pointer;
     transition: all 0.15s ease;
-    backdrop-filter: blur(4px);
 
     &--edit {
-      background: rgba(124, 92, 252, 0.8);
+      background: $primary-color;
       color: #ffffff;
 
       &:hover {
-        background: rgba(124, 92, 252, 1);
+        background: $primary-light;
         transform: scale(1.1);
       }
     }

@@ -57,11 +57,6 @@
 
       <!-- 第三列：简历预览区 -->
       <section class="editor-body__preview">
-        <!-- 背景光晕 -->
-        <div class="preview__bg">
-          <div class="preview__orb preview__orb--1"></div>
-          <div class="preview__orb preview__orb--2"></div>
-        </div>
         <div class="preview-wrapper">
           <ResumePreview ref="previewRef" @click-section="handleClickSection" />
         </div>
@@ -216,8 +211,6 @@ onMounted(async () => {
     flex-shrink: 0;
     min-width: 200px;
     background: var(--editor-panel-bg);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid $border-glass;
     overflow-x: hidden;
     overflow-y: auto;
@@ -232,8 +225,6 @@ onMounted(async () => {
   &__editor {
     flex-shrink: 0;
     background: var(--editor-panel-bg);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border-right: 1px solid $border-glass;
     overflow: hidden;
     will-change: width;
@@ -266,37 +257,6 @@ onMounted(async () => {
 }
 
 // 预览背景光晕
-.preview__bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.preview__orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  animation: float 10s ease-in-out infinite;
-
-  &--1 {
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(124, 92, 252, 0.15) 0%, transparent 70%);
-    top: 10%;
-    right: 10%;
-  }
-
-  &--2 {
-    width: 250px;
-    height: 250px;
-    background: radial-gradient(circle, rgba(6, 182, 212, 0.1) 0%, transparent 70%);
-    bottom: 20%;
-    left: 20%;
-    animation-delay: -4s;
-  }
-}
-
 .preview-wrapper {
   position: relative;
   max-width: 820px;
@@ -304,6 +264,6 @@ onMounted(async () => {
   @include glass;
   padding: 0;
   min-height: 100%;
-  border-radius: $radius-xl;
+  border-radius: $radius-lg;
 }
 </style>

@@ -255,7 +255,7 @@ const themeAlpha = ref(100)
 
 // 从 store 同步颜色状态
 function parseColorToHex(color: string): string {
-  if (!color) return '#7c5cfc'
+  if (!color) return '#4f6df5'
   const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
   if (rgbaMatch) {
     const r = parseInt(rgbaMatch[1]).toString(16).padStart(2, '0')
@@ -270,7 +270,7 @@ function parseColorToHex(color: string): string {
   }
   // 已经是 hex
   if (color.startsWith('#')) return color
-  return '#7c5cfc'
+  return '#4f6df5'
 }
 
 const themeAccentHex = computed(() => {
@@ -607,7 +607,12 @@ const removeSection = (sectionId: string) => {
   }
 
   &:hover {
-    background: $bg-glass;
+    background: $bg-glass-hover;
+
+    .nav-item__icon,
+    .nav-item__label {
+      color: $text-primary;
+    }
 
     .nav-item__hide,
     .nav-item__remove {
@@ -616,7 +621,7 @@ const removeSection = (sectionId: string) => {
   }
 
   &--active {
-    background: $primary-gradient;
+    background: $primary-bg-active;
     color: $text-white;
     box-shadow: $shadow-primary;
 
@@ -626,7 +631,7 @@ const removeSection = (sectionId: string) => {
     }
 
     .nav-item__drag-handle {
-      color: rgba(255, 255, 255, 0.6);
+      color: rgba(255, 255, 255, 0.5);
     }
 
     .nav-item__remove {
@@ -634,7 +639,13 @@ const removeSection = (sectionId: string) => {
 
       &:hover {
         background: rgba(255, 255, 255, 0.2);
-        color: #ff6b6b;
+        color: $error-color;
+      }
+    }
+
+    &:hover {
+      .nav-item__remove {
+        color: $error-color;
       }
     }
   }
@@ -901,7 +912,6 @@ const removeSection = (sectionId: string) => {
   position: fixed;
   padding: 4px 10px;
   background: var(--tooltip-bg);
-  backdrop-filter: blur(6px);
   border: 1px solid var(--tooltip-border);
   border-radius: 6px;
   color: var(--text-primary);

@@ -15,7 +15,7 @@
     </div>
     <div v-if="selected" class="template-card__check">
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="10" fill="#7c5cfc"/>
+        <circle cx="10" cy="10" r="10" fill="#4f6df5"/>
         <path d="M6 10L9 13L14 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
@@ -81,13 +81,13 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => previewResume.va
 
   &:hover {
     transform: translateY(-4px);
-    border-color: rgba(124, 92, 252, 0.4);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(124, 92, 252, 0.1);
+    border-color: $primary-color;
+    box-shadow: $shadow-md;
   }
 
   &--selected {
     border-color: $primary-color;
-    box-shadow: 0 0 24px rgba(124, 92, 252, 0.25);
+    box-shadow: $shadow-md;
 
     &:hover {
       border-color: $primary-color;
@@ -117,7 +117,6 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => previewResume.va
   &__info {
     padding: $spacing-md $spacing-lg;
     background: var(--card-info-bg);
-    backdrop-filter: blur(5px);
     border-top: 1px solid var(--border-light);
     flex: 1;
     display: flex;

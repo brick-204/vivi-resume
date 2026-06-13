@@ -7,8 +7,8 @@
         <path d="M10 12H22M10 16H18M10 20H22" stroke="url(#sidebar-logo-gradient)" stroke-width="2" stroke-linecap="round" />
         <defs>
           <linearGradient id="sidebar-logo-gradient" x1="2" y1="2" x2="30" y2="30">
-            <stop stop-color="#7c5cfc" />
-            <stop offset="1" stop-color="#06b6d4" />
+            <stop stop-color="#4f6df5" />
+            <stop offset="1" stop-color="#3b82f6" />
           </linearGradient>
         </defs>
       </svg>
@@ -73,8 +73,6 @@ defineEmits<{
   width: 240px;
   height: 100%;
   background: var(--sidebar-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border-right: 1px solid $border-glass;
   display: flex;
   flex-direction: column;
@@ -132,12 +130,12 @@ defineEmits<{
     }
 
     &--active {
-      background: $primary-gradient;
+      background: $primary-bg-active;
       color: $text-white;
       box-shadow: $shadow-primary;
 
       &:hover {
-        background: $primary-gradient;
+        background: $primary-bg-active;
         color: $text-white;
       }
     }
