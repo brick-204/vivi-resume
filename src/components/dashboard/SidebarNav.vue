@@ -1,20 +1,5 @@
 <template>
   <aside class="sidebar-nav" :class="{ 'sidebar-nav--mobile': mobile }">
-    <!-- Logo -->
-    <div class="sidebar-nav__logo">
-      <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-        <rect x="2" y="2" width="28" height="28" rx="8" stroke="url(#sidebar-logo-gradient)" stroke-width="2" />
-        <path d="M10 12H22M10 16H18M10 20H22" stroke="url(#sidebar-logo-gradient)" stroke-width="2" stroke-linecap="round" />
-        <defs>
-          <linearGradient id="sidebar-logo-gradient" x1="2" y1="2" x2="30" y2="30">
-            <stop stop-color="#4f6df5" />
-            <stop offset="1" stop-color="#3b82f6" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <span class="sidebar-nav__logo-text">Vivi Resume</span>
-    </div>
-
     <!-- 导航项 -->
     <nav class="sidebar-nav__items">
       <button
@@ -85,22 +70,6 @@ defineEmits<{
     width: 240px;
   }
 
-  &__logo {
-    display: flex;
-    align-items: center;
-    gap: $spacing-md;
-    padding: $spacing-sm $spacing-md;
-    margin-bottom: $spacing-xl;
-  }
-
-  &__logo-text {
-    font-size: $font-size-lg;
-    font-weight: 700;
-    @include gradient-text;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
-  }
-
   &__items {
     display: flex;
     flex-direction: column;
@@ -153,15 +122,6 @@ defineEmits<{
     width: 64px;
     padding: $spacing-md $spacing-xs;
     align-items: center;
-
-    &__logo {
-      padding: $spacing-xs;
-      margin-bottom: $spacing-lg;
-    }
-
-    &__logo-text {
-      display: none;
-    }
 
     &__item {
       justify-content: center;
