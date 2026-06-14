@@ -6,7 +6,13 @@
       </div>
     </div>
     <div class="resume-card__info">
-      <h4 class="resume-card__title">{{ resume.title || '未命名简历' }}</h4>
+      <div class="resume-card__title-wrap">
+        <h4 class="resume-card__title">{{ resume.title || '未命名简历' }}</h4>
+        <span class="resume-card__time">
+          <Icon icon="mdi:clock-outline" :width="12" />
+          {{ formattedTime }}
+        </span>
+      </div>
       <span class="resume-card__meta">{{ templateName }}</span>
     </div>
     <div class="resume-card__actions">
@@ -50,6 +56,28 @@ const onCopy = () => {
 }
 
 const templateName = computed(() => getTemplate(props.resume.templateId).name)
+
+/** 格式化最后更新时间：7天内显示相对时间，更早显示绝对日期 */
+const formattedTime = computed(() => {
+  const updated = new Date(props.resume.updatedAt)
+  const now = new Date()
+  const diffMs = now.getTime() - updated.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  const diffHour = Math.floor(diffMs / 3600000)
+  const diffDay = Math.floor(diffMs / 86400000)
+
+  if (diffMin < 1) return '刚刚'
+  if (diffMin < 60) return `${diffMin}分钟前`
+  if (diffHour < 24) return `${diffHour}小时前`
+  if (diffDay < 7) return `${diffDay}天前`
+
+  // 超过7天显示绝对日期
+  const month = updated.getMonth() + 1
+  const day = updated.getDate()
+  const isThisYear = updated.getFullYear() === now.getFullYear()
+  if (isThisYear) return `${month}月${day}日`
+  return `${updated.getFullYear()}年${month}月${day}日`
+})
 
 const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pagePadding)
 </script>
@@ -120,6 +148,13 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
     gap: $spacing-sm;
   }
 
+  &__title-wrap {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   &__title {
     font-size: $font-size-md;
     font-weight: 600;
@@ -127,7 +162,14 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    min-width: 0;
+  }
+
+  &__time {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: $font-size-xs;
+    color: $text-light;
   }
 
   &__meta {
