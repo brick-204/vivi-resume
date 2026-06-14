@@ -35,7 +35,7 @@
           <div class="hero__card hero__card--1">
             <div class="preview-card">
               <div class="preview-card__header">
-                <div class="preview-card__avatar"></div>
+                <img class="preview-card__avatar" src="@/assets/images/Ez.png" alt="Ez" />
                 <div class="preview-card__info">
                   <span class="preview-card__name">张三</span>
                   <span class="preview-card__title">前端工程师</span>
@@ -51,7 +51,7 @@
           <div class="hero__card hero__card--2">
             <div class="preview-card preview-card--accent">
               <div class="preview-card__header">
-                <div class="preview-card__avatar"></div>
+                <img class="preview-card__avatar" src="@/assets/images/Timo.png" alt="Timo" />
                 <div class="preview-card__info">
                   <span class="preview-card__name">李四</span>
                   <span class="preview-card__title">产品经理</span>
@@ -66,11 +66,16 @@
           <div class="hero__card hero__card--3">
             <div class="preview-card preview-card--secondary">
               <div class="preview-card__header">
-                <div class="preview-card__avatar"></div>
+                <img class="preview-card__avatar" src="@/assets/images/ElementalMaster.png" alt="ElementalMaster" />
                 <div class="preview-card__info">
                   <span class="preview-card__name">王五</span>
                   <span class="preview-card__title">UX 设计师</span>
                 </div>
+              </div>
+              <div class="preview-card__skills">
+                <span class="skill-tag">Figma</span>
+                <span class="skill-tag">用户研究</span>
+                <span class="skill-tag">交互设计</span>
               </div>
             </div>
           </div>
@@ -234,9 +239,9 @@ const goToDashboard = () => {
   transition: all $transition-spring;
 
   &--1 {
-    top: 20px;
+    top: 0;
     left: 60px;
-    transform: rotate(-6deg);
+    transform: rotate(-4deg);
   }
 
   &--2 {
@@ -272,7 +277,7 @@ const goToDashboard = () => {
     width: 44px;
     height: 44px;
     border-radius: $radius-lg;
-    background: $primary-color;
+    object-fit: cover;
   }
 
   &__info {
@@ -300,19 +305,11 @@ const goToDashboard = () => {
   &--accent {
     border-color: $accent-color;
     box-shadow: $shadow-md;
-
-    .preview-card__avatar {
-      background: $accent-color;
-    }
   }
 
   &--secondary {
     border-color: $secondary-color;
     box-shadow: $shadow-md;
-
-    .preview-card__avatar {
-      background: $secondary-color;
-    }
   }
 }
 
