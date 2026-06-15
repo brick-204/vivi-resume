@@ -43,7 +43,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -59,9 +60,18 @@ import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
 const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
 const settingsStore = useSettingsStore()
+const route = useRoute()
 
 const activeTab = ref<'resumes' | 'templates' | 'ai' | 'settings'>('resumes')
 const mobileMenuOpen = ref(false)
+const storesReady = ref(false)
+
+// 根据 URL query 参数切换 tab
+watch(() => route.query.tab, (tab) => {
+  if (['ai', 'settings', 'templates', 'resumes'].includes(tab as string)) {
+    activeTab.value = tab as typeof activeTab.value
+  }
+}, { immediate: true })
 
 const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'settings') => {
   activeTab.value = tab
@@ -72,8 +82,9 @@ onMounted(async () => {
   await settingsStore.ready
   await store.ready
   await aiConfigStore.ready
-  // 无简历时默认显示模版市场
-  if (store.resumeCount === 0) {
+  storesReady.value = true
+  // 无简历且无 query tab 时默认显示模版市场
+  if (!route.query.tab && store.resumeCount === 0) {
     activeTab.value = 'templates'
   }
 })

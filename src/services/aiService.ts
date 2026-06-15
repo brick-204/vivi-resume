@@ -87,7 +87,7 @@ export function plainTextToHtml(text: string): string {
 
 // ========== SSE 流式调用 ==========
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
 }

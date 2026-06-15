@@ -96,6 +96,27 @@
       </div>
     </div>
 
+    <!-- 多轮追问输入区 -->
+    <div v-if="showRefineInput && !isStreaming" class="refine-bar">
+      <n-input
+        v-model:value="refineInstruction"
+        type="textarea"
+        placeholder="输入修改要求继续优化，如：更简洁一些、突出量化成果..."
+        :autosize="{ minRows: 1, maxRows: 2 }"
+        @keydown.enter.ctrl="refineGenerate"
+      />
+      <n-button
+        type="primary"
+        :disabled="!refineInstruction.trim()"
+        @click="refineGenerate"
+      >
+        <template #icon>
+          <Icon icon="mdi:refresh" :width="16" />
+        </template>
+        继续优化
+      </n-button>
+    </div>
+
     <template #footer>
       <div class="preview-footer">
         <n-button @click="handleCancel">
@@ -124,7 +145,9 @@ import type { AIOperation, AIServiceConfig } from '@/types/aiConfig'
 import { AI_OPERATIONS } from '@/types/aiConfig'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
-import { performAIOperation, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
+import { performAIOperation, streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
+import type { ChatMessage } from '@/services/aiService'
+import { buildMessages } from '@/services/aiPrompts'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
@@ -150,6 +173,9 @@ const isConnected = ref(false)  // 首个 chunk 是否已到达
 const elapsedSeconds = ref(0)   // 生成耗时（秒）
 const selectedOperation = ref<AIOperation>('write')
 const localCustomInstruction = ref('')
+const conversationHistory = ref<ChatMessage[]>([])
+const showRefineInput = ref(false)
+const refineInstruction = ref('')
 let abortController: AbortController | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
@@ -255,6 +281,9 @@ watch(() => props.visible, (val) => {
     isConnected.value = false
     elapsedSeconds.value = 0
     localCustomInstruction.value = props.prefilledInstruction || ''
+    conversationHistory.value = []
+    showRefineInput.value = false
+    refineInstruction.value = ''
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
       elapsedTimer = null
@@ -312,7 +341,6 @@ const startGenerate = async () => {
         signal: abortController.signal,
         customInstruction: localCustomInstruction.value,
         onConnected: () => {
-          // 首个 chunk 到达，连接已建立
           isConnected.value = true
         },
         onUsage: (usage) => {
@@ -320,6 +348,16 @@ const startGenerate = async () => {
         },
       },
     )
+
+    // 生成完成后，构建对话历史，开启追问输入
+    if (resultText.value) {
+      const initialMessages = buildMessages(selectedOperation.value, props.originalText, localCustomInstruction.value)
+      conversationHistory.value = [
+        ...initialMessages,
+        { role: 'assistant', content: resultText.value },
+      ]
+      showRefineInput.value = true
+    }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       // 用户取消，静默
@@ -348,6 +386,8 @@ const handleCancel = () => {
 
 /** 点击开始 / 重新生成 */
 const handleStartGenerate = () => {
+  conversationHistory.value = []
+  showRefineInput.value = false
   startGenerate()
 }
 
@@ -363,6 +403,73 @@ const handleApply = () => {
   const html = markdownToHtml(resultText.value)
   emit('apply', html)
   emit('close')
+}
+
+/** 多轮追问生成 */
+const refineGenerate = async () => {
+  if (!props.config || isStreaming.value || !refineInstruction.value.trim()) return
+
+  const messages: ChatMessage[] = [...conversationHistory.value, { role: 'user', content: refineInstruction.value.trim() }]
+
+  // 保留上一轮结果直到新内容到达，避免预览区闪空
+  isStreaming.value = true
+  isConnected.value = false
+  elapsedSeconds.value = 0
+  abortController = new AbortController()
+  let newContentStarted = false
+
+  elapsedTimer = setInterval(() => {
+    elapsedSeconds.value++
+  }, 1000)
+
+  try {
+    await streamChat(
+      props.config,
+      messages,
+      (chunk) => {
+        if (!newContentStarted) {
+          newContentStarted = true
+          resultText.value = '' // 新内容到达后再清空上一轮结果
+        }
+        resultText.value += chunk
+        if (!isConnected.value) {
+          isConnected.value = true
+     }
+      },
+      {
+        signal: abortController.signal,
+        onUsage: (usage) => {
+          aiConfigStore.addUsage(usage)
+        },
+        maxTokens: 4096,
+      },
+    )
+
+    // 更新对话历史
+    if (resultText.value) {
+      conversationHistory.value = [
+        ...messages,
+        { role: 'assistant', content: resultText.value },
+      ]
+    }
+    refineInstruction.value = ''
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      // 用户取消，静默
+    } else if (err instanceof AIServiceError) {
+      naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+    } else {
+      naiveMessage.error('AI 处理失败，请重试')
+    }
+  } finally {
+    isStreaming.value = false
+    isConnected.value = false
+    abortController = null
+    if (elapsedTimer) {
+      clearInterval(elapsedTimer)
+      elapsedTimer = null
+    }
+  }
 }
 </script>
 
@@ -544,6 +651,15 @@ const handleApply = () => {
   display: flex;
   justify-content: flex-end;
   gap: $spacing-sm;
+}
+
+// ========== 多轮追问栏 ==========
+.refine-bar {
+  display: flex;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  border-top: 1px solid $border-glass;
+  align-items: flex-end;
 }
 
 @keyframes blink {

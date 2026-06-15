@@ -86,6 +86,7 @@ import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
+import { getScoreColor } from '@/utils/evaluationScore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
 const props = defineProps<{ show: boolean }>()
@@ -170,12 +171,7 @@ const overallScore = computed(() => {
 })
 
 /** 分数颜色 */
-const scoreColor = computed(() => {
-  if (overallScore.value === null) return 'transparent'
-  if (overallScore.value >= 80) return '#34d399'
-  if (overallScore.value >= 60) return '#fbbf24'
-  return '#f87171'
-})
+const scoreColor = computed(() => getScoreColor(overallScore.value))
 
 /** 分数圆环样式 */
 const scoreCircleStyle = computed(() => ({

@@ -267,6 +267,68 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
+  // ========== 手动重新同步 ==========
+  const resyncDirectory = async () => {
+    if (!directoryHandle.value) return
+    if (isLocked.value) {
+      naiveMessage.warning('请等待当前同步操作完成')
+      return
+    }
+
+    // 验证权限
+    const perm = await queryPermission(directoryHandle.value)
+    if (perm !== 'granted') {
+      const newPerm = await requestPermission(directoryHandle.value)
+      permissionStatus.value = newPerm
+      if (newPerm !== 'granted') {
+        naiveMessage.warning('需要目录读写权限才能重新同步')
+        return
+      }
+    }
+
+    try {
+      isSyncing.value = true
+      acquireLock('正在从目录读取数据...')
+
+      const handle = directoryHandle.value
+
+      // 1. 从目录读取全部数据
+      const resumes = await readAllJsonFiles<Resume>(handle, 'resumes')
+      const aiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
+      const metaJson = await readJsonFile<Record<string, string>>(handle, 'meta.json')
+
+      updateProgress('正在写入 IndexedDB...', 30)
+
+      // 2. 写入 IndexedDB
+      await idb.saveResumeList(resumes)
+
+      for (const config of aiConfigs) {
+        await idb.saveAIConfig(config)
+      }
+
+      if (metaJson?.currentId) {
+        await idb.setCurrentId(metaJson.currentId)
+      }
+      if (metaJson?.activeAIConfigId) {
+        await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
+      }
+
+      updateProgress('正在刷新数据...', 80)
+
+      // 3. 通知 stores 重新加载
+      await notifyStoresReload()
+
+      updateProgress('重新同步完成！', 100)
+      naiveMessage.success('已从目录重新同步数据')
+    } catch (e) {
+      console.error('[settingsStore] 重新同步失败:', e)
+      naiveMessage.error('重新同步失败，请重试')
+    } finally {
+      isSyncing.value = false
+      releaseLock()
+    }
+  }
+
   // ========== 通知 stores 重新加载 ==========
   const notifyStoresReload = async () => {
     // 动态导入避免循环依赖
@@ -300,5 +362,6 @@ export const useSettingsStore = defineStore('settings', () => {
     bindDirectory,
     unbindDirectory,
     reauthorize,
+    resyncDirectory,
   }
 })

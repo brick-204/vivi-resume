@@ -25,6 +25,9 @@
               <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
+              <button class="card__duplicate" aria-label="复制" @click.stop="duplicateItem(item.id)">
+                <Icon icon="mdi:content-copy" :width="18" :height="18" />
+              </button>
               <n-popconfirm negative-text="取消" positive-text="删除" @positive-click="deleteItem(item.id)">
                 <template #trigger>
                   <button class="card__delete" aria-label="删除" @click.stop>
@@ -128,6 +131,15 @@ const deleteItem = (id: string) => {
   store.updateCurrentResume({
     education: items.value.filter(item => item.id !== id)
   })
+}
+
+const duplicateItem = (id: string) => {
+  const index = items.value.findIndex(item => item.id === id)
+  if (index === -1) return
+  const copy: EducationItem = { ...structuredClone(items.value[index]), id: generateId() }
+  const updated = [...items.value]
+  updated.splice(index + 1, 0, copy)
+  store.updateCurrentResume({ education: updated })
 }
 
 defineExpose({ addItem })

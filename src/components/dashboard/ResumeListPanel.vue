@@ -19,6 +19,30 @@
       </div>
     </div>
 
+    <!-- 简历网格 -->
+    <div v-if="store.resumeCount > 0" class="resume-list-panel__toolbar">
+      <n-input
+        v-model:value="searchQuery"
+        placeholder="搜索简历..."
+        clearable
+        size="small"
+        class="resume-list-panel__search"
+      >
+        <template #prefix>
+          <Icon icon="mdi:magnify" :width="16" />
+        </template>
+      </n-input>
+      <n-select
+        v-model:value="sortKey"
+        :options="sortOptions"
+        size="small"
+        class="resume-list-panel__sort"
+      />
+      <button class="sort-order-btn" :title="sortOrder === 'desc' ? '降序' : '升序'" @click="sortOrder = sortOrder === 'desc' ? 'asc' : 'desc'">
+        <Icon :icon="sortOrder === 'desc' ? 'mdi:sort-descending' : 'mdi:sort-ascending'" :width="18" />
+      </button>
+    </div>
+
     <!-- 空状态 -->
     <div v-if="store.resumeCount === 0" class="resume-list-panel__empty">
       <div class="empty__icon">
@@ -28,10 +52,16 @@
       <p class="empty__hint">或切换到「模版市场」选择模板快速开始</p>
     </div>
 
+    <!-- 搜索无结果 -->
+    <div v-if="store.resumeCount > 0 && filteredAndSortedResumes.length === 0" class="resume-list-panel__no-results">
+      <Icon icon="mdi:magnify-close" :width="40" />
+      <p>未找到匹配「{{ searchQuery }}」的简历</p>
+    </div>
+
     <!-- 简历网格 -->
-    <div v-else class="resume-list-panel__grid">
+    <div v-else-if="filteredAndSortedResumes.length > 0" class="resume-list-panel__grid">
       <ResumeCard
-        v-for="resume in store.resumeList"
+        v-for="resume in filteredAndSortedResumes"
         :key="resume.id"
         :resume="resume"
         @edit="openResume(resume.id)"
@@ -50,18 +80,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { readJSONFile } from '@/utils/export'
 import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
+import { NInput, NSelect } from 'naive-ui'
 import ImportModal from '@/components/home/ImportModal.vue'
 import ResumeCard from '@/components/home/ResumeCard.vue'
 
 const router = useRouter()
 const store = useResumeStore()
 const showImportModal = ref(false)
+const searchQuery = ref('')
+const sortKey = ref<'updatedAt' | 'createdAt' | 'title'>('updatedAt')
+const sortOrder = ref<'asc' | 'desc'>('desc')
+
+const sortOptions = [
+  { label: '最近更新', value: 'updatedAt' },
+  { label: '创建时间', value: 'createdAt' },
+  { label: '名称', value: 'title' },
+]
+
+const filteredAndSortedResumes = computed(() => {
+  let list = [...store.resumeList]
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.trim().toLowerCase()
+    list = list.filter(r => r.title.toLowerCase().includes(query))
+  }
+
+  list.sort((a, b) => {
+    let comparison = 0
+    if (sortKey.value === 'title') {
+      comparison = (a.title || '').localeCompare(b.title || '', 'zh-CN')
+    } else {
+      comparison = (a[sortKey.value] || '').localeCompare(b[sortKey.value] || '')
+    }
+    return sortOrder.value === 'asc' ? comparison : -comparison
+  })
+
+  return list
+})
 
 const createNewResume = async () => {
   const id = await store.createResume()
@@ -148,6 +209,33 @@ const handleImportFile = async (file: File) => {
     padding: $spacing-3xl 0;
   }
 
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-lg;
+    flex-wrap: wrap;
+  }
+
+  &__search {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  &__sort {
+    width: 140px;
+  }
+
+  &__no-results {
+    text-align: center;
+    padding: $spacing-3xl 0;
+    color: $text-light;
+
+    p {
+      margin-top: $spacing-md;
+    }
+  }
+
   &__grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -172,6 +260,26 @@ const handleImportFile = async (file: File) => {
   font-size: $font-size-sm;
   color: $text-light;
   opacity: 0.7;
+}
+
+.sort-order-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid $border-glass;
+  border-radius: $radius-md;
+  color: $text-secondary;
+  cursor: pointer;
+  transition: all $transition-fast;
+  flex-shrink: 0;
+
+  &:hover {
+    background: $bg-glass;
+    color: $primary-light;
+  }
 }
 
 .action-btn {

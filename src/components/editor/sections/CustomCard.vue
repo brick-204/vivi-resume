@@ -25,6 +25,9 @@
               <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
+              <button class="card__duplicate" aria-label="复制" @click.stop="duplicateItem(item.id)">
+                <Icon icon="mdi:content-copy" :width="18" :height="18" />
+              </button>
               <n-popconfirm negative-text="取消" positive-text="删除" @positive-click="deleteItem(item.id)">
                 <template #trigger>
                   <button class="card__delete" aria-label="删除" @click.stop>
@@ -156,6 +159,19 @@ const deleteItem = (id: string) => {
     ...cards[sectionIndex.value],
     items: cards[sectionIndex.value].items.filter(item => item.id !== id)
   }
+  store.updateCurrentResume({ customCards: cards })
+}
+
+const duplicateItem = (id: string) => {
+  if (!store.currentResume) return
+  const section = store.currentResume.customCards[sectionIndex.value]
+  const index = section.items.findIndex(item => item.id === id)
+  if (index === -1) return
+  const copy: CustomCardItem = { ...structuredClone(section.items[index]), id: generateId() }
+  const cards = [...store.currentResume.customCards]
+  const updatedItems = [...section.items]
+  updatedItems.splice(index + 1, 0, copy)
+  cards[sectionIndex.value] = { ...section, items: updatedItems }
   store.updateCurrentResume({ customCards: cards })
 }
 

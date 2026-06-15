@@ -67,7 +67,7 @@
     <!-- 安全提示 -->
     <div class="panel__security-notice">
       <Icon icon="mdi:information-outline" :width="14" />
-      <span>API Key 存储于本地浏览器，未加密。请勿在不信任的设备上保存密钥。</span>
+      <span>API Key 存储于本地浏览器或本地目录，未加密。请勿在不信任的设备上保存密钥。</span>
     </div>
   </div>
 </template>

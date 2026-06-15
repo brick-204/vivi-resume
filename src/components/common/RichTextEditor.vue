@@ -302,8 +302,7 @@ const applyAIResult = (html: string) => {
 }
 
 const goToAISettings = () => {
-  router.push({ path: '/' })
-  // TODO: 切换到 AI tab，可能需要通过 URL query 或 store
+  router.push({ path: '/', query: { tab: 'ai' } })
 }
 
 // ========== 原有逻辑 ==========

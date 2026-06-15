@@ -13,7 +13,16 @@
           {{ formattedTime }}
         </span>
       </div>
-      <span class="resume-card__meta">{{ templateName }}</span>
+      <div class="resume-card__meta">
+        <span
+          v-if="evaluationScore !== null"
+          class="resume-card__score-badge"
+          :style="{ background: scoreColor }"
+        >
+          {{ evaluationScore }}分
+        </span>
+        <span>{{ templateName }}</span>
+      </div>
     </div>
     <div class="resume-card__actions">
       <button class="resume-card__btn resume-card__btn--edit" @click.stop="$emit('edit')" title="编辑">
@@ -36,6 +45,7 @@ import { getTemplate } from '@/config/templates'
 import { useScaledPreview } from '@/composables/useScaledPreview'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 import { Icon } from '@iconify/vue'
+import { getScoreColor } from '@/utils/evaluationScore'
 
 const props = defineProps<{ resume: Resume }>()
 
@@ -78,6 +88,10 @@ const formattedTime = computed(() => {
   if (isThisYear) return `${month}月${day}日`
   return `${updated.getFullYear()}年${month}月${day}日`
 })
+
+const evaluationScore = computed(() => props.resume.lastEvaluation?.score ?? null)
+
+const scoreColor = computed(() => getScoreColor(evaluationScore.value))
 
 const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pagePadding)
 </script>
@@ -173,9 +187,26 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
   }
 
   &__meta {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
     font-size: $font-size-xs;
     color: $text-secondary;
     flex-shrink: 0;
+  }
+
+  &__score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: $radius-sm;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   &__actions {

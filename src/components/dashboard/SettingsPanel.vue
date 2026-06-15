@@ -49,6 +49,14 @@
         </div>
         <div class="settings-section__actions">
           <button
+            class="action-btn action-btn--primary"
+            :disabled="settingsStore.isSyncing"
+            @click="handleResync"
+          >
+            <Icon icon="mdi:sync" :width="18" />
+            重新同步
+          </button>
+          <button
             class="action-btn action-btn--danger"
             :disabled="settingsStore.isSyncing"
             @click="showUnbindConfirm = true"
@@ -58,7 +66,7 @@
           </button>
         </div>
         <p class="settings-section__hint">
-          解绑后数据将恢复到浏览器 IndexedDB 存储
+          点击「重新同步」将目录中的最新数据读取到应用中；解绑后数据将恢复到浏览器 IndexedDB 存储
         </p>
       </div>
 
@@ -130,6 +138,10 @@ const handleUnbind = (deleteFiles: boolean) => {
 
 const handleReauthorize = () => {
   settingsStore.reauthorize()
+}
+
+const handleResync = () => {
+  settingsStore.resyncDirectory()
 }
 </script>
 
