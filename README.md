@@ -6,7 +6,7 @@
 
 ### 简历编辑
 
-- **8 种简历模板** - 经典、现代、简约、时间轴、优雅、双栏、侧边栏、专业风格
+- **8 种简历模板** - 经典、现代、简约、时间轴、优雅、双栏、侧边栏（默认）、专业风格
 - **实时预览** - 编辑内容时即时查看简历效果
 - **主题色定制** - 12 种预设主题色 + 自定义 RGBA 取色器
 - **文字设置** - 字体、行高（slider + select）、正文字号、一/二级标题字号
@@ -29,14 +29,16 @@
 - **自动续写** - 检测 token 截断后自动续写，确保完整输出
 - **空段落上下文预填** - AI 帮写时自动注入当前条目上下文（职位@公司、项目名等）
 - **AI 简历评估** - 全模块逐一评估（含评分），评估结果自动持久化
+- **评分徽章** - 三档评分色标（≥80 优秀/≥60 良好/<60 待改进），简历卡片与评估弹窗复用
 - **Token 用量追踪** - 实时显示累计输入/输出 token 用量，防抖持久化
 
 ### Dashboard
 
 - **两列布局** - 侧边导航 + 内容区，移动端自动折叠为抽屉
-- **模板市场** - 用户数据实时预览，每个模板展示自身主题色
+- **模板市场** - 用户数据实时预览，每个模板展示自身主题色；无简历时默认展示
 - **AI 设置面板** - 多服务商配置管理，Token 用量置顶高亮
 - **目录模式同步** - 绑定本地目录后自动双向同步，支持进度显示和冲突保护
+- **主题切换** - 浅色 / 深色 / 跟随系统三种模式，跟随系统监听 `prefers-color-scheme`
 
 ## 技术栈
 
@@ -46,7 +48,7 @@
 | 状态管理 | Pinia 2.1 |
 | 路由 | Vue Router 4.3 |
 | 构建 | Vite 5 + manualChunks 拆包 |
-| 样式 | Sass + CSS 自定义属性 |
+| 样式 | Sass + CSS 自定义属性 + 浅色/深色主题变量 |
 | 拖拽 | vuedraggable 4.1 |
 | 富文本 | Tiptap 3.23 |
 | 图标 | Iconify (mdi + simple-icons)，按需 bundle |
@@ -64,7 +66,7 @@ src/
 ├── assets/
 │   └── styles/            # 全局样式、变量、混入（含 range-slider、rich-text-content mixin）
 ├── components/
-│   ├── common/            # 公共组件（Modal、Button、Input、RichTextEditor、ResizeHandle）
+│   ├── common/            # 公共组件（AppHeader、RichTextEditor、ResizeHandle）
 │   ├── dashboard/         # Dashboard 页面组件
 │   │   ├── SidebarNav.vue         # 侧边导航
 │   │   ├── ResumeListPanel.vue    # 简历列表面板
@@ -84,7 +86,10 @@ src/
 │   │   └── templates/     # 8 种模板组件 + 共享样式
 │   │       └── shared/    # base.scss、useResumeDocument、CSS vars
 │   ├── ai/                # AI 功能组件
-│   │   ├── AIResultPreview.vue   # AI 生成结果预览（7 种操作 + 上下文预填）
+│   │   ├── AIButtonGroup.vue       # AI 操作按钮组
+│   │   ├── AIConfigCard.vue        # AI 配置卡片
+│   │   ├── AIConfigModal.vue       # AI 配置弹窗
+│   │   ├── AIResultPreview.vue     # AI 生成结果预览（7 种操作 + 上下文预填）
 │   │   └── ResumeEvaluationModal.vue  # AI 简历评估弹窗（流式 + 自动续写 + 持久化）
 │   ├── home/              # 首页组件（ResumeCard、ImportModal）
 │   └── template/          # 模板卡片组件
@@ -93,6 +98,7 @@ src/
 │   ├── useWorkerImageProcessor.ts # Worker 图片处理
 │   ├── useSyncWorker.ts          # 目录同步 Worker
 │   ├── useSyncLock.ts            # 同步锁（防并发）
+│   ├── useTheme.ts               # 主题切换（浅色/深色/跟随系统）
 │   ├── useScaledPreview.ts       # 缩放预览
 │   ├── useSectionTitle.ts        # 模块标题
 │   ├── useFlipAnimation.ts       # FLIP 动画
@@ -117,6 +123,7 @@ src/
 │   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移、Blob 照片存储）
 │   ├── storageAdapter.ts  # 存储适配层（IndexedDB / 目录模式切换）
 │   ├── colorUtils.ts      # 主题色派生（标题色、标签色等）
+│   ├── evaluationScore.ts # 评估分数工具（三档色值 + 等级文案）
 │   ├── resumeStyle.ts     # 简历样式工具（样式覆盖字段剥离）
 │   ├── sanitizeHtml.ts    # HTML 安全过滤
 │   ├── normalizeContent.ts # 内容标准化
@@ -125,7 +132,7 @@ src/
 │   ├── export.ts          # JSON 导出
 │   └── print.ts           # iframe 打印方案
 ├── plugins/
-│   └── naive-ui.ts        # Naive UI 按需引入 + Provider 注册
+│   └── naive-ui.ts        # Naive UI 主题覆盖 + Provider 注册 + createDiscreteApi
 ├── workers/
 │   ├── serializer.worker.ts    # JSON 序列化 Worker
 │   ├── imageProcessor.worker.ts # 图片裁剪/缩放 Worker
@@ -236,8 +243,8 @@ pnpm preview
 
 - 全模块逐一评估（内容完整性、表述专业性、逻辑清晰度、信息密度、格式规范）
 - 每个模块给出优点、不足、可操作建议
-- 生成 0-100 总体评分
-- 评估结果自动持久化，下次打开可查看历史结果
+- 生成 0-100 总体评分，三档色标：≥80 优秀（绿）/ ≥60 良好（黄）/ <60 待改进（红）
+- 评估结果自动持久化，下次打开可查看历史结果；评分以徽章形式显示在简历卡片上
 - 配合自动续写，确保所有模块都能被完整评估
 
 ## 模板展示
@@ -250,14 +257,14 @@ pnpm preview
 | 时间轴风格 | 强调时间线视觉，突出职业历程 |
 | 优雅风格 | 经典排版 + 精致细节，专业优雅 |
 | 双栏布局 | 左侧信息栏 + 右侧内容，结构清晰 |
-| 侧边栏风格 | 左侧信息栏 + 右侧内容区，层次分明 |
+| 侧边栏风格 | 左侧信息栏 + 右侧内容区，层次分明（默认模板） |
 | 专业风格 | 深色标题栏 + 简洁排版，沉稳干练 |
 
 ## 设计特点
 
 - **Glassmorphism** - 玻璃拟态设计风格，backdrop-filter 适度降级优化性能
-- **深色主题** - 舒适的深色背景配色
-- **Naive UI** - AI 弹窗、配置表单等使用 Naive UI 组件库，可爱风深色主题
+- **主题切换** - 浅色 / 深色 / 跟随系统三种模式，`useTheme` composable 管理，`data-theme` 属性作用于 `<html>`
+- **Naive UI** - AI 弹窗、配置表单等使用 Naive UI 组件库，深色/浅色主题完整覆盖
 - **流畅动画** - 平滑的过渡和 FLIP 动画效果
 - **CSS 变量** - 模板样式通过 CSS 自定义属性灵活控制，支持主题色 / 字号 / 行高 / 间距全链路传递
 - **Web Worker** - JSON 序列化、图片处理、目录同步在 Worker 线程完成，不阻塞主线程
@@ -350,6 +357,7 @@ Resume 数据 (resumeStore)
 - **简历序列化**：`resumeSerializer.ts` 将 Resume 对象转为结构化纯文本，空模块标记为`（未填写）`
 - **评估持久化**：结果存储在 `Resume.lastEvaluation`（IndexedDB 自动兼容新字段），使用 `saveToStorageNow()` 立即写入
 - **Token 用量**：`aiConfigStore.totalTokens` 累加输入/输出/总计，5 秒防抖写入 IndexedDB `meta` store
+- **评分工具**：`evaluationScore.ts` 提供三档色值（绿/黄/红）和等级文案（优秀/良好/待改进），评估弹窗与简历卡片复用
 
 ## License
 
