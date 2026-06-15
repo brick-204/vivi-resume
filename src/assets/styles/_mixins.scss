@@ -487,7 +487,8 @@
   u { text-decoration: underline; }
   s { text-decoration: line-through; }
   a { color: inherit; text-decoration: underline; }
-  mark { border-radius: 2px; padding: 0 2px; }
+  mark { border-radius: 2px; padding: 0 2px; background: #fef08a; }
+  mark[data-color] { background: attr(data-color); }
 }
 
 // ==================== Range Slider ====================

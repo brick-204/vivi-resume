@@ -574,6 +574,11 @@ onBeforeUnmount(() => {
   mark {
     border-radius: 2px;
     padding: 0 2px;
+    background: #fef08a;
+  }
+
+  mark[data-color] {
+    background: attr(data-color);
   }
 }
 
