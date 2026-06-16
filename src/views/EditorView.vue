@@ -7,6 +7,7 @@
       @export-json="exportJSON"
       @export-pdf="exportPDF"
       @ai-eval="showEvalModal = true"
+      @jd-scan="showJDScanModal = true"
       @change-template="goToTemplates"
       @save-title="saveTitle"
     />
@@ -68,11 +69,18 @@
       :show="showEvalModal"
       @close="showEvalModal = false"
     />
+
+    <!-- JD 关键词扫描弹窗 -->
+    <JDScanModal
+      :visible="showJDScanModal"
+      :config="aiConfigStore.activeConfig ?? null"
+      @close="showJDScanModal = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, watch } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -86,6 +94,7 @@ import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
 import ResumePreview from '@/components/preview/ResumePreview.vue'
 import ResumeEvaluationModal from '@/components/ai/ResumeEvaluationModal.vue'
+import JDScanModal from '@/components/ai/JDScanModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,9 +104,10 @@ const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const showEvalModal = ref(false)
+const showJDScanModal = ref(false)
 
 const saveTitle = () => {
-  store.saveCurrentResume()
+  store.saveCurrentResumeNow()
 }
 
 // 编辑区滑入动画时长（与 CSS .slide-left-enter-active 的 0.25s 对齐，加缓冲）
@@ -163,19 +173,6 @@ const exportPDF = async () => {
     margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
   })
 }
-
-let saveTimer: ReturnType<typeof setTimeout> | null = null
-watch(
-  () => store.isDirty,
-  (dirty) => {
-    if (dirty) {
-      if (saveTimer) clearTimeout(saveTimer)
-      saveTimer = setTimeout(() => {
-        store.saveCurrentResume()
-      }, 1000)
-    }
-  }
-)
 
 onMounted(async () => {
   // 等待 store 初始化完成（Worker 异步加载 IndexedDB 数据）

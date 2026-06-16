@@ -222,3 +222,78 @@ function serializeCustomSection(resume: Resume, sectionId: string): string {
 
   return ''
 }
+
+/** 轻量序列化：将简历内容拼接为纯文本，供全文搜索使用 */
+export function serializeResumeForSearch(resume: Resume): string {
+  const parts: string[] = []
+
+  // 基本信息
+  const info = resume.basicInfo
+  if (info.name) parts.push(info.name)
+  if (info.title) parts.push(info.title)
+  if (info.email) parts.push(info.email)
+  if (info.phone) parts.push(info.phone)
+  if (info.location) parts.push(info.location)
+  if (info.website) parts.push(info.website)
+  if (info.expectedCity) parts.push(info.expectedCity)
+  if (info.workExperience) parts.push(info.workExperience)
+  if (info.summary) parts.push(htmlToPlainText(info.summary))
+
+  // 自定义字段
+  for (const field of info.customFields || []) {
+    if (field.value && !field.hidden) parts.push(field.value)
+  }
+
+  // 工作经历
+  for (const item of resume.workExperience) {
+    if (item.hidden) continue
+    if (item.company) parts.push(item.company)
+    if (item.position) parts.push(item.position)
+    if (item.description) parts.push(htmlToPlainText(item.description))
+  }
+
+  // 教育经历
+  for (const item of resume.education) {
+    if (item.hidden) continue
+    if (item.school) parts.push(item.school)
+    if (item.degree) parts.push(item.degree)
+    if (item.major) parts.push(item.major)
+    if (item.description) parts.push(htmlToPlainText(item.description))
+  }
+
+  // 项目经验
+  for (const item of resume.projects) {
+    if (item.hidden) continue
+    if (item.name) parts.push(item.name)
+    if (item.role) parts.push(item.role)
+    if (item.technologies?.length) parts.push(item.technologies.join(' '))
+    if (item.description) parts.push(htmlToPlainText(item.description))
+  }
+
+  // 技能
+  for (const s of resume.skills) {
+    const text = htmlToPlainText(s.content)
+    if (text) parts.push(text)
+  }
+
+  // 自我评价
+  if (resume.selfEvaluation) {
+    parts.push(htmlToPlainText(resume.selfEvaluation))
+  }
+
+  // 自定义模块
+  for (const section of resume.customTexts) {
+    if (section.content) parts.push(htmlToPlainText(section.content))
+  }
+  for (const section of resume.customCards) {
+    for (const item of section.items) {
+      if (item.hidden) continue
+      if (item.name) parts.push(item.name)
+      if (item.role) parts.push(item.role)
+      if (item.keywords?.length) parts.push(item.keywords.join(' '))
+      if (item.description) parts.push(htmlToPlainText(item.description))
+    }
+  }
+
+  return parts.join(' ')
+}

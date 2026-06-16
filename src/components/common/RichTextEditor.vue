@@ -138,7 +138,19 @@
         @go-settings="goToAISettings"
       />
 
+      <!-- 查找替换栏 -->
+      <FindReplaceBar
+        :editor="editor ?? null"
+        :show="showFindReplace"
+        @close="showFindReplace = false"
+      />
+
       <EditorContent :editor="editor" class="rich-text-editor__body" :style="{ minHeight }" />
+
+      <!-- 字数统计 -->
+      <div v-if="editor" class="rich-text-editor__count">
+        {{ charCount }} 字符 · {{ wordCount }} 词
+      </div>
     </div>
     <span v-if="error" class="rich-text-editor__error">{{ error }}</span>
 
@@ -151,6 +163,15 @@
       :prefilled-instruction="props.aiContext"
       @close="onAIPreviewClose"
       @apply="applyAIResult"
+    />
+
+    <!-- 链接输入弹窗 -->
+    <LinkInputModal
+      :show="showLinkModal"
+      :initial-url="linkModalInitialUrl"
+      @close="showLinkModal = false"
+      @confirm="onLinkConfirm"
+      @remove="onLinkRemove"
     />
   </div>
 </template>
@@ -177,6 +198,8 @@ import { htmlToMarkdown } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import AIButtonGroup from '@/components/ai/AIButtonGroup.vue'
 import AIResultPreview from '@/components/ai/AIResultPreview.vue'
+import LinkInputModal from '@/components/common/LinkInputModal.vue'
+import FindReplaceBar from '@/components/common/FindReplaceBar.vue'
 
 const props = withDefaults(defineProps<{
   label?: string
@@ -222,6 +245,17 @@ const currentAIOperation = ref<AIOperation | null>(null)
 const showAIPreview = ref(false)
 const aiOriginalText = ref('')
 
+// 链接弹窗状态
+const showLinkModal = ref(false)
+const linkModalInitialUrl = ref('')
+
+// 查找替换状态
+const showFindReplace = ref(false)
+
+// 字数统计
+const charCount = ref(0)
+const wordCount = ref(0)
+
 const editor = useEditor({
   content: normalizeContent(props.modelValue),
   extensions: [
@@ -264,11 +298,23 @@ const editor = useEditor({
         }
         return true
       }
+      // Ctrl+F：打开查找替换
+      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+        event.preventDefault()
+        showFindReplace.value = true
+        return true
+      }
       return false
     },
   },
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.getHTML())
+    // 更新字数统计
+    const text = editor.state.doc.textContent
+    charCount.value = text.length
+    const chineseChars = (text.match(/\p{Script=Han}/gu) || []).length
+    const englishWords = text.replace(/\p{Script=Han}/gu, ' ').trim().split(/\s+/).filter(Boolean).length
+    wordCount.value = chineseChars + englishWords
   },
 })
 
@@ -345,14 +391,20 @@ const onClearFormat = () => {
 
 const onAddLink = () => {
   if (!editor.value) return
-  const prev = editor.value.getAttributes('link').href
-  const url = prompt('请输入链接地址', prev || 'https://')
-  if (url === null) return
-  if (url === '') {
-    editor.value.chain().focus().extendMarkRange('link').unsetLink().run()
-    return
-  }
+  linkModalInitialUrl.value = editor.value.getAttributes('link').href || ''
+  showLinkModal.value = true
+}
+
+const onLinkConfirm = (url: string) => {
+  showLinkModal.value = false
+  if (!editor.value) return
   editor.value.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+}
+
+const onLinkRemove = () => {
+  showLinkModal.value = false
+  if (!editor.value) return
+  editor.value.chain().focus().extendMarkRange('link').unsetLink().run()
 }
 
 watch(() => props.modelValue, (newVal) => {
@@ -410,6 +462,15 @@ onBeforeUnmount(() => {
     padding: $spacing-md;
     overflow-y: auto;
     background: $editor-bg;
+  }
+
+  &__count {
+    padding: 2px $spacing-sm;
+    font-size: 11px;
+    color: $text-light;
+    text-align: right;
+    border-top: 1px solid $border-glass;
+    font-variant-numeric: tabular-nums;
   }
 
   &__error {

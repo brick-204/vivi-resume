@@ -37,6 +37,10 @@
           <Icon icon="mdi:star-outline" :width="16" />
           <span class="header-btn__text">AI 评估</span>
         </button>
+        <button class="header-btn header-btn--scan" @click="emit('jd-scan')">
+          <Icon icon="mdi:text-search" :width="16" />
+          <span class="header-btn__text">JD 扫描</span>
+        </button>
         <button class="header-btn header-btn--template" @click="emit('change-template')">
           <Icon icon="mdi:view-grid-outline" :width="16" />
           <span class="header-btn__text">更换模板</span>
@@ -80,6 +84,7 @@ const emit = defineEmits<{
   'export-json': []
   'export-pdf': []
   'ai-eval': []
+  'jd-scan': []
   'change-template': []
   'save-title': []
 }>()
@@ -311,6 +316,7 @@ const onExportSelect = (key: string) => {
     }
   }
 
+  &--scan,
   &--template {
     background: $bg-glass;
     color: $text-secondary;
@@ -318,7 +324,7 @@ const onExportSelect = (key: string) => {
 
     &:hover {
       background: $bg-glass-hover;
-      color: $text-primary;
+      color: $primary-light;
       border-color: $primary-color;
       box-shadow: $shadow-sm;
     }

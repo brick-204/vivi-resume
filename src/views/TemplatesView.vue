@@ -121,7 +121,7 @@ const applyTemplate = async () => {
   }
 
   // 等待保存完成后再跳转，确保 resumeList 已同步更新
-  await store.saveCurrentResume()
+  await store.saveCurrentResumeNow()
   router.push(`/editor/${resumeId.value}`)
 }
 </script>

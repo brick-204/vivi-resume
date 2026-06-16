@@ -69,31 +69,55 @@
     </div>
 
     <div class="preview-body">
-      <div class="preview-pane">
-        <div class="preview-pane__header">原文</div>
-        <div class="preview-pane__content">{{ originalText }}</div>
+      <!-- 视图切换 -->
+      <div class="preview-view-tabs">
+        <button
+          v-for="tab in viewTabs"
+          :key="tab.id"
+          class="preview-view-tab"
+          :class="{ 'preview-view-tab--active': activeView === tab.id }"
+          @click="activeView = tab.id"
+        >{{ tab.label }}</button>
       </div>
-      <div class="preview-divider" />
-      <div class="preview-pane">
-        <div class="preview-pane__header">
-          AI 生成结果
-          <NSpin v-if="isStreaming" :size="14" />
-          <span v-if="isStreaming" class="preview-pane__status">
-            {{ isConnected ? `${elapsedSeconds}s` : '连接中...' }}
-          </span>
-        </div>
-        <div class="preview-pane__content preview-pane__content--result">
-          <template v-if="hasResult">
-            <!-- 流式期间显示纯文本（打字机效果），结束后渲染 HTML -->
-            <template v-if="isStreaming">{{ resultText }}</template>
-            <div v-else class="preview-pane__rich" v-html="renderedResult" />
-          </template>
-          <span v-else class="preview-pane__placeholder">
-            {{ isStreaming && !isConnected ? '正在连接 AI 服务...' : isStreaming ? '正在生成...' : '等待生成...' }}
-          </span>
-          <span v-if="isStreaming" class="preview-pane__cursor">▌</span>
-        </div>
+
+      <!-- Diff 视图 -->
+      <div v-if="activeView === 'diff' && hasResult && !isStreaming" class="preview-diff">
+        <template v-for="(seg, i) in diffSegments" :key="i">
+          <span v-if="seg.type === 'equal'" class="diff-equal">{{ seg.value }}</span>
+          <span v-else-if="seg.type === 'added'" class="diff-added">{{ seg.value }}</span>
+          <span v-else-if="seg.type === 'removed'" class="diff-removed">{{ seg.value }}</span>
+        </template>
       </div>
+
+      <!-- 原文 | 结果双栏视图 -->
+      <template v-else>
+        <div class="preview-pane">
+          <div class="preview-pane__header">原文</div>
+          <div class="preview-pane__content">{{ originalText }}</div>
+        </div>
+        <div class="preview-divider" />
+        <div class="preview-pane">
+          <div class="preview-pane__header">
+            AI 生成结果
+            <NSpin v-if="isStreaming" :size="14" />
+            <span v-if="isStreaming" class="preview-pane__status">
+              {{ isConnected ? `${elapsedSeconds}s` : '连接中...' }}
+            </span>
+          </div>
+          <div class="preview-pane__content preview-pane__content--result">
+            <template v-if="hasResult">
+              <!-- 流式期间显示纯文本（打字机效果），结束后渲染 HTML -->
+              <template v-if="isStreaming">{{ resultText }}</template>
+              <div v-else-if="activeView === 'result'" class="preview-pane__rich" v-html="renderedResult" />
+              <template v-else>{{ resultText }}</template>
+            </template>
+            <span v-else class="preview-pane__placeholder">
+              {{ isStreaming && !isConnected ? '正在连接 AI 服务...' : isStreaming ? '正在生成...' : '等待生成...' }}
+            </span>
+            <span v-if="isStreaming" class="preview-pane__cursor">▌</span>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- 多轮追问输入区 -->
@@ -150,8 +174,25 @@ import type { ChatMessage } from '@/services/aiService'
 import { buildMessages } from '@/services/aiPrompts'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+import { computeDiff } from '@/utils/textDiff'
+import type { DiffSegment } from '@/utils/textDiff'
 
 const aiConfigStore = useAIConfigStore()
+
+// 视图切换
+type ViewMode = 'diff' | 'split' | 'result'
+const activeView = ref<ViewMode>('diff')
+const viewTabs = [
+  { id: 'diff' as ViewMode, label: 'Diff' },
+  { id: 'split' as ViewMode, label: '原文 / 结果' },
+  { id: 'result' as ViewMode, label: '结果' },
+]
+
+/** 计算原文与结果的字符级差异 */
+const diffSegments = computed<DiffSegment[]>(() => {
+  if (!hasResult.value || isStreaming.value) return []
+  return computeDiff(props.originalText, resultText.value)
+})
 
 const props = defineProps<{
   visible: boolean
@@ -280,6 +321,7 @@ watch(() => props.visible, (val) => {
     isStreaming.value = false
     isConnected.value = false
     elapsedSeconds.value = 0
+    activeView.value = 'diff'
     localCustomInstruction.value = props.prefilledInstruction || ''
     conversationHistory.value = []
     showRefineInput.value = false
@@ -568,6 +610,67 @@ const refineGenerate = async () => {
 }
 
 // ========== 预览区域 ==========
+.preview-view-tabs {
+  display: flex;
+  gap: 2px;
+  padding: $spacing-xs $spacing-md;
+  border-bottom: 1px solid $border-glass;
+  background: rgba($primary-color, 0.02);
+}
+
+.preview-view-tab {
+  padding: 4px 12px;
+  font-size: $font-size-xs;
+  font-family: $font-family;
+  color: $text-secondary;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: $primary-light;
+    background: rgba($primary-color, 0.06);
+  }
+
+  &--active {
+    color: $primary-light;
+    background: rgba($primary-color, 0.12);
+    border-color: rgba($primary-color, 0.2);
+  }
+}
+
+// ========== Diff 视图 ==========
+.preview-diff {
+  flex: 1;
+  padding: $spacing-md;
+  font-size: $font-size-sm;
+  line-height: 1.7;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  @include scrollbar;
+}
+
+.diff-equal {
+  color: $text-primary;
+}
+
+.diff-added {
+  background: rgba($success-color, 0.2);
+  color: darken($success-color, 10%);
+  border-radius: 2px;
+}
+
+.diff-removed {
+  background: rgba($error-color, 0.15);
+  color: darken($error-color, 10%);
+  text-decoration: line-through;
+  opacity: 0.7;
+  border-radius: 2px;
+}
+
 .preview-body {
   display: flex;
   gap: 0;

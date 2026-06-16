@@ -16,7 +16,7 @@ export async function createResumeFromTemplate(templateId: string): Promise<stri
   // 3. 应用模板 + 示例数据
   applyTemplateToCurrentResume(templateId)
   // 4. 保存
-  await store.saveCurrentResume()
+  await store.saveCurrentResumeNow()
 
   return id
 }

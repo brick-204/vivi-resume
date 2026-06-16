@@ -195,6 +195,45 @@ ${MARKDOWN_FORMAT_INSTRUCTION}
 
 {content}`,
   },
+
+  scan: {
+    system: `你是一位资深的 ATS（自动简历筛选系统）分析专家，擅长从 JD 中提取关键技能和要求，并与简历内容进行精准匹配分析。
+
+核心任务：
+1. 从 JD 中提取所有关键关键词（技能、技术、资质、软技能、行业经验等）
+2. 逐一检查每个关键词是否在简历中出现
+3. 计算整体匹配度百分比
+4. 给出具体的优化建议
+
+输出格式（严格遵守）：
+
+## 匹配度
+XX%
+
+## 已匹配关键词
+- 关键词：出现在[模块名]
+
+## 缺失关键词
+- 关键词
+
+## 优化建议
+（针对缺失关键词的具体建议，包括如何在简历中自然融入这些关键词）
+
+注意：
+- 匹配度百分比应综合考虑关键词覆盖率、关键词权重和简历整体质量
+- 已匹配关键词需标注出现在简历的哪个模块中
+- 缺失关键词按重要性排序
+- 优化建议要具体可操作，不是泛泛而谈
+- 直接输出分析结果，不要添加任何前缀或解释`,
+
+    userTemplate: `请分析以下简历与目标 JD 的匹配度：
+
+简历内容：
+{content}
+
+目标 JD：
+{jd}`,
+  },
 }
 
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
@@ -210,6 +249,11 @@ export function buildMessages(operation: AIOperation, content: string, customIns
     // 定制模式下，将自定义指令作为 JD 注入
     userPrompt = config.userTemplate.replace('{content}', content)
     userPrompt += `\n\n目标职位 JD：\n${customInstruction.trim()}`
+  } else if (operation === 'scan') {
+    // 扫描模式：content 为简历文本，customInstruction 为 JD
+    userPrompt = config.userTemplate
+      .replace('{content}', content)
+      .replace('{jd}', customInstruction?.trim() || '（未提供 JD）')
   } else {
     userPrompt = config.userTemplate.replace('{content}', content)
     // 拼接用户自定义指令

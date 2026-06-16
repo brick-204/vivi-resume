@@ -64,7 +64,7 @@ export const useResumeStore = defineStore('resume', () => {
   // 当前编辑的简历
   const currentResume = ref<Resume | null>(null)
 
-  // 脏标记：updateCurrentResume 时置 true，saveCurrentResume 后置 false
+  // 脏标记：updateCurrentResume 时置 true，保存后置 false
   const isDirty = ref(false)
 
   // 计算属性：简历数量
@@ -128,6 +128,8 @@ export const useResumeStore = defineStore('resume', () => {
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   // 防止并发写入的锁
   let _savePromise: Promise<void> | null = null
+  // 自动保存防抖延迟
+  const AUTO_SAVE_DELAY = 1000
 
   // 立即写入 IndexedDB（用于创建/删除等不可丢失操作）
   const saveToStorageNow = async (): Promise<void> => {
@@ -145,17 +147,50 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
-  // 防抖写入 IndexedDB（用于拖拽等高频操作）
-  // 使用串行化确保不会出现并发写入导致旧数据覆盖新数据
-  const saveToStorage = () => {
-    // 同步期间禁止写入
+  /** 防抖自动保存：1s 内无新变更时执行深拷贝 + 写入 */
+  const scheduleAutoSave = () => {
     if (isLocked.value) return
-
     if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => {
-      // 串行化：等待上一次保存完成后再执行本次保存
-      _savePromise = (_savePromise || Promise.resolve()).then(() => saveToStorageNow())
-    }, 300)
+    saveTimer = setTimeout(async () => {
+      saveTimer = null
+      if (!currentResume.value) return
+      const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
+      if (index !== -1) {
+        currentResume.value.updatedAt = new Date().toISOString()
+        const json = await serialize(currentResume.value)
+        const parsed = await parse<Resume>(json)
+        const newList = [...resumeList.value]
+        newList[index] = parsed
+        resumeList.value = newList
+        // 串行化写入，避免并发覆盖
+        _savePromise = (_savePromise || Promise.resolve()).then(async () => {
+          await saveToStorageNow()
+          // 写入成功后才清除脏标记，避免写入失败导致数据丢失
+          isDirty.value = false
+        })
+      }
+    }, AUTO_SAVE_DELAY)
+  }
+
+  /** 立即保存当前简历（标题修改、关键操作等场景） */
+  const saveCurrentResumeNow = async () => {
+    if (!currentResume.value) return
+
+    // 先取消防抖计时器，避免重复保存
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+
+    const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
+    if (index !== -1) {
+      currentResume.value.updatedAt = new Date().toISOString()
+      const json = await serialize(currentResume.value)
+      const parsed = await parse<Resume>(json)
+      const newList = [...resumeList.value]
+      newList[index] = parsed
+      resumeList.value = newList
+      await saveToStorageNow()
+      // 写入成功后才清除脏标记
+      isDirty.value = false
+    }
   }
 
   // 创建新简历
@@ -192,24 +227,9 @@ export const useResumeStore = defineStore('resume', () => {
     Object.assign(currentResume.value, data, {
       updatedAt: new Date().toISOString()
     })
+    scheduleAutoSave()
   }
 
-  // 保存当前简历到列表（使用 Worker 深拷贝 + 序列化）
-  const saveCurrentResume = async () => {
-    if (!currentResume.value) return
-
-    const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
-    if (index !== -1) {
-      currentResume.value.updatedAt = new Date().toISOString()
-      const json = await serialize(currentResume.value)
-      const parsed = await parse<Resume>(json)
-      const newList = [...resumeList.value]
-      newList[index] = parsed
-      resumeList.value = newList
-      saveToStorage()
-      isDirty.value = false
-    }
-  }
 
   // 删除简历
   const deleteResume = async (id: string) => {
@@ -293,7 +313,6 @@ export const useResumeStore = defineStore('resume', () => {
     }
 
     updateCurrentResume({ sectionOrder: newOrder })
-    saveCurrentResume()
   }
 
   // 隐藏模块（保留排序位置）
@@ -302,7 +321,6 @@ export const useResumeStore = defineStore('resume', () => {
     const hidden = currentResume.value.hiddenSections || []
     if (!hidden.includes(sectionId)) {
       updateCurrentResume({ hiddenSections: [...hidden, sectionId] })
-      saveCurrentResume()
     }
   }
 
@@ -311,7 +329,6 @@ export const useResumeStore = defineStore('resume', () => {
     if (!currentResume.value) return
     const hidden = currentResume.value.hiddenSections || []
     updateCurrentResume({ hiddenSections: hidden.filter(id => id !== sectionId) })
-    saveCurrentResume()
   }
 
   // 删除模块（清除数据，重新添加时为初始状态）
@@ -350,7 +367,6 @@ export const useResumeStore = defineStore('resume', () => {
     }
 
     updateCurrentResume(updates)
-    saveCurrentResume()
   }
 
   // 添加/恢复模块
@@ -372,7 +388,6 @@ export const useResumeStore = defineStore('resume', () => {
     } else {
       updateCurrentResume({ hiddenSections: newHidden })
     }
-    saveCurrentResume()
   }
 
   // 检查模块是否可见
@@ -399,7 +414,6 @@ export const useResumeStore = defineStore('resume', () => {
     const order = [...currentResume.value.sectionOrder]
     order.push(sectionId)
     updateCurrentResume({ customTexts: texts, sectionOrder: order })
-    saveCurrentResume()
     return sectionId
   }
 
@@ -414,7 +428,6 @@ export const useResumeStore = defineStore('resume', () => {
     const order = [...currentResume.value.sectionOrder]
     order.push(sectionId)
     updateCurrentResume({ customCards: cards, sectionOrder: order })
-    saveCurrentResume()
     return sectionId
   }
 
@@ -461,7 +474,6 @@ export const useResumeStore = defineStore('resume', () => {
         .map(remapId)
       updateCurrentResume({ customCards: cards, sectionOrder: order, sectionTitles: titles })
     }
-    saveCurrentResume()
   }
 
   // ========== AI 评估结果 ==========
@@ -521,7 +533,7 @@ export const useResumeStore = defineStore('resume', () => {
     getResume,
     loadResume,
     updateCurrentResume,
-    saveCurrentResume,
+    saveCurrentResumeNow,
     deleteResume,
     copyResume,
     exportToJSON,

@@ -23,7 +23,7 @@
     <div v-if="store.resumeCount > 0" class="resume-list-panel__toolbar">
       <n-input
         v-model:value="searchQuery"
-        placeholder="搜索简历..."
+        placeholder="搜索简历标题或内容..."
         clearable
         size="small"
         class="resume-list-panel__search"
@@ -83,6 +83,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useResumeSearch } from '@/composables/useResumeSearch'
 import { readJSONFile } from '@/utils/export'
 import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
@@ -97,6 +98,9 @@ const searchQuery = ref('')
 const sortKey = ref<'updatedAt' | 'createdAt' | 'title'>('updatedAt')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
+// 全文搜索
+const { filteredResumes } = useResumeSearch(computed(() => store.resumeList), searchQuery)
+
 const sortOptions = [
   { label: '最近更新', value: 'updatedAt' },
   { label: '创建时间', value: 'createdAt' },
@@ -104,12 +108,8 @@ const sortOptions = [
 ]
 
 const filteredAndSortedResumes = computed(() => {
-  let list = [...store.resumeList]
-
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.trim().toLowerCase()
-    list = list.filter(r => r.title.toLowerCase().includes(query))
-  }
+  // filteredResumes 已包含搜索过滤（标题 + 内容）
+  let list = [...filteredResumes.value]
 
   list.sort((a, b) => {
     let comparison = 0
