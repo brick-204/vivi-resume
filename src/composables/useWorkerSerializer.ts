@@ -64,10 +64,11 @@ export function useWorkerSerializer(options?: UseWorkerSerializerOptions) {
   /**
    * 剥离 Vue Proxy：将 reactive/ref 数据转为纯 JS 对象。
    * Worker 的 postMessage 使用结构化克隆算法，无法克隆 Vue 的 Proxy 对象。
-   * 使用 toRaw() 剥离 Proxy（O(1)），再 structuredClone 深拷贝确保纯数据。
+   * toRaw() 只剥离一层 Proxy，嵌套的响应式对象无法被 structuredClone 处理，
+   * 因此使用 JSON 往返来递归剥离所有 Proxy 并生成纯数据对象。
    */
   const unwrapProxy = <T>(data: T): T => {
-    return structuredClone(toRaw(data as object)) as T
+    return JSON.parse(JSON.stringify(toRaw(data as object))) as T
   }
 
   // ========== Worker 消息收发（带请求 ID 隔离） ==========

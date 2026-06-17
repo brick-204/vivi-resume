@@ -22,7 +22,7 @@
           <div class="card__header">
             <span class="card__school">{{ item.school || '未填写学校' }}</span>
             <div class="card__actions">
-              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
+              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="updateItemField(item.id, 'hidden', !item.hidden)">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
               <button class="card__duplicate" aria-label="复制" @click.stop="duplicateItem(item.id)">
@@ -44,34 +44,34 @@
           <div v-show="!collapsedIds.has(item.id)" class="card__form">
             <div class="form-field">
               <span class="form-field__label">学校名称</span>
-              <n-input v-model:value="item.school" placeholder="请输入学校名称" size="small" />
+              <n-input :value="item.school" @update:value="(val: string) => updateItemField(item.id, 'school', val)" placeholder="请输入学校名称" size="small" />
             </div>
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">学历</span>
-                <n-input v-model:value="item.degree" placeholder="如：本科" size="small" />
+                <n-input :value="item.degree" @update:value="(val: string) => updateItemField(item.id, 'degree', val)" placeholder="如：本科" size="small" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">专业</span>
-                <n-input v-model:value="item.major" placeholder="请输入专业" size="small" />
+                <n-input :value="item.major" @update:value="(val: string) => updateItemField(item.id, 'major', val)" placeholder="请输入专业" size="small" />
               </div>
             </div>
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">开始时间</span>
-                <n-input v-model:value="item.startDate" placeholder="YYYY-MM" size="small" />
+                <n-input :value="item.startDate" @update:value="(val: string) => updateItemField(item.id, 'startDate', val)" placeholder="YYYY-MM" size="small" />
               </div>
               <div class="date-field">
                 <div class="form-field">
                   <span class="form-field__label">结束时间</span>
-                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="item.endDate = $event" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
+                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="(val: string) => updateItemField(item.id, 'endDate', val)" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
                 </div>
                 <div class="date-field__present">
-                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="item.endDate = $event ? '至今' : ''">至今</n-checkbox>
+                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="(val: boolean) => updateItemField(item.id, 'endDate', val ? '至今' : '')">至今</n-checkbox>
                 </div>
               </div>
             </div>
-            <RichTextEditor v-model="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" :ai-context="`${item.school || '学校'}`" />
+            <RichTextEditor :model-value="item.description" @update:model-value="(val: string) => updateItemField(item.id, 'description', val)" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" :ai-context="`${item.school || '学校'}`" />
           </div>
         </div>
       </template>
@@ -111,6 +111,13 @@ const items = computed({
   get: () => store.currentResume?.education || [],
   set: (value) => store.updateCurrentResume({ education: value })
 })
+
+const updateItemField = (id: string, field: string, value: any) => {
+  const updated = items.value.map(item =>
+    item.id === id ? { ...item, [field]: value } : item
+  )
+  store.updateCurrentResume({ education: updated })
+}
 
 const addItem = () => {
   const newItem: EducationItem = {

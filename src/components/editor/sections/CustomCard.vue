@@ -22,7 +22,7 @@
           <div class="card__header">
             <span class="card__name">{{ item.name || '未填写名称' }}</span>
             <div class="card__actions">
-              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
+              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="updateItemField(item.id, 'hidden', !item.hidden)">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
               <button class="card__duplicate" aria-label="复制" @click.stop="duplicateItem(item.id)">
@@ -45,36 +45,36 @@
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">名称</span>
-                <n-input v-model:value="item.name" placeholder="请输入名称" size="small" />
+                <n-input :value="item.name" @update:value="(val: string) => updateItemField(item.id, 'name', val)" placeholder="请输入名称" size="small" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">角色</span>
-                <n-input v-model:value="item.role" placeholder="如：负责人" size="small" />
+                <n-input :value="item.role" @update:value="(val: string) => updateItemField(item.id, 'role', val)" placeholder="如：负责人" size="small" />
               </div>
             </div>
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">开始时间</span>
-                <n-input v-model:value="item.startDate" placeholder="YYYY-MM" size="small" />
+                <n-input :value="item.startDate" @update:value="(val: string) => updateItemField(item.id, 'startDate', val)" placeholder="YYYY-MM" size="small" />
               </div>
               <div class="date-field">
                 <div class="form-field">
                   <span class="form-field__label">结束时间</span>
-                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="item.endDate = $event" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
+                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="(val: string) => updateItemField(item.id, 'endDate', val)" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
                 </div>
                 <div class="date-field__present">
-                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="item.endDate = $event ? '至今' : ''">至今</n-checkbox>
+                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="(val: boolean) => updateItemField(item.id, 'endDate', val ? '至今' : '')">至今</n-checkbox>
                 </div>
               </div>
             </div>
-            <RichTextEditor v-model="item.description" label="描述" placeholder="描述内容..." :rows="3" />
+            <RichTextEditor :model-value="item.description" @update:model-value="(val: string) => updateItemField(item.id, 'description', val)" label="描述" placeholder="描述内容..." :rows="3" />
             <div class="keyword-section">
               <label class="keyword__label">关键词</label>
-                <n-input v-model:value="newKeyword" placeholder="输入关键词后按回车添加" size="small" @keydown.enter.prevent="addKeyword(item)" />
+                <n-input v-model:value="newKeyword" placeholder="输入关键词后按回车添加" size="small" @keydown.enter.prevent="addKeyword(item.id)" />
               <div class="keyword__list">
                 <span v-for="(kw, index) in item.keywords" :key="index" class="keyword__tag">
                   {{ kw }}
-                  <button class="keyword__remove" @click="removeKeyword(item, index)">×</button>
+                  <button class="keyword__remove" @click="removeKeyword(item.id, index)">×</button>
                 </span>
               </div>
             </div>
@@ -133,6 +133,16 @@ const items = computed({
   }
 })
 
+const updateItemField = (id: string, field: string, value: any) => {
+  if (sectionIndex.value < 0 || !store.currentResume) return
+  const updated = items.value.map(item =>
+    item.id === id ? { ...item, [field]: value } : item
+  )
+  const cards = [...store.currentResume.customCards]
+  cards[sectionIndex.value] = { ...cards[sectionIndex.value], items: updated }
+  store.updateCurrentResume({ customCards: cards })
+}
+
 const addItem = () => {
   if (sectionIndex.value < 0 || !store.currentResume) return
   const newItem: CustomCardItem = {
@@ -175,15 +185,23 @@ const duplicateItem = (id: string) => {
   store.updateCurrentResume({ customCards: cards })
 }
 
-const addKeyword = (item: CustomCardItem) => {
+const addKeyword = (itemId: string) => {
   if (newKeyword.value.trim()) {
-    item.keywords.push(newKeyword.value.trim())
+    const item = items.value.find(i => i.id === itemId)
+    if (item) {
+      updateItemField(itemId, 'keywords', [...item.keywords, newKeyword.value.trim()])
+    }
     newKeyword.value = ''
   }
 }
 
-const removeKeyword = (item: CustomCardItem, index: number) => {
-  item.keywords.splice(index, 1)
+const removeKeyword = (itemId: string, index: number) => {
+  const item = items.value.find(i => i.id === itemId)
+  if (item) {
+    const updated = [...item.keywords]
+    updated.splice(index, 1)
+    updateItemField(itemId, 'keywords', updated)
+  }
 }
 
 defineExpose({ addItem })

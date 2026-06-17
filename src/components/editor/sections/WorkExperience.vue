@@ -29,7 +29,7 @@
               >
             </div>
             <div class="card__actions">
-              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="item.hidden = !item.hidden">
+              <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="updateItemField(item.id, 'hidden', !item.hidden)">
                 <Icon :icon="item.hidden ? EYE_OFF_ICON : EYE_ICON" :width="18" :height="18" />
               </button>
               <button class="card__duplicate" aria-label="复制" @click.stop="duplicateItem(item.id)">
@@ -52,30 +52,31 @@
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">公司名称</span>
-                <n-input v-model:value="item.company" placeholder="请输入公司名称" size="small" />
+                <n-input :value="item.company" @update:value="(val: string) => updateItemField(item.id, 'company', val)" placeholder="请输入公司名称" size="small" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">职位</span>
-                <n-input v-model:value="item.position" placeholder="请输入职位" size="small" />
+                <n-input :value="item.position" @update:value="(val: string) => updateItemField(item.id, 'position', val)" placeholder="请输入职位" size="small" />
               </div>
             </div>
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">开始时间</span>
-                <n-input v-model:value="item.startDate" placeholder="YYYY-MM" size="small" />
+                <n-input :value="item.startDate" @update:value="(val: string) => updateItemField(item.id, 'startDate', val)" placeholder="YYYY-MM" size="small" />
               </div>
               <div class="date-field">
                 <div class="form-field">
                   <span class="form-field__label">结束时间</span>
-                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="item.endDate = $event" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
+                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="(val: string) => updateItemField(item.id, 'endDate', val)" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
                 </div>
                 <div class="date-field__present">
-                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="item.endDate = $event ? '至今' : ''">至今</n-checkbox>
+                  <n-checkbox :checked="item.endDate === '至今'" @update:checked="(val: boolean) => updateItemField(item.id, 'endDate', val ? '至今' : '')">至今</n-checkbox>
                 </div>
               </div>
             </div>
             <RichTextEditor
-              v-model="item.description"
+              :model-value="item.description"
+              @update:model-value="(val: string) => updateItemField(item.id, 'description', val)"
               label="工作描述"
               placeholder="描述你的主要职责和成就..."
               :rows="3"
@@ -120,6 +121,13 @@ const items = computed({
   get: () => store.currentResume?.workExperience || [],
   set: (value) => store.updateCurrentResume({ workExperience: value }),
 });
+
+const updateItemField = (id: string, field: string, value: any) => {
+  const updated = items.value.map(item =>
+    item.id === id ? { ...item, [field]: value } : item
+  )
+  store.updateCurrentResume({ workExperience: updated })
+}
 
 const addItem = () => {
   const newItem: WorkItem = {

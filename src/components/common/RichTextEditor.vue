@@ -1,7 +1,7 @@
 <template>
   <div class="rich-text-editor">
     <label v-if="label" class="rich-text-editor__label">{{ label }}</label>
-    <div v-if="editor" class="rich-text-editor__wrapper">
+    <div v-if="editor" class="rich-text-editor__wrapper" :class="{ 'rich-text-editor__wrapper--focused': focused }" @mousedown="focusEditor">
       <div class="rich-text-editor__toolbar">
         <!-- 撤销/重做 -->
         <button type="button" class="toolbar-btn" title="撤销" @click="editor.chain().focus().undo().run()" :disabled="!editor.can().undo()">
@@ -256,6 +256,17 @@ const showFindReplace = ref(false)
 const charCount = ref(0)
 const wordCount = ref(0)
 
+// 编辑器聚焦状态
+const focused = ref(false)
+
+// 点击编辑器区域时聚焦到 ProseMirror
+const focusEditor = (e: MouseEvent) => {
+  // 如果点击的是工具栏按钮等可交互元素，不干扰其默认行为
+  const target = e.target as HTMLElement
+  if (target.closest('button, a, input, [contenteditable="true"]')) return
+  editor.value?.commands.focus()
+}
+
 const editor = useEditor({
   content: normalizeContent(props.modelValue),
   extensions: [
@@ -316,6 +327,8 @@ const editor = useEditor({
     const englishWords = text.replace(/\p{Script=Han}/gu, ' ').trim().split(/\s+/).filter(Boolean).length
     wordCount.value = chineseChars + englishWords
   },
+  onFocus: () => { focused.value = true },
+  onBlur: () => { focused.value = false },
 })
 
 // ========== AI 操作 ==========
@@ -443,6 +456,22 @@ onBeforeUnmount(() => {
     flex-direction: column;
     resize: vertical;
     overflow: hidden;
+
+    // 替代 mixin 中无效的 :focus（div 不可聚焦），用 :focus-within 和手动 class
+    &:focus {
+      outline: none;
+      border-color: $border-glass;
+      background: $bg-glass;
+      box-shadow: none;
+    }
+
+    &:focus-within,
+    &--focused {
+      outline: none;
+      border-color: $primary-color;
+      background: var(--input-focus-bg);
+      box-shadow: 0 0 0 2px rgba($primary-color, 0.15);
+    }
   }
 
   &__toolbar {

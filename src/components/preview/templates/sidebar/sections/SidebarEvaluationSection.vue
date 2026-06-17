@@ -4,7 +4,7 @@
       <span class="main__section-icon"></span>
       {{ ctx.getSectionTitle(ctx.resume, sectionId) }}
     </h2>
-    <div v-if="ctx.resume.selfEvaluation" class="main__section-text" v-html="ctx.renderHtml(ctx.resume.selfEvaluation)"></div>
+    <div v-if="ctx.getEvaluationContent.value" class="main__section-text" v-html="ctx.renderHtml(ctx.getEvaluationContent.value)"></div>
   </section>
 </template>
 

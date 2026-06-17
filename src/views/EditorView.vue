@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
@@ -106,9 +106,16 @@ const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const showEvalModal = ref(false)
 const showJDScanModal = ref(false)
 
-const saveTitle = () => {
-  store.saveCurrentResumeNow()
+const saveTitle = async () => {
+  await store.saveCurrentResumeNow()
 }
+
+// 路由离开守卫：确保脏数据在导航前保存
+onBeforeRouteLeave(async () => {
+  if (store.isDirty) {
+    await store.saveCurrentResumeNow()
+  }
+})
 
 // 编辑区滑入动画时长（与 CSS .slide-left-enter-active 的 0.25s 对齐，加缓冲）
 const EDITOR_SLIDE_DURATION = 300

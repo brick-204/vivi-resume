@@ -1,7 +1,7 @@
 <template>
   <section class="resume__section" data-section="evaluation" @click="emit('click-section', 'evaluation')">
     <ProfessionalSectionHeader :title="ctx.getSectionTitle(ctx.resume, 'evaluation')" />
-    <div v-if="ctx.resume.selfEvaluation" class="section__text" v-html="ctx.renderHtml(ctx.resume.selfEvaluation)"></div>
+    <div v-if="ctx.getEvaluationContent.value" class="section__text" v-html="ctx.renderHtml(ctx.getEvaluationContent.value)"></div>
   </section>
 </template>
 

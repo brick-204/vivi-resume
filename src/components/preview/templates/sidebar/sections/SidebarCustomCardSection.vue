@@ -4,7 +4,7 @@
       <span class="main__section-icon"></span>
       {{ ctx.getSectionTitle(ctx.resume, sectionId) }}
     </h2>
-    <div v-for="item in ctx.getCustomCardItems(sectionId)" :key="item.id" class="main__entry" :data-item-id="item.id" @click.stop="emit('click-section', sectionId, item.id)">
+    <div v-for="item in ctx.getCustomCardItems.value(sectionId)" :key="item.id" class="main__entry" :data-item-id="item.id" @click.stop="emit('click-section', sectionId, item.id)">
       <div class="main__entry-header">
         <div class="main__entry-info">
           <h3 class="main__entry-title">{{ item.name }}</h3>

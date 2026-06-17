@@ -2,7 +2,7 @@
   <section class="resume__section" :data-section="sectionId" @click="emit('click-section', sectionId)">
     <ProfessionalSectionHeader :title="ctx.getSectionTitle(ctx.resume, sectionId)" />
     <div
-      v-for="item in ctx.getCustomCardItems(sectionId)"
+      v-for="item in ctx.getCustomCardItems.value(sectionId)"
       :key="item.id"
       class="entry"
       :data-item-id="item.id"

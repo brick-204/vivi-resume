@@ -4,7 +4,7 @@
       <span class="main__section-icon"></span>
       {{ ctx.getSectionTitle(ctx.resume, sectionId) }}
     </h2>
-    <div v-if="ctx.getCustomTextContent(sectionId)" class="main__section-text" v-html="ctx.renderHtml(ctx.getCustomTextContent(sectionId))"></div>
+    <div v-if="ctx.getCustomTextContent.value(sectionId)" class="main__section-text" v-html="ctx.renderHtml(ctx.getCustomTextContent.value(sectionId))"></div>
   </section>
 </template>
 

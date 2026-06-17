@@ -225,17 +225,31 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     return resume.value.skills?.[0]?.content || ''
   })
 
-  const getCustomTextContent = (sectionId: string): string => {
-    const index = getCustomSectionIndex(sectionId)
-    if (index === null) return ''
-    return resume.value.customTexts?.[index]?.content || ''
-  }
+  // 获取简介内容（与 entry__desc 复用同一 computed 模式，确保响应式追踪可靠）
+  const getSummaryContent = computed(() => {
+    return resume.value.basicInfo?.summary || ''
+  })
 
-  const getCustomCardItems = (sectionId: string) => {
-    const index = getCustomSectionIndex(sectionId)
-    if (index === null) return []
-    return (resume.value.customCards?.[index]?.items || []).filter(i => !i.hidden && !isCardEmpty(i, 'customCard'))
-  }
+  // 获取自我评价内容
+  const getEvaluationContent = computed(() => {
+    return resume.value.selfEvaluation || ''
+  })
+
+  const getCustomTextContent = computed(() => {
+    return (sectionId: string): string => {
+      const index = getCustomSectionIndex(sectionId)
+      if (index === null) return ''
+      return resume.value.customTexts?.[index]?.content || ''
+    }
+  })
+
+  const getCustomCardItems = computed(() => {
+    return (sectionId: string) => {
+      const index = getCustomSectionIndex(sectionId)
+      if (index === null) return []
+      return (resume.value.customCards?.[index]?.items || []).filter(i => !i.hidden && !isCardEmpty(i, 'customCard'))
+    }
+  })
 
   const isCardEmpty = (item: WorkItem | EducationItem | ProjectItem | CustomCardItem, type: 'work' | 'education' | 'project' | 'customCard'): boolean => {
     if (type === 'work') {
@@ -411,6 +425,8 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     templateCSSVars,
     sidebarCSSVars,
     getSkillsContent,
+    getSummaryContent,
+    getEvaluationContent,
     getCustomTextContent,
     getCustomCardItems,
     isCardEmpty,
