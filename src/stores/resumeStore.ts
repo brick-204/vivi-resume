@@ -203,6 +203,14 @@ export const useResumeStore = defineStore('resume', () => {
     return newResume.id
   }
 
+  /** 使用预构建数据创建简历（一步到位，避免中间"空简历"状态触发响应式更新） */
+  const createResumeWithData = async (data: Resume): Promise<string> => {
+    resumeList.value = [...resumeList.value, data]
+    currentResume.value = data
+    await saveToStorageNow()
+    return data.id
+  }
+
   // 获取简历
   const getResume = (id: string): Resume | undefined => {
     return resumeList.value.find(r => r.id === id)
@@ -530,6 +538,7 @@ export const useResumeStore = defineStore('resume', () => {
     resumeCount,
     ready,
     createResume,
+    createResumeWithData,
     getResume,
     loadResume,
     updateCurrentResume,
