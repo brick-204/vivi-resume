@@ -8,7 +8,7 @@ export const sampleResume: Resume = {
   title: '示例简历',
   templateId: 'sidebar',
   basicInfo: {
-    name: '张明',
+    name: '李莉',
     title: '高级前端工程师',
     photo: timoPhoto,
     email: 'zhangming@email.com',
@@ -16,7 +16,7 @@ export const sampleResume: Resume = {
     location: '北京市',
     website: 'github.com/zhangming',
     summary: '拥有 6 年前端开发经验，精通 Vue、React 等主流框架，具备丰富的大型项目架构设计能力。热衷于技术创新和团队协作，主导过多个百万级用户产品的前端架构设计与性能优化。',
-    gender: '男',
+    gender: '女',
     birthday: '',
     age: '28',
     expectedCity: '',
