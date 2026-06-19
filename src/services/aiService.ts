@@ -92,6 +92,12 @@ export interface ChatMessage {
   content: string
 }
 
+/** streamChat 返回结果 */
+export interface StreamChatResult {
+  /** 输出是否因达到最大续写次数而被截断 */
+  wasTruncated: boolean
+}
+
 /** streamChat 可选参数 */
 export interface StreamChatOptions {
   /** 取消信号 */
@@ -121,12 +127,13 @@ export async function streamChat(
   messages: ChatMessage[],
   onChunk: (text: string) => void,
   options: StreamChatOptions = {},
-): Promise<void> {
+): Promise<StreamChatResult> {
   const { signal, onConnected, onUsage, maxTokens } = options
   const MAX_CONTINUATIONS = 3          // 最大续写次数，防止无限循环
   const conversationMessages: ChatMessage[] = [...messages]
   let accumulatedText = ''              // 跨续写累积的完整文本
   let hasConnected = false              // onConnected 仅首次触发
+  let wasTruncated = false              // 是否因续写次数上限被截断
 
   for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
     // ---- 发起请求 ----
@@ -150,7 +157,7 @@ export async function streamChat(
         signal,
       })
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') return
+      if (err instanceof DOMException && err.name === 'AbortError') return { wasTruncated: false }
       if (err instanceof TypeError) {
         throw new AIServiceError('网络请求被阻止，可能是 CORS 限制或网络不可达', 'cors')
       }
@@ -261,6 +268,7 @@ export async function streamChat(
     if (finishReason !== 'length') break    // 正常结束（stop）或未知，直接退出
     if (attempt >= MAX_CONTINUATIONS) {
       // 达到最大续写次数，输出可能被截断
+      wasTruncated = true
       console.warn('[aiService] 达到最大续写次数，输出可能不完整')
       break
     }
@@ -271,6 +279,8 @@ export async function streamChat(
       { role: 'user', content: '请继续，从你中断的地方接着说，不要重复已经说过的内容。' },
     )
   }
+
+  return { wasTruncated }
 }
 
 // ========== 便捷方法 ==========
@@ -295,10 +305,10 @@ export async function performAIOperation(
   content: string,
   onChunk: (text: string) => void,
   options: PerformAIOperationOptions = {},
-): Promise<void> {
+): Promise<StreamChatResult> {
   const { customInstruction, ...streamOptions } = options
   const messages = buildMessages(operation, content, customInstruction)
-  await streamChat(config, messages, onChunk, streamOptions)
+  return await streamChat(config, messages, onChunk, streamOptions)
 }
 
 /**

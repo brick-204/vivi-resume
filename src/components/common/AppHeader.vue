@@ -33,6 +33,10 @@
     <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
     <div class="app-header__right">
       <template v-if="showEditorRight">
+        <button class="header-btn header-btn--optimize" @click="emit('full-optimize')">
+          <Icon icon="mdi:creation" :width="16" />
+          <span class="header-btn__text">一键优化</span>
+        </button>
         <button class="header-btn header-btn--eval" @click="emit('ai-eval')">
           <Icon icon="mdi:star-outline" :width="16" />
           <span class="header-btn__text">AI 评估</span>
@@ -85,6 +89,7 @@ const emit = defineEmits<{
   'export-pdf': []
   'ai-eval': []
   'jd-scan': []
+  'full-optimize': []
   'change-template': []
   'save-title': []
 }>()
@@ -302,6 +307,17 @@ const onExportSelect = (key: string) => {
   border: none;
   font-family: $font-family;
   white-space: nowrap;
+
+  &--optimize {
+    background: linear-gradient(135deg, $primary-color, $accent-color);
+    color: $text-white;
+    border: none;
+
+    &:hover {
+      opacity: 0.9;
+      box-shadow: $shadow-md;
+    }
+  }
 
   &--eval {
     background: $bg-glass;

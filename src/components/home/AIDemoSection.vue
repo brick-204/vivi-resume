@@ -1,0 +1,129 @@
+<template>
+  <section class="ai-demo-section" ref="sectionRef">
+    <div class="ai-demo-section__header">
+      <h2 class="ai-demo-section__title">
+        <span class="ai-demo-section__title-highlight">AI</span> 智能助手
+      </h2>
+      <p class="ai-demo-section__subtitle">让 AI 为你的简历增色</p>
+    </div>
+
+    <!-- Tab 切换 -->
+    <div class="ai-demo-section__tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.id"
+        class="demo-tab"
+        :class="{ 'demo-tab--active': activeTab === tab.id }"
+        @click="activeTab = tab.id"
+      >
+        <Icon :icon="tab.icon" :width="16" />
+        <span>{{ tab.label }}</span>
+      </button>
+    </div>
+
+    <!-- Demo 内容 -->
+    <div class="ai-demo-section__content">
+      <AIPolishDemo v-if="activeTab === 'polish'" />
+      <AIEvalDemo v-if="activeTab === 'eval'" />
+      <AIScanDemo v-if="activeTab === 'scan'" />
+      <AIWriteDemo v-if="activeTab === 'write'" />
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import { Icon } from '@iconify/vue'
+import AIPolishDemo from '@/components/home/demo/AIPolishDemo.vue'
+import AIEvalDemo from '@/components/home/demo/AIEvalDemo.vue'
+import AIScanDemo from '@/components/home/demo/AIScanDemo.vue'
+import AIWriteDemo from '@/components/home/demo/AIWriteDemo.vue'
+
+const sectionRef = ref<HTMLElement | null>(null)
+const activeTab = ref<'polish' | 'eval' | 'scan' | 'write'>('polish')
+
+const tabs = [
+  { id: 'polish' as const, label: 'AI 润色', icon: 'mdi:auto-fix' },
+  { id: 'eval' as const, label: '简历评估', icon: 'mdi:clipboard-check-outline' },
+  { id: 'scan' as const, label: 'JD 扫描', icon: 'mdi:text-search' },
+  { id: 'write' as const, label: 'AI 帮写', icon: 'mdi:pencil-plus' },
+]
+</script>
+
+<style lang="scss" scoped>
+.ai-demo-section {
+  padding: $spacing-3xl 0;
+}
+
+.ai-demo-section__header {
+  text-align: center;
+  margin-bottom: $spacing-2xl;
+}
+
+.ai-demo-section__title {
+  font-size: $font-size-3xl;
+  font-weight: 700;
+  color: $text-primary;
+  margin-bottom: $spacing-sm;
+
+  @include mobile {
+    font-size: $font-size-2xl;
+  }
+}
+
+.ai-demo-section__title-highlight {
+  @include gradient-text;
+}
+
+.ai-demo-section__subtitle {
+  font-size: $font-size-lg;
+  color: $text-secondary;
+}
+
+// Tab 切换
+.ai-demo-section__tabs {
+  display: flex;
+  justify-content: center;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-2xl;
+  flex-wrap: wrap;
+}
+
+.demo-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-lg;
+  border-radius: $radius-lg;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-base;
+  border: 1px solid $border-glass;
+  background: $bg-glass;
+  color: $text-secondary;
+  font-family: $font-family;
+
+  &:hover {
+    border-color: rgba($primary-color, 0.3);
+    color: $primary-light;
+  }
+
+  &--active {
+    background: rgba($primary-color, 0.12);
+    border-color: $primary-color;
+    color: $primary-light;
+
+    &:hover {
+      background: rgba($primary-color, 0.18);
+    }
+  }
+}
+
+.ai-demo-section__content {
+  @include glass;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  overflow: hidden;
+}
+</style>

@@ -69,6 +69,12 @@
     </div>
 
     <div class="preview-body">
+      <!-- 截断警告 -->
+      <div v-if="wasTruncated && hasResult && !isStreaming" class="truncation-warning">
+        <Icon icon="mdi:alert-outline" :width="16" />
+        AI 输出因长度限制被截断，结果可能不完整
+      </div>
+
       <!-- 视图切换 -->
       <div class="preview-view-tabs">
         <button
@@ -217,6 +223,7 @@ const localCustomInstruction = ref('')
 const conversationHistory = ref<ChatMessage[]>([])
 const showRefineInput = ref(false)
 const refineInstruction = ref('')
+const wasTruncated = ref(false)
 let abortController: AbortController | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
@@ -326,6 +333,7 @@ watch(() => props.visible, (val) => {
     conversationHistory.value = []
     showRefineInput.value = false
     refineInstruction.value = ''
+    wasTruncated.value = false
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
       elapsedTimer = null
@@ -372,7 +380,7 @@ const startGenerate = async () => {
   }, 1000)
 
   try {
-    await performAIOperation(
+    const result = await performAIOperation(
       props.config,
       selectedOperation.value,
       props.originalText,
@@ -390,6 +398,7 @@ const startGenerate = async () => {
         },
       },
     )
+    wasTruncated.value = result.wasTruncated
 
     // 生成完成后，构建对话历史，开启追问输入
     if (resultText.value) {
@@ -442,6 +451,7 @@ const handleStartIfReady = () => {
 
 const handleApply = () => {
   if (!hasResult.value) return
+  // 只做 markdown→html 转换，sanitize 交由 RichTextEditor.applyAIResult 统一处理
   const html = markdownToHtml(resultText.value)
   emit('apply', html)
   emit('close')
@@ -465,7 +475,7 @@ const refineGenerate = async () => {
   }, 1000)
 
   try {
-    await streamChat(
+    const result = await streamChat(
       props.config,
       messages,
       (chunk) => {
@@ -486,6 +496,7 @@ const refineGenerate = async () => {
         maxTokens: 4096,
       },
     )
+    wasTruncated.value = result.wasTruncated
 
     // 更新对话历史
     if (resultText.value) {
@@ -767,6 +778,11 @@ const refineGenerate = async () => {
 
 @keyframes blink {
   50% { opacity: 0; }
+}
+
+// ========== 截断警告 ==========
+.truncation-warning {
+  @include truncation-warning;
 }
 
 // 移动端：上下排列

@@ -491,6 +491,35 @@
   mark[data-color] { background: attr(data-color); }
 }
 
+// ==================== Privacy Notice ====================
+@mixin privacy-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($primary-color, 0.06);
+  border: 1px solid rgba($primary-color, 0.15);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  margin-bottom: $spacing-xs;
+  line-height: 1.5;
+}
+
+// ==================== Truncation Warning ====================
+@mixin truncation-warning {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($warning-color, 0.08);
+  border: 1px solid rgba($warning-color, 0.2);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $warning-color;
+  margin-bottom: $spacing-xs;
+}
+
 // ==================== Range Slider ====================
 @mixin range-slider-thumb {
   -webkit-appearance: none;

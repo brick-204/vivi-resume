@@ -8,6 +8,7 @@
       @export-pdf="exportPDF"
       @ai-eval="showEvalModal = true"
       @jd-scan="showJDScanModal = true"
+      @full-optimize="showFullOptimizeModal = true"
       @change-template="goToTemplates"
       @save-title="saveTitle"
     />
@@ -76,6 +77,13 @@
       :config="aiConfigStore.activeConfig ?? null"
       @close="showJDScanModal = false"
     />
+
+    <!-- AI 一键优化弹窗 -->
+    <FullResumeOptimizeModal
+      :show="showFullOptimizeModal"
+      @close="showFullOptimizeModal = false"
+      @apply="handleFullOptimizeApply"
+    />
   </div>
 </template>
 
@@ -95,6 +103,7 @@ import ResizeHandle from '@/components/common/ResizeHandle.vue'
 import ResumePreview from '@/components/preview/ResumePreview.vue'
 import ResumeEvaluationModal from '@/components/ai/ResumeEvaluationModal.vue'
 import JDScanModal from '@/components/ai/JDScanModal.vue'
+import FullResumeOptimizeModal from '@/components/ai/FullResumeOptimizeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -105,6 +114,7 @@ const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const showEvalModal = ref(false)
 const showJDScanModal = ref(false)
+const showFullOptimizeModal = ref(false)
 
 const saveTitle = async () => {
   await store.saveCurrentResumeNow()
@@ -167,6 +177,13 @@ const exportJSON = () => {
   if (json) {
     downloadJSON(json, `${store.currentResume?.title || 'resume'}.json`)
   }
+}
+
+/** 应用一键优化结果 */
+const handleFullOptimizeApply = (updates: Record<string, unknown>) => {
+  if (!store.currentResume) return
+  store.updateCurrentResume(updates)
+  store.saveCurrentResumeNow()
 }
 
 const exportPDF = async () => {

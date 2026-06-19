@@ -1,7 +1,7 @@
 import { computed } from 'vue'
 import type { Ref } from 'vue'
 import type { Resume } from '@/types/resume'
-import { serializeResumeForSearch } from '@/services/resumeSerializer'
+import { serializeForLocalSearch } from '@/services/resumeSerializer'
 
 /**
  * 全文搜索 composable
@@ -14,7 +14,7 @@ export function useResumeSearch(resumeList: Ref<Resume[]>, query: Ref<string>) {
   const getSearchText = (resume: Resume): string => {
     const cached = searchCache.get(resume.id)
     if (cached && cached.updatedAt === resume.updatedAt) return cached.text
-    const text = serializeResumeForSearch(resume)
+    const text = serializeForLocalSearch(resume)
     searchCache.set(resume.id, { text, updatedAt: resume.updatedAt || '' })
     return text
   }

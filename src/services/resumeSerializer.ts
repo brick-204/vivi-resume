@@ -85,22 +85,23 @@ function serializeBasicInfo(resume: Resume, sectionId: string): string {
   if (sectionId === 'basic') {
     const info = resume.basicInfo
     const lines: string[] = []
-    if (info.name) lines.push(`姓名：${info.name}`)
+    // 敏感字段脱敏：替换为占位符，不发送真实值给 AI
+    if (info.name) lines.push(`姓名：[姓名]`)
     if (info.title) lines.push(`职位/头衔：${info.title}`)
-    if (info.email) lines.push(`邮箱：${info.email}`)
-    if (info.phone) lines.push(`电话：${info.phone}`)
+    if (info.email) lines.push(`邮箱：[邮箱]`)
+    if (info.phone) lines.push(`电话：[电话]`)
     if (info.location) lines.push(`所在地：${info.location}`)
     if (info.website) lines.push(`网站：${info.website}`)
-    if (info.gender) lines.push(`性别：${info.gender}`)
-    if (info.birthday) lines.push(`出生日期：${info.birthday}`)
-    if (info.age) lines.push(`年龄：${info.age}`)
+    if (info.gender) lines.push(`性别：[性别]`)
+    if (info.birthday) lines.push(`出生日期：[出生日期]`)
+    if (info.age) lines.push(`年龄：[年龄]`)
     if (info.expectedCity) lines.push(`期望城市：${info.expectedCity}`)
     if (info.workExperience) lines.push(`工作年限：${info.workExperience}`)
-    if (info.wechat) lines.push(`微信：${info.wechat}`)
-    if (info.qq) lines.push(`QQ：${info.qq}`)
-    if (info.salaryRange) lines.push(`期望薪资：${info.salaryRange}`)
+    if (info.wechat) lines.push(`微信：[微信]`)
+    if (info.qq) lines.push(`QQ：[QQ]`)
+    if (info.salaryRange) lines.push(`期望薪资：[期望薪资]`)
 
-    // 自定义字段
+    // 自定义字段保留原值（用户自行添加的字段，视为非敏感）
     for (const field of info.customFields || []) {
       if (field.value && !field.hidden) {
         lines.push(`${field.label}：${field.value}`)
@@ -223,8 +224,14 @@ function serializeCustomSection(resume: Resume, sectionId: string): string {
   return ''
 }
 
-/** 轻量序列化：将简历内容拼接为纯文本，供全文搜索使用 */
-export function serializeResumeForSearch(resume: Resume): string {
+/**
+ * 轻量序列化：将简历内容拼接为纯文本，供本地全文搜索使用。
+ *
+ * ⚠️ 此函数不脱敏，包含真实姓名/联系方式等敏感信息。
+ * 仅用于本地 IndexedDB 搜索，绝不可用于发送给 AI 服务。
+ * 如需发送给 AI，请使用 serializeResumeForEvaluation（已自动脱敏）。
+ */
+export function serializeForLocalSearch(resume: Resume): string {
   const parts: string[] = []
 
   // 基本信息

@@ -179,14 +179,8 @@
 <script setup lang="ts">
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
-import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import Underline from '@tiptap/extension-underline'
-import TextAlign from '@tiptap/extension-text-align'
-import Link from '@tiptap/extension-link'
-import Color from '@tiptap/extension-color'
-import { TextStyle } from '@tiptap/extension-text-style'
-import Highlight from '@tiptap/extension-highlight'
+import { CORE_TIPTAP_EXTENSIONS } from '@/config/tiptapExtensions'
 import { Icon } from '@iconify/vue'
 import { normalizeContent } from '@/utils/normalizeContent'
 import { NColorPicker, NPopover } from 'naive-ui'
@@ -270,29 +264,10 @@ const focusEditor = (e: MouseEvent) => {
 const editor = useEditor({
   content: normalizeContent(props.modelValue),
   extensions: [
-    StarterKit.configure({
-      heading: false,
-      code: false,
-      codeBlock: false,
-      blockquote: false,
-      horizontalRule: false,
-      link: false,
-      underline: false,
-    }),
+    ...CORE_TIPTAP_EXTENSIONS,
     Placeholder.configure({
       placeholder: props.placeholder || '',
     }),
-    Underline,
-    TextAlign.configure({
-      types: ['paragraph'],
-    }),
-    Link.configure({
-      openOnClick: false,
-      HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
-    }),
-    TextStyle,
-    Color,
-    Highlight.configure({ multicolor: true }),
   ],
   editable: !props.disabled,
   editorProps: {
@@ -353,9 +328,11 @@ const onAIPreviewClose = () => {
 
 const applyAIResult = (html: string) => {
   if (!editor.value) return
-  const safeHtml = sanitizeHtml(html)
+  const safeHtml = normalizeContent(sanitizeHtml(html))
   editor.value.commands.setContent(safeHtml)
-  emit('update:modelValue', safeHtml)
+  // 取 Tiptap 规范化后的 HTML，确保格式一致
+  const normalizedHtml = editor.value.getHTML()
+  emit('update:modelValue', normalizedHtml)
   currentAIOperation.value = null
   naiveMessage.success('已应用 AI 生成结果')
 }

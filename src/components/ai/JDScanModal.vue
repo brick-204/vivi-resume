@@ -13,6 +13,12 @@
       </div>
     </template>
 
+    <!-- 隐私提示 -->
+    <div v-if="!isStreaming" class="jd-scan-privacy">
+      <Icon icon="mdi:shield-check-outline" :width="14" />
+      <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，不会发送给 AI，仅用于分析简历内容匹配度</span>
+    </div>
+
     <!-- JD 输入区 -->
     <div v-if="!isStreaming && !hasResult" class="jd-scan-input">
       <n-input
@@ -39,6 +45,12 @@
 
     <!-- 扫描结果区 -->
     <div v-else class="jd-scan-result">
+      <!-- 截断警告 -->
+      <div v-if="wasTruncated && hasResult && !isStreaming" class="jd-truncation-warning">
+        <Icon icon="mdi:alert-outline" :width="16" />
+        AI 输出因长度限制被截断，结果可能不完整
+      </div>
+
       <!-- 匹配度圆环 -->
       <div v-if="matchScore !== null" class="jd-scan-result__score">
         <div class="score-ring" :style="scoreRingStyle">
@@ -99,6 +111,7 @@ const resultText = ref('')
 const isStreaming = ref(false)
 const isConnected = ref(false)
 const matchScore = ref<number | null>(null)
+const wasTruncated = ref(false)
 let abortController: AbortController | null = null
 
 const hasResult = computed(() => resultText.value.length > 0)
@@ -173,13 +186,14 @@ const handleStartScan = async () => {
   isStreaming.value = true
   isConnected.value = false
   matchScore.value = null
+  wasTruncated.value = false
   abortController = new AbortController()
 
   const resumeText = serializeResumeForEvaluation(resume)
   const messages = buildMessages('scan', resumeText, jdText.value.trim())
 
   try {
-    await streamChat(
+    const result = await streamChat(
       props.config,
       messages,
       (chunk) => {
@@ -194,6 +208,7 @@ const handleStartScan = async () => {
         maxTokens: 4096,
       },
     )
+    wasTruncated.value = result.wasTruncated
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       // 用户取消
@@ -235,6 +250,11 @@ const handleCancel = () => {
     font-size: $font-size-xs;
     color: $text-light;
   }
+}
+
+// ========== 隐私提示 ==========
+.jd-scan-privacy {
+  @include privacy-notice;
 }
 
 .jd-scan-result {
@@ -332,5 +352,10 @@ const handleCancel = () => {
 
 @keyframes blink {
   50% { opacity: 0; }
+}
+
+// ========== 截断警告 ==========
+.jd-truncation-warning {
+  @include truncation-warning;
 }
 </style>
