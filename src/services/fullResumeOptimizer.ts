@@ -196,7 +196,11 @@ function tiptapNormalize(editor: Editor, html: string): string {
   if (!html) return ''
   const safeHtml = normalizeContent(html)
   editor.commands.setContent(safeHtml)
-  return editor.getHTML()
+  let result = editor.getHTML()
+  // 清理首尾空段落：<p><br></p> 或 <p></p>，避免渲染时产生多余空白
+  result = result.replace(/^(<p>(<br>)?<\/p>)+/, '')
+  result = result.replace(/(<p>(<br>)?<\/p>)+$/, '')
+  return result
 }
 
 /** 创建用于规范化的临时 Editor 实例，调用方需在处理完毕后调用 editor.destroy() */
@@ -337,15 +341,26 @@ function applyListSectionOptimization<T extends { description: string; hidden?: 
         const descLines = blockLines.slice(firstLine.includes('·') ? 1 : 0)
         // 跳过日期行
         const descStart = descLines.findIndex(line => !/^\d{4}.*[~\-–].*\d{0,4}/.test(line.trim()))
-        const descText = descStart >= 0
-          ? descLines.slice(descStart).join('\n')
-          : descLines.join('\n')
+        let descLinesFiltered = descStart >= 0
+          ? descLines.slice(descStart)
+          : descLines
 
-        if (descText.trim()) {
+        // 跳过"技术栈："/"关键词："行（这些信息已由 technologies/keywords 字段单独渲染，
+        // 不应混入 description 导致与 entry__tags 重复且产生多余间距）
+        descLinesFiltered = descLinesFiltered.filter(
+          line => !/^(技术栈|关键词)[：:]/.test(line.trim())
+        )
+
+        const descText = descLinesFiltered.join('\n').trim()
+
+        if (descText) {
           const rawDescHtml = sanitizeHtml(markdownToHtml(descText))
-          newItems[originalIndex] = {
-            ...item,
-            description: tiptapNormalize(editor, rawDescHtml),
+          const normalizedHtml = tiptapNormalize(editor, rawDescHtml)
+          if (normalizedHtml) {
+            newItems[originalIndex] = {
+              ...item,
+              description: normalizedHtml,
+            }
           }
         }
         break

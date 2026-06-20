@@ -250,6 +250,14 @@ const showFindReplace = ref(false)
 const charCount = ref(0)
 const wordCount = ref(0)
 
+/** 根据文本内容更新字符/词数统计 */
+const updateWordCount = (text: string) => {
+  charCount.value = text.length
+  const chineseChars = (text.match(/\p{Script=Han}/gu) || []).length
+  const englishWords = text.replace(/\p{Script=Han}/gu, ' ').trim().split(/\s+/).filter(Boolean).length
+  wordCount.value = chineseChars + englishWords
+}
+
 // 编辑器聚焦状态
 const focused = ref(false)
 
@@ -293,14 +301,13 @@ const editor = useEditor({
       return false
     },
   },
+  onCreate: ({ editor }) => {
+    // 初始化字数统计（编辑器创建时内容已就绪）
+    updateWordCount(editor.state.doc.textContent)
+  },
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.getHTML())
-    // 更新字数统计
-    const text = editor.state.doc.textContent
-    charCount.value = text.length
-    const chineseChars = (text.match(/\p{Script=Han}/gu) || []).length
-    const englishWords = text.replace(/\p{Script=Han}/gu, ' ').trim().split(/\s+/).filter(Boolean).length
-    wordCount.value = chineseChars + englishWords
+    updateWordCount(editor.state.doc.textContent)
   },
   onFocus: () => { focused.value = true },
   onBlur: () => { focused.value = false },
