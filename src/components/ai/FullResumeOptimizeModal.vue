@@ -117,6 +117,28 @@
       <div v-if="!isStreaming && parsedSections.length === 0 && resultText" class="optimize-raw">
         <div class="optimize-raw__text">{{ resultText }}</div>
       </div>
+
+      <!-- 再次优化：修改要求后重新生成 -->
+      <div v-if="hasResult && !isStreaming" class="optimize-retry">
+        <n-input
+          v-model:value="customInstruction"
+          type="textarea"
+          placeholder="调整优化方向，如「更偏向管理岗」「突出沟通能力」..."
+          :autosize="{ minRows: 1, maxRows: 3 }"
+          @keydown.enter.ctrl="handleStart"
+        />
+        <n-button
+          type="primary"
+          ghost
+          :disabled="!canStart"
+          @click="handleStart"
+        >
+          <template #icon>
+            <Icon icon="mdi:refresh" :width="16" />
+          </template>
+          重新优化
+        </n-button>
+      </div>
     </div>
 
     <template #footer>
@@ -584,10 +606,23 @@ const handleClose = () => {
   }
 }
 
+.optimize-retry {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: flex-end;
+  border-top: 1px solid $border-glass;
+  padding-top: $spacing-md;
+
+  .n-input {
+    flex: 1;
+  }
+}
+
 .optimize-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: $spacing-sm;
+  padding-top: $spacing-md;
 }
 
 @keyframes blink {

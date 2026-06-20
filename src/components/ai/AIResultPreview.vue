@@ -763,8 +763,9 @@ const refineGenerate = async () => {
 
 .preview-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: $spacing-sm;
+  padding-top: $spacing-md;
 }
 
 // ========== 多轮追问栏 ==========

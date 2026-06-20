@@ -193,8 +193,9 @@ const handleSave = async () => {
 <style lang="scss" scoped>
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: $spacing-sm;
+  padding-top: $spacing-md;
 }
 
 .cors-warning {

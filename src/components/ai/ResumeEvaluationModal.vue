@@ -98,7 +98,7 @@ import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
-import { getScoreColor } from '@/utils/evaluationScore'
+import { getScoreColor, formatDateTime } from '@/utils/evaluationScore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
 const props = defineProps<{ show: boolean }>()
@@ -173,15 +173,7 @@ const hasResult = computed(() => resultText.value.length > 0)
 const canStart = computed(() => !!aiConfigStore.activeConfig)
 
 /** 上次评估时间的可读文本 */
-const evaluatedAtLabel = computed(() => {
-  if (!loadedEvaluatedAt.value) return ''
-  try {
-    const d = new Date(loadedEvaluatedAt.value)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  } catch {
-    return ''
-  }
-})
+const evaluatedAtLabel = computed(() => formatDateTime(loadedEvaluatedAt.value))
 
 /** 从流式文本中提取总分 */
 const overallScore = computed(() => {
@@ -552,7 +544,9 @@ const handleClose = () => {
 
 .eval-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding-top: $spacing-md;
 }
 
 @keyframes blink {

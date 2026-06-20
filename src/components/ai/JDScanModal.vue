@@ -4,7 +4,7 @@
     preset="card"
     :style="{ maxWidth: '680px', width: '90vw' }"
     :mask-closable="false"
-    @update:show="v => { if (!v) handleCancel() }"
+    @update:show="v => { if (!v) handleClose() }"
   >
     <template #header>
       <div class="jd-scan-header">
@@ -45,35 +45,79 @@
 
     <!-- 扫描结果区 -->
     <div v-else class="jd-scan-result">
+      <!-- 操作栏：上次扫描时间 -->
+      <div v-if="!isStreaming && hasResult && isLoadedResult" class="jd-scan-result__hint">
+        <Icon icon="mdi:clock-outline" :width="14" />
+        上次扫描于 {{ scannedAtLabel }}
+      </div>
+
       <!-- 截断警告 -->
       <div v-if="wasTruncated && hasResult && !isStreaming" class="jd-truncation-warning">
         <Icon icon="mdi:alert-outline" :width="16" />
         AI 输出因长度限制被截断，结果可能不完整
       </div>
 
-      <!-- 匹配度圆环 -->
-      <div v-if="matchScore !== null" class="jd-scan-result__score">
-        <div class="score-ring" :style="scoreRingStyle">
-          <span class="score-ring__value">{{ matchScore }}%</span>
-        </div>
-        <div class="score-ring__label">{{ getScoreLabel(matchScore) }}</div>
-      </div>
+      <!-- Tab 切换：扫描结果 / 原始 JD -->
+      <n-tabs v-if="hasResult && !isStreaming" v-model:value="activeTab" type="line" size="small">
+        <n-tab-pane name="result" tab="扫描结果">
+          <!-- 匹配度圆环 -->
+          <div v-if="matchScore !== null" class="jd-scan-result__score">
+            <div class="score-ring" :style="scoreRingStyle">
+              <span class="score-ring__value">{{ matchScore }}%</span>
+            </div>
+            <div class="score-ring__info">
+              <span class="score-ring__label">{{ getScoreLabel(matchScore) }}</span>
+              <span class="score-ring__desc">匹配度</span>
+            </div>
+          </div>
 
-      <!-- 流式渲染区 -->
-      <div class="jd-scan-result__content">
-        <template v-if="isStreaming">{{ resultText }}</template>
-        <div v-else-if="hasResult" class="jd-scan-result__rich" v-html="renderedResult" />
-        <span v-if="isStreaming && !isConnected" class="jd-scan-result__placeholder">正在连接 AI 服务...</span>
-        <span v-if="isStreaming && isConnected && !hasResult" class="jd-scan-result__placeholder">正在分析...</span>
-        <span v-if="isStreaming" class="jd-scan-result__cursor">▌</span>
-      </div>
+          <!-- 结果内容 -->
+          <div class="jd-scan-result__content">
+            <div class="jd-scan-result__rich" v-html="renderedResult" />
+          </div>
+        </n-tab-pane>
+        <n-tab-pane name="jd" tab="原始 JD">
+          <div class="jd-scan-result__jd-text">{{ jdText }}</div>
+        </n-tab-pane>
+      </n-tabs>
+
+      <!-- 流式期间：直接显示结果（无 Tab） -->
+      <template v-if="isStreaming">
+        <!-- 匹配度圆环 -->
+        <div v-if="matchScore !== null" class="jd-scan-result__score">
+          <div class="score-ring" :style="scoreRingStyle">
+            <span class="score-ring__value">{{ matchScore }}%</span>
+          </div>
+          <div class="score-ring__info">
+            <span class="score-ring__label">{{ getScoreLabel(matchScore) }}</span>
+            <span class="score-ring__desc">匹配度</span>
+          </div>
+        </div>
+
+        <div class="jd-scan-result__content">
+          <template>{{ resultText }}</template>
+          <span v-if="!isConnected" class="jd-scan-result__placeholder">正在连接 AI 服务...</span>
+          <span v-if="isConnected && !hasResult" class="jd-scan-result__placeholder">正在分析...</span>
+          <span class="jd-scan-result__cursor">▌</span>
+        </div>
+      </template>
     </div>
 
     <template #footer>
       <div class="jd-scan-footer">
-        <n-button @click="handleCancel">
-          {{ isStreaming ? '取消扫描' : hasResult ? '重新扫描' : '取消' }}
+        <n-button
+          v-if="isStreaming || hasResult"
+          type="primary"
+          :ghost="hasResult && !isStreaming"
+          :disabled="isStreaming ? false : !jdText.trim()"
+          @click="handleStartScan"
+        >
+          <template #icon>
+            <Icon :icon="isStreaming ? 'mdi:stop' : 'mdi:refresh'" :width="16" />
+          </template>
+          {{ isStreaming ? '取消扫描' : '重新扫描' }}
         </n-button>
+        <n-button @click="handleClose">关闭</n-button>
       </div>
     </template>
   </n-modal>
@@ -82,7 +126,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NButton, NInput } from 'naive-ui'
+import { NModal, NButton, NInput, NTabs, NTabPane } from 'naive-ui'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { buildMessages } from '@/services/aiPrompts'
@@ -91,7 +135,7 @@ import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
-import { getScoreColor, getScoreLabel } from '@/utils/evaluationScore'
+import { getScoreColor, getScoreLabel, formatDateTime } from '@/utils/evaluationScore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
 const resumeStore = useResumeStore()
@@ -112,9 +156,16 @@ const isStreaming = ref(false)
 const isConnected = ref(false)
 const matchScore = ref<number | null>(null)
 const wasTruncated = ref(false)
+const isLoadedResult = ref(false)   // 当前显示的是从 store 加载的旧结果
+const loadedScannedAt = ref('')     // 旧结果的扫描时间
+const activeTab = ref('result')     // Tab 切换：result | jd
 let abortController: AbortController | null = null
+let saveDone = false  // 防止 handleClose 和 finally 双重保存
 
 const hasResult = computed(() => resultText.value.length > 0)
+
+/** 上次扫描时间的可读文本 */
+const scannedAtLabel = computed(() => formatDateTime(loadedScannedAt.value))
 
 const scoreRingStyle = computed(() => {
   const score = matchScore.value
@@ -159,16 +210,50 @@ function parseScore(text: string) {
 // 弹窗打开/关闭时初始化
 watch(() => props.visible, (val) => {
   if (val) {
-    resultText.value = ''
+    // 取消上一个未完成的请求
+    if (abortController) {
+      abortController.abort()
+      abortController = null
+    }
+    // 清理可能残留的分数解析定时器
+    if (scoreParseTimer) {
+      clearTimeout(scoreParseTimer)
+      scoreParseTimer = null
+    }
     isStreaming.value = false
     isConnected.value = false
-    matchScore.value = null
-    jdText.value = ''
+    activeTab.value = 'result'
+
+    // 加载上次扫描结果（如果有）
+    const last = resumeStore.currentResume?.lastJdScan
+    if (last?.text) {
+      resultText.value = last.text
+      jdText.value = last.jdText || ''
+      matchScore.value = last.score
+      isLoadedResult.value = true
+      loadedScannedAt.value = last.scannedAt
+      // 立即解析一次分数确保一致
+      parseScore(last.text)
+    } else {
+      resultText.value = ''
+      jdText.value = ''
+      matchScore.value = null
+      isLoadedResult.value = false
+      loadedScannedAt.value = ''
+    }
   }
 })
 
 const handleStartScan = async () => {
-  if (!props.config || !jdText.value.trim() || isStreaming.value) return
+  // 流式中点击 → 取消扫描
+  if (isStreaming.value) {
+    if (abortController) {
+      abortController.abort()
+    }
+    return
+  }
+
+  if (!props.config || !jdText.value.trim()) return
 
   const resume = resumeStore.currentResume
   if (!resume) {
@@ -187,6 +272,9 @@ const handleStartScan = async () => {
   isConnected.value = false
   matchScore.value = null
   wasTruncated.value = false
+  isLoadedResult.value = false
+  saveDone = false
+  activeTab.value = 'result'
   abortController = new AbortController()
 
   const resumeText = serializeResumeForEvaluation(resume)
@@ -221,12 +309,33 @@ const handleStartScan = async () => {
     isStreaming.value = false
     isConnected.value = false
     abortController = null
+    // 保存扫描结果到 store
+    if (!saveDone && resultText.value && resume.id) {
+      saveDone = true
+      resumeStore.saveJdScanResult(resume.id, {
+        score: matchScore.value,
+        text: resultText.value,
+        jdText: jdText.value,
+        scannedAt: new Date().toISOString(),
+      })
+    }
   }
 }
 
-const handleCancel = () => {
+const handleClose = () => {
   if (isStreaming.value && abortController) {
     abortController.abort()
+    // 用户中止时保存已接收的部分结果
+    const resume = resumeStore.currentResume
+    if (!saveDone && resultText.value && resume?.id) {
+      saveDone = true
+      resumeStore.saveJdScanResult(resume.id, {
+        score: matchScore.value,
+        text: resultText.value,
+        jdText: jdText.value,
+        scannedAt: new Date().toISOString(),
+      })
+    }
   }
   emit('close')
 }
@@ -262,10 +371,23 @@ const handleCancel = () => {
   flex-direction: column;
   gap: $spacing-md;
 
+  &__hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: $font-size-xs;
+    color: $text-light;
+  }
+
   &__score {
     display: flex;
     align-items: center;
-    gap: $spacing-md;
+    justify-content: center;
+    gap: $spacing-lg;
+    padding: $spacing-lg 0;
+    background: $bg-glass;
+    border: 1px solid $border-glass;
+    border-radius: $radius-md;
   }
 
   &__content {
@@ -295,6 +417,21 @@ const handleCancel = () => {
     :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
   }
 
+  &__jd-text {
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: $text-primary;
+    background: $bg-glass;
+    border: 1px solid $border-glass;
+    border-radius: $radius-md;
+    max-height: 400px;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
   &__placeholder {
     color: $text-light;
     font-style: italic;
@@ -308,12 +445,12 @@ const handleCancel = () => {
 
 // 匹配度圆环
 .score-ring {
-  width: 72px;
-  height: 72px;
+  width: 90px;
+  height: 90px;
   border-radius: 50%;
   background: conic-gradient(
     var(--ring-color) calc(var(--ring-percentage) * 360deg),
-    rgba($text-light, 0.2) calc(var(--ring-percentage) * 360deg)
+    rgba($text-light, 0.15) calc(var(--ring-percentage) * 360deg)
   );
   display: flex;
   align-items: center;
@@ -322,8 +459,8 @@ const handleCancel = () => {
 
   &::before {
     content: '';
-    width: 56px;
-    height: 56px;
+    width: 70px;
+    height: 70px;
     border-radius: 50%;
     background: $bg-glass;
     position: absolute;
@@ -332,22 +469,35 @@ const handleCancel = () => {
   &__value {
     position: relative;
     z-index: 1;
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 700;
     color: $text-primary;
     font-variant-numeric: tabular-nums;
   }
 
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   &__label {
-    font-size: $font-size-sm;
-    font-weight: 600;
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: var(--ring-color);
+  }
+
+  &__desc {
+    font-size: $font-size-xs;
     color: $text-secondary;
   }
 }
 
 .jd-scan-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding-top: $spacing-md;
 }
 
 @keyframes blink {

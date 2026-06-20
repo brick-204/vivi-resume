@@ -19,3 +19,14 @@ export function getScoreLabel(score: number | null): string {
   if (score >= 60) return '良好'
   return '待改进'
 }
+
+/** 将 ISO 时间戳格式化为 YYYY-MM-DD HH:mm */
+export function formatDateTime(iso: string): string {
+  if (!iso) return ''
+  try {
+    const d = new Date(iso)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch {
+    return ''
+  }
+}

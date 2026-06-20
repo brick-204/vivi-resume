@@ -119,6 +119,14 @@ export interface EvaluationResult {
   evaluatedAt: string // ISO 时间戳
 }
 
+// JD 扫描结果
+export interface JdScanResult {
+  score: number | null
+  text: string        // AI 返回的 Markdown 原文
+  jdText: string      // 用户输入的 JD 原文
+  scannedAt: string   // ISO 时间戳
+}
+
 // 简历完整数据
 export interface Resume {
   id: string
@@ -149,6 +157,7 @@ export interface Resume {
   sectionTitles: Record<string, string>  // 自定义模块标题
   hiddenSections: string[]  // 已隐藏/删除的模块
   lastEvaluation?: EvaluationResult
+  lastJdScan?: JdScanResult
   createdAt: string
   updatedAt: string
 }

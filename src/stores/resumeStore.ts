@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef } from 'vue'
-import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult } from '@/types/resume'
+import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult } from '@/types/resume'
 import {
   createEmptyResume,
   generateId,
@@ -502,6 +502,20 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  /** 保存 JD 扫描结果到当前简历（立即持久化，不走防抖） */
+  const saveJdScanResult = (resumeId: string, result: JdScanResult) => {
+    const idx = resumeList.value.findIndex(r => r.id === resumeId)
+    if (idx !== -1) {
+      const newList = [...resumeList.value]
+      newList[idx] = { ...newList[idx], lastJdScan: result }
+      resumeList.value = newList
+      if (currentResume.value?.id === resumeId) {
+        currentResume.value.lastJdScan = result
+      }
+      saveToStorageNow()
+    }
+  }
+
   // ========== Undo/Redo 已移除 ==========
 
   // 初始化
@@ -560,6 +574,7 @@ export const useResumeStore = defineStore('resume', () => {
     addCustomCardSection,
     removeCustomSection,
     saveEvaluationResult,
+    saveJdScanResult,
     reloadFromStorage,
   }
 })
