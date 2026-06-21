@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref, toRaw } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useSectionTitle } from '@/composables/useSectionTitle'
 import draggable from 'vuedraggable'
@@ -177,7 +177,7 @@ const duplicateItem = (id: string) => {
   const section = store.currentResume.customCards[sectionIndex.value]
   const index = section.items.findIndex(item => item.id === id)
   if (index === -1) return
-  const copy: CustomCardItem = { ...structuredClone(section.items[index]), id: generateId() }
+  const copy: CustomCardItem = { ...structuredClone(toRaw(section.items[index])), id: generateId() }
   const cards = [...store.currentResume.customCards]
   const updatedItems = [...section.items]
   updatedItems.splice(index + 1, 0, copy)

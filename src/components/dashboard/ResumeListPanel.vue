@@ -133,14 +133,17 @@ const openResume = (id: string) => {
   router.push(`/editor/${id}`)
 }
 
-const onDeleteResume = async (id: string) => {
+const onDeleteResume = (id: string) => {
   dialog.warning({
     title: '删除简历',
     content: '确定要删除这个简历吗？此操作不可撤销。',
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      await store.deleteResume(id)
+    onPositiveClick: () => {
+      // 不用 async — 避免 Naive UI 等待 Promise resolve 才关闭弹窗
+      // deleteResume 内部 await saveToStorageNow() 是持久化写入，
+      // 内存列表已同步移除，持久化在后台完成即可
+      store.deleteResume(id)
     },
   })
 }

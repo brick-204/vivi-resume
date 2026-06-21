@@ -13,8 +13,11 @@
       @save-title="saveTitle"
     />
 
-    <!-- 主体 - 三列布局 -->
-    <main class="editor-body">
+    <!-- 加载中：骨架屏 -->
+    <EditorSkeleton v-if="!isReady" />
+
+    <!-- 加载完成：真实编辑器 -->
+    <main v-else class="editor-body">
       <!-- 第一列：模块导航栏 -->
       <aside
         class="editor-body__nav"
@@ -65,25 +68,28 @@
       </section>
     </main>
 
-    <!-- AI 简历评估弹窗 -->
-    <ResumeEvaluationModal
-      :show="showEvalModal"
-      @close="showEvalModal = false"
-    />
+    <!-- 弹窗只在就绪后渲染（依赖 store 数据） -->
+    <template v-if="isReady">
+      <!-- AI 简历评估弹窗 -->
+      <ResumeEvaluationModal
+        :show="showEvalModal"
+        @close="showEvalModal = false"
+      />
 
-    <!-- JD 关键词扫描弹窗 -->
-    <JDScanModal
-      :visible="showJDScanModal"
-      :config="aiConfigStore.activeConfig ?? null"
-      @close="showJDScanModal = false"
-    />
+      <!-- JD 关键词扫描弹窗 -->
+      <JDScanModal
+        :visible="showJDScanModal"
+        :config="aiConfigStore.activeConfig ?? null"
+        @close="showJDScanModal = false"
+      />
 
-    <!-- AI 一键优化弹窗 -->
-    <FullResumeOptimizeModal
-      :show="showFullOptimizeModal"
-      @close="showFullOptimizeModal = false"
-      @apply="handleFullOptimizeApply"
-    />
+      <!-- AI 一键优化弹窗 -->
+      <FullResumeOptimizeModal
+        :show="showFullOptimizeModal"
+        @close="showFullOptimizeModal = false"
+        @apply="handleFullOptimizeApply"
+      />
+    </template>
   </div>
 </template>
 
@@ -97,6 +103,7 @@ import { downloadJSON } from '@/utils/export'
 import { printViaIframe } from '@/utils/print'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import AppHeader from '@/components/common/AppHeader.vue'
+import EditorSkeleton from '@/components/common/EditorSkeleton.vue'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
@@ -115,6 +122,7 @@ const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const showEvalModal = ref(false)
 const showJDScanModal = ref(false)
 const showFullOptimizeModal = ref(false)
+const isReady = ref(false)
 
 const saveTitle = async () => {
   await store.saveCurrentResumeNow()
@@ -206,10 +214,13 @@ onMounted(async () => {
   if (id) {
     if (!(await store.loadResume(id))) {
       router.push('/')
+      return
     }
   } else {
     router.push('/')
+    return
   }
+  isReady.value = true
 })
 </script>
 

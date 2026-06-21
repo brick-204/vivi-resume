@@ -1,22 +1,17 @@
 import { useResumeStore } from '@/stores/resumeStore'
 import { getTemplate } from '@/config/templates'
 import { getSampleResume } from '@/config/sampleData'
-import { createEmptyResume } from '@/types/resume'
+import { createEmptyResume, type Resume } from '@/types/resume'
 
 /**
- * 使用指定模板创建一份新简历（含示例数据），保存并返回简历 ID
- * 适用于：模版市场「使用此模板」、TemplatesView 首次选择模板
- *
- * 一次性构建完整简历数据再写入 store，避免中间"空简历"状态
- * 触发响应式更新导致模板市场卡片预览闪烁
+ * 根据模板 ID 构建一份完整简历数据（含示例数据 + 模板样式配置）
+ * 纯函数，不涉及 store 写入，供不同写入策略的入口函数复用
  */
-export async function createResumeFromTemplate(templateId: string): Promise<string> {
-  const store = useResumeStore()
+function buildResumeFromTemplate(templateId: string): Resume {
   const templateConfig = getTemplate(templateId)
   const sampleData = getSampleResume()
   const fontDefaults = templateConfig.style.fontDefaults
 
-  // 先构建完整简历，再一次性写入 store
   const resume = createEmptyResume()
   Object.assign(resume, {
     templateId,
@@ -33,9 +28,35 @@ export async function createResumeFromTemplate(templateId: string): Promise<stri
     skills: sampleData.skills,
     selfEvaluation: sampleData.selfEvaluation,
   })
+  return resume
+}
 
+/**
+ * 使用指定模板创建一份新简历（含示例数据），保存并返回简历 ID
+ * 适用于：TemplatesView 首次选择模板（需要等待持久化完成再跳转）
+ */
+export async function createResumeFromTemplate(templateId: string): Promise<string> {
+  const store = useResumeStore()
+  const resume = buildResumeFromTemplate(templateId)
   const id = await store.createResumeWithData(resume)
   return id
+}
+
+/**
+ * 使用指定模板创建一份新简历（含示例数据），立即返回 ID 并在后台保存。
+ * 适用于：模版市场「使用此模板」— 需要立即导航到编辑器，不等待 IndexedDB 写入。
+ */
+export function createResumeFromTemplateDeferred(templateId: string): string {
+  const store = useResumeStore()
+  const resume = buildResumeFromTemplate(templateId)
+
+  // 内存写入（同步），立即可用
+  store.addResumeInMemory(resume)
+  // 后台持久化，不阻塞导航
+  store.saveToStorageNow().catch((e) => {
+    console.error('[createResumeFromTemplateDeferred] Background save failed:', e)
+  })
+  return resume.id
 }
 
 /**

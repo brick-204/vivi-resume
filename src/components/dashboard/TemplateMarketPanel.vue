@@ -28,7 +28,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { TEMPLATES } from '@/config/templates'
-import { createResumeFromTemplate } from '@/utils/templateApply'
+import { createResumeFromTemplateDeferred } from '@/utils/templateApply'
 import { useResumeStore } from '@/stores/resumeStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
@@ -39,11 +39,13 @@ const store = useResumeStore()
 const templates = TEMPLATES
 
 // 如果用户已有简历，用第一份简历的数据预览模板
-const userResume = computed(() => store.currentResume || store.resumeList[0] || undefined)
+// 注意：使用 resumeList[0] 而非 currentResume，避免"使用模板"时 currentResume 变更
+// 触发所有卡片预览数据重算导致视觉闪烁
+const userResume = computed(() => store.resumeList[0] || undefined)
 
-const handleUseTemplate = async (templateId: string) => {
+const handleUseTemplate = (templateId: string) => {
   try {
-    const id = await createResumeFromTemplate(templateId)
+    const id = createResumeFromTemplateDeferred(templateId)
     router.push(`/editor/${id}`)
   } catch (e) {
     console.error('使用模板失败:', e)

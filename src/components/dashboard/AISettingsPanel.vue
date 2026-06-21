@@ -130,9 +130,9 @@ const handleCopy = async (id: string) => {
   }
 }
 
-const handleDelete = async (id: string) => {
+const handleDelete = (id: string) => {
   try {
-    await aiConfigStore.deleteConfig(id)
+    aiConfigStore.deleteConfig(id)
     naiveMessage.success('配置已删除')
   } catch (e) {
     console.error('[AISettingsPanel] 删除失败:', e)

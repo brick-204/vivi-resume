@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef } from 'vue'
+import { ref, computed, shallowRef, toRaw } from 'vue'
 import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult } from '@/types/resume'
 import {
   createEmptyResume,
@@ -12,6 +12,7 @@ import {
 import { useWorkerSerializer } from '@/composables/useWorkerSerializer'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 import {
   migrateFromLocalStorage,
   getAllResumes,
@@ -211,17 +212,30 @@ export const useResumeStore = defineStore('resume', () => {
     return data.id
   }
 
+  /** 仅将简历写入内存（同步），不等待持久化。调用方需自行安排 saveToStorageNow() */
+  const addResumeInMemory = (data: Resume): string => {
+    resumeList.value = [...resumeList.value, data]
+    currentResume.value = data
+    return data.id
+  }
+
   // 获取简历
   const getResume = (id: string): Resume | undefined => {
     return resumeList.value.find(r => r.id === id)
   }
 
-  // 加载简历到编辑器（使用 Worker 深拷贝，避免主线程阻塞）
+  // 加载简历到编辑器（优先 structuredClone 快速路径，失败 fallback Worker）
   const loadResume = async (id: string): Promise<boolean> => {
     const resume = getResume(id)
     if (resume) {
-      const json = await serialize(resume)
-      currentResume.value = await parse<Resume>(json)
+      try {
+        const plain = toRaw(resume)
+        currentResume.value = structuredClone(plain) as Resume
+      } catch {
+        // fallback：Worker 深拷贝（处理含不可克隆值的极端情况）
+        const json = await serialize(resume)
+        currentResume.value = await parse<Resume>(json)
+      }
       return true
     }
     return false
@@ -240,15 +254,19 @@ export const useResumeStore = defineStore('resume', () => {
 
 
   // 删除简历
-  const deleteResume = async (id: string) => {
+  const deleteResume = (id: string) => {
     const index = resumeList.value.findIndex(r => r.id === id)
     if (index !== -1) {
+      // 先同步移除内存数据，让 UI 立即响应
       resumeList.value = resumeList.value.filter(r => r.id !== id)
       if (currentResume.value?.id === id) {
         currentResume.value = null
       }
-      // 删除操作不可丢失，await 确保写入完成
-      await saveToStorageNow()
+      // 后台持久化
+      saveToStorageNow().catch(e => {
+        console.error('[resumeStore] deleteResume persist failed:', e)
+        naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
+      })
     }
   }
 
@@ -553,6 +571,8 @@ export const useResumeStore = defineStore('resume', () => {
     ready,
     createResume,
     createResumeWithData,
+    addResumeInMemory,
+    saveToStorageNow,
     getResume,
     loadResume,
     updateCurrentResume,

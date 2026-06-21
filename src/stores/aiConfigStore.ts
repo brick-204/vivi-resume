@@ -18,6 +18,7 @@ import {
   getMeta,
   setMeta,
 } from '@/utils/storageAdapter'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 
 export interface TokenUsage {
   prompt: number
@@ -126,21 +127,31 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   }
 
   /** 删除配置 */
-  const deleteConfig = async (id: string) => {
+  const deleteConfig = (id: string) => {
     if (isLocked.value) return
 
-    await deleteAIConfigFromStorage(id)
+    // 先同步移除内存数据，让 UI 立即响应
+    const wasActive = activeConfigId.value === id
     configs.value = configs.value.filter(c => c.id !== id)
 
-    // 如果删除的是当前激活的配置
-    if (activeConfigId.value === id) {
-      if (configs.value.length > 0) {
-        await setActiveConfig(configs.value[0].id)
-      } else {
-        activeConfigId.value = null
-        await setActiveAIConfigId(null)
+    // 后台持久化
+    const persist = async () => {
+      await deleteAIConfigFromStorage(id)
+
+      // 如果删除的是当前激活的配置
+      if (wasActive) {
+        if (configs.value.length > 0) {
+          await setActiveConfig(configs.value[0].id)
+        } else {
+          activeConfigId.value = null
+          await setActiveAIConfigId(null)
+        }
       }
     }
+    persist().catch(e => {
+      console.error('[aiConfigStore] deleteConfig persist failed:', e)
+      naiveMessage.warning('删除未完全同步，请检查存储空间')
+    })
   }
 
   /** 复制配置（API Key 需重新输入） */

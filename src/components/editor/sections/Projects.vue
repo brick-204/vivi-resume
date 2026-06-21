@@ -100,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref } from "vue";
+import { computed, inject, ref, toRaw } from "vue";
 import { useResumeStore } from "@/stores/resumeStore";
 import { generateId } from "@/types/resume";
 import { useSectionTitle } from "@/composables/useSectionTitle";
@@ -163,7 +163,7 @@ const deleteItem = (id: string) => {
 const duplicateItem = (id: string) => {
   const index = items.value.findIndex((item) => item.id === id);
   if (index === -1) return;
-  const copy: ProjectItem = { ...structuredClone(items.value[index]), id: generateId() };
+  const copy: ProjectItem = { ...structuredClone(toRaw(items.value[index])), id: generateId() };
   const updated = [...items.value];
   updated.splice(index + 1, 0, copy);
   store.updateCurrentResume({ projects: updated });
