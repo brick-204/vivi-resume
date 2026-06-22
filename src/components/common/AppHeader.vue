@@ -33,7 +33,7 @@
     <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
     <div class="app-header__right">
       <template v-if="showEditorRight">
-        <n-dropdown :options="aiHelpOptions" @select="onAiHelpSelect" placement="bottom-end">
+        <n-dropdown :options="aiHelpOptions" @select="onAiHelpSelect" placement="bottom-end" width="trigger">
           <button class="header-btn header-btn--ai-help">
             <Icon icon="mdi:creation" :width="16" />
             <span class="header-btn__text">AI 帮帮</span>
