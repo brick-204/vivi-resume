@@ -3,8 +3,8 @@
  * 支持所有兼容 /v1/chat/completions 的服务商
  */
 
-import type { AIServiceConfig, AIOperation } from '@/types/aiConfig'
-import { buildMessages } from '@/services/aiPrompts'
+import type { AIServiceConfig } from '@/types/aiConfig'
+import { buildMessages, type FullAIOperation } from '@/services/aiPrompts'
 
 // ========== 开发代理支持 ==========
 
@@ -301,7 +301,7 @@ export interface PerformAIOperationOptions extends StreamChatOptions {
  */
 export async function performAIOperation(
   config: AIServiceConfig,
-  operation: AIOperation,
+  operation: FullAIOperation,
   content: string,
   onChunk: (text: string) => void,
   options: PerformAIOperationOptions = {},

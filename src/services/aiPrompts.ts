@@ -5,6 +5,12 @@
 
 import type { AIOperation } from '@/types/aiConfig'
 
+/** 全局级操作类型（由独立模态框调用，不在富文本 AIResultPreview 中展示） */
+export type GlobalAIOperation = 'scan' | 'optimizeFull' | 'interview'
+
+/** 所有 AI 操作类型（富文本内 + 全局级） */
+export type FullAIOperation = AIOperation | GlobalAIOperation
+
 interface PromptConfig {
   system: string
   userTemplate: string
@@ -23,7 +29,7 @@ Markdown 格式要求：
 - 1. 2. 3. 表示有序列表
 - [文字](链接) 表示链接`
 
-export const AI_OPERATION_PROMPTS: Record<AIOperation, PromptConfig> = {
+export const AI_OPERATION_PROMPTS: Record<FullAIOperation, PromptConfig> = {
   polish: {
     system: `你是一位专业的简历润色专家，擅长将简历文本优化为更加专业、有力、吸引人的表达。
 
@@ -318,7 +324,7 @@ ${MARKDOWN_FORMAT_INSTRUCTION}`,
 }
 
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
-export function buildMessages(operation: AIOperation, content: string, customInstruction?: string) {
+export function buildMessages(operation: FullAIOperation, content: string, customInstruction?: string) {
   const config = AI_OPERATION_PROMPTS[operation]
 
   let userPrompt: string

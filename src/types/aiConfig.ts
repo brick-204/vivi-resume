@@ -5,8 +5,8 @@
 // AI 服务商枚举
 export type AIProvider = 'openai' | 'deepseek' | 'moonshot' | 'siliconflow' | 'openrouter' | 'zhipu' | 'qwen' | 'minimax' | 'baichuan' | 'yi' | 'custom'
 
-// AI 操作类型
-export type AIOperation = 'polish' | 'simplify' | 'expand' | 'summarize' | 'write' | 'translate' | 'tailor' | 'scan' | 'optimizeFull' | 'interview'
+// AI 操作类型（富文本编辑器内的操作，不含全局级操作 scan/optimizeFull/interview）
+export type AIOperation = 'polish' | 'simplify' | 'expand' | 'summarize' | 'write' | 'translate' | 'tailor'
 
 // 服务商信息
 export interface AIProviderInfo {
@@ -110,7 +110,7 @@ export const AI_PROVIDERS: AIProviderInfo[] = [
   },
 ]
 
-// AI 操作配置
+// AI 操作配置（富文本编辑器内可用操作，全局级操作 JD扫描/一键优化/面试准备由独立模态框处理）
 export const AI_OPERATIONS: { id: AIOperation; label: string; icon: string; minChars?: number }[] = [
   { id: 'polish', label: '润色', icon: 'mdi:auto-fix', minChars: 30 },
   { id: 'simplify', label: '简化', icon: 'mdi:text-short', minChars: 30 },
@@ -119,9 +119,6 @@ export const AI_OPERATIONS: { id: AIOperation; label: string; icon: string; minC
   { id: 'write', label: '帮写', icon: 'mdi:pencil-plus' },
   { id: 'translate', label: '翻译', icon: 'mdi:translate', minChars: 10 },
   { id: 'tailor', label: '定制', icon: 'mdi:target', minChars: 30 },
-  { id: 'scan', label: 'JD 扫描', icon: 'mdi:text-search', minChars: 30 },
-  { id: 'optimizeFull', label: '一键优化', icon: 'mdi:creation' },
-  { id: 'interview', label: '面试准备', icon: 'mdi:account-tie' },
 ]
 
 // 根据 provider id 获取服务商信息
