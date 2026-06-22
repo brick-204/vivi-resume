@@ -19,6 +19,8 @@ export function usePageBreaks(
 
   let resizeObserver: ResizeObserver | null = null
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  /** 测量期间标志，用于屏蔽 content-visibility 切换触发的 ResizeObserver 回调 */
+  let isMeasuring = false
 
   const updateBreaks = () => {
     const el = previewRef.value
@@ -26,6 +28,8 @@ export function usePageBreaks(
       pageBreaks.value = []
       return
     }
+
+    isMeasuring = true
 
     // content-visibility: auto 会让浏览器用 contain-intrinsic-size 估算高度，
     // 导致 scrollHeight 不准确。临时切换为 visible 以读取真实高度。
@@ -52,10 +56,23 @@ export function usePageBreaks(
     for (let y = A4_HEIGHT_PX; y < totalHeight; y += A4_HEIGHT_PX) {
       breaks.push(y)
     }
-    pageBreaks.value = breaks
+
+    // 仅在分页线实际变化时更新，避免无意义重渲染
+    const prev = pageBreaks.value
+    if (breaks.length !== prev.length || breaks.some((b, i) => b !== prev[i])) {
+      pageBreaks.value = breaks
+    }
+
+    // 延迟重置标志：等浏览器完成布局重算后再放开，
+    // 避免本次 content-visibility 切换触发的 ResizeObserver 再次进入 updateBreaks
+    requestAnimationFrame(() => {
+      isMeasuring = false
+    })
   }
 
   const scheduleUpdate = () => {
+    // 测量期间跳过，防止 content-visibility 切换 → 布局变化 → ResizeObserver 的无限循环
+    if (isMeasuring) return
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(updateBreaks, 100)
   }
