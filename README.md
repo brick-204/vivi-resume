@@ -21,14 +21,19 @@
 - **智能导航** - 点击左侧模块标签，右侧预览自动滚动到对应区域
 - **JSON 导入导出** - 导出 JSON 保留全部设置，导入时完整还原
 - **PDF 导出** - iframe 打印方案，生成可直接打印或发送的 PDF 文件
+- **图片导出** - 基于 modern-screenshot 导出高清 PNG 图片，自动处理布局适配
 
 ### AI 辅助
 
-- **7 种 AI 操作** - 润色、简化、扩展、总结、帮写、翻译、JD 定制
+- **7 种富文本 AI 操作** - 润色、简化、扩展、总结、帮写、翻译、JD 定制
+- **AI 帮帮** - 一键入口整合 AI 评估、JD 扫描、一键优化、面试准备
 - **SSE 流式生成** - 兼容 OpenAI API 格式，10+ 服务商（DeepSeek、Moonshot、智谱、通义千问等）
 - **自动续写** - 检测 token 截断后自动续写，确保完整输出
 - **空段落上下文预填** - AI 帮写时自动注入当前条目上下文（职位@公司、项目名等）
 - **AI 简历评估** - 全模块逐一评估（含评分），评估结果自动持久化
+- **JD 扫描** - 粘贴目标职位 JD，AI 分析匹配度并给出优化建议
+- **一键优化** - AI 对整份简历所有模块进行系统性润色优化
+- **面试准备** - 根据简历 + JD 生成行为面试题、技术面试题和复习要点
 - **评分徽章** - 三档评分色标（≥80 优秀/≥60 良好/<60 待改进），简历卡片与评估弹窗复用
 - **Token 用量追踪** - 实时显示累计输入/输出 token 用量，防抖持久化
 
@@ -90,6 +95,9 @@ src/
 │   │   ├── AIConfigCard.vue        # AI 配置卡片
 │   │   ├── AIConfigModal.vue       # AI 配置弹窗
 │   │   ├── AIResultPreview.vue     # AI 生成结果预览（7 种操作 + 上下文预填）
+│   │   ├── JDScanModal.vue         # JD 扫描模态框
+│   │   ├── FullResumeOptimizeModal.vue # 一键优化模态框
+│   │   ├── InterviewPrepModal.vue  # 面试准备模态框
 │   │   └── ResumeEvaluationModal.vue  # AI 简历评估弹窗（流式 + 自动续写 + 持久化）
 │   ├── home/              # 首页组件（ResumeCard、ImportModal）
 │   └── template/          # 模板卡片组件
@@ -109,7 +117,7 @@ src/
 │   └── sampleData.ts      # 示例简历数据
 ├── services/
 │   ├── aiService.ts       # AI SSE 流式调用 + 自动续写 + 缓冲区限制
-│   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写/翻译/定制）
+│   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写/翻译/定制 + JD扫描/一键优化/面试准备）
 │   └── resumeSerializer.ts # 简历序列化（Resume → 结构化纯文本，供 AI 使用）
 ├── stores/
 │   ├── resumeStore.ts     # Pinia 状态管理（shallowRef + dirty flag + 评估结果持久化）
@@ -118,7 +126,7 @@ src/
 │   └── settingsStore.ts   # 全局设置（目录模式、存储后端切换）
 ├── types/
 │   ├── resume.ts          # TypeScript 类型 + 默认常量（含 EvaluationResult）
-│   └── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口）
+│   └── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口 + 全局级操作类型）
 ├── utils/
 │   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移、Blob 照片存储）
 │   ├── storageAdapter.ts  # 存储适配层（IndexedDB / 目录模式切换）
@@ -129,6 +137,7 @@ src/
 │   ├── normalizeContent.ts # 内容标准化
 │   ├── markdownConverter.ts # Markdown ↔ HTML 转换（marked + turndown）
 │   ├── templateApply.ts   # 模板应用逻辑
+│   ├── exportImage.ts     # PNG 图片导出（modern-screenshot）
 │   ├── export.ts          # JSON 导出
 │   └── print.ts           # iframe 打印方案
 ├── plugins/
@@ -219,9 +228,19 @@ pnpm preview
 ### 导出简历
 
 - **导出 PDF** - 使用 iframe 打印方案，生成可直接打印或发送的 PDF 文件
+- **导出图片** - 基于 modern-screenshot 导出高清 PNG 图片，自动处理布局适配（日期/标签不换行），文件名含时间戳
 - **导出 JSON** - 保存为 JSON 文件，完整保留模板、主题色、文字/间距设置等全部数据
 
 ### AI 辅助功能
+
+#### AI 帮帮
+
+编辑器顶部的「AI 帮帮」按钮整合了四种全局级 AI 功能：
+
+- **AI 评估** - 全模块逐一评估，生成 0-100 评分和详细建议
+- **JD 扫描** - 粘贴目标职位 JD，AI 分析匹配度并给出优化建议
+- **一键优化** - AI 对整份简历所有模块进行系统性润色优化
+- **面试准备** - 根据简历 + JD 生成行为面试题、技术面试题和复习要点
 
 #### 文本处理
 
