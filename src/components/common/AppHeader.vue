@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { NDropdown } from 'naive-ui'
 import type { DropdownOption } from 'naive-ui'
 import { Icon } from '@iconify/vue'
@@ -130,9 +130,9 @@ const onThemeSelect = (key: string) => {
 }
 
 const exportOptions: DropdownOption[] = [
-  { label: '导出 JSON', key: 'json' },
-  { label: '导出 PDF', key: 'pdf' },
-  { label: '导出图片', key: 'image' }
+  { label: '导出 PDF', key: 'pdf', icon: () => h(Icon, { icon: 'mdi:file-pdf-box', width: 18 }) },
+  { label: '导出图片', key: 'image', icon: () => h(Icon, { icon: 'mdi:image-outline', width: 18 }) },
+  { label: '导出 JSON', key: 'json', icon: () => h(Icon, { icon: 'mdi:code-json', width: 18 }) },
 ]
 
 const onExportSelect = (key: string) => {
