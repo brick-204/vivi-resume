@@ -33,22 +33,13 @@
     <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
     <div class="app-header__right">
       <template v-if="showEditorRight">
-        <button class="header-btn header-btn--optimize" @click="emit('full-optimize')">
-          <Icon icon="mdi:creation" :width="16" />
-          <span class="header-btn__text">一键优化</span>
-        </button>
-        <button class="header-btn header-btn--eval" @click="emit('ai-eval')">
-          <Icon icon="mdi:star-outline" :width="16" />
-          <span class="header-btn__text">AI 评估</span>
-        </button>
-        <button class="header-btn header-btn--scan" @click="emit('jd-scan')">
-          <Icon icon="mdi:text-search" :width="16" />
-          <span class="header-btn__text">JD 扫描</span>
-        </button>
-        <button class="header-btn header-btn--scan" @click="emit('interview-prep')">
-          <Icon icon="mdi:account-tie" :width="16" />
-          <span class="header-btn__text">面试准备</span>
-        </button>
+        <n-dropdown :options="aiHelpOptions" @select="onAiHelpSelect" placement="bottom-end">
+          <button class="header-btn header-btn--ai-help">
+            <Icon icon="mdi:creation" :width="16" />
+            <span class="header-btn__text">AI 帮帮</span>
+            <Icon icon="mdi:chevron-down" :width="16" />
+          </button>
+        </n-dropdown>
         <button class="header-btn header-btn--template" @click="emit('change-template')">
           <Icon icon="mdi:view-grid-outline" :width="16" />
           <span class="header-btn__text">更换模板</span>
@@ -127,6 +118,20 @@ const themeOptions = computed<DropdownOption[]>(() => [
 
 const onThemeSelect = (key: string) => {
   setMode(key as ThemeMode)
+}
+
+const aiHelpOptions: DropdownOption[] = [
+  { label: 'AI 评估', key: 'eval', icon: () => h(Icon, { icon: 'mdi:star-outline', width: 18 }) },
+  { label: 'JD 扫描', key: 'scan', icon: () => h(Icon, { icon: 'mdi:text-search', width: 18 }) },
+  { label: '一键优化', key: 'optimize', icon: () => h(Icon, { icon: 'mdi:creation', width: 18 }) },
+  { label: '面试准备', key: 'interview-prep', icon: () => h(Icon, { icon: 'mdi:account-tie', width: 18 }) },
+]
+
+const onAiHelpSelect = (key: string) => {
+  if (key === 'eval') emit('ai-eval')
+  else if (key === 'scan') emit('jd-scan')
+  else if (key === 'optimize') emit('full-optimize')
+  else if (key === 'interview-prep') emit('interview-prep')
 }
 
 const exportOptions: DropdownOption[] = [
@@ -316,27 +321,15 @@ const onExportSelect = (key: string) => {
   font-family: $font-family;
   white-space: nowrap;
 
-  &--optimize {
+  &--ai-help {
     background: linear-gradient(135deg, $primary-color, $accent-color);
     color: $text-white;
     border: none;
+    box-shadow: $shadow-sm;
 
     &:hover {
       opacity: 0.9;
       box-shadow: $shadow-md;
-    }
-  }
-
-  &--eval {
-    background: $bg-glass;
-    color: $text-secondary;
-    border: 1px solid $border-glass;
-
-    &:hover {
-      background: $bg-glass-hover;
-      color: $primary-light;
-      border-color: $primary-color;
-      box-shadow: $shadow-sm;
     }
   }
 
