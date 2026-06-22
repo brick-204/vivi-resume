@@ -43,6 +43,30 @@ const FLEX_CHILD_SELECTORS = [
 ].join(',')
 
 /**
+ * 需要禁止文本换行的选择器
+ *
+ * 日期和标签文本在 SVG foreignObject 中容易被内联宽度挤压而换行，
+ * 强制 white-space: nowrap 确保它们保持单行显示。
+ */
+const NO_WRAP_SELECTORS = '.entry__date, .main__entry-date, .tech-tag, .main__tech-tag'
+
+/**
+ * 需要禁止 flex 收缩的选择器
+ *
+ * 日期元素在 flex 容器中不应被压缩，否则文字仍可能换行。
+ */
+const NO_SHRINK_SELECTORS = '.entry__date, .main__entry-date'
+
+/**
+ * 需要 min-width: 0 的选择器
+ *
+ * 在 flex 布局中，flex 子项默认 min-width 为 auto（即不小于内容宽度），
+ * 这会导致右侧日期元素空间不足。设置 min-width: 0 允许 info 区域缩小，
+ * 为日期腾出空间。
+ */
+const MIN_WIDTH_ZERO_SELECTORS = '.entry__info, .main__entry-info'
+
+/**
  * 将 DOM 元素导出为 PNG 图片并触发下载
  *
  * @param element 要捕获的 DOM 元素（通常是 .resume-preview）
@@ -103,6 +127,24 @@ export async function exportAsImage(
         flexChildren.forEach((el) => {
           ;(el as HTMLElement).style.removeProperty('width')
         })
+
+        // 禁止日期和标签文本换行
+        const noWrapElements = cloned.querySelectorAll(NO_WRAP_SELECTORS)
+        noWrapElements.forEach((el) => {
+          ;(el as HTMLElement).style.setProperty('white-space', 'nowrap', 'important')
+        })
+
+        // 禁止日期元素 flex 收缩
+        const noShrinkElements = cloned.querySelectorAll(NO_SHRINK_SELECTORS)
+        noShrinkElements.forEach((el) => {
+          ;(el as HTMLElement).style.setProperty('flex-shrink', '0', 'important')
+        })
+
+        // info 区域允许缩小，为日期腾出空间
+        const minWidthZeroElements = cloned.querySelectorAll(MIN_WIDTH_ZERO_SELECTORS)
+        minWidthZeroElements.forEach((el) => {
+          ;(el as HTMLElement).style.setProperty('min-width', '0', 'important')
+        })
       },
     })
 
@@ -110,11 +152,12 @@ export async function exportAsImage(
       throw new Error('图片生成失败：domToBlob 返回空数据')
     }
 
-    // 3. 下载
+    // 3. 下载（文件名末尾加时间戳）
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${filename}.png`
+    link.download = `${filename}_${timestamp}.png`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
