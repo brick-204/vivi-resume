@@ -26,6 +26,8 @@
       <AIPolishDemo v-if="activeTab === 'polish'" />
       <AIEvalDemo v-if="activeTab === 'eval'" />
       <AIScanDemo v-if="activeTab === 'scan'" />
+      <AIOptimizeDemo v-if="activeTab === 'optimize'" />
+      <AIInterviewDemo v-if="activeTab === 'interview'" />
       <AIWriteDemo v-if="activeTab === 'write'" />
     </div>
   </section>
@@ -37,15 +39,19 @@ import { Icon } from '@iconify/vue'
 import AIPolishDemo from '@/components/home/demo/AIPolishDemo.vue'
 import AIEvalDemo from '@/components/home/demo/AIEvalDemo.vue'
 import AIScanDemo from '@/components/home/demo/AIScanDemo.vue'
+import AIOptimizeDemo from '@/components/home/demo/AIOptimizeDemo.vue'
+import AIInterviewDemo from '@/components/home/demo/AIInterviewDemo.vue'
 import AIWriteDemo from '@/components/home/demo/AIWriteDemo.vue'
 
 const sectionRef = ref<HTMLElement | null>(null)
-const activeTab = ref<'polish' | 'eval' | 'scan' | 'write'>('polish')
+const activeTab = ref<'polish' | 'eval' | 'scan' | 'optimize' | 'interview' | 'write'>('polish')
 
 const tabs = [
   { id: 'polish' as const, label: 'AI 润色', icon: 'mdi:auto-fix' },
   { id: 'eval' as const, label: '简历评估', icon: 'mdi:clipboard-check-outline' },
   { id: 'scan' as const, label: 'JD 扫描', icon: 'mdi:text-search' },
+  { id: 'optimize' as const, label: '一键优化', icon: 'mdi:creation' },
+  { id: 'interview' as const, label: '面试准备', icon: 'mdi:account-tie' },
   { id: 'write' as const, label: 'AI 帮写', icon: 'mdi:pencil-plus' },
 ]
 </script>
