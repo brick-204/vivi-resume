@@ -213,6 +213,7 @@ import type { BasicInfo, CustomField, FieldDisplayMode, HeaderLayout, HeaderText
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
 import { useWorkerImageProcessor } from '@/composables/useWorkerImageProcessor'
+import { compressUploadedImage, compressCroppedPhoto } from '@/utils/imageCompression'
 
 const store = useResumeStore()
 const scrollContainer = inject(ScrollContainerKey)
@@ -503,8 +504,8 @@ const compressAndOpenEditor = async (dataUrl: string) => {
   const image = new Image()
   image.onload = async () => {
     try {
-      // 使用 Worker 缩放+编码图片，避免 toDataURL 阻塞主线程
-      editingPhotoSrc.value = await resizeImage(image, 800, 'image/jpeg', 0.85)
+      // 使用 Worker 缩放+编码图片，超阈值时自动降低质量
+      editingPhotoSrc.value = await compressUploadedImage(dataUrl, resizeImage)
       showPhotoEditor.value = true
     } catch (err) {
       console.error('[BasicInfo] 图片压缩失败:', err)
@@ -525,8 +526,15 @@ const openPhotoEditor = () => {
   showPhotoEditor.value = true
 }
 
-const handlePhotoEditorConfirm = (result: { photo: string; photoShape: 'circle' | 'rectangle' }) => {
-  basicInfo.value = { ...basicInfo.value, photo: result.photo, photoShape: result.photoShape, photoOriginal: editingPhotoSrc.value }
+const handlePhotoEditorConfirm = async (result: { photo: string; photoShape: 'circle' | 'rectangle' }) => {
+  // 裁剪后的照片如果超阈值，自动降低质量
+  let finalPhoto = result.photo
+  try {
+    finalPhoto = await compressCroppedPhoto(result.photo)
+  } catch (e) {
+    console.warn('[BasicInfo] 裁剪照片压缩失败，使用原始结果', e)
+  }
+  basicInfo.value = { ...basicInfo.value, photo: finalPhoto, photoShape: result.photoShape, photoOriginal: editingPhotoSrc.value }
   showPhotoEditor.value = false
   editingPhotoSrc.value = ''
 }

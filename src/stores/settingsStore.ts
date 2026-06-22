@@ -18,9 +18,11 @@ import {
   ensureDir,
   deleteDir,
   writeJsonFile,
+  writeDataUrlFile,
   readAllJsonFiles,
   readJsonFile,
 } from '@/utils/directoryStorage'
+import { extractPhotos } from '@/utils/photoFileRef'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSyncWorker } from '@/composables/useSyncWorker'
 import type { Resume } from '@/types/resume'
@@ -122,11 +124,30 @@ export const useSettingsStore = defineStore('settings', () => {
       // 创建子目录
       await ensureDir(handle, 'resumes')
       await ensureDir(handle, 'ai-configs')
+      await ensureDir(handle, 'photos')
 
       // 写入简历文件（content 已是格式化 JSON 字符串，直接传给 writeJsonFile）
+      // 同时提取照片为独立文件
       for (let i = 0; i < result.resumeFiles.length; i++) {
         const file = result.resumeFiles[i]
-        await writeJsonFile(handle, `resumes/${file.filename}`, file.content)
+        // 解析 JSON，提取照片，重写 JSON
+        let resumeObj: Record<string, unknown>
+        try {
+          resumeObj = JSON.parse(file.content) as Record<string, unknown>
+        } catch (e) {
+          console.warn('[settingsStore] 简历 JSON 解析失败，跳过:', file.filename, e)
+          continue
+        }
+        const resumeId = resumeObj.id as string || file.filename.replace('.json', '')
+        const { resume: refResume, photos } = extractPhotos(resumeObj, resumeId)
+
+        // 写入照片文件
+        for (const photo of photos) {
+          await writeDataUrlFile(handle, photo.relativePath, photo.dataUrl)
+        }
+
+        // 写入 JSON（含照片引用路径）
+        await writeJsonFile(handle, `resumes/${file.filename}`, refResume)
         updateProgress(
           `正在写入简历 ${i + 1}/${result.resumeFiles.length}`,
           50 + Math.round(((i + 1) / result.resumeFiles.length) * 30),

@@ -273,6 +273,48 @@ ${MARKDOWN_FORMAT_INSTRUCTION}
 - 以 Markdown 格式输出每个模块的内容
 - 直接输出优化后的完整简历，不要添加解释`,
   },
+
+  interview: {
+    system: `你是一位资深面试准备教练，擅长根据简历内容和目标 JD 生成面试题、参考答案框架和复习要点。
+
+核心任务：
+1. 根据简历内容和 JD 要求，生成针对性面试题
+2. 为每道题提供参考答案框架（STAR 法、关键词、论证思路）
+3. 整理需要重点复习的知识领域
+
+输出格式（严格遵守）：
+
+## 🎯 行为面试题（5-8 题）
+对于每题：
+- **题目**：[具体问题]
+- **考察点**：[该题考察的核心能力]
+- **参考答案框架**：按 STAR 法（情境-任务-行动-结果）给出回答思路，标注简历中可引用的经历
+
+## 💡 技术面试题（3-5 题）
+对于每题：
+- **题目**：[具体技术问题]
+- **考察领域**：[涉及的技术/知识领域]
+- **关键要点**：[回答的核心要点和关键词]
+
+## 🔑 复习要点
+- 按优先级列出面试前需要重点复习的知识领域
+- 每个要点标注来源（简历中的相关经历或 JD 中的要求）
+
+注意：
+- 面试题要贴合简历和 JD 的具体内容，不要生成过于通用的问题
+- 参考答案框架要充分利用简历中的真实经历，避免泛泛而谈
+- 如果没有 JD，则基于简历内容生成通用面试题
+- 直接输出面试准备内容，不要添加任何前缀或解释
+${MARKDOWN_FORMAT_INSTRUCTION}`,
+
+    userTemplate: `请根据以下简历和目标 JD，生成面试准备材料：
+
+简历内容：
+{content}
+
+目标 JD：
+{jd}`,
+  },
 }
 
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
@@ -293,6 +335,11 @@ export function buildMessages(operation: AIOperation, content: string, customIns
     userPrompt = config.userTemplate
       .replace('{content}', content)
       .replace('{jd}', customInstruction?.trim() || '（未提供 JD）')
+  } else if (operation === 'interview') {
+    // 面试准备模式：content 为简历文本，customInstruction 为 JD（可选）
+    userPrompt = config.userTemplate
+      .replace('{content}', content)
+      .replace('{jd}', customInstruction?.trim() || '（未提供 JD，请根据简历内容生成通用面试题）')
   } else {
     userPrompt = config.userTemplate.replace('{content}', content)
     // 拼接用户自定义指令

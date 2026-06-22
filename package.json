@@ -26,12 +26,14 @@
     "idb": "^8.0.3",
     "isomorphic-dompurify": "^3.14.0",
     "marked": "^18.0.5",
+    "modern-screenshot": "^4.7.0",
     "naive-ui": "^2.44.1",
     "pinia": "^2.1.7",
     "turndown": "^7.2.4",
     "vue": "^3.4.21",
     "vue-router": "^4.3.0",
-    "vuedraggable": "^4.1.0"
+    "vuedraggable": "^4.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@iconify-json/mdi": "^1.2.3",

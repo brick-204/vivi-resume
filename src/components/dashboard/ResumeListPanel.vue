@@ -73,9 +73,37 @@
     <!-- 导入弹窗 -->
     <ImportModal
       :visible="showImportModal"
-      @close="showImportModal = false"
+      @close="showImportModal = false; importErrors = []"
       @import="handleImportFile"
     />
+
+    <!-- 导入校验错误展示 -->
+    <n-modal
+      :show="importErrors.length > 0"
+      preset="card"
+      :style="{ maxWidth: '520px', width: '90vw' }"
+      :mask-closable="true"
+      @update:show="(v: boolean) => { if (!v) importErrors = [] }"
+    >
+      <template #header>
+        <div style="display: flex; align-items: center; gap: 8px; color: var(--error-color, #e74c3c); font-weight: 600;">
+          <Icon icon="mdi:alert-circle-outline" :width="20" />
+          导入验证失败
+        </div>
+      </template>
+      <p style="margin: 0 0 12px; font-size: 13px; color: var(--text-secondary);">JSON 文件结构与预期格式不匹配，请检查以下问题：</p>
+      <ul class="import-error-list">
+        <li v-for="(err, i) in importErrors" :key="i">
+          <span v-if="err.path" class="import-error-list__path">{{ err.path }}</span>
+          <span>{{ err.message }}</span>
+        </li>
+      </ul>
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end;">
+          <n-button size="small" @click="importErrors = []">关闭</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -83,11 +111,13 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
+import type { ImportResult } from '@/stores/resumeStore'
+import type { ValidationError } from '@/schemas/resumeSchema'
 import { useResumeSearch } from '@/composables/useResumeSearch'
 import { readJSONFile } from '@/utils/export'
 import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
-import { NInput, NSelect } from 'naive-ui'
+import { NInput, NSelect, NModal, NButton } from 'naive-ui'
 import ImportModal from '@/components/home/ImportModal.vue'
 import ResumeCard from '@/components/home/ResumeCard.vue'
 
@@ -95,6 +125,7 @@ const router = useRouter()
 const store = useResumeStore()
 const showImportModal = ref(false)
 const searchQuery = ref('')
+const importErrors = ref<ValidationError[]>([])
 const sortKey = ref<'updatedAt' | 'createdAt' | 'title'>('updatedAt')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 
@@ -160,11 +191,14 @@ const onCopyResume = async (id: string) => {
 const handleImportFile = async (file: File) => {
   try {
     const json = await readJSONFile(file)
-    if (await store.importFromJSON(json)) {
+    const result: ImportResult = await store.importFromJSON(json)
+    if (result.success) {
+      importErrors.value = []
       showImportModal.value = false
       naiveMessage.success('导入成功！')
     } else {
-      naiveMessage.error('导入失败，请检查文件格式')
+      importErrors.value = result.errors || []
+      naiveMessage.error(`导入失败：发现 ${result.errors?.length || 0} 个验证错误`)
     }
   } catch (e) {
     naiveMessage.error('导入失败：' + (e as Error).message)
@@ -352,6 +386,37 @@ const handleImportFile = async (file: File) => {
   .action-btn {
     flex: 1;
     justify-content: center;
+  }
+}
+
+// 导入校验错误列表
+.import-error-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  @include scrollbar;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-glass, rgba(255,255,255,0.06));
+    font-size: 13px;
+    color: var(--text-primary);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__path {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--primary-light, #6c8cff);
+    opacity: 0.8;
   }
 }
 </style>

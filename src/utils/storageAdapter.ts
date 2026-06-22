@@ -13,6 +13,7 @@ import type { AIServiceConfig } from '@/types/aiConfig'
 import * as idb from './storage'
 import * as dir from './directoryStorage'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { extractPhotos, injectPhotos, isPhotoRef, parsePhotoRef } from './photoFileRef'
 
 // ========== 工具函数 ==========
 
@@ -44,7 +45,49 @@ function toPlain<T>(value: T): T {
 
 export async function getAllResumes(): Promise<Resume[]> {
   if (isDirectoryMode()) {
-    return dir.readAllJsonFiles<Resume>(getHandle(), 'resumes')
+    const handle = getHandle()
+    const resumes = await dir.readAllJsonFiles<Resume>(handle, 'resumes')
+
+    // 收集所有需要加载的照片引用，并行读取
+    const photoTasks: { resumeIndex: number; field: 'photo' | 'photoOriginal'; relPath: string; mimeType: string }[] = []
+
+    for (let ri = 0; ri < resumes.length; ri++) {
+      const basicInfo = resumes[ri].basicInfo as unknown as Record<string, unknown>
+      for (const field of ['photo', 'photoOriginal'] as const) {
+        const value = basicInfo?.[field] as string | undefined
+        if (value && isPhotoRef(value)) {
+          const relPath = parsePhotoRef(value)
+          const mimeType = relPath.endsWith('.png') ? 'image/png' : 'image/jpeg'
+          photoTasks.push({ resumeIndex: ri, field, relPath, mimeType })
+        }
+      }
+    }
+
+    // 并行读取所有照片文件
+    if (photoTasks.length > 0) {
+      const photoDataUrls = await Promise.all(
+        photoTasks.map(task => dir.readDataUrlFile(handle, task.relPath, task.mimeType)),
+      )
+
+      // 按简历分组注入照片数据
+      const photoDataByResume = new Map<number, Map<string, string>>()
+      for (let i = 0; i < photoTasks.length; i++) {
+        const dataUrl = photoDataUrls[i]
+        if (!dataUrl) continue
+        const { resumeIndex, relPath } = photoTasks[i]
+        if (!photoDataByResume.has(resumeIndex)) {
+          photoDataByResume.set(resumeIndex, new Map())
+        }
+        photoDataByResume.get(resumeIndex)!.set(relPath, dataUrl)
+      }
+
+      for (const [ri, photoData] of photoDataByResume) {
+        const restored = injectPhotos(resumes[ri] as unknown as Record<string, unknown>, photoData)
+        Object.assign(resumes[ri], restored)
+      }
+    }
+
+    return resumes
   }
   return idb.getAllResumes()
 }
@@ -53,6 +96,7 @@ export async function saveResumeList(resumes: Resume[]): Promise<void> {
   if (isDirectoryMode()) {
     const handle = getHandle()
     const resumesDir = await dir.ensureDir(handle, 'resumes')
+    await dir.ensureDir(handle, 'photos')
 
     // 差异删除：删除目录中存在但列表中不存在的文件
     const existingIds = await dir.listJsonFiles(resumesDir)
@@ -60,12 +104,24 @@ export async function saveResumeList(resumes: Resume[]): Promise<void> {
     for (const id of existingIds) {
       if (!newIds.has(id)) {
         await dir.deleteFile(resumesDir, `${id}.json`)
+        // 同时删除关联的照片文件（遍历匹配，兼容任意扩展名）
+        await dir.deleteFilesByPrefix(handle, 'photos', `${id}.`)
+        await dir.deleteFilesByPrefix(handle, 'photos', `${id}_original.`)
       }
     }
 
-    // 逐个写入（照片直接存 Base64 字符串，不做 Blob 转换）
+    // 逐个写入：提取照片为独立文件，JSON 中存储引用路径
     for (const resume of resumes) {
-      await dir.writeJsonFile(resumesDir, `${resume.id}.json`, toPlain(resume))
+      const plain = toPlain(resume) as unknown as Record<string, unknown>
+      const { resume: refResume, photos } = extractPhotos(plain, resume.id)
+
+      // 写入照片文件
+      for (const photo of photos) {
+        await dir.writeDataUrlFile(handle, photo.relativePath, photo.dataUrl)
+      }
+
+      // 写入 JSON（含照片引用路径，不含 base64 数据）
+      await dir.writeJsonFile(resumesDir, `${resume.id}.json`, refResume)
     }
   } else {
     return idb.saveResumeList(resumes)
@@ -74,8 +130,12 @@ export async function saveResumeList(resumes: Resume[]): Promise<void> {
 
 export async function deleteResume(id: string): Promise<void> {
   if (isDirectoryMode()) {
-    const resumesDir = await dir.ensureDir(getHandle(), 'resumes')
+    const handle = getHandle()
+    const resumesDir = await dir.ensureDir(handle, 'resumes')
     await dir.deleteFile(resumesDir, `${id}.json`)
+    // 同时删除关联的照片文件（遍历匹配，兼容任意扩展名）
+    await dir.deleteFilesByPrefix(handle, 'photos', `${id}.`)
+    await dir.deleteFilesByPrefix(handle, 'photos', `${id}_original.`)
   } else {
     return idb.deleteResume(id)
   }

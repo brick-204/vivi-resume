@@ -195,3 +195,117 @@ export async function deleteDir(
     // 目录不存在，忽略
   }
 }
+
+// ========== 二进制文件读写（照片独立存储） ==========
+
+/** ArrayBuffer → base64 字符串（分块处理，避免大数组逐字节拼接的 GC 压力） */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 8192
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength))
+    binary += String.fromCharCode(...chunk)
+  }
+  return btoa(binary)
+}
+
+/** 将 data URL 写入为二进制文件（直接解析 base64，避免 fetch 开销） */
+export async function writeDataUrlFile(
+  rootHandle: FileSystemDirectoryHandle,
+  path: string,
+  dataUrl: string,
+): Promise<void> {
+  const parts = path.split('/')
+  let dirHandle = rootHandle
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    dirHandle = await dirHandle.getDirectoryHandle(parts[i], { create: true })
+  }
+
+  const fileName = parts[parts.length - 1]
+  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true })
+  const writable = await fileHandle.createWritable()
+
+  try {
+    // data URL → 手动解析 base64 → Uint8Array → Blob → 写入
+    const commaIdx = dataUrl.indexOf(',')
+    const base64 = commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : ''
+    const byteString = atob(base64)
+    const bytes = new Uint8Array(byteString.length)
+    for (let i = 0; i < byteString.length; i++) {
+      bytes[i] = byteString.charCodeAt(i)
+    }
+    // 从 data URL 提取 MIME 类型
+    const mimeMatch = dataUrl.match(/^data:([^;]+);/)
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg'
+    const blob = new Blob([bytes], { type: mimeType })
+    await writable.write(blob)
+  } finally {
+    await writable.close()
+  }
+}
+
+/** 读取二进制文件并返回 data URL */
+export async function readDataUrlFile(
+  rootHandle: FileSystemDirectoryHandle,
+  path: string,
+  mimeType: string = 'image/jpeg',
+): Promise<string | undefined> {
+  try {
+    const parts = path.split('/')
+    let handle: FileSystemDirectoryHandle | FileSystemFileHandle = rootHandle
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      handle = await (handle as FileSystemDirectoryHandle).getDirectoryHandle(parts[i])
+    }
+
+    const fileHandle = await (handle as FileSystemDirectoryHandle).getFileHandle(parts[parts.length - 1])
+    const file = await fileHandle.getFile()
+    const buffer = await file.arrayBuffer()
+    const base64 = arrayBufferToBase64(buffer)
+    return `data:${mimeType};base64,${base64}`
+  } catch {
+    return undefined
+  }
+}
+
+/** 按完整路径删除文件 */
+export async function deleteFileByPath(
+  rootHandle: FileSystemDirectoryHandle,
+  path: string,
+): Promise<void> {
+  try {
+    const parts = path.split('/')
+    let dirHandle = rootHandle
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      dirHandle = await dirHandle.getDirectoryHandle(parts[i])
+    }
+
+    await dirHandle.removeEntry(parts[parts.length - 1])
+  } catch {
+    // 文件不存在，忽略
+  }
+}
+
+/**
+ * 删除目录中所有以指定前缀开头的文件
+ * 替代硬编码扩展名（.jpg/.png/.webp…）的逐一尝试
+ */
+export async function deleteFilesByPrefix(
+  rootHandle: FileSystemDirectoryHandle,
+  subdir: string,
+  prefix: string,
+): Promise<void> {
+  try {
+    const dirHandle = await rootHandle.getDirectoryHandle(subdir)
+    for await (const entry of (dirHandle as FileSystemDirectoryHandleWithPermission).values()) {
+      if (entry.kind === 'file' && entry.name.startsWith(prefix)) {
+        try { await dirHandle.removeEntry(entry.name) } catch { /* ignore */ }
+      }
+    }
+  } catch {
+    // 目录不存在，忽略
+  }
+}

@@ -1,6 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef, toRaw } from 'vue'
-import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult } from '@/types/resume'
+import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult, InterviewResult } from '@/types/resume'
+import { validateResumeJSON, type ValidationError } from '@/schemas/resumeSchema'
+
+/** 导入结果 */
+export interface ImportResult {
+  success: boolean
+  errors?: ValidationError[]
+}
 import {
   createEmptyResume,
   generateId,
@@ -291,8 +298,15 @@ export const useResumeStore = defineStore('resume', () => {
     return JSON.stringify(currentResume.value, null, 2)
   }
 
-  // 导入 JSON（使用 Worker 解析）
-  const importFromJSON = async (json: string): Promise<boolean> => {
+  // 导入 JSON（Zod 校验 + Worker 解析）
+  const importFromJSON = async (json: string): Promise<ImportResult> => {
+    // 第一步：Zod 结构校验
+    const validation = validateResumeJSON(json)
+    if (!validation.success) {
+      return { success: false, errors: validation.errors }
+    }
+
+    // 第二步：Worker 解析（深拷贝 + 反序列化）
     try {
       const data = await parse<Resume>(json)
       data.id = generateId()
@@ -302,10 +316,10 @@ export const useResumeStore = defineStore('resume', () => {
       const migrated = migrateResumeColors(data)
       resumeList.value = [...resumeList.value, migrated]
       await saveToStorageNow()
-      return true
+      return { success: true }
     } catch (e) {
       console.error('Failed to import resume:', e)
-      return false
+      return { success: false, errors: [{ path: '', message: 'JSON 解析失败，请检查文件格式' }] }
     }
   }
 
@@ -534,6 +548,20 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  /** 保存面试准备结果到当前简历（立即持久化，不走防抖） */
+  const saveInterviewResult = (resumeId: string, result: InterviewResult) => {
+    const idx = resumeList.value.findIndex(r => r.id === resumeId)
+    if (idx !== -1) {
+      const newList = [...resumeList.value]
+      newList[idx] = { ...newList[idx], lastInterview: result }
+      resumeList.value = newList
+      if (currentResume.value?.id === resumeId) {
+        currentResume.value.lastInterview = result
+      }
+      saveToStorageNow()
+    }
+  }
+
   // ========== Undo/Redo 已移除 ==========
 
   // 初始化
@@ -595,6 +623,7 @@ export const useResumeStore = defineStore('resume', () => {
     removeCustomSection,
     saveEvaluationResult,
     saveJdScanResult,
+    saveInterviewResult,
     reloadFromStorage,
   }
 })

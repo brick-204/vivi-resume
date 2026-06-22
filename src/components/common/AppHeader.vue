@@ -45,6 +45,10 @@
           <Icon icon="mdi:text-search" :width="16" />
           <span class="header-btn__text">JD 扫描</span>
         </button>
+        <button class="header-btn header-btn--scan" @click="emit('interview-prep')">
+          <Icon icon="mdi:account-tie" :width="16" />
+          <span class="header-btn__text">面试准备</span>
+        </button>
         <button class="header-btn header-btn--template" @click="emit('change-template')">
           <Icon icon="mdi:view-grid-outline" :width="16" />
           <span class="header-btn__text">更换模板</span>
@@ -87,9 +91,11 @@ defineProps<{
 const emit = defineEmits<{
   'export-json': []
   'export-pdf': []
+  'export-image': []
   'ai-eval': []
   'jd-scan': []
   'full-optimize': []
+  'interview-prep': []
   'change-template': []
   'save-title': []
 }>()
@@ -125,12 +131,14 @@ const onThemeSelect = (key: string) => {
 
 const exportOptions: DropdownOption[] = [
   { label: '导出 JSON', key: 'json' },
-  { label: '导出 PDF', key: 'pdf' }
+  { label: '导出 PDF', key: 'pdf' },
+  { label: '导出图片', key: 'image' }
 ]
 
 const onExportSelect = (key: string) => {
   if (key === 'json') emit('export-json')
   else if (key === 'pdf') emit('export-pdf')
+  else if (key === 'image') emit('export-image')
 }
 </script>
 

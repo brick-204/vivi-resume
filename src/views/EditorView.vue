@@ -6,18 +6,20 @@
       show-editor-right
       @export-json="exportJSON"
       @export-pdf="exportPDF"
+      @export-image="exportImage"
       @ai-eval="showEvalModal = true"
       @jd-scan="showJDScanModal = true"
+      @interview-prep="showInterviewModal = true"
       @full-optimize="showFullOptimizeModal = true"
       @change-template="goToTemplates"
       @save-title="saveTitle"
     />
 
-    <!-- 加载中：骨架屏 -->
-    <EditorSkeleton v-if="!isReady" />
+    <!-- 加载中：骨架屏 → 加载完成：真实编辑器（淡入过渡） -->
+    <Transition name="editor-fade">
+      <EditorSkeleton v-if="!isReady" key="skeleton" />
 
-    <!-- 加载完成：真实编辑器 -->
-    <main v-else class="editor-body">
+      <main v-else key="editor" class="editor-body">
       <!-- 第一列：模块导航栏 -->
       <aside
         class="editor-body__nav"
@@ -67,6 +69,7 @@
         </div>
       </section>
     </main>
+    </Transition>
 
     <!-- 弹窗只在就绪后渲染（依赖 store 数据） -->
     <template v-if="isReady">
@@ -89,6 +92,13 @@
         @close="showFullOptimizeModal = false"
         @apply="handleFullOptimizeApply"
       />
+
+      <!-- AI 面试准备弹窗 -->
+      <InterviewPrepModal
+        :visible="showInterviewModal"
+        :config="aiConfigStore.activeConfig ?? null"
+        @close="showInterviewModal = false"
+      />
     </template>
   </div>
 </template>
@@ -101,7 +111,9 @@ import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
 import { printViaIframe } from '@/utils/print'
+import { exportAsImage } from '@/utils/exportImage'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 import AppHeader from '@/components/common/AppHeader.vue'
 import EditorSkeleton from '@/components/common/EditorSkeleton.vue'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
@@ -111,6 +123,7 @@ import ResumePreview from '@/components/preview/ResumePreview.vue'
 import ResumeEvaluationModal from '@/components/ai/ResumeEvaluationModal.vue'
 import JDScanModal from '@/components/ai/JDScanModal.vue'
 import FullResumeOptimizeModal from '@/components/ai/FullResumeOptimizeModal.vue'
+import InterviewPrepModal from '@/components/ai/InterviewPrepModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -122,6 +135,7 @@ const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
 const showEvalModal = ref(false)
 const showJDScanModal = ref(false)
 const showFullOptimizeModal = ref(false)
+const showInterviewModal = ref(false)
 const isReady = ref(false)
 
 const saveTitle = async () => {
@@ -204,6 +218,24 @@ const exportPDF = async () => {
     target: el,
     margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
   })
+}
+
+const exportImage = async () => {
+  const el = previewRef.value?.getElement()
+  if (!el) {
+    console.warn('[exportImage] 预览元素未就绪')
+    return
+  }
+  try {
+    await exportAsImage(
+      el,
+      store.currentResume?.title || 'resume',
+      store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+    )
+  } catch (e) {
+    console.error('[exportImage] 导出图片失败:', e)
+    naiveMessage.error('导出图片失败，请重试')
+  }
 }
 
 onMounted(async () => {
@@ -297,5 +329,15 @@ onMounted(async () => {
   padding: 0;
   min-height: 100%;
   border-radius: $radius-lg;
+}
+
+// 骨架屏 → 编辑器淡入过渡
+.editor-fade-enter-active,
+.editor-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.editor-fade-enter-from,
+.editor-fade-leave-to {
+  opacity: 0;
 }
 </style>
