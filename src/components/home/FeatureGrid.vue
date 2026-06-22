@@ -26,10 +26,10 @@ import { Icon } from '@iconify/vue'
 
 const features = [
   { icon: 'mdi:palette-outline', title: '多模板支持', desc: '8 款专业模板，一键切换，风格多样' },
-  { icon: 'mdi:creation', title: 'AI 帮帮', desc: '评估、扫描、优化、面试，一个入口搞定' },
   { icon: 'mdi:auto-fix', title: 'AI 智能润色', desc: '7 种 AI 文本操作，让表达更专业' },
   { icon: 'mdi:clipboard-check-outline', title: '简历评估', desc: 'AI 全方位评估打分，精准定位不足' },
   { icon: 'mdi:text-search', title: 'JD 匹配分析', desc: '智能关键词扫描，提升投递匹配度' },
+  { icon: 'mdi:creation', title: '一键优化', desc: 'AI 系统性润色整份简历，全面提升' },
   { icon: 'mdi:account-tie', title: '面试准备', desc: '生成面试题和复习要点，从容应战' },
   { icon: 'mdi:eye-outline', title: '实时预览', desc: '所见即所得编辑体验，边改边看' },
   { icon: 'mdi:download', title: '多格式导出', desc: 'PDF / 图片 / JSON 一键导出' },
