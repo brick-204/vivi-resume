@@ -28,7 +28,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { TEMPLATES } from '@/config/templates'
-import { createResumeFromTemplateDeferred } from '@/utils/templateApply'
+import { createResumeFromTemplateDeferred, createBlankResumeDeferred } from '@/utils/templateApply'
 import { useResumeStore } from '@/stores/resumeStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
@@ -45,8 +45,14 @@ const userResume = computed(() => store.resumeList[0] || undefined)
 
 const handleUseTemplate = (templateId: string) => {
   try {
-    const id = createResumeFromTemplateDeferred(templateId)
-    router.push(`/editor/${id}`)
+    if (templateId === 'blank') {
+      // 空白模板：创建纯空白简历，直接跳转编辑器
+      const id = createBlankResumeDeferred()
+      router.push(`/editor/${id}`)
+    } else {
+      const id = createResumeFromTemplateDeferred(templateId)
+      router.push(`/editor/${id}`)
+    }
   } catch (e) {
     console.error('使用模板失败:', e)
     naiveMessage.error('创建简历失败，请重试')

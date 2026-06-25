@@ -1,7 +1,7 @@
 import { useResumeStore } from '@/stores/resumeStore'
 import { getTemplate } from '@/config/templates'
 import { getSampleResume } from '@/config/sampleData'
-import { createEmptyResume, type Resume } from '@/types/resume'
+import { createEmptyResume, type Resume, CONFIGURABLE_SECTIONS } from '@/types/resume'
 
 /**
  * 根据模板 ID 构建一份完整简历数据（含示例数据 + 模板样式配置）
@@ -55,6 +55,29 @@ export function createResumeFromTemplateDeferred(templateId: string): string {
   // 后台持久化，不阻塞导航
   store.saveToStorageNow().catch((e) => {
     console.error('[createResumeFromTemplateDeferred] Background save failed:', e)
+  })
+  return resume.id
+}
+
+/**
+ * 创建一份纯空白简历（无示例数据），立即返回 ID 并在后台保存。
+ * 适用于：模版市场「空白模板」— 从零开始创作。
+ */
+export function createBlankResumeDeferred(): string {
+  const store = useResumeStore()
+  const resume = createEmptyResume()
+  // 空白模板使用经典风格布局（流式向下），用户可自行切换其他模板
+  resume.templateId = 'classic'
+  // 主题色默认黑色，简洁无彩色
+  resume.themeAccentColor = '#000000'
+  // 只保留基本信息模块，其余隐藏，待用户自行添加
+  resume.hiddenSections = [...CONFIGURABLE_SECTIONS]
+
+  // 内存写入（同步），立即可用
+  store.addResumeInMemory(resume)
+  // 后台持久化，不阻塞导航
+  store.saveToStorageNow().catch((e) => {
+    console.error('[createBlankResumeDeferred] Background save failed:', e)
   })
   return resume.id
 }

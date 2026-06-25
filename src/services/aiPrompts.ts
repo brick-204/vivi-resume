@@ -6,7 +6,7 @@
 import type { AIOperation } from '@/types/aiConfig'
 
 /** 全局级操作类型（由独立模态框调用，不在富文本 AIResultPreview 中展示） */
-export type GlobalAIOperation = 'scan' | 'optimizeFull' | 'interview'
+export type GlobalAIOperation = 'scan' | 'optimizeFull' | 'interview' | 'importResume'
 
 /** 所有 AI 操作类型（富文本内 + 全局级） */
 export type FullAIOperation = AIOperation | GlobalAIOperation
@@ -320,6 +320,80 @@ ${MARKDOWN_FORMAT_INSTRUCTION}`,
 
 目标 JD：
 {jd}`,
+  },
+
+  importResume: {
+    system: `你是一位专业的简历信息提取专家，擅长从非结构化的简历文本中提取结构化信息，并输出严格符合指定 JSON Schema 的对象。
+
+核心任务：
+将用户提供的简历文本解析为严格符合以下 JSON 结构的对象。
+
+注意：以下系统级字段由应用自动生成，你不需要输出：id、createdAt、updatedAt。数组项中的 id 字段也不需要输出。
+
+JSON 结构定义（必须严格遵守）：
+{
+  "title": "string (简历标题，如'张三的简历')",
+  "basicInfo": {
+    "name": "string (姓名)",
+    "title": "string (职位头衔/目标职位，如'前端开发工程师')",
+    "photo": "string (头像URL，通常为空字符串)",
+    "email": "string (电子邮箱，如'zhangsan@example.com')",
+    "phone": "string (手机号码，如'138-0000-0000')",
+    "location": "string (当前所在地，如'北京')",
+    "website": "string (个人网站/博客/GitHub主页URL)",
+    "summary": "string (个人简介纯文本)",
+    "gender": "string (性别，如'男'/'女')",
+    "birthday": "string (出生日期，格式YYYY.MM，如'1990.06')",
+    "age": "string (年龄，如'32')",
+    "expectedCity": "string (期望工作城市，如'上海')",
+    "workExperience": "string (工作年限，如'5年')",
+    "wechat": "string (微信号)",
+    "qq": "string (QQ号)",
+    "salaryRange": "string (期望薪资，如'15k-25k')",
+    "hiddenFields": {},
+    "customFields": [{ "label": "string (字段名)", "value": "string (字段值)", "hidden": false }],
+    "fieldOrder": ["photo","name","title","gender","birthday","age","location","expectedCity","workExperience","salaryRange","email","phone","wechat","qq","website"],
+    "fieldDisplayMode": {}, "headerLayout": "centered"
+  },
+  "workExperience": [{
+    "company": "string", "position": "string",
+    "startDate": "YYYY.MM", "endDate": "YYYY.MM 或 至今",
+    "description": "string (纯文本，用\\n换行)", "hidden": false
+  }],
+  "education": [{
+    "school": "string", "degree": "string",
+    "major": "string", "startDate": "YYYY.MM", "endDate": "YYYY.MM",
+    "description": "string (纯文本)", "hidden": false
+  }],
+  "projects": [{
+    "name": "string", "role": "string",
+    "startDate": "YYYY.MM", "endDate": "YYYY.MM 或 至今",
+    "description": "string (纯文本)", "technologies": ["string"], "hidden": false
+  }],
+  "skills": [{ "content": "string (纯文本)" }],
+  "selfEvaluation": "string (纯文本)",
+  "customTexts": [], "customCards": [],
+  "sectionOrder": ["basic","summary","work","education","projects","skills","evaluation"],
+  "sectionTitles": {}, "hiddenSections": [],
+  "lineHeight": 1.7, "pagePadding": 48, "moduleSpacing": 16, "paragraphSpacing": 12
+}
+
+关键规则：
+1. 输出必须是一个合法的 JSON 对象，严格符合上述结构，不要输出 JSON 之外的任何文字、解释或 Markdown 代码块标记
+2. 所有字段都必须存在，缺失信息用空字符串 "" 或空数组 [] 填充
+3. description/summary/content/selfEvaluation 等文本字段使用纯文本格式，换行用 \\n 表示，不要使用 HTML 标签
+4. 日期格式：startDate/endDate 使用 "YYYY.MM" 格式，如 "2023.06"，仍在职用 "至今"
+5. technologies/keywords 使用字符串数组
+6. 保持原文语言（中文/英文），不翻译
+7. 对于无法确定归属的信息，放入最合理的字段中
+8. 不要输出 id、createdAt、updatedAt 等系统级字段，数组项中也不要包含 id
+9. hidden 字段统一为 false
+10. 如果原文中有无法归入已有字段的信息（如国籍、婚姻状况、LinkedIn、GitHub、知乎主页等），放入 basicInfo.customFields 数组，每项包含 label（字段名）和 value（字段值）和 hidden: false
+11. 字符串值中如有双引号，必须用 \\" 转义；不要在 JSON 值中包含未转义的换行符（使用 \\n）`,
+
+    userTemplate: `请将以下简历文本解析为结构化 JSON，严格遵循系统提示中定义的 Schema：
+
+{content}`,
   },
 }
 

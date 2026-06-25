@@ -323,6 +323,19 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  // 导入 AI 解析后的简历（已校验和归一化，直接入库）
+  const importFromAIResult = async (resume: Resume): Promise<string> => {
+    // 克隆后再修改，避免影响调用方持有的引用
+    const clone = structuredClone(toRaw(resume))
+    clone.id = generateId()
+    clone.createdAt = new Date().toISOString()
+    clone.updatedAt = new Date().toISOString()
+    const migrated = migrateResumeColors(clone)
+    resumeList.value = [...resumeList.value, migrated]
+    await saveToStorageNow()
+    return clone.id
+  }
+
   // 清空当前简历
   const clearCurrentResume = async () => {
     currentResume.value = null
@@ -609,6 +622,7 @@ export const useResumeStore = defineStore('resume', () => {
     copyResume,
     exportToJSON,
     importFromJSON,
+    importFromAIResult,
     clearCurrentResume,
     getSectionOrder,
     updateSectionOrder,

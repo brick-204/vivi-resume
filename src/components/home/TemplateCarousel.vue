@@ -55,7 +55,7 @@ import { Icon } from '@iconify/vue'
 import { TEMPLATES } from '@/config/templates'
 import CarouselPreviewItem from '@/components/home/CarouselPreviewItem.vue'
 
-const templates = TEMPLATES
+const templates = TEMPLATES.filter(t => t.id !== 'blank')
 const currentIndex = ref(0)
 let autoplayTimer: ReturnType<typeof setInterval> | null = null
 let resizeHandler: (() => void) | null = null

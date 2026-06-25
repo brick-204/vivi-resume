@@ -38,6 +38,27 @@ export interface TemplateConfig {
 // 预定义模版
 export const TEMPLATES: TemplateConfig[] = [
   {
+    id: 'blank',
+    name: '空白模板',
+    description: '从零开始，自由创作',
+    preview: 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
+    style: {
+      headerBg: '#ffffff',
+      headerTextColor: '#1a1a2e',
+      accentColor: '#6366f1',
+      sectionTitleColor: '#1a1a2e',
+      textColor: '#202429',
+      textSecondaryColor: '#6b7280',
+      sectionBorderRadius: '8px',
+      tagBg: 'rgba(99, 102, 241, 0.1)',
+      tagColor: '#6366f1',
+      tagBorder: 'rgba(99, 102, 241, 0.2)',
+      headerLayout: 'centered',
+      showTimeline: false,
+      fontDefaults: { bodyFontSize: 14, sectionTitleFontSize: 16, entryTitleFontSize: 14 }
+    }
+  },
+  {
     id: 'classic',
     name: '经典风格',
     description: '居中头部 + 时间线设计，专业大方',
@@ -214,5 +235,8 @@ export const TEMPLATES: TemplateConfig[] = [
 export const DEFAULT_TEMPLATE_ID = 'sidebar'
 
 export const getTemplate = (id: string): TemplateConfig => {
-  return TEMPLATES.find(t => t.id === id) || TEMPLATES[0]
+  // blank 不是视觉模板，回退时应返回第一个真正的视觉模板
+  const found = TEMPLATES.find(t => t.id === id)
+  if (found) return found
+  return TEMPLATES.find(t => t.id !== 'blank') || TEMPLATES[0]
 }

@@ -2,7 +2,12 @@
   <div class="template-showcase-card" @click="$emit('use', template.id)">
     <!-- 预览区 -->
     <div class="template-showcase-card__preview" ref="previewContainer">
-      <div class="template-showcase-card__scale" :style="scaleStyle">
+      <!-- 空白模板：纯视觉占位，不渲染任何模板样式 -->
+      <div v-if="template.id === 'blank'" class="template-showcase-card__blank-placeholder">
+        <Icon icon="mdi:file-document-plus-outline" :width="48" />
+        <span>空白简历</span>
+      </div>
+      <div v-else class="template-showcase-card__scale" :style="scaleStyle">
         <ResumeDocument :resume="displayResume" :template-id="template.id" />
       </div>
     </div>
@@ -14,19 +19,22 @@
 
       <!-- 样式标签 -->
       <div class="template-showcase-card__tags">
-        <span class="style-tag">{{ layoutLabel }}</span>
-        <span class="style-tag style-tag--color">
-          主题色
-          <span class="style-tag__dot" :style="{ background: template.style.accentColor }" />
-        </span>
-        <span v-if="template.style.showTimeline" class="style-tag">时间线</span>
-        <span v-if="template.style.sectionBorderRadius !== '0'" class="style-tag">圆角卡片</span>
+        <span v-if="template.id === 'blank'" class="style-tag">自由创作</span>
+        <template v-else>
+          <span class="style-tag">{{ layoutLabel }}</span>
+          <span class="style-tag style-tag--color">
+            主题色
+            <span class="style-tag__dot" :style="{ background: template.style.accentColor }" />
+          </span>
+          <span v-if="template.style.showTimeline" class="style-tag">时间线</span>
+          <span v-if="template.style.sectionBorderRadius !== '0'" class="style-tag">圆角卡片</span>
+        </template>
       </div>
 
       <!-- 使用按钮 -->
       <button class="template-showcase-card__use-btn" @click.stop="$emit('use', template.id)">
         <Icon icon="mdi:plus" :width="16" />
-        使用此模板
+        {{ template.id === 'blank' ? '从空白开始' : '使用此模板' }}
       </button>
     </div>
   </div>
@@ -101,6 +109,23 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
     overflow: hidden;
     position: relative;
     background: #ffffff;
+  }
+
+  &__blank-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-sm;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+
+    .iconify {
+      opacity: 0.4;
+    }
   }
 
   &__scale {

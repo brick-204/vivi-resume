@@ -12,7 +12,7 @@
           <Icon icon="mdi:plus" :width="18" />
           新建简历
         </button>
-        <button class="action-btn action-btn--secondary" @click="showImportModal = true">
+        <button class="action-btn action-btn--secondary" @click="showMethodModal = true">
           <Icon icon="mdi:file-upload-outline" :width="18" />
           导入简历
         </button>
@@ -70,10 +70,25 @@
       />
     </div>
 
-    <!-- 导入弹窗 -->
+    <!-- 导入方式选择弹窗 -->
+    <ImportMethodModal
+      :visible="showMethodModal"
+      @close="showMethodModal = false"
+      @select="handleImportMethodSelect"
+    />
+
+    <!-- AI 智能导入弹窗 -->
+    <AIImportModal
+      :show="showAIImportModal"
+      @close="showAIImportModal = false"
+      @import="handleAIImport"
+      @go-to-settings="handleGoToAISettings"
+    />
+
+    <!-- JSON 导入弹窗 -->
     <ImportModal
-      :visible="showImportModal"
-      @close="showImportModal = false; importErrors = []"
+      :visible="showJSONImportModal"
+      @close="showJSONImportModal = false; importErrors = []"
       @import="handleImportFile"
     />
 
@@ -119,11 +134,15 @@ import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import { NInput, NSelect, NModal, NButton } from 'naive-ui'
 import ImportModal from '@/components/home/ImportModal.vue'
+import ImportMethodModal from '@/components/dashboard/ImportMethodModal.vue'
+import AIImportModal from '@/components/dashboard/AIImportModal.vue'
 import ResumeCard from '@/components/home/ResumeCard.vue'
 
 const router = useRouter()
 const store = useResumeStore()
-const showImportModal = ref(false)
+const showMethodModal = ref(false)
+const showAIImportModal = ref(false)
+const showJSONImportModal = ref(false)
 const searchQuery = ref('')
 const importErrors = ref<ValidationError[]>([])
 const sortKey = ref<'updatedAt' | 'createdAt' | 'title'>('updatedAt')
@@ -194,7 +213,7 @@ const handleImportFile = async (file: File) => {
     const result: ImportResult = await store.importFromJSON(json)
     if (result.success) {
       importErrors.value = []
-      showImportModal.value = false
+      showJSONImportModal.value = false
       naiveMessage.success('导入成功！')
     } else {
       importErrors.value = result.errors || []
@@ -203,6 +222,30 @@ const handleImportFile = async (file: File) => {
   } catch (e) {
     naiveMessage.error('导入失败：' + (e as Error).message)
   }
+}
+
+// ========== 导入方式选择 ==========
+
+const handleImportMethodSelect = (method: 'ai' | 'json') => {
+  showMethodModal.value = false
+  if (method === 'ai') {
+    showAIImportModal.value = true
+  } else {
+    showJSONImportModal.value = true
+  }
+}
+
+// ========== AI 智能导入 ==========
+
+const handleAIImport = (resumeId: string) => {
+  showAIImportModal.value = false
+  naiveMessage.success('AI 导入成功！正在进入编辑器...')
+  router.push(`/editor/${resumeId}`)
+}
+
+const handleGoToAISettings = () => {
+  showAIImportModal.value = false
+  router.push({ path: '/', query: { tab: 'ai' } })
 }
 </script>
 

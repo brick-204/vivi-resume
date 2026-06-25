@@ -41,7 +41,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useResumeStore()
 
-const templates = TEMPLATES
+const templates = TEMPLATES.filter(t => t.id !== 'blank')
 const selectedId = ref('sidebar')
 
 const resumeId = computed(() => route.params.id as string)
