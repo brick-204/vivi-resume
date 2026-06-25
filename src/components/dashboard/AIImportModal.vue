@@ -799,6 +799,13 @@ function goToAISettings() {
       &:last-child {
         border-bottom: none;
       }
+
+      // 错误消息可能包含出错位置上下文片段（含换行），保留换行
+      > span:last-child {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+      }
     }
   }
 

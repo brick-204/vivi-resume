@@ -439,6 +439,8 @@ function fixMissingCommas(json: string): string {
   let inString = false
   // 上一个非空白字符是否为"值结束符"（}, ], ", 或裸值 true/false/null/数字 的末尾）
   let lastCharWasValueEnd = false
+  // 上一个非空白字符是否为冒号（冒号后的第一个值不需要逗号分隔）
+  let lastCharWasColon = false
 
   while (i < json.length) {
     const ch = json[i]
@@ -451,6 +453,7 @@ function fixMissingCommas(json: string): string {
       } else if (ch === '"') {
         inString = false
         lastCharWasValueEnd = true
+        lastCharWasColon = false
       }
       i++
       continue
@@ -458,22 +461,26 @@ function fixMissingCommas(json: string): string {
 
     // 字符串外
     if (ch === '"') {
-      if (lastCharWasValueEnd) {
+      // 冒号后的第一个值（key 的值）不需要逗号
+      if (lastCharWasValueEnd && !lastCharWasColon) {
         result.push(',')
       }
       result.push(ch)
       inString = true
       lastCharWasValueEnd = false
+      lastCharWasColon = false
       i++
       continue
     }
 
     if (ch === '{' || ch === '[') {
-      if (lastCharWasValueEnd) {
+      // 冒号后的 {/[ 是 key 的值，不需要逗号
+      if (lastCharWasValueEnd && !lastCharWasColon) {
         result.push(',')
       }
       result.push(ch)
       lastCharWasValueEnd = false
+      lastCharWasColon = false
       i++
       continue
     }
@@ -481,6 +488,7 @@ function fixMissingCommas(json: string): string {
     if (ch === '}' || ch === ']') {
       result.push(ch)
       lastCharWasValueEnd = true
+      lastCharWasColon = false
       i++
       continue
     }
@@ -488,6 +496,7 @@ function fixMissingCommas(json: string): string {
     if (ch === ',') {
       result.push(ch)
       lastCharWasValueEnd = false
+      lastCharWasColon = false
       i++
       continue
     }
@@ -495,6 +504,7 @@ function fixMissingCommas(json: string): string {
     if (ch === ':') {
       result.push(ch)
       lastCharWasValueEnd = false
+      lastCharWasColon = true
       i++
       continue
     }
@@ -507,11 +517,13 @@ function fixMissingCommas(json: string): string {
     }
 
     // 其他字符（裸值：true, false, null, 数字等）
-    if (lastCharWasValueEnd) {
+    // 冒号后的裸值是 key 的值，不需要逗号
+    if (lastCharWasValueEnd && !lastCharWasColon) {
       result.push(',')
     }
     result.push(ch)
     lastCharWasValueEnd = false
+    lastCharWasColon = false
     i++
     // 消费裸值的剩余部分
     while (i < json.length) {
@@ -725,7 +737,7 @@ function extractJSON(text: string): ExtractResult {
         }
         return {
           json: null,
-          error: `AI 输出包含 JSON 代码块，但 JSON 格式不正确：${translateJSONError(blockError)}`,
+          error: `AI 输出包含 JSON 代码块，但 JSON 格式不正确：${translateJSONError(blockError, candidate)}`,
         }
       }
     }
@@ -754,7 +766,7 @@ function extractJSON(text: string): ExtractResult {
         }
         return {
           json: null,
-          error: `AI 输出中找到 JSON 片段，但格式不正确：${translateJSONError(braceError)}`,
+          error: `AI 输出中找到 JSON 片段，但格式不正确：${translateJSONError(braceError, candidate)}`,
         }
       }
     }
@@ -776,21 +788,26 @@ function extractJSON(text: string): ExtractResult {
 
 /**
  * 将 JSON.parse 原始错误翻译为用户友好的中文提示
+ * 并附带出错位置附近的上下文片段，方便用户定位
  */
-function translateJSONError(rawError: string): string {
+function translateJSONError(rawError: string, jsonText?: string): string {
   // JSON.parse 错误通常格式为 "Unexpected token X in JSON at position N"
   // 或 "Expected property name or '}' in JSON at position N"
   const posMatch = rawError.match(/position\s+(\d+)/i)
-  const pos = posMatch ? `（位置 ${posMatch[1]}）` : ''
+  const pos = posMatch ? parseInt(posMatch[1], 10) : -1
+  const posLabel = pos >= 0 ? `（位置 ${pos}）` : ''
+
+  // 附带出错位置上下文片段
+  const contextSnippet = pos >= 0 && jsonText ? buildErrorContext(jsonText, pos) : ''
 
   if (rawError.includes('Unexpected token')) {
-    return `存在非法字符${pos}，可能是 AI 输出了多余的文字或格式标记`
+    return `存在非法字符${posLabel}，可能是 AI 输出了多余的文字或格式标记${contextSnippet}`
   }
   if (rawError.includes('Expected property name') || rawError.includes('Expected \'}\'')) {
-    return `对象结构不完整${pos}，可能是字段缺失或逗号多余`
+    return `对象结构不完整${posLabel}，可能是字段缺失或逗号多余${contextSnippet}`
   }
   if (rawError.includes("Expected ','") || rawError.includes('Expected \',\'')) {
-    return `缺少逗号分隔符${pos}，AI 输出的数组或对象元素之间可能缺少逗号`
+    return `缺少逗号分隔符${posLabel}，AI 输出的数组或对象元素之间可能缺少逗号${contextSnippet}`
   }
   if (rawError.includes('Unexpected end')) {
     return 'JSON 数据不完整，AI 输出可能被截断'
@@ -799,7 +816,23 @@ function translateJSONError(rawError: string): string {
     return '包含非法控制字符，可能是换行符未正确转义'
   }
   // 兜底：截取前 80 字符
-  return rawError.slice(0, 80)
+  return rawError.slice(0, 80) + contextSnippet
+}
+
+/**
+ * 构建出错位置的上下文片段
+ * 从 JSON 文本中截取出错位置前后各 30 个字符，并用 ↑ 指示出错点
+ */
+function buildErrorContext(jsonText: string, errorPos: number): string {
+  const contextRadius = 30
+  const start = Math.max(0, errorPos - contextRadius)
+  const end = Math.min(jsonText.length, errorPos + contextRadius)
+  const before = jsonText.slice(start, errorPos)
+  const after = jsonText.slice(errorPos, end)
+  // 用省略号表示截断，↑ 标记出错位置
+  const prefix = start > 0 ? '…' : ''
+  const suffix = end < jsonText.length ? '…' : ''
+  return `\n${prefix}${before}↑${after}${suffix}`
 }
 
 // ========== Tiptap 二次规范化 ==========
