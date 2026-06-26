@@ -96,6 +96,75 @@ export interface ChatMessage {
 export interface StreamChatResult {
   /** 输出是否因达到最大续写次数而被截断 */
   wasTruncated: boolean
+  /** 清洗后的完整文本（包含拼接验证修正），调用方应优先使用此文本而非 onChunk 累积的原始文本 */
+  finalText: string
+}
+
+// ========== 续写拼接验证 ==========
+
+/**
+ * 查找最长重叠长度：anchor 的后缀与 continuation 的前缀的最长匹配
+ * 最小重叠阈值 6 字符，避免短字符串误判
+ */
+function findOverlapLength(anchor: string, continuation: string): number {
+  const minOverlap = 6
+  const maxCheck = Math.min(anchor.length, continuation.length, 200)
+
+  for (let len = maxCheck; len >= minOverlap; len--) {
+    const suffix = anchor.slice(-len)
+    if (continuation.startsWith(suffix)) {
+      return len
+    }
+  }
+  return 0
+}
+
+/**
+ * 验证并清洗续写拼接点
+ * 处理三类常见问题：
+ * 1. 续写开头的 Markdown 代码块标记（AI 可能输出 ```json）
+ * 2. 续写开头的解释性文字（AI 可能先说一段话再继续 JSON）
+ * 3. 重叠内容（AI 重复了截断点前的部分内容）
+ *
+ * 返回清洗后的续写文本
+ */
+function cleanSplicePoint(previousText: string, continuationText: string): string {
+  if (!continuationText || !previousText) return continuationText
+
+  let cleaned = continuationText
+
+  // 1. 移除续写开头的 Markdown 代码块标记
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/, '')
+
+  // 2. 移除续写开头的解释性文字
+  // 如果前文以 JSON 结构字符结尾（说明截断在 JSON 内部），
+  // 跳过续写开头的非 JSON 行（最多 3 行）
+  const prevTail = previousText.slice(-5)
+  const prevEndedInJsonValue = /["\]\}0-9a-z]$/i.test(prevTail)
+  if (prevEndedInJsonValue) {
+    const lines = cleaned.split('\n')
+    let firstJsonLine = 0
+    for (let i = 0; i < Math.min(lines.length, 3); i++) {
+      const line = lines[i].trim()
+      if (!line) { firstJsonLine = i + 1; continue }
+      // JSON 续行应包含结构字符或转义序列
+      if (/^["\[\]{},:]/.test(line) || /^\\[nrtu]/.test(line)) break
+      // 可能是解释性文字，跳过
+      firstJsonLine = i + 1
+    }
+    if (firstJsonLine > 0) {
+      cleaned = lines.slice(firstJsonLine).join('\n')
+    }
+  }
+
+  // 3. 检测并移除重叠内容
+  const anchor = previousText.slice(-150)
+  const overlapLen = findOverlapLength(anchor, cleaned)
+  if (overlapLen > 0) {
+    cleaned = cleaned.slice(overlapLen)
+  }
+
+  return cleaned
 }
 
 /** streamChat 可选参数 */
@@ -108,6 +177,10 @@ export interface StreamChatOptions {
   onUsage?: (usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }) => void
   /** 单次请求最大生成 token 数（建议 4096，配合自动续写兜底） */
   maxTokens?: number
+  /** 自定义续写提示，当 finish_reason === 'length' 时使用。默认为通用中文续写提示 */
+  continuationPrompt?: string
+  /** 是否验证并清洗续写拼接点（针对 JSON/结构化输出），清理重复内容、代码块标记等 */
+  validateSplice?: boolean
 }
 
 /**
@@ -128,10 +201,11 @@ export async function streamChat(
   onChunk: (text: string) => void,
   options: StreamChatOptions = {},
 ): Promise<StreamChatResult> {
-  const { signal, onConnected, onUsage, maxTokens } = options
+  const { signal, onConnected, onUsage, maxTokens, continuationPrompt, validateSplice } = options
   const MAX_CONTINUATIONS = 3          // 最大续写次数，防止无限循环
   const conversationMessages: ChatMessage[] = [...messages]
   let accumulatedText = ''              // 跨续写累积的完整文本
+  let preContinuationLength = 0        // 续写前的 accumulatedText 长度（供拼接验证使用）
   let hasConnected = false              // onConnected 仅首次触发
   let wasTruncated = false              // 是否因续写次数上限被截断
 
@@ -157,7 +231,7 @@ export async function streamChat(
         signal,
       })
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') return { wasTruncated: false }
+      if (err instanceof DOMException && err.name === 'AbortError') return { wasTruncated: false, finalText: accumulatedText }
       if (err instanceof TypeError) {
         throw new AIServiceError('网络请求被阻止，可能是 CORS 限制或网络不可达', 'cors')
       }
@@ -273,14 +347,30 @@ export async function streamChat(
       break
     }
 
+    // ---- 续写拼接点验证 ----
+    if (validateSplice && attempt > 0) {
+      const preText = accumulatedText.slice(0, preContinuationLength)
+      const continuationContent = accumulatedText.slice(preContinuationLength)
+      const cleanedContinuation = cleanSplicePoint(preText, continuationContent)
+      const trimmedChars = continuationContent.length - cleanedContinuation.length
+      if (trimmedChars > 0) {
+        accumulatedText = preText + cleanedContinuation
+        console.warn(`[aiService] 续写拼接验证：清理了 ${trimmedChars} 个多余字符`)
+      }
+    }
+
     // 追加已生成的 assistant 回复 + 续写提示，对调用方透明
+    const defaultContinuationPrompt = '请继续，从你中断的地方接着说，不要重复已经说过的内容。'
     conversationMessages.push(
       { role: 'assistant', content: accumulatedText },
-      { role: 'user', content: '请继续，从你中断的地方接着说，不要重复已经说过的内容。' },
+      { role: 'user', content: continuationPrompt ?? defaultContinuationPrompt },
     )
+
+    // 记录续写前的文本长度，供下轮拼接验证使用
+    preContinuationLength = accumulatedText.length
   }
 
-  return { wasTruncated }
+  return { wasTruncated, finalText: accumulatedText }
 }
 
 // ========== 便捷方法 ==========

@@ -15,6 +15,7 @@ import { normalizeContent } from '@/utils/normalizeContent'
 import { Editor } from '@tiptap/vue-3'
 import { CORE_TIPTAP_EXTENSIONS } from '@/config/tiptapExtensions'
 import { z } from 'zod'
+import { FIELD_LABELS } from '@/constants/fieldLabels'
 
 // ========== 类型定义 ==========
 
@@ -125,54 +126,6 @@ const AIImportResumeSchema = z.object({
 }).passthrough()
 
 // ========== Zod 错误中文映射 ==========
-
-const FIELD_LABELS: Record<string, string> = {
-  title: '简历标题',
-  basicInfo: '基本信息',
-  workExperience: '工作经历',
-  education: '教育经历',
-  projects: '项目经验',
-  skills: '技能',
-  selfEvaluation: '自我评价',
-  customTexts: '自定义文本',
-  customCards: '自定义列表',
-  sectionOrder: '模块顺序',
-  sectionTitles: '模块标题',
-  hiddenSections: '隐藏模块',
-  name: '姓名',
-  photo: '头像',
-  email: '邮箱',
-  phone: '电话',
-  location: '所在地',
-  website: '个人网站',
-  summary: '个人简介',
-  gender: '性别',
-  birthday: '出生日期',
-  age: '年龄',
-  expectedCity: '期望城市',
-  wechat: '微信号',
-  qq: 'QQ',
-  salaryRange: '薪资要求',
-  hiddenFields: '隐藏字段',
-  customFields: '自定义字段',
-  fieldOrder: '字段顺序',
-  fieldDisplayMode: '字段显示模式',
-  headerLayout: '头部布局',
-  company: '公司',
-  position: '职位',
-  startDate: '开始日期',
-  endDate: '结束日期',
-  description: '描述',
-  hidden: '隐藏',
-  school: '学校',
-  degree: '学位',
-  major: '专业',
-  role: '角色',
-  technologies: '技术栈',
-  content: '内容',
-  keywords: '关键词',
-  items: '列表项',
-}
 
 function formatPath(path: Array<string | number>): string {
   return path.map(p => {
@@ -586,19 +539,23 @@ function fixUnescapedNewlines(json: string): string {
  * 5. JSON.parse 验证截断后的结果
  */
 function partialRecoverJSON(json: string, parseError: string): string | null {
-  // 从错误消息中提取 position
+  // 从错误消息中提取 position（某些错误如 "Unexpected end" 不含 position，则扫描整个字符串）
   const posMatch = parseError.match(/position\s+(\d+)/i)
-  if (!posMatch) return null
-  const errorPos = parseInt(posMatch[1], 10)
+  const errorPos = posMatch ? parseInt(posMatch[1], 10) : -1
 
-  // 扫描到 errorPos，跟踪深度和字符串状态
+  // 当无 position 时（如 "Unexpected end of JSON input"），扫描整个字符串
+  const scanLimit = errorPos >= 0 ? Math.min(errorPos, json.length) : json.length
+
+  // 扫描到 scanLimit，跟踪深度和字符串状态
   let depth = 0
-  const depthStack: ('{' | '[')[] = []
   let inString = false
   let escape = false
   let lastCompleteKVEnd = -1  // 最后一个 depth===1 的完整值结束位置
+  // 追踪当前是否在对象中等待值（冒号之后），用于区分 KEY 字符串和 VALUE 字符串
+  // 在对象中，depth===1 时：字符串出现在冒号前是 KEY，出现在冒号后是 VALUE
+  let afterColon = false
 
-  for (let i = 0; i < json.length && i < errorPos; i++) {
+  for (let i = 0; i < json.length && i < scanLimit; i++) {
     const ch = json[i]
 
     if (escape) {
@@ -616,10 +573,12 @@ function partialRecoverJSON(json: string, parseError: string): string | null {
         inString = true
       } else {
         inString = false
-        // 字符串值结束，如果 depth === 1（顶层值），记录位置
-        if (depth === 1) {
+        // 字符串值结束，如果 depth === 1 且这是 VALUE（冒号后的字符串），记录位置
+        // KEY 字符串（冒号前）不算完整 KV
+        if (depth === 1 && afterColon) {
           lastCompleteKVEnd = i + 1
         }
+        afterColon = false
       }
       continue
     }
@@ -627,39 +586,65 @@ function partialRecoverJSON(json: string, parseError: string): string | null {
     if (inString) continue
 
     if (ch === '{' || ch === '[') {
-      depthStack.push(ch)
       depth++
+      afterColon = false
       continue
     }
 
     if (ch === '}') {
-      if (depth > 0) {
-        depthStack.pop()
-        depth--
-        // 对象闭合，如果回到 depth 1，说明一个顶层值结束了
-        if (depth === 1) {
-          lastCompleteKVEnd = i + 1
-        }
+      depth--
+      // 对象闭合，如果回到 depth 1，说明一个顶层值结束了
+      if (depth === 1) {
+        lastCompleteKVEnd = i + 1
       }
+      afterColon = false
       continue
     }
 
     if (ch === ']') {
-      if (depth > 0) {
-        depthStack.pop()
-        depth--
-        if (depth === 1) {
-          lastCompleteKVEnd = i + 1
-        }
+      depth--
+      if (depth === 1) {
+        lastCompleteKVEnd = i + 1
       }
+      afterColon = false
       continue
     }
 
-    // 裸值（true/false/null/数字）在 depth===1 时的结束
-    // 我们通过检测裸值后面的逗号或空白+闭合符号来判断
-    // 简化处理：在 depth===1 时遇到逗号，说明前一个值已完整
-    if (depth === 1 && ch === ',') {
+    if (ch === ',') {
+      // depth===1 的逗号说明前一个完整 KV 已结束
+      if (depth === 1) {
+        lastCompleteKVEnd = i
+      }
+      afterColon = false
+      continue
+    }
+
+    if (ch === ':') {
+      afterColon = true
+      continue
+    }
+
+    // 空白字符：保留但不改变状态（必须在裸值检查之前，避免冒号后的空白误触发裸值处理）
+    if (/\s/.test(ch)) {
+      continue
+    }
+
+    // 裸值（true/false/null/数字）在 depth===1 且冒号后时，消费整个裸值并标记为完整 KV
+    if (depth === 1 && afterColon) {
+      while (i < json.length && i < scanLimit) {
+        const nextCh = json[i]
+        if (/[\s{}[\],:"']/.test(nextCh)) break
+        i++
+      }
+      // i 现在指向裸值之后的第一个字符（终止符或末尾）
       lastCompleteKVEnd = i
+      afterColon = false
+      // 若停在结构字符上（未到扫描末尾），回退一格抵消 for 循环的 i++，
+      // 让该终止字符（如 } / ] / ,）在下一轮被正常处理，避免跳过导致 depth 不更新
+      if (i < json.length && i < scanLimit) {
+        i--
+      }
+      continue
     }
   }
 
@@ -671,14 +656,32 @@ function partialRecoverJSON(json: string, parseError: string): string | null {
   // 移除末尾逗号
   recovered = recovered.replace(/,\s*$/, '')
 
-  // 如果字符串未闭合，补上闭合引号
-  if (inString) {
+  // 对截取后的文本独立扫描，确定需要补多少闭合符号
+  let closeDepth = 0
+  let closeInString = false
+  let closeEscape = false
+  const closeStack: ('{' | '[')[] = []
+  for (let i = 0; i < recovered.length; i++) {
+    const ch = recovered[i]
+    if (closeEscape) { closeEscape = false; continue }
+    if (ch === '\\') { closeEscape = true; continue }
+    if (ch === '"') { closeInString = !closeInString; continue }
+    if (closeInString) continue
+    if (ch === '{' || ch === '[') { closeStack.push(ch); closeDepth++; continue }
+    if (ch === '}' || ch === ']') {
+      if (closeDepth > 0) { closeStack.pop(); closeDepth--; }
+      continue
+    }
+  }
+
+  // 如果截取后字符串未闭合，补上闭合引号
+  if (closeInString) {
     recovered += '"'
   }
 
   // 补全所有未闭合的 ]/}（从内到外）
-  for (let i = depthStack.length - 1; i >= 0; i--) {
-    recovered += depthStack[i] === '{' ? '}' : ']'
+  for (let i = closeStack.length - 1; i >= 0; i--) {
+    recovered += closeStack[i] === '{' ? '}' : ']'
   }
 
   // 验证
@@ -691,12 +694,25 @@ function partialRecoverJSON(json: string, parseError: string): string | null {
 }
 
 /**
+ * 移除续写拼接产生的 JSON 结构重复片段（兜底防线）
+ * 在 streamChat 的 cleanSplicePoint 之外，作为二次保障
+ * 检测常见重复模式：}},}, ],等
+ */
+function removeContinuationOverlaps(text: string): string {
+  // 匹配连续出现的闭合模式（如 },\n  },\n 或 ],\n  ],\n）
+  // 这些是续写拼接时 AI 重复输出数组/对象尾部结构的典型信号
+  return text
+    .replace(/(\}\s*,\s*\n\s*\})\1/g, '$1')
+    .replace(/(\]\s*,\s*\n\s*\})\1/g, '$1')
+}
+
+/**
  * 从 AI 输出文本中提取 JSON 字符串
  * 多策略：直接解析 → 修复后解析 → 代码块提取 → 首尾大括号定位
  * 返回具体的失败原因，便于用户理解
  */
 function extractJSON(text: string): ExtractResult {
-  const trimmed = text.trim()
+  const trimmed = removeContinuationOverlaps(text.trim())
 
   // 策略1：直接解析
   try {
@@ -712,7 +728,19 @@ function extractJSON(text: string): ExtractResult {
     JSON.parse(repaired)
     return { json: repaired, error: null }
   } catch {
-    // 修复后仍然失败，继续
+    // 修复后仍然失败，尝试二次修复（第一次修复可能产生新的需修复位置）
+    const repaired2 = repairJSON(repairJSON(trimmed))
+    try {
+      JSON.parse(repaired2)
+      return { json: repaired2, error: null }
+    } catch (e2) {
+      // 二次修复也失败，尝试部分恢复（截取有效前缀）
+      const repaired2Error = (e2 as Error).message
+      const partial = partialRecoverJSON(repaired2, repaired2Error)
+      if (partial) {
+        return { json: partial, error: null, partial: true }
+      }
+    }
   }
 
   // 策略2：提取 ```json ... ``` 代码块
@@ -728,16 +756,24 @@ function extractJSON(text: string): ExtractResult {
         const repaired = repairJSON(candidate)
         JSON.parse(repaired)
         return { json: repaired, error: null }
-      } catch (e) {
-        // 修复仍失败，尝试部分恢复（截取有效前缀）
-        const blockError = (e as Error).message
-        const partial = partialRecoverJSON(candidate, blockError)
-        if (partial) {
-          return { json: partial, error: null, partial: true }
-        }
-        return {
-          json: null,
-          error: `AI 输出包含 JSON 代码块，但 JSON 格式不正确：${translateJSONError(blockError, candidate)}`,
+      } catch {
+        // 二次修复（提到 try 外便于 catch 中复用）
+        const repaired2 = repairJSON(repairJSON(candidate))
+        try {
+          JSON.parse(repaired2)
+          return { json: repaired2, error: null }
+        } catch (e2) {
+          // 修复仍失败，尝试部分恢复（截取有效前缀）
+          // 注意：传入 repaired2（而非 candidate），因为 error 位置是 repaired2 中的偏移
+          const blockError = (e2 as Error).message
+          const partial = partialRecoverJSON(repaired2, blockError)
+          if (partial) {
+            return { json: partial, error: null, partial: true }
+          }
+          return {
+            json: null,
+            error: `AI 输出包含 JSON 代码块，但 JSON 格式不正确：${translateJSONError(blockError, candidate)}`,
+          }
         }
       }
     }
@@ -757,16 +793,24 @@ function extractJSON(text: string): ExtractResult {
         const repaired = repairJSON(candidate)
         JSON.parse(repaired)
         return { json: repaired, error: null }
-      } catch (e) {
-        const braceError = (e as Error).message
-        // 修复仍失败，尝试部分恢复（截取有效前缀）
-        const partial = partialRecoverJSON(candidate, braceError)
-        if (partial) {
-          return { json: partial, error: null, partial: true }
-        }
-        return {
-          json: null,
-          error: `AI 输出中找到 JSON 片段，但格式不正确：${translateJSONError(braceError, candidate)}`,
+      } catch {
+        // 二次修复（提到 try 外便于 catch 中复用）
+        const repaired2 = repairJSON(repairJSON(candidate))
+        try {
+          JSON.parse(repaired2)
+          return { json: repaired2, error: null }
+        } catch (e2) {
+          const braceError = (e2 as Error).message
+          // 修复仍失败，尝试部分恢复（截取有效前缀）
+          // 注意：传入 repaired2（而非 candidate），因为 error 位置是 repaired2 中的偏移
+          const partial = partialRecoverJSON(repaired2, braceError)
+          if (partial) {
+            return { json: partial, error: null, partial: true }
+          }
+          return {
+            json: null,
+            error: `AI 输出中找到 JSON 片段，但格式不正确：${translateJSONError(braceError, candidate)}`,
+          }
         }
       }
     }
@@ -1008,7 +1052,7 @@ function fillDefaults(data: Record<string, unknown>): Resume {
     ...empty,
     // 系统级字段：始终由应用生成，忽略 AI 输出
     id: generateId(),
-    templateId: 'sidebar',
+    templateId: 'classic',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     title: (data.title || '') as string,

@@ -397,6 +397,15 @@ JSON 结构定义（必须严格遵守）：
   },
 }
 
+/** JSON 专用续写提示：当 importResume 输出因长度截断时使用 */
+export const JSON_CONTINUATION_PROMPT = `你的上一个回复是一个未完成的 JSON 对象，因长度限制被截断。请继续输出该 JSON 对象的剩余部分。
+
+要求：
+1. 直接继续输出 JSON 内容，不要输出任何解释文字
+2. 不要重复已经输出过的内容
+3. 不要输出 Markdown 代码块标记（\`\`\`）
+4. 确保继续的部分与已输出的部分拼接后构成合法 JSON`
+
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
 export function buildMessages(operation: FullAIOperation, content: string, customInstruction?: string) {
   const config = AI_OPERATION_PROMPTS[operation]

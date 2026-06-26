@@ -2,7 +2,7 @@
   <n-modal
     :show="show"
     preset="card"
-    :style="{ maxWidth: '700px', width: '90vw' }"
+    :style="{ maxWidth: '900px', width: '90vw' }"
     :mask-closable="false"
     @update:show="v => { if (!v) handleClose() }"
   >
@@ -91,94 +91,64 @@
         <span>已从 AI 输出中部分恢复数据（尾部可能不完整），请核对后导入或手动调整</span>
       </div>
 
-      <!-- 简历摘要（成功或部分恢复） -->
-      <div v-if="displayResume" class="preview-resume">
-        <div v-if="!isPartialRecovery && displayErrors.length === 0" class="preview-resume__success">
+      <!-- 成功/部分恢复提示 -->
+      <div v-if="displayResume" class="preview-status">
+        <div v-if="!isPartialRecovery && displayErrors.length === 0" class="preview-status__success">
           <Icon icon="mdi:check-circle-outline" :width="20" />
           <span>简历解析成功，请确认以下信息</span>
         </div>
-        <div v-else class="preview-resume__partial">
+        <div v-else class="preview-status__partial">
           <Icon icon="mdi:information-outline" :width="20" />
           <span>以下为已识别的信息</span>
         </div>
-        <div class="preview-resume__fields">
-          <div v-if="displayResume.basicInfo.photo" class="preview-field preview-field--photo">
-            <label>头像</label>
-            <img :src="displayResume.basicInfo.photo" alt="头像预览" class="preview-field__photo" />
-          </div>
-          <div class="preview-field">
-            <label>姓名</label>
-            <span>{{ displayResume.basicInfo.name || '（未识别）' }}</span>
-          </div>
-          <div class="preview-field">
-            <label>职位</label>
-            <span>{{ displayResume.basicInfo.title || '（未识别）' }}</span>
-          </div>
-          <div class="preview-field">
-            <label>工作经历</label>
-            <span>{{ displayResume.workExperience.length }} 条</span>
-          </div>
-          <div class="preview-field">
-            <label>教育经历</label>
-            <span>{{ displayResume.education.length }} 条</span>
-          </div>
-          <div class="preview-field">
-            <label>项目经验</label>
-            <span>{{ displayResume.projects.length }} 条</span>
-          </div>
-          <div class="preview-field">
-            <label>技能</label>
-            <span>{{ displayResume.skills.length }} 条</span>
-          </div>
-        </div>
       </div>
 
-      <!-- 折叠区：手动调整 JSON -->
-      <div class="preview-section-toggle">
-        <div class="preview-section-toggle__header" @click="showJsonEditor = !showJsonEditor">
-          <Icon :icon="showJsonEditor ? 'mdi:chevron-down' : 'mdi:chevron-right'" :width="16" />
-          <Icon icon="mdi:code-json" :width="16" />
-          <span>手动调整 JSON</span>
-          <span v-if="editedResume" class="preview-section-toggle__status preview-section-toggle__status--ok">
-            <Icon icon="mdi:check-circle" :width="14" /> 已校验通过
-          </span>
-          <span v-else-if="editedErrors.length" class="preview-section-toggle__status preview-section-toggle__status--err">
-            <Icon icon="mdi:alert-circle" :width="14" /> {{ editedErrors.length }} 个错误
-          </span>
-        </div>
-        <div v-if="showJsonEditor" class="preview-json-editor">
-          <NInput
-            v-model:value="editableJsonText"
-            type="textarea"
-            :autosize="{ minRows: 6, maxRows: 16 }"
-            class="preview-json-editor__textarea"
+      <!-- Tabs: 字段视图 / JSON Diff（始终显示，即使解析失败也允许查看和编辑） -->
+      <NTabs v-if="editableJsonText" v-model:value="activeTab" type="line" size="small" class="preview-tabs">
+        <NTabPane name="fields" tab="字段视图">
+          <ImportFieldView
+            v-if="displayResume"
+            :resume="displayResume"
+            :errors="displayErrors"
+            @field-change="handleFieldChange"
           />
-          <div class="preview-json-editor__actions">
-            <n-button size="tiny" quaternary @click="handleFormatJson">
-              <template #icon>
-                <Icon icon="mdi:format-align-left" :width="14" />
-              </template>
-              格式化
-            </n-button>
-            <n-button size="tiny" quaternary @click="handleResetJson">
-              <template #icon>
-                <Icon icon="mdi:restore" :width="14" />
-              </template>
-              重置为 AI 输出
+          <div v-else class="preview-no-resume-hint">
+            <Icon icon="mdi:information-outline" :width="16" />
+            <span>JSON 解析失败，无法展示字段视图。请切换到 JSON Diff 修复格式后重试</span>
+            <n-button size="tiny" type="primary" ghost @click="activeTab = 'jsonDiff'">
+              去 JSON Diff
             </n-button>
           </div>
-        </div>
-      </div>
-
-      <!-- 折叠区：查看 AI 原始输出 -->
-      <div class="preview-section-toggle">
-        <div class="preview-section-toggle__header" @click="showRawOutput = !showRawOutput">
-          <Icon :icon="showRawOutput ? 'mdi:chevron-down' : 'mdi:chevron-right'" :width="16" />
-          <Icon icon="mdi:text-box-outline" :width="16" />
-          <span>查看 AI 原始输出</span>
-        </div>
-        <div v-if="showRawOutput" class="preview-raw-output">{{ resultText }}</div>
-      </div>
+        </NTabPane>
+        <NTabPane name="jsonDiff" tab="JSON Diff">
+          <ImportJsonDiff
+            :original-json="resultText"
+            :editable-json="editableJsonText"
+            :validation-status="jsonValidationStatus"
+            :error-count="editedErrors.length || validationErrors.length"
+            @update:editable-json="val => { editableJsonText = val }"
+            @format="handleFormatJson"
+            @reset="handleResetJson"
+          />
+          <!-- 当有错误时，提供返回错误提示的按钮 -->
+          <div v-if="displayErrors.length > 0" class="preview-back-to-errors">
+            <n-button size="tiny" quaternary @click="showErrorDetail = !showErrorDetail">
+              <template #icon>
+                <Icon icon="mdi:alert-circle-outline" :width="14" />
+              </template>
+              {{ showErrorDetail ? '收起错误详情' : '查看错误详情' }}
+            </n-button>
+            <div v-if="showErrorDetail" class="preview-errors-inline">
+              <ul class="preview-errors__list">
+                <li v-for="(err, i) in displayErrors" :key="i">
+                  <span v-if="err.path" class="preview-errors__path">{{ err.path }}</span>
+                  <span>{{ err.message }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </NTabPane>
+      </NTabs>
 
       <!-- 重新解析按钮 -->
       <div class="preview-retry">
@@ -215,16 +185,18 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NButton, NSpin, NInput } from 'naive-ui'
+import { NModal, NButton, NSpin, NTabs, NTabPane } from 'naive-ui'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
-import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
-import { buildMessages } from '@/services/aiPrompts'
+import { streamChat, AIServiceError, AI_ERROR_MESSAGES, plainTextToHtml } from '@/services/aiService'
+import { buildMessages, JSON_CONTINUATION_PROMPT } from '@/services/aiPrompts'
 import { parseAIImportResult } from '@/services/aiResumeImporter'
 import { parseFile, isSupportedFileType, getSupportedFileType, type SupportedFileType } from '@/utils/fileParser'
 import type { Resume } from '@/types/resume'
 import { useResumeStore } from '@/stores/resumeStore'
 import type { ValidationError } from '@/schemas/resumeSchema'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+import ImportFieldView from './ImportFieldView.vue'
+import ImportJsonDiff from './ImportJsonDiff.vue'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{
@@ -261,9 +233,13 @@ const editableJsonText = ref('')
 const editedResume = ref<Resume | null>(null)
 const editedErrors = ref<ValidationError[]>([])
 const isPartialRecovery = ref(false)
-const showRawOutput = ref(false)
-const showJsonEditor = ref(false)
 let validateTimer: ReturnType<typeof setTimeout> | null = null
+
+// Tab 状态
+const activeTab = ref<'fields' | 'jsonDiff'>('fields')
+
+// 错误详情折叠状态
+const showErrorDetail = ref(false)
 
 // 显示优先级：编辑后的结果 > 原始解析结果
 const displayResume = computed(() => editedResume.value ?? parsedResume.value)
@@ -273,6 +249,16 @@ const displayErrors = computed(() =>
     : validationErrors.value
 )
 const canImport = computed(() => !!displayResume.value)
+
+/** JSON 校验状态（供 ImportJsonDiff 显示） */
+const jsonValidationStatus = computed(() => {
+  if (editedResume.value) return 'ok'
+  if (editedErrors.value.length) return 'error'
+  // 未编辑过，看原始解析结果
+  if (parsedResume.value) return 'ok'
+  if (validationErrors.value.length) return 'error'
+  return 'idle'
+})
 
 const MAX_RETRIES = 2
 const isImporting = ref(false)
@@ -328,6 +314,47 @@ function revalidateEditedJson() {
 
 watch(editableJsonText, revalidateEditedJson)
 
+// ========== 字段视图变更处理 ==========
+
+/**
+ * 设置嵌套对象的值
+ * @param obj 目标对象
+ * @param path 路径数组，如 ['basicInfo', 'name'] 或 ['workExperience', 0, 'company']
+ * @param value 新值
+ */
+function setNestedValue(obj: any, path: (string | number)[], value: unknown): void {
+  let current = obj
+  for (let i = 0; i < path.length - 1; i++) {
+    if (current[path[i]] === undefined) {
+      // 如果路径中间节点不存在，根据下一个 key 的类型创建数组或对象
+      current[path[i]] = typeof path[i + 1] === 'number' ? [] : {}
+    }
+    current = current[path[i]]
+  }
+  current[path[path.length - 1]] = value
+}
+
+/**
+ * 处理字段视图的字段变更
+ * 解析 editableJsonText → 应用变更 → 重新序列化 → 触发防抖校验
+ * 富文本字段（description/summary/content/selfEvaluation）从字段视图收到的值是纯文本，
+ * 需要通过 plainTextToHtml 转回 HTML 以保留富文本结构
+ */
+function handleFieldChange(path: (string | number)[], value: unknown) {
+  try {
+    const obj = JSON.parse(editableJsonText.value)
+    // 判断是否为富文本字段：路径末尾为 description / summary / content / selfEvaluation
+    const lastKey = path[path.length - 1]
+    const isRichTextField = typeof lastKey === 'string'
+      && ['description', 'summary', 'content', 'selfEvaluation'].includes(lastKey)
+    const finalValue = (isRichTextField && typeof value === 'string') ? plainTextToHtml(value) : value
+    setNestedValue(obj, path, finalValue)
+    editableJsonText.value = JSON.stringify(obj, null, 2)
+  } catch {
+    // JSON 当前不可解析时忽略字段变更（用户需先修复 JSON）
+  }
+}
+
 // 弹窗打开时重置
 watch(() => props.show, (val) => {
   if (val) {
@@ -348,8 +375,8 @@ watch(() => props.show, (val) => {
     editedResume.value = null
     editedErrors.value = []
     isPartialRecovery.value = false
-    showRawOutput.value = false
-    showJsonEditor.value = false
+    activeTab.value = 'fields'
+    showErrorDetail.value = false
     if (validateTimer) {
       clearTimeout(validateTimer)
       validateTimer = null
@@ -514,11 +541,16 @@ async function startAIParsing() {
           aiConfigStore.addUsage(usage)
         },
         maxTokens: 8192,
+        continuationPrompt: JSON_CONTINUATION_PROMPT,
+        validateSplice: true,
       },
     )
     wasTruncated.value = result.wasTruncated
 
-    const parseResult = parseAIImportResult(resultText.value, filePhotoDataUri.value)
+    // 使用清洗后的 finalText 进行解析（而非 onChunk 累积的原始文本）
+    // onChunk 累积的 resultText 仅用于流式显示和 JSON Diff 的"AI 原始输出"参考
+    const finalText = result.finalText || resultText.value
+    const parseResult = parseAIImportResult(finalText, filePhotoDataUri.value)
     if (parseResult.resume) {
       parsedResume.value = parseResult.resume
       isPartialRecovery.value = !!parseResult.partial
@@ -528,8 +560,8 @@ async function startAIParsing() {
       isPartialRecovery.value = !!parseResult.partial
       validationErrors.value = parseResult.errors || []
     }
-    // 种子文本：优先使用修复后的 JSON，否则用原始 AI 输出
-    editableJsonText.value = parseResult.extractedJson ?? resultText.value
+    // 种子文本：优先使用修复后的 JSON，否则用清洗后的完整文本
+    editableJsonText.value = parseResult.extractedJson ?? finalText
     // 重置编辑态校验结果
     editedResume.value = null
     editedErrors.value = []
@@ -768,6 +800,26 @@ function goToAISettings() {
   gap: $spacing-md;
 }
 
+.preview-status {
+  &__success {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $success-color;
+  }
+
+  &__partial {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $primary-light;
+  }
+}
+
 .preview-errors {
   &__header {
     display: flex;
@@ -817,76 +869,6 @@ function goToAISettings() {
   }
 }
 
-.preview-resume {
-  &__success {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-    font-size: $font-size-sm;
-    font-weight: 600;
-    color: $success-color;
-    margin-bottom: $spacing-sm;
-  }
-
-  &__partial {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-    font-size: $font-size-sm;
-    font-weight: 600;
-    color: $primary-light;
-    margin-bottom: $spacing-sm;
-  }
-
-  &__fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: $spacing-sm;
-  }
-}
-
-.preview-field {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  padding: $spacing-sm $spacing-md;
-  background: $bg-glass;
-  border: 1px solid $border-glass;
-  border-radius: $radius-sm;
-
-  &--photo {
-    grid-column: 1 / -1;
-  }
-
-  &__photo {
-    width: 48px;
-    height: 48px;
-    border-radius: $radius-full;
-    object-fit: cover;
-    border: 2px solid $border-glass;
-  }
-
-  label {
-    font-size: $font-size-xs;
-    color: $text-light;
-    white-space: nowrap;
-    min-width: 60px;
-  }
-
-  span {
-    font-size: $font-size-sm;
-    color: $text-primary;
-    font-weight: 500;
-  }
-}
-
-.preview-retry {
-  display: flex;
-  justify-content: center;
-  padding-top: $spacing-sm;
-  border-top: 1px solid $border-glass;
-}
-
 .preview-partial-banner {
   display: flex;
   align-items: center;
@@ -899,75 +881,40 @@ function goToAISettings() {
   color: $warning-color;
 }
 
-.preview-section-toggle {
+.preview-tabs {
+  :deep(.n-tabs-pane-wrapper) {
+    max-height: 55vh;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+}
+
+.preview-no-resume-hint {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-lg $spacing-md;
+  color: $text-light;
+  font-size: $font-size-sm;
+}
+
+.preview-back-to-errors {
+  margin-top: $spacing-sm;
+}
+
+.preview-errors-inline {
+  margin-top: $spacing-xs;
+  padding: $spacing-sm;
+  background: $bg-glass;
   border: 1px solid $border-glass;
   border-radius: $radius-sm;
-  overflow: hidden;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-    padding: $spacing-sm $spacing-md;
-    cursor: pointer;
-    font-size: $font-size-sm;
-    font-weight: 500;
-    color: $text-secondary;
-    transition: background $transition-base;
-
-    &:hover {
-      background: rgba($primary-color, 0.05);
-    }
-  }
-
-  &__status {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: auto;
-    font-size: $font-size-xs;
-    font-weight: 600;
-
-    &--ok {
-      color: $success-color;
-    }
-
-    &--err {
-      color: $error-color;
-    }
-  }
 }
 
-.preview-json-editor {
+.preview-retry {
+  display: flex;
+  justify-content: center;
+  padding-top: $spacing-sm;
   border-top: 1px solid $border-glass;
-  padding: $spacing-sm $spacing-md;
-  background: $bg-glass;
-
-  &__textarea {
-    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
-    font-size: $font-size-xs;
-    line-height: 1.5;
-  }
-
-  &__actions {
-    display: flex;
-    gap: $spacing-xs;
-    margin-top: $spacing-xs;
-  }
-}
-
-.preview-raw-output {
-  border-top: 1px solid $border-glass;
-  padding: $spacing-md;
-  max-height: 200px;
-  overflow-y: auto;
-  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
-  font-size: $font-size-xs;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: $text-light;
-  @include scrollbar;
 }
 
 .ai-import-footer {
@@ -982,8 +929,10 @@ function goToAISettings() {
 }
 
 @include mobile {
-  .preview-resume__fields {
-    grid-template-columns: 1fr;
+  .preview-tabs {
+    :deep(.n-tabs-pane-wrapper) {
+      max-height: 70vh;
+    }
   }
 }
 </style>
