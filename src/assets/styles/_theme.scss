@@ -58,6 +58,14 @@
   --input-focus-bg: #2a2a2a;
   --input-disabled-bg: #222222;
 
+  // Diff 高亮
+  --diff-added-line-bg: rgba(52, 211, 153, 0.15);
+  --diff-added-char-bg: rgba(52, 211, 153, 0.40);
+  --diff-added-indicator: rgba(52, 211, 153, 0.6);
+  --diff-removed-line-bg: rgba(248, 113, 113, 0.15);
+  --diff-removed-char-bg: rgba(248, 113, 113, 0.40);
+  --diff-removed-indicator: rgba(248, 113, 113, 0.6);
+
   // 遮罩
   --overlay-bg: rgba(0, 0, 0, 0.5);
 
@@ -125,6 +133,14 @@
   --focus-ring: rgba(79, 109, 245, 0.2);
   --input-focus-bg: #ffffff;
   --input-disabled-bg: #f5f5f5;
+
+  // Diff 高亮
+  --diff-added-line-bg: rgba(52, 211, 153, 0.18);
+  --diff-added-char-bg: rgba(52, 211, 153, 0.45);
+  --diff-added-indicator: rgba(52, 211, 153, 0.7);
+  --diff-removed-line-bg: rgba(248, 113, 113, 0.18);
+  --diff-removed-char-bg: rgba(248, 113, 113, 0.45);
+  --diff-removed-indicator: rgba(248, 113, 113, 0.7);
 
   // 遮罩
   --overlay-bg: rgba(0, 0, 0, 0.3);

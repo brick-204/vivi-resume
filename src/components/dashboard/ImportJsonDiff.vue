@@ -2,12 +2,35 @@
   <div class="import-json-diff">
     <!-- 左右比对展示区 -->
     <div class="json-diff-split">
-      <!-- 左侧：AI 原始输出（只读） -->
+      <!-- 左侧：AI 原始输出（只读，带 diff 高亮） -->
       <div class="json-diff-pane">
         <div class="json-diff-pane__header">
           <span>AI 原始输出</span>
         </div>
-        <div class="json-diff-pane__content">{{ formattedOriginal }}</div>
+        <div
+          ref="leftScrollRef"
+          class="json-diff-pane__content"
+          @scroll="onLeftScroll"
+        >
+          <div
+            v-for="(line, i) in leftLines"
+            :key="i"
+            class="diff-line"
+            :class="lineClass(line, 'left')"
+          >
+            <span class="diff-line__num">{{ line.oldLineNum ?? '' }}</span>
+            <span class="diff-line__content">
+              <template v-if="line.type === 'modified' && line.oldCharDiffs">
+                <span
+                  v-for="(seg, j) in line.oldCharDiffs"
+                  :key="j"
+                  :class="seg.type === 'removed' ? 'diff-char-removed' : ''"
+                >{{ seg.value }}</span>
+              </template>
+              <template v-else>{{ line.oldContent ?? '' }}</template>
+            </span>
+          </div>
+        </div>
       </div>
       <div class="json-diff-divider" />
       <!-- 右侧：当前编辑（可编辑 textarea + diff 高亮覆盖层） -->
@@ -23,24 +46,39 @@
         </div>
         <div class="json-diff-edit-wrapper">
           <!-- diff 高亮背景层（只读，覆盖在 textarea 上方但 pointer-events: none） -->
-          <div class="json-diff-highlight-layer" aria-hidden="true">
-            <template v-if="diffSegments.length > 0">
-              <template v-for="(seg, i) in diffSegments" :key="i">
-                <span v-if="seg.type === 'equal'" class="diff-equal">{{ seg.value }}</span>
-                <span v-else-if="seg.type === 'added'" class="diff-added">{{ seg.value }}</span>
-              </template>
-            </template>
-            <template v-else>
-              <span class="diff-equal">{{ formattedEditable }}</span>
-            </template>
+          <div
+            ref="rightHighlightRef"
+            class="json-diff-highlight-layer"
+            aria-hidden="true"
+          >
+            <div
+              v-for="(line, i) in rightLines"
+              :key="i"
+              class="diff-line"
+              :class="lineClass(line, 'right')"
+            >
+              <span class="diff-line__num">{{ line.newLineNum ?? '' }}</span>
+              <span class="diff-line__content">
+                <template v-if="line.type === 'modified' && line.newCharDiffs">
+                  <span
+                    v-for="(seg, j) in line.newCharDiffs"
+                    :key="j"
+                    :class="seg.type === 'added' ? 'diff-char-added' : ''"
+                  >{{ seg.value }}</span>
+                </template>
+                <template v-else>{{ line.newContent ?? '' }}</template>
+              </span>
+            </div>
           </div>
           <!-- 可编辑 textarea（透明文字，用户实际编辑的区域） -->
           <!-- 始终显示格式化后的 JSON，确保与高亮层对齐 -->
           <textarea
+            ref="textareaRef"
             :value="formattedEditable"
             class="json-diff-textarea"
             spellcheck="false"
             @input="onTextareaInput"
+            @scroll="onTextareaScroll"
           />
         </div>
       </div>
@@ -67,10 +105,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { NButton } from 'naive-ui'
-import { computeDiff, type DiffSegment } from '@/utils/textDiff'
+import { computeSideBySideDiff, type SideBySideLine } from '@/utils/textDiff'
 
 const props = defineProps<{
   originalJson: string
@@ -100,13 +138,31 @@ const formattedOriginal = computed(() => tryFormat(props.originalJson))
 /** 格式化后的编辑 JSON（用于 diff 比较和 textarea/高亮层渲染） */
 const formattedEditable = computed(() => tryFormat(props.editableJson))
 
-/** 计算差异（右侧面板只显示 added/equal，对应左侧只显示 removed/equal） */
-const diffSegments = computed<DiffSegment[]>(() => {
-  const orig = formattedOriginal.value
-  const edit = formattedEditable.value
-  if (orig === edit) return []
-  return computeDiff(orig, edit).filter(seg => seg.type !== 'removed')
+/** 计算行级 side-by-side diff（始终计算，即使文本相同也渲染 equal 行） */
+const sideBySideLines = computed<SideBySideLine[]>(() => {
+  return computeSideBySideDiff(formattedOriginal.value, formattedEditable.value)
 })
+
+/** 左侧面板行：过滤掉纯 added 行（左侧不显示） */
+const leftLines = computed(() =>
+  sideBySideLines.value.filter(line => line.type !== 'added'),
+)
+
+/** 右侧面板行：过滤掉纯 removed 行（右侧不显示） */
+const rightLines = computed(() =>
+  sideBySideLines.value.filter(line => line.type !== 'removed'),
+)
+
+/** 为 diff-line 生成 CSS class 对象 */
+function lineClass(line: SideBySideLine, side: 'left' | 'right'): Record<string, boolean> {
+  return {
+    'diff-line--removed': line.type === 'removed' && side === 'left',
+    'diff-line--added': line.type === 'added' && side === 'right',
+    'diff-line--modified': line.type === 'modified',
+    'diff-line--modified-left': line.type === 'modified' && side === 'left',
+    'diff-line--modified-right': line.type === 'modified' && side === 'right',
+  }
+}
 
 function onTextareaInput(e: Event) {
   const newValue = (e.target as HTMLTextAreaElement).value
@@ -119,6 +175,63 @@ function handleFormat() {
 
 function handleReset() {
   emit('reset')
+}
+
+// ==================== 滚动同步 ====================
+
+const leftScrollRef = ref<HTMLElement | null>(null)
+const rightHighlightRef = ref<HTMLElement | null>(null)
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+
+let isSyncingScroll = false
+
+/** 从 textarea 滚动驱动同步 */
+function onTextareaScroll() {
+  if (isSyncingScroll) return
+  isSyncingScroll = true
+
+  const scrollTop = textareaRef.value?.scrollTop ?? 0
+
+  // 同步右侧高亮层
+  if (rightHighlightRef.value) {
+    rightHighlightRef.value.scrollTop = scrollTop
+  }
+
+  // 比例同步左侧面板
+  if (leftScrollRef.value && textareaRef.value) {
+    const textArea = textareaRef.value
+    const ratio = textArea.scrollHeight - textArea.clientHeight
+      ? scrollTop / (textArea.scrollHeight - textArea.clientHeight)
+      : 0
+    const leftMax = leftScrollRef.value.scrollHeight - leftScrollRef.value.clientHeight
+    leftScrollRef.value.scrollTop = ratio * leftMax
+  }
+
+  isSyncingScroll = false
+}
+
+/** 从左侧面板滚动驱动同步 */
+function onLeftScroll() {
+  if (isSyncingScroll) return
+  isSyncingScroll = true
+
+  const scrollTop = leftScrollRef.value?.scrollTop ?? 0
+
+  if (textareaRef.value && leftScrollRef.value) {
+    const leftEl = leftScrollRef.value
+    const ratio = leftEl.scrollHeight - leftEl.clientHeight
+      ? scrollTop / (leftEl.scrollHeight - leftEl.clientHeight)
+      : 0
+    const rightMax = textareaRef.value.scrollHeight - textareaRef.value.clientHeight
+    textareaRef.value.scrollTop = ratio * rightMax
+
+    // 同步右侧高亮层
+    if (rightHighlightRef.value) {
+      rightHighlightRef.value.scrollTop = textareaRef.value.scrollTop
+    }
+  }
+
+  isSyncingScroll = false
 }
 </script>
 
@@ -159,11 +272,8 @@ function handleReset() {
   &__content {
     flex: 1;
     overflow-y: auto;
-    padding: $spacing-md;
     font-size: $font-size-xs;
     line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-word;
     font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
     @include scrollbar;
   }
@@ -173,6 +283,68 @@ function handleReset() {
   width: 1px;
   background: $border-glass;
   flex-shrink: 0;
+}
+
+// ========== diff 行样式 ==========
+
+.diff-line {
+  display: flex;
+  min-height: 1.6em;
+  line-height: 1.6;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
+  font-size: $font-size-xs;
+
+  &__num {
+    flex-shrink: 0;
+    width: 36px;
+    padding: 0 8px 0 4px;
+    text-align: right;
+    color: $text-light;
+    user-select: none;
+    opacity: 0.4;
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  // 左侧：removed 行 — 红色背景 + 红色指示条
+  &--removed {
+    background: var(--diff-removed-line-bg);
+    border-left: 2px solid var(--diff-removed-indicator);
+  }
+
+  // 右侧：added 行 — 绿色背景 + 绿色指示条
+  &--added {
+    background: var(--diff-added-line-bg);
+    border-left: 2px solid var(--diff-added-indicator);
+  }
+
+  // modified 行 — 左侧红色，右侧绿色
+  &--modified-left {
+    background: var(--diff-removed-line-bg);
+    border-left: 2px solid var(--diff-removed-indicator);
+  }
+
+  &--modified-right {
+    background: var(--diff-added-line-bg);
+    border-left: 2px solid var(--diff-added-indicator);
+  }
+}
+
+// 左侧面板：removed 字符深红高亮
+.diff-char-removed {
+  background: var(--diff-removed-char-bg);
+  border-radius: 2px;
+}
+
+// 右侧高亮层：added 字符深绿高亮
+.diff-char-added {
+  background: var(--diff-added-char-bg);
+  border-radius: 2px;
 }
 
 // ========== 右侧可编辑面板：overlay 技巧 ==========
@@ -187,16 +359,18 @@ function handleReset() {
 .json-diff-highlight-layer {
   position: absolute;
   inset: 0;
-  padding: $spacing-md;
   font-size: $font-size-xs;
   line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
   font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
-  overflow-y: auto;
-  pointer-events: none; // 不拦截鼠标事件，让点击穿透到 textarea
+  overflow: hidden; // 不独立滚动，由 textarea 驱动
+  pointer-events: none; // 不拦截鼠标事件
   color: transparent;   // 文字透明，只显示背景高亮
   @include scrollbar;
+
+  .diff-line__content {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 }
 
 // textarea：透明文字，用户实际编辑区域
@@ -205,7 +379,7 @@ function handleReset() {
   inset: 0;
   width: 100%;
   height: 100%;
-  padding: $spacing-md;
+  padding: 0;
   border: none;
   outline: none;
   resize: none;
@@ -218,17 +392,11 @@ function handleReset() {
   color: $text-primary;
   caret-color: $text-primary; // 光标可见
   @include scrollbar;
+  // 行号宽度偏移：与高亮层行号对齐
+  padding-left: 36px;
 }
 
-.diff-equal {
-  color: transparent; // 高亮层中无变化的部分透明，由 textarea 显示文字
-}
-
-.diff-added {
-  background: rgba($success-color, 0.20);
-  color: transparent; // 文字透明，由 textarea 显示；只保留背景高亮
-  border-radius: 2px;
-}
+// ========== 工具栏和状态 ==========
 
 .json-diff-toolbar {
   display: flex;
