@@ -306,7 +306,11 @@ const editor = useEditor({
     updateWordCount(editor.state.doc.textContent)
   },
   onUpdate: ({ editor }) => {
-    emit('update:modelValue', editor.getHTML())
+    // Tiptap getHTML() 可能在尾部产生空段落（<p></p>），
+    // 剔除它们避免描述区域末尾出现多余空行，导致 entry__desc 和 entry__tags 之间间距变大
+    const rawHtml = editor.getHTML()
+    const cleanedHtml = rawHtml.replace(/(?:<p>(?:\s|&nbsp;)*<\/p>\s*)+$/i, '')
+    emit('update:modelValue', cleanedHtml)
     updateWordCount(editor.state.doc.textContent)
   },
   onFocus: () => { focused.value = true },

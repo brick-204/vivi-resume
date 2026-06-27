@@ -14,40 +14,46 @@ const escapeHtml = (s: string): string =>
 
 export function normalizeContent(value: string | undefined): string {
   if (!value) return ''
+
+  let html: string
   if (!HTML_TAG_RE.test(value)) {
     // 纯文本：按换行拆分为 <p> 段落
-    return value
+    html = value
       .split('\n')
       .map(line => `<p>${escapeHtml(line) || '<br>'}</p>`)
       .join('')
+  } else {
+    // 已有 HTML 标签：归一化为 Tiptap 格式
+    html = value
+
+    // 1. 将 <li><p>...</p></li> 简化为 <li>...</li>
+    //    marked 对松散列表（列表项间有空行）会生成 <li><p>...</p></li>
+    //    Tiptap 不会在 <li> 内嵌套 <p>，需要去掉
+    html = html.replace(/<li>\s*<p>([\s\S]*?)<\/p>\s*<\/li>/g, '<li>$1</li>')
+
+    // 2. 将 <p> 内的 <br> 拆分为独立的 <p> 段落
+    //    marked 的 breaks:true 会把单换行转为 <br>
+    //    Tiptap 中用户按 Enter 创建新段落 <p>，而非 <br>
+    //    <p>A<br>B</p> → <p>A</p><p>B</p>
+    html = html.replace(/<p>([\s\S]*?)<\/p>/g, (_, content) => {
+      // 如果段落内没有 <br>，保持原样
+      if (!content.includes('<br>')) {
+        return `<p>${content}</p>`
+      }
+      // 按 <br> 拆分为多个段落
+      const parts = content.split('<br>')
+      return parts
+        .map((part: string) => `<p>${part || '<br>'}</p>`)
+        .join('')
+    })
+
+    // 3. 确保空 <p></p> 在渲染时有高度
+    html = html.replace(/<p><\/p>/g, '<p><br></p>')
   }
 
-  // 已有 HTML 标签：归一化为 Tiptap 格式
-  let html = value
-
-  // 1. 将 <li><p>...</p></li> 简化为 <li>...</li>
-  //    marked 对松散列表（列表项间有空行）会生成 <li><p>...</p></li>
-  //    Tiptap 不会在 <li> 内嵌套 <p>，需要去掉
-  html = html.replace(/<li>\s*<p>([\s\S]*?)<\/p>\s*<\/li>/g, '<li>$1</li>')
-
-  // 2. 将 <p> 内的 <br> 拆分为独立的 <p> 段落
-  //    marked 的 breaks:true 会把单换行转为 <br>
-  //    Tiptap 中用户按 Enter 创建新段落 <p>，而非 <br>
-  //    <p>A<br>B</p> → <p>A</p><p>B</p>
-  html = html.replace(/<p>([\s\S]*?)<\/p>/g, (_, content) => {
-    // 如果段落内没有 <br>，保持原样
-    if (!content.includes('<br>')) {
-      return `<p>${content}</p>`
-    }
-    // 按 <br> 拆分为多个段落
-    const parts = content.split('<br>')
-    return parts
-      .map((part: string) => `<p>${part || '<br>'}</p>`)
-      .join('')
-  })
-
-  // 3. 确保空 <p></p> 在渲染时有高度
-  html = html.replace(/<p><\/p>/g, '<p><br></p>')
+  // 4. 移除尾部的空段落（<p></p> / <p><br></p> / 仅含空白），
+  //    避免 Tiptap 编辑后残留的尾部空段落导致描述末尾出现多余空行
+  html = html.replace(/(?:<p>(?:\s|<br\s*\/?])*<\/p>\s*)+$/i, '')
 
   return html
 }
