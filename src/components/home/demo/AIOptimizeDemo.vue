@@ -55,14 +55,14 @@ import { Icon } from '@iconify/vue'
 const beforeItems = [
   { label: '个人简介', status: '表述笼统' },
   { label: '工作经历', status: '缺少量化' },
-  { label: '项目经验', status: '不够结构化' },
+  { label: '项目经历', status: '不够结构化' },
   { label: '技能模块', status: '关键词少' },
 ]
 
 const afterItems = [
   { label: '个人简介', status: '核心能力突出' },
   { label: '工作经历', status: '量化成果明确' },
-  { label: '项目经验', status: 'STAR 法则重构' },
+  { label: '项目经历', status: 'STAR 法则重构' },
   { label: '技能模块', status: '关键词丰富' },
 ]
 

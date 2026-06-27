@@ -97,7 +97,7 @@
               <Icon icon="mdi:circle-outline" :width="18" /> 圆形
             </n-button>
             <n-button size="small" :type="shape === 'rectangle' ? 'primary' : 'default'" @click="shape = 'rectangle'">
-              <Icon icon="mdi:rectangle-outline" :width="18" /> 4:3
+              <Icon icon="mdi:rectangle-outline" :width="18" :style="{ transform: 'rotate(90deg)' }" /> 4:3
             </n-button>
           </div>
         </div>
@@ -141,7 +141,7 @@ const clipId = `frameClip_${uid}`
 
 const OUT_CIRCLE = 400
 const OUT_RECT_W = 300
-const OUT_RECT_H = 400
+const OUT_RECT_H = 400  // 输出保持 300×400 高清，预览缩放显示为 80×107
 const SCALE = 0.7
 const PAD = 40
 

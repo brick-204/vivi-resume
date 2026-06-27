@@ -155,7 +155,7 @@
           </div>
         </template>
 
-        <!-- 项目经验 -->
+        <!-- 项目经历 -->
         <template v-else-if="sectionId === 'projects'">
           <div v-if="resume.projects.length === 0" class="field-empty">(未识别)</div>
           <div v-for="(item, idx) in resume.projects" :key="item.id" class="field-item-card">

@@ -170,7 +170,19 @@
               </template>
               <!-- 固定字段 -->
               <template v-else>
+                <!-- 生日字段：年月选择器 -->
+                <n-date-picker
+                  v-if="element.key === 'birthday'"
+                  :value="birthdayTimestamp"
+                  @update:value="updateBirthday"
+                  type="month"
+                  size="small"
+                  clearable
+                  placeholder="选择年月"
+                />
+                <!-- 其他固定字段：文本输入 -->
                 <n-input
+                  v-else
                   :value="basicInfo[element.key as keyof BasicInfo] as string"
                   @update:value="updateFieldValue(element.key, $event)"
                   :placeholder="getFieldPlaceholder(element.key)"
@@ -204,7 +216,7 @@ import { computed, inject, ref, h } from 'vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { USER_ICON, EYE_ICON, EYE_OFF_ICON, TRASH_ICON, DRAG_HANDLE_ICON } from '@/components/icons/SectionIcons'
 import { Icon } from '@iconify/vue'
-import { NInput } from 'naive-ui'
+import { NInput, NDatePicker } from 'naive-ui'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import PhotoEditor from './PhotoEditor.vue'
 import draggable from 'vuedraggable'
@@ -331,7 +343,7 @@ const FIELD_META: Record<string, { label: string; placeholder: string }> = {
   name: { label: '姓名', placeholder: '请输入姓名' },
   title: { label: '职位', placeholder: '如：前端工程师' },
   gender: { label: '性别', placeholder: '如：男' },
-  birthday: { label: '出生日期', placeholder: '如：1996-06' },
+  birthday: { label: '生日', placeholder: '如：1996-06' },
   age: { label: '年龄', placeholder: '如：28' },
   location: { label: '所在地', placeholder: '如：北京' },
   expectedCity: { label: '期望城市', placeholder: '如：上海' },
@@ -360,6 +372,29 @@ type StringFieldKey = 'name' | 'title' | 'gender' | 'birthday' | 'age' | 'locati
 const updateFieldValue = (key: string, value: string) => {
   if (!FIELD_META[key] || !basicInfo.value) return
   basicInfo.value = { ...basicInfo.value, [key as StringFieldKey]: value }
+}
+
+// ========== 生日字段：YYYY-MM ↔ 时间戳转换 ==========
+
+/** 将 birthday 字符串（如 '1996-06'）转为时间戳供 n-date-picker 使用 */
+const birthdayTimestamp = computed<number | null>(() => {
+  const val = basicInfo.value?.birthday
+  if (!val) return null
+  const d = new Date(val + '-01')
+  return isNaN(d.getTime()) ? null : d.getTime()
+})
+
+/** 将 n-date-picker 的时间戳转为 YYYY-MM 字符串存入 birthday */
+const updateBirthday = (ts: number | null) => {
+  if (!basicInfo.value) return
+  if (ts == null) {
+    basicInfo.value = { ...basicInfo.value, birthday: '' }
+    return
+  }
+  const d = new Date(ts)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  basicInfo.value = { ...basicInfo.value, birthday: `${y}-${m}` }
 }
 
 const updateCustomFieldValue = (fieldKey: string, value: string) => {
@@ -696,8 +731,8 @@ const removeCustomField = (id: string) => {
   }
 
   &--rectangle {
-    width: 60px;
-    height: 80px;
+    width: 80px;
+    height: 107px;
     border-radius: 0;
   }
 

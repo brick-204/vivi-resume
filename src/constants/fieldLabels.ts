@@ -13,7 +13,7 @@ export const FIELD_LABELS: Record<string, string> = {
   // 由于 key 相同，Record 只能有一个值，这里用顶层含义；BasicInfo 场景在 ImportFieldView 中单独标注
   workExperience: '工作经历',
   education: '教育经历',
-  projects: '项目经验',
+  projects: '项目经历',
   skills: '技能',
   selfEvaluation: '自我评价',
   customTexts: '自定义文本',
@@ -32,7 +32,7 @@ export const FIELD_LABELS: Record<string, string> = {
   website: '个人网站',
   summary: '个人简介',
   gender: '性别',
-  birthday: '出生日期',
+  birthday: '生日',
   age: '年龄',
   expectedCity: '期望城市',
   wechat: '微信号',

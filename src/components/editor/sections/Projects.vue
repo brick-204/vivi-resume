@@ -10,7 +10,7 @@
     </div>
 
     <div v-if="items.length === 0" class="section__empty">
-      <span>暂无项目经验，点击下方按钮添加</span>
+      <span>暂无项目经历，点击下方按钮添加</span>
     </div>
 
     <draggable v-else v-model="items" item-key="id" handle=".card__drag-handle" :animation="200" ghost-class="card--ghost" chosen-class="card--chosen" drag-class="card--drag" class="section__list" :scroll="scrollContainer" :scroll-sensitivity="80" :scroll-speed="10" @start="flipCards.recordPositions" @end="flipCards.animateFlip">
@@ -34,7 +34,7 @@
                     <Icon :icon="TRASH_ICON" :width="20" :height="20" />
                   </button>
                 </template>
-                确定要删除这条项目经验吗？
+                确定要删除这条项目经历吗？
               </n-popconfirm>
               <button class="card__toggle-collapse" :aria-label="collapsedIds.has(item.id) ? '展开' : '收缩'" @click.stop="toggleCollapse(item.id)">
                 <Icon :icon="collapsedIds.has(item.id) ? CHEVRON_DOWN_ICON : CHEVRON_UP_ICON" :width="20" :height="20" />

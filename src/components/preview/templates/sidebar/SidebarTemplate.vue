@@ -93,8 +93,8 @@ provide(ResumeDocumentKey, ctx)
 }
 
 :deep(.sidebar__photo--rectangle) {
-  width: 60px;
-  height: 80px;
+  width: 80px;
+  height: 107px;
   border-radius: 0;
 }
 

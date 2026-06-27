@@ -345,7 +345,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
 
   // 字段标签映射
   const FIELD_LABELS: Record<string, string> = {
-    name: '姓名', title: '职位', gender: '性别', birthday: '出生日期',
+    name: '姓名', title: '职位', gender: '性别', birthday: '生日',
     age: '年龄',
     location: '所在地', expectedCity: '期望城市',
     workExperience: '工作经验', salaryRange: '薪资', email: '邮箱',

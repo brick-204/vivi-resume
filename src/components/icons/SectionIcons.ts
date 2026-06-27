@@ -12,7 +12,7 @@ export const BRIEFCASE_ICON = 'mdi:briefcase-outline'
 // 教育经历 - 学士帽
 export const EDUCATION_ICON = 'mdi:school-outline'
 
-// 项目经验 - 火箭
+// 项目经历 - 火箭
 export const ROCKET_ICON = 'mdi:rocket-launch-outline'
 
 // 技能 - 闪电/能量

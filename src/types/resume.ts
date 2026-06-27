@@ -69,7 +69,7 @@ export interface EducationItem {
   hidden?: boolean
 }
 
-// 项目经验
+// 项目经历
 export interface ProjectItem {
   id: string
   name: string
@@ -186,7 +186,7 @@ export const SECTION_CONFIG: Record<string, { label: string; icon: string }> = {
   summary: { label: '个人简介', icon: 'message' },
   work: { label: '工作经历', icon: 'briefcase' },
   education: { label: '教育经历', icon: 'education' },
-  projects: { label: '项目经验', icon: 'rocket' },
+  projects: { label: '项目经历', icon: 'rocket' },
   skills: { label: '技能', icon: 'zap' },
   evaluation: { label: '自我评价', icon: 'star' },
   customText: { label: '自定义文本', icon: 'textEdit' },
@@ -289,7 +289,7 @@ export const DEFAULT_SECTION_TITLES: Record<string, string> = {
   summary: '个人简介',
   work: '工作经历',
   education: '教育经历',
-  projects: '项目经验',
+  projects: '项目经历',
   skills: '专业技能',
   evaluation: '自我评价',
   customText: '自定义模块一',

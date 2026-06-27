@@ -57,7 +57,7 @@ function serializeSection(resume: Resume, sectionId: string): string {
     return serializeEducation(resume)
   }
 
-  // 项目经验
+  // 项目经历
   if (sectionId === 'projects') {
     return serializeProjects(resume)
   }
@@ -156,7 +156,7 @@ function serializeEducation(resume: Resume): string {
   }).join('\n\n')
 }
 
-/** 序列化项目经验 */
+/** 序列化项目经历 */
 function serializeProjects(resume: Resume): string {
   const items = resume.projects.filter(item => !item.hidden)
   if (items.length === 0) return ''
@@ -268,7 +268,7 @@ export function serializeForLocalSearch(resume: Resume): string {
     if (item.description) parts.push(htmlToPlainText(item.description))
   }
 
-  // 项目经验
+  // 项目经历
   for (const item of resume.projects) {
     if (item.hidden) continue
     if (item.name) parts.push(item.name)
