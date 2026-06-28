@@ -2,7 +2,7 @@
   <div class="section-navigator" :class="{ 'section-navigator--collapsed': isCollapsed }">
     <!-- 中间区域：导航列表 + 主题色，流式排列，占满空间 -->
     <div class="navigator__middle" ref="navigatorListRef">
-      <div class="navigator__list">
+      <div class="navigator__list" role="tablist" aria-label="简历模块导航">
         <draggable
           v-model="sortableSections"
           item-key="id"
@@ -25,8 +25,14 @@
                 'nav-item--basic': item.id === 'basic',
                 'nav-item--hidden': !item.visible
               }"
+              role="tab"
+              tabindex="0"
+              :aria-selected="activeSectionId === item.id"
+              :aria-label="item.label"
               :data-flip-id="item.id"
               @click="handleSelect(item.id)"
+              @keydown.enter="handleSelect(item.id)"
+              @keydown.space.prevent="handleSelect(item.id)"
               @mouseenter="showTooltip($event, item.label)"
               @mouseleave="hideTooltip"
             >

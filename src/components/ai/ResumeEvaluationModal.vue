@@ -75,7 +75,7 @@
         <Icon icon="mdi:file-document-edit-outline" :width="40" />
         <span>{{ isStreaming ? '正在生成评估报告...' : '点击「开始评估」对您的简历进行全面分析' }}</span>
       </div>
-      <span v-if="isStreaming" class="eval-cursor">▌</span>
+      <span v-if="isStreaming" class="eval-cursor" aria-hidden="true">▌</span>
     </div>
 
     <template #footer>

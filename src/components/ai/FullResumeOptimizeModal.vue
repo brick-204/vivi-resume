@@ -110,7 +110,7 @@
       <!-- 未解析的流式原始文本（在解析出 section 之前显示） -->
       <div v-if="isStreaming && parsedSections.length === 0" class="optimize-raw">
         <span v-if="resultText" class="optimize-raw__text">{{ resultText }}</span>
-        <span class="optimize-raw__cursor">▌</span>
+        <span class="optimize-raw__cursor" aria-hidden="true">▌</span>
       </div>
 
       <!-- 非流式且无解析结果时，显示原始文本 -->

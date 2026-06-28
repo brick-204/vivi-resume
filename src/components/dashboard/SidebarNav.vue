@@ -5,6 +5,7 @@
       <button
         class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'resumes' }"
+        :aria-current="activeTab === 'resumes' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'resumes')"
       >
         <Icon icon="mdi:file-document-outline" :width="20" />
@@ -13,6 +14,7 @@
       <button
         class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'templates' }"
+        :aria-current="activeTab === 'templates' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'templates')"
       >
         <Icon icon="mdi:view-grid-outline" :width="20" />
@@ -21,6 +23,7 @@
       <button
         class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'ai' }"
+        :aria-current="activeTab === 'ai' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'ai')"
       >
         <Icon icon="mdi:robot-outline" :width="20" />
@@ -29,6 +32,7 @@
       <button
         class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'settings' }"
+        :aria-current="activeTab === 'settings' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'settings')"
       >
         <Icon icon="mdi:cog-outline" :width="20" />

@@ -10,7 +10,7 @@
     </AppHeader>
 
     <!-- 主体区域 -->
-    <div class="dashboard__body">
+    <div class="dashboard__body" id="main-content">
       <!-- 移动端遮罩 -->
       <Transition name="fade">
         <div v-if="mobileMenuOpen" class="dashboard__mobile-overlay" @click="mobileMenuOpen = false" />

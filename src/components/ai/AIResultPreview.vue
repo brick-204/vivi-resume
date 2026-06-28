@@ -120,7 +120,7 @@
             <span v-else class="preview-pane__placeholder">
               {{ isStreaming && !isConnected ? '正在连接 AI 服务...' : isStreaming ? '正在生成...' : '等待生成...' }}
             </span>
-            <span v-if="isStreaming" class="preview-pane__cursor">▌</span>
+            <span v-if="isStreaming" class="preview-pane__cursor" aria-hidden="true">▌</span>
           </div>
         </div>
       </template>

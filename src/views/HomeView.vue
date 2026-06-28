@@ -4,7 +4,7 @@
 
     <HeroSection />
 
-    <main class="home__content">
+    <main id="main-content" class="home__content">
       <TemplateCarousel />
       <AIDemoSection />
       <FeatureGrid />

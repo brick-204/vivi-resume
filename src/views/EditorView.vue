@@ -7,6 +7,7 @@
       @export-json="exportJSON"
       @export-pdf="exportPDF"
       @export-image="exportImage"
+      @export-docx="exportDOCX"
       @ai-eval="showEvalModal = true"
       @jd-scan="showJDScanModal = true"
       @interview-prep="showInterviewModal = true"
@@ -19,7 +20,7 @@
     <Transition name="editor-fade">
       <EditorSkeleton v-if="!isReady" key="skeleton" />
 
-      <main v-else key="editor" class="editor-body">
+      <main v-else key="editor" id="main-content" class="editor-body">
       <!-- 第一列：模块导航栏 -->
       <aside
         class="editor-body__nav"
@@ -112,6 +113,7 @@ import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
 import { printViaIframe } from '@/utils/print'
 import { exportAsImage } from '@/utils/exportImage'
+import { exportDocx } from '@/utils/exportDocx'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import AppHeader from '@/components/common/AppHeader.vue'
@@ -235,6 +237,17 @@ const exportImage = async () => {
   } catch (e) {
     console.error('[exportImage] 导出图片失败:', e)
     naiveMessage.error('导出图片失败，请重试')
+  }
+}
+
+const exportDOCX = async () => {
+  if (!store.currentResume) return
+  try {
+    await exportDocx(store.currentResume, store.currentResume.title || 'resume')
+    naiveMessage.success('DOCX 导出成功')
+  } catch (e) {
+    console.error('[exportDOCX] 导出 DOCX 失败:', e)
+    naiveMessage.error('导出 DOCX 失败，请重试')
   }
 }
 

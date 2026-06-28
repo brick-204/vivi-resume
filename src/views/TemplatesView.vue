@@ -15,7 +15,7 @@
     </header>
 
     <!-- 模板网格 -->
-    <main class="templates-view__grid">
+    <main id="main-content" class="templates-view__grid">
       <TemplateCard
         v-for="template in templates"
         :key="template.id"

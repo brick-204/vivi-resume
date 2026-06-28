@@ -98,7 +98,7 @@
           <template>{{ resultText }}</template>
           <span v-if="!isConnected" class="jd-scan-result__placeholder">正在连接 AI 服务...</span>
           <span v-if="isConnected && !hasResult" class="jd-scan-result__placeholder">正在分析...</span>
-          <span class="jd-scan-result__cursor">▌</span>
+          <span class="jd-scan-result__cursor" aria-hidden="true">▌</span>
         </div>
       </template>
     </div>

@@ -61,7 +61,7 @@
       </div>
       <div class="parsing-raw">
         <span v-if="resultText" class="parsing-raw__text">{{ resultText }}</span>
-        <span v-if="isStreaming" class="parsing-raw__cursor">▌</span>
+        <span v-if="isStreaming" class="parsing-raw__cursor" aria-hidden="true">▌</span>
       </div>
       <div v-if="wasTruncated && !isStreaming" class="parsing-warning">
         <Icon icon="mdi:alert-outline" :width="16" />

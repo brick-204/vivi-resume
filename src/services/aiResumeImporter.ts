@@ -196,7 +196,7 @@ function validateAIImportJSON(json: string): { success: boolean; data?: unknown;
   }
 
   // 预处理：将 AI 可能输出的非标准值修正为 Schema 可接受的格式
-  const preprocessed = preprocessAIData(parsed)
+  const preprocessed = _preprocessAIData(parsed)
 
   const result = AIImportResumeSchema.safeParse(preprocessed)
   if (result.success) {
@@ -221,7 +221,7 @@ function validateAIImportJSON(json: string): { success: boolean; data?: unknown;
  * 3. 对象字段输出了 null/undefined → 转为空对象
  * 4. 数组项中的字段类型修正
  */
-function preprocessAIData(data: unknown): unknown {
+export function _preprocessAIData(data: unknown): unknown {
   if (!data || typeof data !== 'object') return data
   const obj = data as Record<string, unknown>
 
@@ -309,17 +309,17 @@ interface ExtractResult {
  * 3. 修复数组元素/对象属性之间缺少的逗号
  * 4. 移除末尾多余的逗号（trailing comma）
  */
-function repairJSON(json: string): string {
+export function _repairJSON(json: string): string {
   let result = json
 
   // 策略1：移除注释（必须在其他修复之前，避免注释干扰后续解析）
-  result = fixComments(result)
+  result = _fixComments(result)
 
   // 策略2：修复字符串值中未转义的换行符
-  result = fixUnescapedNewlines(result)
+  result = _fixUnescapedNewlines(result)
 
   // 策略3：修复数组元素/对象属性之间缺少的逗号
-  result = fixMissingCommas(result)
+  result = _fixMissingCommas(result)
 
   // 策略4：移除末尾多余逗号（}, ] 前面的逗号，也可清理策略3的过度插入）
   result = result.replace(/,\s*([}\]])/g, '$1')
@@ -331,7 +331,7 @@ function repairJSON(json: string): string {
  * 移除 AI 输出中的注释（单行 // 和多行块注释，仅在字符串外）
  * AI 有时会在 JSON 中输出类似 JavaScript 的注释，这不是合法 JSON
  */
-function fixComments(json: string): string {
+export function _fixComments(json: string): string {
   const result: string[] = []
   let i = 0
   let inString = false
@@ -386,7 +386,7 @@ function fixComments(json: string): string {
  * 逐字符扫描，跟踪字符串状态，在两个值之间缺少逗号时自动补充
  * 常见场景：} { → }, { 或 "a" "b" → "a", "b" 或 数字 数字
  */
-function fixMissingCommas(json: string): string {
+export function _fixMissingCommas(json: string): string {
   const result: string[] = []
   let i = 0
   let inString = false
@@ -495,7 +495,7 @@ function fixMissingCommas(json: string): string {
  * 修复 JSON 字符串值中未转义的换行符
  * 逐字符扫描，跟踪引号状态，在引号内的裸换行替换为 \\n
  */
-function fixUnescapedNewlines(json: string): string {
+export function _fixUnescapedNewlines(json: string): string {
   const chars = [...json]
   let inString = false
   let escape = false
@@ -528,7 +528,7 @@ function fixUnescapedNewlines(json: string): string {
 }
 
 /**
- * 部分恢复 JSON：当 repairJSON 修复后 JSON.parse 仍失败时，
+ * 部分恢复 JSON：当 _repairJSON 修复后 JSON.parse 仍失败时，
  * 截取有效前缀并补全闭合符号，尽可能恢复更多数据。
  *
  * 算法：
@@ -538,7 +538,7 @@ function fixUnescapedNewlines(json: string): string {
  * 4. 在该位置截断，移除末尾逗号，补全所有未闭合的 ]/}
  * 5. JSON.parse 验证截断后的结果
  */
-function partialRecoverJSON(json: string, parseError: string): string | null {
+export function _partialRecoverJSON(json: string, parseError: string): string | null {
   // 从错误消息中提取 position（某些错误如 "Unexpected end" 不含 position，则扫描整个字符串）
   const posMatch = parseError.match(/position\s+(\d+)/i)
   const errorPos = posMatch ? parseInt(posMatch[1], 10) : -1
@@ -698,7 +698,7 @@ function partialRecoverJSON(json: string, parseError: string): string | null {
  * 在 streamChat 的 cleanSplicePoint 之外，作为二次保障
  * 检测常见重复模式：}},}, ],等
  */
-function removeContinuationOverlaps(text: string): string {
+export function _removeContinuationOverlaps(text: string): string {
   // 匹配连续出现的闭合模式（如 },\n  },\n 或 ],\n  ],\n）
   // 这些是续写拼接时 AI 重复输出数组/对象尾部结构的典型信号
   return text
@@ -711,8 +711,8 @@ function removeContinuationOverlaps(text: string): string {
  * 多策略：直接解析 → 修复后解析 → 代码块提取 → 首尾大括号定位
  * 返回具体的失败原因，便于用户理解
  */
-function extractJSON(text: string): ExtractResult {
-  const trimmed = removeContinuationOverlaps(text.trim())
+export function _extractJSON(text: string): ExtractResult {
+  const trimmed = _removeContinuationOverlaps(text.trim())
 
   // 策略1：直接解析
   try {
@@ -724,19 +724,19 @@ function extractJSON(text: string): ExtractResult {
 
   // 策略1.5：尝试修复常见格式问题后再解析
   try {
-    const repaired = repairJSON(trimmed)
+    const repaired = _repairJSON(trimmed)
     JSON.parse(repaired)
     return { json: repaired, error: null }
   } catch {
     // 修复后仍然失败，尝试二次修复（第一次修复可能产生新的需修复位置）
-    const repaired2 = repairJSON(repairJSON(trimmed))
+    const repaired2 = _repairJSON(_repairJSON(trimmed))
     try {
       JSON.parse(repaired2)
       return { json: repaired2, error: null }
     } catch (e2) {
       // 二次修复也失败，尝试部分恢复（截取有效前缀）
       const repaired2Error = (e2 as Error).message
-      const partial = partialRecoverJSON(repaired2, repaired2Error)
+      const partial = _partialRecoverJSON(repaired2, repaired2Error)
       if (partial) {
         return { json: partial, error: null, partial: true }
       }
@@ -753,12 +753,12 @@ function extractJSON(text: string): ExtractResult {
     } catch {
       // 代码块内解析失败，尝试修复
       try {
-        const repaired = repairJSON(candidate)
+        const repaired = _repairJSON(candidate)
         JSON.parse(repaired)
         return { json: repaired, error: null }
       } catch {
         // 二次修复（提到 try 外便于 catch 中复用）
-        const repaired2 = repairJSON(repairJSON(candidate))
+        const repaired2 = _repairJSON(_repairJSON(candidate))
         try {
           JSON.parse(repaired2)
           return { json: repaired2, error: null }
@@ -766,13 +766,13 @@ function extractJSON(text: string): ExtractResult {
           // 修复仍失败，尝试部分恢复（截取有效前缀）
           // 注意：传入 repaired2（而非 candidate），因为 error 位置是 repaired2 中的偏移
           const blockError = (e2 as Error).message
-          const partial = partialRecoverJSON(repaired2, blockError)
+          const partial = _partialRecoverJSON(repaired2, blockError)
           if (partial) {
             return { json: partial, error: null, partial: true }
           }
           return {
             json: null,
-            error: `AI 输出包含 JSON 代码块，但 JSON 格式不正确：${translateJSONError(blockError, candidate)}`,
+            error: `AI 输出包含 JSON 代码块，但 JSON 格式不正确：${_translateJSONError(blockError, candidate)}`,
           }
         }
       }
@@ -790,12 +790,12 @@ function extractJSON(text: string): ExtractResult {
     } catch {
       // 尝试修复
       try {
-        const repaired = repairJSON(candidate)
+        const repaired = _repairJSON(candidate)
         JSON.parse(repaired)
         return { json: repaired, error: null }
       } catch {
         // 二次修复（提到 try 外便于 catch 中复用）
-        const repaired2 = repairJSON(repairJSON(candidate))
+        const repaired2 = _repairJSON(_repairJSON(candidate))
         try {
           JSON.parse(repaired2)
           return { json: repaired2, error: null }
@@ -803,13 +803,13 @@ function extractJSON(text: string): ExtractResult {
           const braceError = (e2 as Error).message
           // 修复仍失败，尝试部分恢复（截取有效前缀）
           // 注意：传入 repaired2（而非 candidate），因为 error 位置是 repaired2 中的偏移
-          const partial = partialRecoverJSON(repaired2, braceError)
+          const partial = _partialRecoverJSON(repaired2, braceError)
           if (partial) {
             return { json: partial, error: null, partial: true }
           }
           return {
             json: null,
-            error: `AI 输出中找到 JSON 片段，但格式不正确：${translateJSONError(braceError, candidate)}`,
+            error: `AI 输出中找到 JSON 片段，但格式不正确：${_translateJSONError(braceError, candidate)}`,
           }
         }
       }
@@ -834,7 +834,7 @@ function extractJSON(text: string): ExtractResult {
  * 将 JSON.parse 原始错误翻译为用户友好的中文提示
  * 并附带出错位置附近的上下文片段，方便用户定位
  */
-function translateJSONError(rawError: string, jsonText?: string): string {
+export function _translateJSONError(rawError: string, jsonText?: string): string {
   // JSON.parse 错误通常格式为 "Unexpected token X in JSON at position N"
   // 或 "Expected property name or '}' in JSON at position N"
   const posMatch = rawError.match(/position\s+(\d+)/i)
@@ -842,7 +842,7 @@ function translateJSONError(rawError: string, jsonText?: string): string {
   const posLabel = pos >= 0 ? `（位置 ${pos}）` : ''
 
   // 附带出错位置上下文片段
-  const contextSnippet = pos >= 0 && jsonText ? buildErrorContext(jsonText, pos) : ''
+  const contextSnippet = pos >= 0 && jsonText ? _buildErrorContext(jsonText, pos) : ''
 
   if (rawError.includes('Unexpected token')) {
     return `存在非法字符${posLabel}，可能是 AI 输出了多余的文字或格式标记${contextSnippet}`
@@ -867,7 +867,7 @@ function translateJSONError(rawError: string, jsonText?: string): string {
  * 构建出错位置的上下文片段
  * 从 JSON 文本中截取出错位置前后各 30 个字符，并用 ↑ 指示出错点
  */
-function buildErrorContext(jsonText: string, errorPos: number): string {
+export function _buildErrorContext(jsonText: string, errorPos: number): string {
   const contextRadius = 30
   const start = Math.max(0, errorPos - contextRadius)
   const end = Math.min(jsonText.length, errorPos + contextRadius)
@@ -1123,7 +1123,7 @@ function removeEmptySections(resume: Resume): Resume {
 
 export function parseAIImportResult(rawText: string, photoDataUri?: string): AIImportResult {
   // 1. 提取 JSON（附带具体失败原因）
-  const extractResult = extractJSON(rawText)
+  const extractResult = _extractJSON(rawText)
   if (!extractResult.json) {
     return {
       success: false,

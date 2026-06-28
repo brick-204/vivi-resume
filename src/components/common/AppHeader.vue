@@ -33,8 +33,8 @@
     <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
     <div class="app-header__right">
       <template v-if="showEditorRight">
-        <n-dropdown :options="aiHelpOptions" @select="onAiHelpSelect" placement="bottom-end" width="trigger">
-          <button class="header-btn header-btn--ai-help">
+        <n-dropdown :options="aiHelpOptions" @select="onAiHelpSelect" @update:show="v => aiHelpOpen = v" placement="bottom-end" width="trigger">
+          <button class="header-btn header-btn--ai-help" aria-haspopup="true" :aria-expanded="aiHelpOpen" aria-label="AI 帮帮">
             <Icon icon="mdi:creation" :width="16" />
             <span class="header-btn__text">AI 帮帮</span>
             <Icon icon="mdi:chevron-down" :width="16" />
@@ -44,8 +44,8 @@
           <Icon icon="mdi:view-grid-outline" :width="16" />
           <span class="header-btn__text">更换模板</span>
         </button>
-        <n-dropdown :options="exportOptions" @select="onExportSelect" placement="bottom-end">
-          <button class="header-btn header-btn--export">
+        <n-dropdown :options="exportOptions" @select="onExportSelect" @update:show="v => exportOpen = v" placement="bottom-end">
+          <button class="header-btn header-btn--export" aria-haspopup="true" :aria-expanded="exportOpen" aria-label="导出简历">
             <Icon icon="mdi:download" :width="16" />
             <span class="header-btn__text">导出</span>
             <Icon icon="mdi:chevron-down" :width="16" />
@@ -53,8 +53,8 @@
         </n-dropdown>
       </template>
 
-      <n-dropdown :options="themeOptions" @select="onThemeSelect" placement="bottom-end">
-        <button class="app-header__theme-btn">
+      <n-dropdown :options="themeOptions" @select="onThemeSelect" @update:show="v => themeOpen = v" placement="bottom-end">
+        <button class="app-header__theme-btn" aria-haspopup="true" :aria-expanded="themeOpen" aria-label="切换主题">
           <Icon :icon="themeIcon" :width="18" />
         </button>
       </n-dropdown>
@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref } from 'vue'
 import { NDropdown } from 'naive-ui'
 import type { DropdownOption } from 'naive-ui'
 import { Icon } from '@iconify/vue'
@@ -83,6 +83,7 @@ const emit = defineEmits<{
   'export-json': []
   'export-pdf': []
   'export-image': []
+  'export-docx': []
   'ai-eval': []
   'jd-scan': []
   'full-optimize': []
@@ -93,6 +94,11 @@ const emit = defineEmits<{
 
 const store = useResumeStore()
 const { mode, resolvedTheme, setMode } = useTheme()
+
+// 下拉菜单展开状态（供 aria-expanded 使用）
+const aiHelpOpen = ref(false)
+const exportOpen = ref(false)
+const themeOpen = ref(false)
 
 const resumeTitle = computed({
   get: () => store.currentResume?.title || '',
@@ -137,6 +143,7 @@ const onAiHelpSelect = (key: string) => {
 const exportOptions: DropdownOption[] = [
   { label: '导出 PDF', key: 'pdf', icon: () => h(Icon, { icon: 'mdi:file-pdf-box', width: 18 }) },
   { label: '导出图片', key: 'image', icon: () => h(Icon, { icon: 'mdi:image-outline', width: 18 }) },
+  { label: '导出 DOCX', key: 'docx', icon: () => h(Icon, { icon: 'mdi:file-word-outline', width: 18 }) },
   { label: '导出 JSON', key: 'json', icon: () => h(Icon, { icon: 'mdi:code-json', width: 18 }) },
 ]
 
@@ -144,6 +151,7 @@ const onExportSelect = (key: string) => {
   if (key === 'json') emit('export-json')
   else if (key === 'pdf') emit('export-pdf')
   else if (key === 'image') emit('export-image')
+  else if (key === 'docx') emit('export-docx')
 }
 </script>
 

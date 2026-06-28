@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
@@ -51,6 +52,7 @@ export default defineConfig({
           'vuedraggable': ['vuedraggable'],
           'pdfjs': ['pdfjs-dist'],
           'mammoth': ['mammoth'],
+          'docx': ['docx'],
         },
       },
     },
@@ -67,6 +69,11 @@ export default defineConfig({
         api: 'modern-compiler'
       }
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts'],
   },
   server: {
     proxy: {

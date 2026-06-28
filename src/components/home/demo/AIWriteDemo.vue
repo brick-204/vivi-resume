@@ -7,11 +7,11 @@
       </div>
       <div class="write-demo__content">
         <template v-if="!displayedText">
-          <span class="write-demo__cursor-blink">▌</span>
+          <span class="write-demo__cursor-blink" aria-hidden="true">▌</span>
         </template>
         <template v-else>
           <p v-for="(line, idx) in displayedLines" :key="idx" class="write-demo__line">
-            {{ line }}<span v-if="idx === displayedLines.length - 1 && isTyping" class="write-demo__cursor-inline">▌</span>
+            {{ line }}<span v-if="idx === displayedLines.length - 1 && isTyping" class="write-demo__cursor-inline" aria-hidden="true">▌</span>
           </p>
         </template>
       </div>

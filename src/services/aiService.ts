@@ -15,7 +15,7 @@ const isDev = import.meta.env.DEV
  * 获取请求 URL
  * 确保 endpoint 路径以 /v1（或 /v4 智谱）结尾，然后拼接 /chat/completions
  */
-function getRequestUrl(config: AIServiceConfig): string {
+export function _getRequestUrl(config: AIServiceConfig): string {
   let base = config.endpoint.replace(/\/+$/, '')
   // 仅当路径不以 /v1 或 /v4 结尾时自动补充 /v1
   // 精确匹配路径末尾，避免误判 URL 中间含 /v1/ 的情况
@@ -106,7 +106,7 @@ export interface StreamChatResult {
  * 查找最长重叠长度：anchor 的后缀与 continuation 的前缀的最长匹配
  * 最小重叠阈值 6 字符，避免短字符串误判
  */
-function findOverlapLength(anchor: string, continuation: string): number {
+export function _findOverlapLength(anchor: string, continuation: string): number {
   const minOverlap = 6
   const maxCheck = Math.min(anchor.length, continuation.length, 200)
 
@@ -128,7 +128,7 @@ function findOverlapLength(anchor: string, continuation: string): number {
  *
  * 返回清洗后的续写文本
  */
-function cleanSplicePoint(previousText: string, continuationText: string): string {
+export function _cleanSplicePoint(previousText: string, continuationText: string): string {
   if (!continuationText || !previousText) return continuationText
 
   let cleaned = continuationText
@@ -159,7 +159,7 @@ function cleanSplicePoint(previousText: string, continuationText: string): strin
 
   // 3. 检测并移除重叠内容
   const anchor = previousText.slice(-150)
-  const overlapLen = findOverlapLength(anchor, cleaned)
+  const overlapLen = _findOverlapLength(anchor, cleaned)
   if (overlapLen > 0) {
     cleaned = cleaned.slice(overlapLen)
   }
@@ -211,7 +211,7 @@ export async function streamChat(
 
   for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
     // ---- 发起请求 ----
-    const url = getRequestUrl(config)
+    const url = _getRequestUrl(config)
 
     let response: Response
     try {
@@ -351,7 +351,7 @@ export async function streamChat(
     if (validateSplice && attempt > 0) {
       const preText = accumulatedText.slice(0, preContinuationLength)
       const continuationContent = accumulatedText.slice(preContinuationLength)
-      const cleanedContinuation = cleanSplicePoint(preText, continuationContent)
+      const cleanedContinuation = _cleanSplicePoint(preText, continuationContent)
       const trimmedChars = continuationContent.length - cleanedContinuation.length
       if (trimmedChars > 0) {
         accumulatedText = preText + cleanedContinuation

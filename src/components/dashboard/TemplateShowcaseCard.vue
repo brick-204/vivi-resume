@@ -1,5 +1,13 @@
 <template>
-  <div class="template-showcase-card" @click="$emit('use', template.id)">
+  <div
+    class="template-showcase-card"
+    role="button"
+    tabindex="0"
+    :aria-label="`使用${template.name}模板`"
+    @click="$emit('use', template.id)"
+    @keydown.enter="$emit('use', template.id)"
+    @keydown.space.prevent="$emit('use', template.id)"
+  >
     <!-- 预览区 -->
     <div class="template-showcase-card__preview" ref="previewContainer">
       <!-- 空白模板：纯视觉占位，不渲染任何模板样式 -->

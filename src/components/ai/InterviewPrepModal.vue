@@ -74,7 +74,7 @@
           <template>{{ resultText }}</template>
           <span v-if="!isConnected" class="interview-result__placeholder">正在连接 AI 服务...</span>
           <span v-if="isConnected && !hasResult" class="interview-result__placeholder">正在生成面试题...</span>
-          <span class="interview-result__cursor">▌</span>
+          <span class="interview-result__cursor" aria-hidden="true">▌</span>
         </div>
       </template>
     </div>

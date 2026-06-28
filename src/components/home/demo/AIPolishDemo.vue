@@ -19,7 +19,7 @@
       </div>
       <div class="ai-demo__pane-content">
         <span class="ai-demo__typing">{{ displayedText }}</span>
-        <span v-if="isTyping" class="ai-demo__cursor">▌</span>
+        <span v-if="isTyping" class="ai-demo__cursor" aria-hidden="true">▌</span>
       </div>
     </div>
   </div>
