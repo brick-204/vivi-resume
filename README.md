@@ -34,6 +34,7 @@
 - **JD 扫描** - 粘贴目标职位 JD，AI 分析匹配度并给出优化建议
 - **一键优化** - AI 对整份简历所有模块进行系统性润色优化
 - **面试准备** - 根据简历 + JD 生成行为面试题、技术面试题和复习要点
+- **AI 智能导入** - 上传 PDF/Word/Markdown 文件，AI 解析为结构化 JSON，Zod Schema 校验，字段视图/JSON Diff 双视图预览
 - **评分徽章** - 三档评分色标（≥80 优秀/≥60 良好/<60 待改进），简历卡片与评估弹窗复用
 - **Token 用量追踪** - 实时显示累计输入/输出 token 用量，防抖持久化
 
@@ -78,6 +79,7 @@ src/
 │   │   ├── TemplateMarketPanel.vue # 模板市场面板
 │   │   ├── TemplateShowcaseCard.vue # 模板展示卡片
 │   │   ├── AISettingsPanel.vue    # AI 设置面板（Token 用量置顶）
+│   │   ├── AIImportModal.vue      # AI 智能导入模态框（文件上传 + 字段/JSON Diff 预览）
 │   │   ├── SettingsPanel.vue      # 通用设置面板
 │   │   └── SyncOverlay.vue       # 同步遮罩（进度、冲突保护）
 │   ├── editor/            # 编辑器组件
@@ -118,6 +120,7 @@ src/
 ├── services/
 │   ├── aiService.ts       # AI SSE 流式调用 + 自动续写 + 缓冲区限制
 │   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写/翻译/定制 + JD扫描/一键优化/面试准备）
+│   ├── aiResumeImporter.ts # AI 智能导入（JSON 提取/修复/部分恢复、Zod 校验、HTML 归一化）
 │   └── resumeSerializer.ts # 简历序列化（Resume → 结构化纯文本，供 AI 使用）
 ├── stores/
 │   ├── resumeStore.ts     # Pinia 状态管理（shallowRef + dirty flag + 评估结果持久化）
@@ -255,6 +258,15 @@ pnpm preview
 - **定制** - 粘贴目标职位 JD，针对性优化简历内容，突出匹配度
 
 所有操作均使用 SSE 流式实时生成，兼容 OpenAI API 格式，支持 10+ 服务商。当输出因 token 上限截断时，自动检测 `finish_reason: "length"` 并续写，确保完整输出。
+
+#### AI 智能导入
+
+在 Dashboard 简历列表中点击「AI 智能导入」按钮：
+
+- **上传文件** - 支持 .pdf、.docx、.md 三种格式，可拖拽或选择文件上传
+- **AI 解析** - AI 自动将文件内容解析为结构化 JSON 数据
+- **数据校验** - 使用 Zod Schema 校验解析结果，自动修复常见格式问题
+- **预览确认** - 提供字段视图和 JSON Diff 双视图预览，可逐项检查确认后应用
 
 #### 简历评估
 

@@ -16,7 +16,7 @@
           </span>
         </h1>
         <p class="hero__desc">
-          8 款精美模板 · AI 智能润色 · 一键优化 · 实时预览<br />
+          8 款精美模板 · AI 智能润色 · 智能导入 · 实时预览<br />
           帮你打造令人印象深刻的中文简历
         </p>
         <div class="hero__actions">

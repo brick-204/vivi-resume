@@ -29,6 +29,7 @@
       <AIOptimizeDemo v-if="activeTab === 'optimize'" />
       <AIInterviewDemo v-if="activeTab === 'interview'" />
       <AIWriteDemo v-if="activeTab === 'write'" />
+      <AIImportDemo v-if="activeTab === 'import'" />
     </div>
   </section>
 </template>
@@ -42,9 +43,10 @@ import AIScanDemo from '@/components/home/demo/AIScanDemo.vue'
 import AIOptimizeDemo from '@/components/home/demo/AIOptimizeDemo.vue'
 import AIInterviewDemo from '@/components/home/demo/AIInterviewDemo.vue'
 import AIWriteDemo from '@/components/home/demo/AIWriteDemo.vue'
+import AIImportDemo from '@/components/home/demo/AIImportDemo.vue'
 
 const sectionRef = ref<HTMLElement | null>(null)
-const activeTab = ref<'polish' | 'eval' | 'scan' | 'optimize' | 'interview' | 'write'>('polish')
+const activeTab = ref<'polish' | 'eval' | 'scan' | 'optimize' | 'interview' | 'write' | 'import'>('polish')
 
 const tabs = [
   { id: 'polish' as const, label: 'AI 润色', icon: 'mdi:auto-fix' },
@@ -53,6 +55,7 @@ const tabs = [
   { id: 'optimize' as const, label: '一键优化', icon: 'mdi:creation' },
   { id: 'interview' as const, label: '面试准备', icon: 'mdi:account-tie' },
   { id: 'write' as const, label: 'AI 帮写', icon: 'mdi:pencil-plus' },
+  { id: 'import' as const, label: 'AI 智能导入', icon: 'mdi:file-import-outline' },
 ]
 </script>
 
