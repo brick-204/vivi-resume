@@ -1,4 +1,5 @@
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
+import { formatTimestamp } from '@/utils/timestamp'
 
 export interface PrintOptions {
   /** 要打印的目标 DOM 元素 */
@@ -9,6 +10,8 @@ export interface PrintOptions {
   onBeforePrint?: () => void
   /** 打印后回调（打印对话框关闭后） */
   onAfterPrint?: () => void
+  /** 简历标题，用于设置打印文档的默认文件名（格式：标题_vivi-resume_时间戳） */
+  filename?: string
 }
 
 /**
@@ -20,7 +23,7 @@ export interface PrintOptions {
  * - 页边距由参数直接控制，所见即所得
  */
 export async function printViaIframe(options: PrintOptions): Promise<void> {
-  const { target, margin = DEFAULT_PAGE_PADDING, onBeforePrint, onAfterPrint } = options
+  const { target, margin = DEFAULT_PAGE_PADDING, onBeforePrint, onAfterPrint, filename } = options
 
   // 1. 获取目标元素
   const sourceEl = typeof target === 'function' ? target() : target
@@ -45,10 +48,16 @@ export async function printViaIframe(options: PrintOptions): Promise<void> {
     const iframeDoc = iframe.contentDocument!
     const iframeWin = iframe.contentWindow!
 
-    // 3. 写入基础 HTML
+    // 3. 写入基础 HTML（设置 title 以控制打印文件名）
     iframeDoc.open()
     iframeDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body></body></html>')
     iframeDoc.close()
+
+    // 设置打印文档标题，影响浏览器打印对话框的默认文件名
+    // 格式：简历名称_vivi-resume_时间戳
+    if (filename) {
+      iframeDoc.title = `${filename}_vivi-resume_${formatTimestamp()}`
+    }
 
     // 4. 注入样式
     const allCSS = collectAllStyles()

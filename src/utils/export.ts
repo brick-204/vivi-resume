@@ -2,12 +2,16 @@
  * 导出工具函数
  */
 
+import { formatTimestamp } from '@/utils/timestamp'
+
 /**
  * 将 JSON 字符串下载为文件
+ * 文件名格式：简历名称_vivi-resume_时间戳.json
  * @param json 已序列化的 JSON 字符串
- * @param filename 下载文件名
+ * @param title 简历标题（不含扩展名和后缀）
  */
-export const downloadJSON = (json: string, filename: string = 'resume.json') => {
+export const downloadJSON = (json: string, title: string = 'resume') => {
+  const filename = `${title}_vivi-resume_${formatTimestamp()}.json`
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

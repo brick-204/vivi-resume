@@ -177,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import Placeholder from '@tiptap/extension-placeholder'
 import { CORE_TIPTAP_EXTENSIONS } from '@/config/tiptapExtensions'
@@ -269,6 +269,9 @@ const focusEditor = (e: MouseEvent) => {
   editor.value?.commands.focus()
 }
 
+// 内部更新标志：防止 onUpdate → emit → watch → setContent 的循环
+let isInternalUpdate = false
+
 const editor = useEditor({
   content: normalizeContent(props.modelValue),
   extensions: [
@@ -310,7 +313,11 @@ const editor = useEditor({
     // 剔除它们避免描述区域末尾出现多余空行，导致 entry__desc 和 entry__tags 之间间距变大
     const rawHtml = editor.getHTML()
     const cleanedHtml = rawHtml.replace(/(?:<p>(?:\s|&nbsp;)*<\/p>\s*)+$/i, '')
+    // 标记为内部更新，防止 watch 中的 setContent 循环
+    isInternalUpdate = true
     emit('update:modelValue', cleanedHtml)
+    // 使用 nextTick 后重置标志，确保 Vue 响应式更新完成
+    nextTick(() => { isInternalUpdate = false })
     updateWordCount(editor.state.doc.textContent)
   },
   onFocus: () => { focused.value = true },
@@ -410,8 +417,14 @@ const onLinkRemove = () => {
 
 watch(() => props.modelValue, (newVal) => {
   if (!editor.value) return
+  // 方案 A：内部更新触发的 props 变化，跳过 setContent 避免循环
+  if (isInternalUpdate) return
+  // 方案 B：对称化比较 — 对 currentHTML 也做同样的尾部空段落剔除后再比较
+  // 避免因标准化差异导致不必要的 setContent（会丢失光标位置）
   const currentHTML = editor.value.getHTML()
-  if (newVal !== currentHTML) {
+  const normalizedCurrent = currentHTML.replace(/(?:<p>(?:\s|&nbsp;)*<\/p>\s*)+$/i, '')
+  const normalizedNew = (newVal || '').replace(/(?:<p>(?:\s|&nbsp;)*<\/p>\s*)+$/i, '')
+  if (normalizedNew !== normalizedCurrent) {
     editor.value.commands.setContent(normalizeContent(newVal) || '')
   }
 })

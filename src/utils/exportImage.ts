@@ -7,6 +7,7 @@
  */
 import { domToBlob } from 'modern-screenshot'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
+import { formatTimestamp } from '@/utils/timestamp'
 
 /** 浏览器 Canvas 单边最大像素限制 */
 const MAX_CANVAS_DIMENSION = 16384
@@ -152,12 +153,11 @@ export async function exportAsImage(
       throw new Error('图片生成失败：domToBlob 返回空数据')
     }
 
-    // 3. 下载（文件名末尾加时间戳）
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    // 3. 下载（文件名格式：简历名称_vivi-resume_时间戳.png）
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${filename}_${timestamp}.png`
+    link.download = `${filename}_vivi-resume_${formatTimestamp()}.png`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

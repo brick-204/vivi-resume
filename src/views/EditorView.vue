@@ -199,7 +199,7 @@ const goToTemplates = () => {
 const exportJSON = () => {
   const json = store.exportToJSON()
   if (json) {
-    downloadJSON(json, `${store.currentResume?.title || 'resume'}.json`)
+    downloadJSON(json, store.currentResume?.title || 'resume')
   }
 }
 
@@ -219,6 +219,7 @@ const exportPDF = async () => {
   await printViaIframe({
     target: el,
     margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+    filename: store.currentResume?.title || 'resume',
   })
 }
 

@@ -8,3 +8,4 @@ test_screenshots/
 .claude/
 CLAUDE.md
 pnpm-lock.yaml
+DESIGN.md
