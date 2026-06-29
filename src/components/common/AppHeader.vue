@@ -58,6 +58,10 @@
           <Icon :icon="themeIcon" :width="18" />
         </button>
       </n-dropdown>
+
+      <a :href="githubUrl" target="_blank" rel="noopener noreferrer" class="app-header__github-btn" aria-label="GitHub 仓库">
+        <Icon icon="mdi:github" :width="20" />
+      </a>
     </div>
   </header>
 </template>
@@ -71,6 +75,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { getTemplate } from '@/config/templates'
 import { useTheme } from '@/composables/useTheme'
 import type { ThemeMode } from '@/composables/useTheme'
+import { APP_CONFIG } from '@/config/app'
 
 defineProps<{
   /** 是否显示编辑模式中间区域（简历名称输入框 + 模板标签） */
@@ -94,6 +99,8 @@ const emit = defineEmits<{
 
 const store = useResumeStore()
 const { mode, resolvedTheme, setMode } = useTheme()
+
+const githubUrl = APP_CONFIG.githubUrl
 
 // 下拉菜单展开状态（供 aria-expanded 使用）
 const aiHelpOpen = ref(false)
@@ -306,6 +313,27 @@ const onExportSelect = (key: string) => {
     cursor: pointer;
     transition: all $transition-fast;
     flex-shrink: 0;
+
+    &:hover {
+      background: var(--hover-bg);
+      color: $text-primary;
+      border-color: var(--border-hover);
+    }
+  }
+
+  &__github-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-lg;
+    border: 1px solid $border-glass;
+    background: $bg-glass;
+    color: $text-secondary;
+    transition: all $transition-fast;
+    flex-shrink: 0;
+    text-decoration: none;
 
     &:hover {
       background: var(--hover-bg);
