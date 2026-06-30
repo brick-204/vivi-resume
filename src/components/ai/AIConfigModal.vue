@@ -40,13 +40,17 @@
       </n-form-item>
       <div class="api-key-warning">
         <Icon icon="mdi:shield-alert-outline" :width="14" />
-        <span>API Key 将以明文存储在本地浏览器中，请勿在公共设备上保存密钥</span>
+        <span>API Key 将以明文存储在本地浏览器或设置的本地目录中，请勿在公共设备上保存密钥</span>
       </div>
 
       <n-form-item label="API 地址" path="endpoint">
         <n-input v-model:value="formData.endpoint" placeholder="https://api.example.com/v1" />
         <template #feedback>
-          <div v-if="!selectedProvider?.corsFriendly" class="cors-warning">
+          <div v-if="endpointError" class="endpoint-error">
+            <Icon icon="mdi:alert-circle-outline" :width="14" />
+            {{ endpointError }}
+          </div>
+          <div v-else-if="!selectedProvider?.corsFriendly" class="cors-warning">
             <Icon icon="mdi:alert-circle-outline" :width="14" />
             <template v-if="isDev && devProxyEndpoint">
               开发环境已自动使用代理地址，无需额外配置
@@ -117,6 +121,25 @@ const devProxyEndpoint = computed(() => {
   return getDevProxyEndpoint(formData.value.provider, selectedProvider.value.defaultEndpoint)
 })
 
+// 共用校验逻辑：返回错误消息字符串，无错误返回空串
+function validateEndpoint(value: string): string {
+  if (!value) return ''
+  // 开发环境下允许 /api/ 开头的代理路径
+  if (isDev && value.startsWith('/api/')) return ''
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:') {
+      return 'API 地址必须以 https:// 开头'
+    }
+    return ''
+  } catch {
+    return '请输入有效的 URL 格式'
+  }
+}
+
+// 实时反馈的协议错误（输入时即显示，无需等失焦）
+const endpointError = computed(() => validateEndpoint(formData.value.endpoint))
+
 const rules: FormRules = {
   name: { required: true, message: '请输入配置名称', trigger: 'blur' },
   provider: { required: true, message: '请选择服务商', trigger: 'change' },
@@ -126,18 +149,8 @@ const rules: FormRules = {
     { required: true, message: '请输入 API 地址', trigger: 'blur' },
     {
       validator: (_rule: unknown, value: string) => {
-        if (!value) return true
-        // 开发环境下允许 /api/ 开头的代理路径
-        if (isDev && value.startsWith('/api/')) return true
-        try {
-          const url = new URL(value)
-          if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-            return new Error('API 地址必须以 http:// 或 https:// 开头')
-          }
-          return true
-        } catch {
-          return new Error('请输入有效的 URL 格式')
-        }
+        const error = validateEndpoint(value)
+        return error ? new Error(error) : true
       },
       trigger: 'blur',
     },
@@ -214,6 +227,15 @@ const handleSave = async () => {
   margin-top: 4px;
   font-size: $font-size-xs;
   color: $success-color;
+}
+
+.endpoint-error {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: $font-size-xs;
+  color: $error-color;
 }
 
 .api-key-warning {

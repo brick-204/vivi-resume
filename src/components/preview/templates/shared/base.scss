@@ -62,14 +62,18 @@
         flex-shrink: 1;
         min-width: 0;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
 
       .header__fields {
         flex: 1;
         min-width: 0;
+        display: flex;
         flex-wrap: wrap;
         justify-content: flex-start;
-        align-items: flex-start;
+        align-items: center;
+        align-content: center;
       }
     }
 
