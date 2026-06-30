@@ -1,41 +1,44 @@
-// ==================== 主题 CSS 自定义属性 ====================
+// ==================== Apple 主题 CSS 自定义属性 ====================
 // 深色值放在 :root（默认），浅色值放在 [data-theme="light"]
 // SCSS 变量通过 var(--xxx) 引用这些自定义属性，实现运行时主题切换
 
 :root {
-  // 背景色
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #141414;
-  --bg-tertiary: #2a2a2a;
-  --bg-dark: #0e0e0e;
-  --bg-glass: #2a2a2a;
-  --bg-glass-hover: #333333;
-  --bg-glass-active: #3a3a3a;
+  // Apple 深色背景 - Near-Black Tiles
+  --bg-primary: #272729;          // Near-Black Tile 1
+  --bg-secondary: #252527;        // Near-Black Tile 3
+  --bg-tertiary: #2a2a2c;         // Near-Black Tile 2
+  --bg-dark: #1d1d1f;             // Near-Black Ink
+  --bg-glass: transparent;        // Apple 无玻璃效果
+  --bg-glass-hover: rgba(255, 255, 255, 0.06);
+  --bg-glass-active: rgba(255, 255, 255, 0.12);
+  --bg-gradient: var(--bg-secondary);
 
-  // 文字颜色
-  --text-primary: #ececec;
-  --text-secondary: #9a9a9a;
-  --text-light: #636363;
+  // 文字颜色 - Apple 风格
+  --text-primary: #f5f5f7;        // Parchment（浅色文字）
+  --text-secondary: #a1a1a6;      // Secondary gray
+  --text-light: #6e6e73;          // Tertiary gray
 
-  // 边框
-  --border-color: #333333;
-  --border-light: #2a2a2a;
-  --border-bold: #404040;
-  --border-glass: #333333;
-  --border-hover: #4a4a4a;
+  // 边框 - 极细或无
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-light: transparent;
+  --border-bold: rgba(255, 255, 255, 0.15);
+  --border-glass: rgba(255, 255, 255, 0.1);
+  --border-hover: rgba(255, 255, 255, 0.15);
 
-  // 阴影
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-primary: 0 2px 8px rgba(79, 109, 245, 0.25);
-  --shadow-secondary: 0 2px 8px rgba(59, 130, 246, 0.2);
+  // 阴影 - UI 元素无阴影（Apple 设计原则）
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-primary: none;
+  --shadow-secondary: none;
   --shadow-glow-primary: none;
   --shadow-glow-secondary: none;
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-card: none;
+  // 仅产品图片阴影
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px;
 
-  // 光晕色
+  // 光晕色 - Apple 不使用光晕装饰
   --glow-purple: transparent;
   --glow-cyan: transparent;
   --glow-pink: transparent;
@@ -45,18 +48,18 @@
   --scrollbar-thumb: rgba(255, 255, 255, 0.15);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
 
-  // Header 背景
-  --header-bg: #1a1a1a;
-  --sidebar-bg: #161616;
-  --editor-panel-bg: #1e1e1e;
-  --card-info-bg: #222222;
-  --card-overlay-bg: #1e1e1e;
+  // Header/Sidebar 背景 - Apple 风格
+  --header-bg: #272729;           // 同 bg-primary
+  --sidebar-bg: #252527;          // 同 bg-secondary
+  --editor-panel-bg: #2a2a2c;     // 同 bg-tertiary
+  --card-info-bg: #272729;        // 同 bg-primary
+  --card-overlay-bg: #1d1d1f;     // Near-Black
 
   // 通用交互
   --hover-bg: rgba(255, 255, 255, 0.06);
-  --focus-ring: rgba(79, 109, 245, 0.25);
-  --input-focus-bg: #2a2a2a;
-  --input-disabled-bg: #222222;
+  --focus-ring: rgba(0, 102, 204, 0.25);  // Action Blue focus
+  --input-focus-bg: #2a2a2c;
+  --input-disabled-bg: #252527;
 
   // Diff 高亮
   --diff-added-line-bg: rgba(52, 211, 153, 0.15);
@@ -72,46 +75,48 @@
   // 额外交互
   --grid-line: transparent;
   --progress-track: #333333;
-  --tooltip-bg: #2a2a2a;
-  --tooltip-border: #404040;
-  --tooltip-shadow: rgba(0, 0, 0, 0.3);
+  --tooltip-bg: #2a2a2c;
+  --tooltip-border: rgba(255, 255, 255, 0.15);
+  --tooltip-shadow: none;         // 无阴影
 }
 
 // ==================== 浅色主题 ====================
 [data-theme="light"] {
-  // 背景色 — 简洁纯净风
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8f9fa;
-  --bg-tertiary: #eef0f3;
-  --bg-dark: #f0f1f3;
-  --bg-glass: #f3f4f6;
-  --bg-glass-hover: #e8eaed;
-  --bg-glass-active: #dfe1e5;
+  // Apple 浅色背景 - Canvas/Parchment/Pearl
+  --bg-primary: #ffffff;          // Canvas
+  --bg-secondary: #f5f5f7;        // Parchment
+  --bg-tertiary: #fafafc;         // Pearl
+  --bg-dark: #f5f5f7;             // Parchment
+  --bg-glass: transparent;        // 无玻璃效果
+  --bg-glass-hover: rgba(0, 0, 0, 0.04);
+  --bg-glass-active: rgba(0, 0, 0, 0.08);
+  --bg-gradient: var(--bg-secondary);
 
-  // 文字颜色
-  --text-primary: #1c1917;
-  --text-secondary: #5f6368;
-  --text-light: #9aa0a6;
+  // 文字颜色 - Apple Near-Black Ink
+  --text-primary: #1d1d1f;        // Near-Black Ink
+  --text-secondary: #6e6e73;      // Secondary gray
+  --text-light: #86868b;          // Tertiary gray
 
-  // 边框
-  --border-color: #e0e0e0;
-  --border-light: #ebebeb;
-  --border-bold: #d0d0d0;
-  --border-glass: #e0e0e0;
-  --border-hover: #c0c0c0;
+  // 边框 - 极细边框
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-light: transparent;
+  --border-bold: rgba(0, 0, 0, 0.12);
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.12);
 
-  // 阴影 — 浅色背景用更轻的阴影
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
-  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.15);
-  --shadow-primary: 0 2px 8px rgba(79, 109, 245, 0.2);
-  --shadow-secondary: 0 2px 8px rgba(59, 130, 246, 0.15);
+  // 阴影 - UI 元素无阴影（Apple 设计原则）
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-primary: none;
+  --shadow-secondary: none;
   --shadow-glow-primary: none;
   --shadow-glow-secondary: none;
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card: none;
+  --shadow-product: rgba(0, 0, 0, 0.22) 3px 5px 30px;
 
-  // 光晕色
+  // 光晕色 - Apple 不使用光晕装饰
   --glow-purple: transparent;
   --glow-cyan: transparent;
   --glow-pink: transparent;
@@ -121,18 +126,18 @@
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
 
-  // Header 背景
-  --header-bg: #ffffff;
-  --sidebar-bg: #f8f9fa;
+  // Header/Sidebar 背景 - Apple 风格
+  --header-bg: #ffffff;           // 同 bg-primary
+  --sidebar-bg: #f5f5f7;          // 同 bg-secondary
   --editor-panel-bg: #fafafa;
-  --card-info-bg: #ffffff;
+  --card-info-bg: #ffffff;        // 同 bg-primary
   --card-overlay-bg: #ffffff;
 
   // 通用交互
   --hover-bg: rgba(0, 0, 0, 0.04);
-  --focus-ring: rgba(79, 109, 245, 0.2);
+  --focus-ring: rgba(0, 102, 204, 0.2);   // Action Blue focus
   --input-focus-bg: #ffffff;
-  --input-disabled-bg: #f5f5f5;
+  --input-disabled-bg: #f5f5f7;
 
   // Diff 高亮
   --diff-added-line-bg: rgba(52, 211, 153, 0.18);
@@ -149,6 +154,6 @@
   --grid-line: transparent;
   --progress-track: #e0e0e0;
   --tooltip-bg: #ffffff;
-  --tooltip-border: #e0e0e0;
-  --tooltip-shadow: rgba(0, 0, 0, 0.1);
+  --tooltip-border: rgba(0, 0, 0, 0.08);
+  --tooltip-shadow: none;         // 无阴影
 }

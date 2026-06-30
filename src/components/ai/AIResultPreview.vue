@@ -527,6 +527,8 @@ const refineGenerate = async () => {
 </script>
 
 <style lang="scss" scoped>
+@use 'sass:color';
+
 .preview-header {
   display: flex;
   align-items: center;
@@ -670,13 +672,13 @@ const refineGenerate = async () => {
 
 .diff-added {
   background: rgba($success-color, 0.2);
-  color: darken($success-color, 10%);
+  color: color.adjust($success-color, $lightness: -10%);
   border-radius: 2px;
 }
 
 .diff-removed {
   background: rgba($error-color, 0.15);
-  color: darken($error-color, 10%);
+  color: color.adjust($error-color, $lightness: -10%);
   text-decoration: line-through;
   opacity: 0.7;
   border-radius: 2px;

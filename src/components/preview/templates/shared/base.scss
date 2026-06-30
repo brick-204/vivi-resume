@@ -116,7 +116,7 @@
     }
 
     .header__name {
-      font-size: $font-size-3xl;
+      font-size: 32px;
       font-weight: 800;
       color: var(--t-header-text);
       margin-bottom: $spacing-xs;
@@ -124,7 +124,7 @@
     }
 
     .header__title {
-      font-size: $font-size-lg;
+      font-size: 18px;
       color: var(--t-header-title-color);
       font-weight: 600;
       margin-bottom: $spacing-md;

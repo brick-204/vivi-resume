@@ -138,20 +138,13 @@ const scrollToFeatures = () => {
   }
 }
 
-// 动态渐变背景
+// Apple 风格：静态渐变背景，无动画
 .hero__bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, transparent 0%, rgba($primary-color, 0.04) 40%, rgba($accent-color, 0.03) 70%, transparent 100%);
-  background-size: 200% 200%;
-  animation: gradient-shift 10s ease infinite;
+  background: linear-gradient(135deg, rgba($primary-color, 0.04) 0%, rgba($primary-color, 0.02) 100%);
   pointer-events: none;
   z-index: 0;
-}
-
-@keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
 }
 
 .hero__content {
@@ -192,13 +185,14 @@ const scrollToFeatures = () => {
   @include animate-slide-up(0.2s);
 }
 
+// Apple 风格：标题使用负字间距
 .hero__title-line {
   display: block;
   font-size: $font-size-4xl;
   color: $text-primary;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  font-weight: $font-weight-semibold;
+  line-height: 1.05;
+  letter-spacing: $letter-spacing-hero;  // Apple tight tracking
 
   @include mobile {
     font-size: $font-size-2xl;
@@ -206,8 +200,8 @@ const scrollToFeatures = () => {
 }
 
 .hero__title-highlight {
-  @include gradient-text;
-  font-weight: 800;
+  color: $primary-color;           // Action Blue
+  font-weight: $font-weight-bold;
 }
 
 .hero__desc {
@@ -237,40 +231,45 @@ const scrollToFeatures = () => {
   @include animate-slide-up(0.4s);
 }
 
+// Apple 风格按钮：pill 形状，无阴影，激活态 scale(0.95)
 .hero__btn {
   display: inline-flex;
   align-items: center;
   gap: $spacing-sm;
-  padding: $spacing-md $spacing-xl;
-  border-radius: $radius-lg;
+  padding: 11px 22px;
+  border-radius: $radius-full;    // Pill 形状
   font-size: $font-size-md;
-  font-weight: 600;
+  font-weight: $font-weight-semibold;
   cursor: pointer;
-  transition: all $transition-base;
+  transition: transform 0.15s ease, background 0.15s ease;
   border: none;
   font-family: $font-family;
+  line-height: 1;
 
   &--primary {
-    background: $primary-color;
+    background: $primary-color;   // Action Blue
     color: $text-white;
-    box-shadow: $shadow-sm;
 
     &:hover {
       background: $primary-light;
-      box-shadow: $shadow-md;
-      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 
   &--secondary {
-    background: $bg-glass;
-    color: $text-secondary;
-    border: 1px solid $border-glass;
+    background: transparent;
+    color: $primary-color;
+    border: 1px solid $primary-color;
 
     &:hover {
-      background: $bg-glass-hover;
-      border-color: $primary-color;
-      color: $primary-light;
+      background: rgba($primary-color, 0.06);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 }
@@ -314,8 +313,9 @@ const scrollToFeatures = () => {
   }
 }
 
+// Apple 风格：卡片无阴影，极细边框
 .hero__preview-card {
-  @include glass-card;
+  @include card-container;
   width: 240px;
 
   &__header {
@@ -339,7 +339,7 @@ const scrollToFeatures = () => {
 
   &__name {
     font-size: $font-size-md;
-    font-weight: 700;
+    font-weight: $font-weight-bold;
     color: $text-primary;
   }
 
@@ -354,25 +354,25 @@ const scrollToFeatures = () => {
     gap: $spacing-xs;
   }
 
+  // Apple 风格：仅用边框色区分，无阴影
   &--accent {
-    border-color: $accent-color;
-    box-shadow: $shadow-md;
+    border-color: $primary-color;
   }
 
   &--secondary {
     border-color: $secondary-color;
-    box-shadow: $shadow-md;
   }
 }
 
+// Apple 风格：技能标签，font-weight 600
 .hero__skill-tag {
   padding: $spacing-xs $spacing-sm;
-  background: $bg-glass;
+  background: var(--bg-glass-hover);
   color: $primary-color;
-  border: 1px solid $border-glass;
+  border: 1px solid var(--border-color);
   border-radius: $radius-full;
   font-size: $font-size-xs;
-  font-weight: 500;
+  font-weight: $font-weight-semibold;
 }
 
 // 滚动提示

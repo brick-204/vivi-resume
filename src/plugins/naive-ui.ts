@@ -2,173 +2,179 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 import { darkTheme } from 'naive-ui'
 import { createDiscreteApi } from 'naive-ui'
 
-// ==================== 深色主题覆盖 ====================
+// ==================== Apple 风格 - 深色主题覆盖 ====================
 export const darkThemeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#7b93f8',
-    primaryColorHover: '#9baff9',
-    primaryColorPressed: '#5a73d6',
-    primaryColorSuppl: '#6b83f0',
-    borderRadius: '8px',
-    borderRadiusSmall: '6px',
+    primaryColor: '#0066cc',             // Action Blue
+    primaryColorHover: '#0071e1',
+    primaryColorPressed: '#005bb5',
+    primaryColorSuppl: '#0071e1',
+    borderRadius: '18px',                // Apple lg radius
+    borderRadiusSmall: '11px',           // Apple md radius
     fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
-    fontSize: '14px',
-    fontSizeSmall: '12px',
-    fontSizeMini: '11px',
-    heightMedium: '36px',
-    heightSmall: '30px',
+    fontSize: '17px',                    // Apple body size
+    fontSizeSmall: '14px',
+    fontSizeMini: '12px',
+    heightMedium: '40px',
+    heightSmall: '32px',
     heightMini: '24px',
-    bodyColor: '#1a1a1a',
-    cardColor: '#2a2a2a',
-    modalColor: '#1e1e1e',
-    popoverColor: '#2a2a2a',
-    inputColor: '#2a2a2a',
-    actionColor: '#2a2a2a',
-    tableColor: '#1a1a1a',
-    textColor1: '#ececec',
-    textColor2: '#9a9a9a',
-    textColor3: '#636363',
-    dividerColor: '#333333',
-    borderColor: '#333333',
-    hoverColor: '#333333',
-    placeholderColor: '#636363',
+    bodyColor: '#272729',                // Near-Black Tile 1
+    cardColor: '#2a2a2c',                // Near-Black Tile 2
+    modalColor: '#252527',               // Near-Black Tile 3
+    popoverColor: '#2a2a2c',
+    inputColor: '#2a2a2c',
+    actionColor: '#2a2a2c',
+    tableColor: '#272729',
+    textColor1: '#f5f5f7',               // Parchment
+    textColor2: '#a1a1a6',               // Secondary gray
+    textColor3: '#6e6e73',               // Tertiary gray
+    dividerColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    hoverColor: 'rgba(255, 255, 255, 0.06)',
+    placeholderColor: '#6e6e73',
   },
   Button: {
-    borderRadiusMedium: '8px',
-    borderRadiusSmall: '6px',
-    borderRadiusTiny: '4px',
-    fontSizeMedium: '14px',
-    fontSizeSmall: '13px',
+    borderRadiusMedium: '9999px',        // Pill
+    borderRadiusSmall: '11px',
+    borderRadiusTiny: '8px',
+    fontSizeMedium: '17px',
+    fontSizeSmall: '14px',
     fontWeightStrong: '600',
-    heightMedium: '36px',
-    heightSmall: '30px',
+    heightMedium: '40px',
+    heightSmall: '32px',
   },
   Input: {
-    borderRadius: '8px',
-    borderRadiusSmall: '6px',
-    borderFocus: '1px solid #7b93f8',
-    borderHover: '1px solid rgba(123, 147, 248, 0.5)',
-    boxShadowFocus: '0 0 0 2px rgba(79, 109, 245, 0.15)',
-    caretColor: '#7b93f8',
+    borderRadius: '11px',
+    borderRadiusSmall: '11px',
+    color: '#2a2a2c',                  // 输入框背景
+    textColor: '#f5f5f7',              // 文本颜色
+    placeholderColor: '#86868b',       // 占位符颜色
+    borderFocus: '1px solid #0066cc',
+    borderHover: '1px solid rgba(0, 102, 204, 0.5)',
+    caretColor: '#0066cc',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
   },
   Card: {
-    borderRadius: '12px',
+    borderRadius: '18px',
   },
   Modal: {
-    borderRadius: '12px',
+    borderRadius: '18px',
   },
   Switch: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
   Select: {
     peers: {
       InternalSelection: {
-        borderRadius: '8px',
+        borderRadius: '11px',
       },
     },
   },
   Slider: {
-    fillColor: '#4f6df5',
-    fillColorHover: '#7b93f8',
-    dotColor: '#4f6df5',
-    dotBorderActive: '2px solid #7b93f8',
+    fillColor: '#0066cc',
+    fillColorHover: '#0071e1',
+    dotColor: '#0066cc',
+    dotBorderActive: '2px solid #0071e1',
   },
   Popconfirm: {
-    borderRadius: '8px',
+    borderRadius: '18px',
   },
   ColorPicker: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
   InputNumber: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
   Message: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
 }
 
-// ==================== 浅色主题覆盖 ====================
+// ==================== Apple 风格 - 浅色主题覆盖 ====================
 export const lightThemeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#4f6df5',
-    primaryColorHover: '#7b93f8',
-    primaryColorPressed: '#3b52c7',
-    primaryColorSuppl: '#5a73d6',
-    borderRadius: '8px',
-    borderRadiusSmall: '6px',
+    primaryColor: '#0066cc',             // Action Blue
+    primaryColorHover: '#0071e1',
+    primaryColorPressed: '#005bb5',
+    primaryColorSuppl: '#0071e1',
+    borderRadius: '18px',                // Apple lg radius
+    borderRadiusSmall: '11px',           // Apple md radius
     fontFamily: "'Outfit', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
-    fontSize: '14px',
-    fontSizeSmall: '12px',
-    fontSizeMini: '11px',
-    heightMedium: '36px',
-    heightSmall: '30px',
+    fontSize: '17px',                    // Apple body size
+    fontSizeSmall: '14px',
+    fontSizeMini: '12px',
+    heightMedium: '40px',
+    heightSmall: '32px',
     heightMini: '24px',
-    bodyColor: '#f8f9fa',
-    cardColor: '#ffffff',
+    bodyColor: '#ffffff',                // Canvas
+    cardColor: '#f5f5f7',                // Parchment
     modalColor: '#ffffff',
     popoverColor: '#ffffff',
     inputColor: '#ffffff',
-    actionColor: '#f0f1f3',
-    tableColor: '#f8f9fa',
-    textColor1: '#1c1917',
-    textColor2: '#5f6368',
-    textColor3: '#9aa0a6',
-    dividerColor: '#e0e0e0',
-    borderColor: '#e0e0e0',
-    hoverColor: '#e8eaed',
-    placeholderColor: '#9aa0a6',
+    actionColor: '#fafafc',              // Pearl
+    tableColor: '#f5f5f7',
+    textColor1: '#1d1d1f',               // Near-Black Ink
+    textColor2: '#6e6e73',               // Secondary gray
+    textColor3: '#86868b',               // Tertiary gray
+    dividerColor: 'rgba(0, 0, 0, 0.08)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    hoverColor: 'rgba(0, 0, 0, 0.04)',
+    placeholderColor: '#86868b',
   },
   Button: {
-    borderRadiusMedium: '8px',
-    borderRadiusSmall: '6px',
-    borderRadiusTiny: '4px',
-    fontSizeMedium: '14px',
-    fontSizeSmall: '13px',
+    borderRadiusMedium: '9999px',        // Pill
+    borderRadiusSmall: '11px',
+    borderRadiusTiny: '8px',
+    fontSizeMedium: '17px',
+    fontSizeSmall: '14px',
     fontWeightStrong: '600',
-    heightMedium: '36px',
-    heightSmall: '30px',
+    heightMedium: '40px',
+    heightSmall: '32px',
   },
   Input: {
-    borderRadius: '8px',
-    borderRadiusSmall: '6px',
-    borderFocus: '1px solid #4f6df5',
-    borderHover: '1px solid rgba(79, 109, 245, 0.4)',
-    boxShadowFocus: '0 0 0 2px rgba(79, 109, 245, 0.12)',
-    caretColor: '#4f6df5',
+    borderRadius: '11px',
+    borderRadiusSmall: '11px',
+    color: '#ffffff',                  // 输入框背景
+    textColor: '#1d1d1f',              // 文本颜色
+    placeholderColor: '#86868b',       // 占位符颜色
+    borderFocus: '1px solid #0066cc',
+    borderHover: '1px solid rgba(0, 102, 204, 0.4)',
+    caretColor: '#0066cc',
+    border: '1px solid rgba(0, 0, 0, 0.08)',
   },
   Card: {
-    borderRadius: '12px',
+    borderRadius: '18px',
   },
   Modal: {
-    borderRadius: '12px',
+    borderRadius: '18px',
   },
   Switch: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
   Select: {
     peers: {
       InternalSelection: {
-        borderRadius: '8px',
+        borderRadius: '11px',
       },
     },
   },
   Slider: {
-    fillColor: '#4f6df5',
-    fillColorHover: '#7b93f8',
-    dotColor: '#4f6df5',
-    dotBorderActive: '2px solid #7b93f8',
+    fillColor: '#0066cc',
+    fillColorHover: '#0071e1',
+    dotColor: '#0066cc',
+    dotBorderActive: '2px solid #0071e1',
   },
   Popconfirm: {
-    borderRadius: '8px',
+    borderRadius: '18px',
   },
   ColorPicker: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
   InputNumber: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
   Message: {
-    borderRadius: '8px',
+    borderRadius: '11px',
   },
 }
 

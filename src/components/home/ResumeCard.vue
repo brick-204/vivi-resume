@@ -97,21 +97,20 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
 </script>
 
 <style lang="scss" scoped>
+// Apple 风格：卡片极细边框，18px 圆角，无阴影
 .resume-card {
   position: relative;
-  border-radius: $radius-lg;
+  border-radius: $radius-lg;      // 18px
   overflow: hidden;
   cursor: pointer;
-  transition: all $transition-base;
-  border: 2px solid var(--border-glass);
-  background: var(--bg-glass);
+  transition: border-color 0.15s ease;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
 
   &:hover {
-    transform: translateY(-4px);
     border-color: $primary-color;
-    box-shadow: $shadow-md;
 
     .resume-card__actions {
       opacity: 1;
@@ -227,28 +226,34 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
     justify-content: center;
     width: 32px;
     height: 32px;
-    border-radius: $radius-md;
+    border-radius: $radius-sm;      // 8px
     border: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, transform 0.15s ease;
 
     &--edit {
       background: $primary-color;
       color: #ffffff;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background: $primary-light;
-        transform: scale(1.1);
+      }
+
+      &:active:not(:disabled) {
+        transform: scale(0.95);
       }
     }
 
     &--copy {
-      background: rgba(59, 130, 246, 0.8);
+      background: rgba($secondary-color, 0.8);
       color: #ffffff;
 
       &:hover:not(:disabled) {
-        background: rgba(59, 130, 246, 1);
-        transform: scale(1.1);
+        background: rgba($secondary-light, 1);
+      }
+
+      &:active:not(:disabled) {
+        transform: scale(0.95);
       }
 
       &:disabled {
@@ -258,12 +263,15 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
     }
 
     &--delete {
-      background: rgba(239, 68, 68, 0.8);
+      background: rgba($error-color, 0.8);
       color: #ffffff;
 
       &:hover {
-        background: rgba(239, 68, 68, 1);
-        transform: scale(1.1);
+        background: rgba($error-color, 1);
+      }
+
+      &:active {
+        transform: scale(0.95);
       }
     }
   }

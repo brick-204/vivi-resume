@@ -80,8 +80,9 @@ const features = [
   }
 }
 
+// Apple 风格：卡片无 glass 效果，无阴影
 .feature-card {
-  @include glass-card;
+  @include card-container;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -90,6 +91,7 @@ const features = [
   animation: slide-up 0.6s ease both;
 }
 
+// Apple 风格：图标背景使用 hover 色
 .feature-card__icon {
   display: flex;
   align-items: center;
@@ -97,14 +99,14 @@ const features = [
   width: 56px;
   height: 56px;
   border-radius: $radius-lg;
-  background: rgba($primary-color, 0.08);
-  color: $primary-light;
+  background: var(--bg-glass-hover);
+  color: $primary-color;
   margin-bottom: $spacing-md;
 }
 
 .feature-card__title {
   font-size: $font-size-md;
-  font-weight: 600;
+  font-weight: $font-weight-semibold;
   color: $text-primary;
   margin-bottom: $spacing-xs;
 }

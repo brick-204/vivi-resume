@@ -38,7 +38,7 @@ const goToDashboard = () => {
 .cta-section__bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba($primary-color, 0.06) 0%, rgba($accent-color, 0.04) 50%, rgba($primary-color, 0.06) 100%);
+  background: linear-gradient(135deg, rgba($primary-color, 0.06) 0%, rgba($primary-color, 0.04) 100%);
   border-radius: $radius-lg;
   pointer-events: none;
 }
@@ -70,27 +70,28 @@ const goToDashboard = () => {
   margin-bottom: $spacing-2xl;
 }
 
+// Apple 风格：pill 形状，无阴影，激活态 scale(0.95)
 .cta-section__btn {
   display: inline-flex;
   align-items: center;
   gap: $spacing-sm;
-  padding: $spacing-md $spacing-2xl;
-  border-radius: $radius-lg;
+  padding: 11px 24px;
+  border-radius: $radius-full;    // Pill 形状
   font-size: $font-size-lg;
-  font-weight: 600;
+  font-weight: $font-weight-semibold;
   cursor: pointer;
-  transition: all $transition-base;
+  transition: transform 0.15s ease, background 0.15s ease;
   border: none;
   font-family: $font-family;
-  background: $primary-color;
+  background: $primary-color;   // Action Blue
   color: $text-white;
-  box-shadow: $shadow-md;
-  animation: pulse-glow 2s ease infinite;
 
   &:hover {
     background: $primary-light;
-    box-shadow: $shadow-xl;
-    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 }
 </style>

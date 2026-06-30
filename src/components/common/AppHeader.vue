@@ -199,11 +199,12 @@ const onExportSelect = (key: string) => {
     object-fit: contain;
   }
 
+  // Apple 风格：Logo 使用纯色
   &__logo-text {
     font-size: $font-size-lg;
-    font-weight: 700;
-    @include gradient-text;
-    letter-spacing: -0.02em;
+    font-weight: $font-weight-bold;
+    color: $primary-color;         // Action Blue
+    letter-spacing: $letter-spacing-title;
     white-space: nowrap;
   }
 
@@ -214,14 +215,15 @@ const onExportSelect = (key: string) => {
     justify-content: center;
   }
 
+  // Apple 风格：导航栏透明背景，pill 形状标签
   &__nav {
     display: flex;
     align-items: center;
     gap: $spacing-xs;
-    background: $bg-glass;
-    border-radius: $radius-xl;
+    background: transparent;
+    border-radius: $radius-full;
     padding: $spacing-xs;
-    border: 1px solid $border-glass;
+    border: none;
   }
 
   &__nav-tab {
@@ -229,26 +231,25 @@ const onExportSelect = (key: string) => {
     align-items: center;
     gap: $spacing-xs;
     padding: $spacing-sm $spacing-lg;
-    border-radius: $radius-lg;
+    border-radius: $radius-full;  // Pill 形状
     font-size: $font-size-sm;
-    font-weight: 600;
+    font-weight: $font-weight-semibold;
     color: $text-secondary;
-    transition: all $transition-fast;
+    transition: background 0.15s ease, color 0.15s ease;
     text-decoration: none;
     white-space: nowrap;
 
     &:hover {
-      background: var(--hover-bg);
+      background: var(--bg-glass-hover);
       color: $text-primary;
     }
 
     &--active {
-      background: $primary-bg-active;
+      background: $primary-color;  // Action Blue
       color: $text-white;
-      box-shadow: $shadow-primary;
 
       &:hover {
-        background: $primary-bg-active;
+        background: $primary-light;
         color: $text-white;
       }
     }
@@ -300,24 +301,28 @@ const onExportSelect = (key: string) => {
     gap: $spacing-sm;
   }
 
+// Apple 风格：主题/GitHub 按钮，珍珠风格
   &__theme-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: $radius-lg;
-    border: 1px solid $border-glass;
-    background: $bg-glass;
+    border-radius: $radius-md;      // 11px
+    border: 1px solid var(--border-color);
+    background: transparent;
     color: $text-secondary;
     cursor: pointer;
-    transition: all $transition-fast;
+    transition: background 0.15s ease, transform 0.15s ease;
     flex-shrink: 0;
 
     &:hover {
-      background: var(--hover-bg);
+      background: var(--bg-glass-hover);
       color: $text-primary;
-      border-color: var(--border-hover);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 
@@ -327,70 +332,78 @@ const onExportSelect = (key: string) => {
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: $radius-lg;
-    border: 1px solid $border-glass;
-    background: $bg-glass;
+    border-radius: $radius-md;      // 11px
+    border: 1px solid var(--border-color);
+    background: transparent;
     color: $text-secondary;
-    transition: all $transition-fast;
+    transition: background 0.15s ease, transform 0.15s ease;
     flex-shrink: 0;
     text-decoration: none;
 
     &:hover {
-      background: var(--hover-bg);
+      background: var(--bg-glass-hover);
       color: $text-primary;
-      border-color: var(--border-hover);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 }
 
+// Apple 风格：Header 按钮
 .header-btn {
   display: inline-flex;
   align-items: center;
   gap: $spacing-xs;
   padding: $spacing-sm $spacing-lg;
-  border-radius: $radius-lg;
+  border-radius: $radius-full;    // Pill 形状
   font-size: $font-size-sm;
-  font-weight: 600;
+  font-weight: $font-weight-semibold;
   cursor: pointer;
-  transition: all $transition-base;
+  transition: transform 0.15s ease, background 0.15s ease;
   border: none;
   font-family: $font-family;
   white-space: nowrap;
 
   &--ai-help {
-    background: linear-gradient(135deg, $primary-color, $accent-color);
+    background: $primary-color;   // Action Blue（移除渐变）
     color: $text-white;
-    border: none;
-    box-shadow: $shadow-sm;
 
     &:hover {
-      opacity: 0.9;
-      box-shadow: $shadow-md;
+      background: $primary-light;
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 
   &--scan,
   &--template {
-    background: $bg-glass;
-    color: $text-secondary;
-    border: 1px solid $border-glass;
+    background: transparent;
+    color: $primary-color;
+    border: 1px solid $primary-color;
 
     &:hover {
-      background: $bg-glass-hover;
-      color: $primary-light;
-      border-color: $primary-color;
-      box-shadow: $shadow-sm;
+      background: rgba($primary-color, 0.06);
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 
   &--export {
-    background: $primary-color;
+    background: $primary-color;   // Action Blue
     color: $text-white;
-    box-shadow: $shadow-sm;
 
     &:hover {
       background: $primary-light;
-      box-shadow: $shadow-md;
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 }

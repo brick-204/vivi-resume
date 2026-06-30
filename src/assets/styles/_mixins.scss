@@ -211,76 +211,71 @@
   }
 }
 
+// ==================== Apple 卡片样式 ====================
+// Apple 卡片：圆角 18px，极细边框，无阴影
+@mixin card {
+  background: var(--bg-primary);
+  border-radius: $radius-lg;      // 18px
+  border: 1px solid var(--border-color);
+  // 无阴影，无 hover transition（Apple 设计原则）
+}
+
+// 卡片容器（带 padding）
+@mixin card-container {
+  @include card;
+  padding: $spacing-lg;
+}
+
+// 产品图片容器：唯一允许阴影的地方
+@mixin card-product {
+  @include card;
+  box-shadow: var(--shadow-product);
+  border: none;
+}
+
+// 带颜色的卡片（左侧边框强调）
+@mixin card-colorful($color) {
+  @include card;
+  border-left: 3px solid $color;
+}
+
+// 移除原有的 glass/glass-card/glass-hover mixin
+// Apple 不使用玻璃效果，保留空 mixin 以兼容现有代码
 @mixin glass {
-  background: $bg-glass;
-  border: 1px solid $border-glass;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: $radius-lg;
 }
 
 @mixin glass-hover {
-  background: $bg-glass-hover;
+  background: var(--bg-glass-hover);
   border-color: var(--border-hover);
-  box-shadow: $shadow-sm;
+  // 无阴影
 }
 
 @mixin glass-card {
   @include glass;
   padding: $spacing-lg;
-  transition: all $transition-base;
-
-  &:hover {
-    @include glass-hover;
-  }
+  // 无 hover 效果
 }
 
-// ==================== 微妙阴影 ====================
-@mixin glow($color, $intensity: 0.3) {
-  box-shadow: 0 2px 8px rgba($color, 0.15);
-}
-
-@mixin glow-border($color, $intensity: 0.3) {
-  border: 1px solid rgba($color, $intensity);
-}
-
-// ==================== 卡片样式 ====================
-@mixin card {
-  background: $bg-glass;
-  border: 1px solid $border-glass;
-  border-radius: $radius-lg;
-  box-shadow: $shadow-sm;
-  transition: all $transition-base;
-
-  &:hover {
-    background: $bg-glass-hover;
-    border-color: var(--border-hover);
-    box-shadow: $shadow-md;
-  }
-}
-
-@mixin card-colorful($color) {
-  @include card;
-  border-left: 3px solid $color;
-
-  &:hover {
-    box-shadow: $shadow-md;
-  }
-}
-
-// ==================== 按钮样式 ====================
+// ==================== Apple 按钮样式 ====================
+// 基础按钮 - 无阴影，pill 形状，激活态 scale(0.95)
 @mixin button-base {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: $spacing-sm;
-  padding: $spacing-sm $spacing-lg;
-  border-radius: $radius-md;
-  font-size: $font-size-sm;
-  font-weight: 600;
+  padding: 11px 22px;             // Apple CTA padding
+  border-radius: $radius-full;    // Pill 形状
+  font-size: $font-size-md;       // 17px
+  font-weight: $font-weight-semibold; // 600
   cursor: pointer;
-  transition: all $transition-base;
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
   border: none;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.022em;
   font-family: $font-family;
+  line-height: 1;
 
   &:disabled {
     opacity: 0.4;
@@ -288,37 +283,36 @@
     transform: none !important;
   }
 
+  // Apple 激活态：scale(0.95)，不是 hover scale up
   &:active:not(:disabled) {
-    transform: scale(0.97);
+    transform: scale(0.95);
   }
 }
 
+// 主按钮：Action Blue 背景，无阴影
 @mixin button-primary {
   @include button-base;
-  background: $primary-color;
+  background: $primary-color;     // Action Blue
   color: $text-white;
-  box-shadow: $shadow-sm;
 
   &:hover:not(:disabled) {
-    background: $primary-light;
-    box-shadow: $shadow-md;
+    background: $primary-light;   // 无 shadow 变化
   }
 }
 
+// 次按钮：透明背景 + 蓝色边框 + pill 形状
 @mixin button-secondary {
   @include button-base;
-  background: $bg-glass;
-  color: $text-primary;
-  border: 1px solid $border-glass;
+  background: transparent;
+  color: $primary-color;
+  border: 1px solid $primary-color;
 
   &:hover:not(:disabled) {
-    background: $bg-glass-hover;
-    border-color: $primary-color;
-    color: $text-white;
-    box-shadow: $shadow-sm;
+    background: rgba($primary-color, 0.06);
   }
 }
 
+// Ghost 按钮：透明，hover 微妙背景
 @mixin button-ghost {
   @include button-base;
   background: transparent;
@@ -326,9 +320,66 @@
   border: 1px solid transparent;
 
   &:hover:not(:disabled) {
-    background: $bg-glass;
+    background: var(--bg-glass-hover);
     color: $text-primary;
-    border-color: $border-glass;
+  }
+}
+
+// 珍珠按钮：浅色背景，圆角 11px
+@mixin button-pearl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding: 8px 16px;
+  border-radius: $radius-md;      // 11px
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  background: var(--bg-tertiary); // Pearl 背景
+  color: $text-primary;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  font-family: $font-family;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+}
+
+// 小型实用按钮：圆角 8px
+@mixin button-utility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: $radius-sm;      // 8px
+  font-size: $font-size-xs;
+  font-weight: $font-weight-semibold;
+  background: transparent;
+  color: $text-secondary;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  font-family: $font-family;
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--bg-glass-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.95);
   }
 }
 

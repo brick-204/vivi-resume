@@ -88,21 +88,20 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
 </script>
 
 <style lang="scss" scoped>
+// Apple 风格：卡片极细边框，18px 圆角，无阴影
 .template-showcase-card {
   position: relative;
-  border-radius: $radius-lg;
+  border-radius: $radius-lg;      // 18px
   overflow: hidden;
   cursor: pointer;
-  transition: all $transition-base;
-  border: 2px solid var(--border-glass);
-  background: var(--bg-glass);
+  transition: border-color 0.15s ease;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
 
   &:hover {
-    transform: translateY(-4px);
     border-color: $primary-color;
-    box-shadow: $shadow-md;
 
     .template-showcase-card__use-btn {
       opacity: 1;
@@ -177,20 +176,21 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
     margin-bottom: $spacing-md;
   }
 
+  // Apple 风格：pill 形状按钮，无阴影
   &__use-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: $spacing-xs;
-    padding: $spacing-sm $spacing-lg;
-    background: $primary-bg-active;
+    padding: 11px 22px;
+    background: $primary-color;     // Action Blue
     color: $text-white;
     border: none;
-    border-radius: $radius-md;
+    border-radius: $radius-full;    // Pill 形状
     font-size: $font-size-sm;
-    font-weight: 600;
+    font-weight: $font-weight-semibold;
     cursor: pointer;
-    transition: all $transition-base;
+    transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
     font-family: $font-family;
     opacity: 0;
     transform: translateY(4px);
@@ -198,8 +198,11 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
     width: 100%;
 
     &:hover {
-      transform: translateY(-1px);
-      box-shadow: $shadow-primary;
+      background: $primary-light;
+    }
+
+    &:active {
+      transform: scale(0.95);
     }
   }
 }

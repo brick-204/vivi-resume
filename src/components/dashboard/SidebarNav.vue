@@ -86,9 +86,9 @@ defineEmits<{
     align-items: center;
     gap: $spacing-sm;
     padding: $spacing-sm $spacing-md;
-    border-radius: $radius-lg;
+    border-radius: $radius-md;      // 11px 珍珠按钮风格
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease;
     color: $text-secondary;
     background: transparent;
     border: none;
@@ -98,17 +98,16 @@ defineEmits<{
     white-space: nowrap;
 
     &:hover {
-      background: $bg-glass;
+      background: var(--bg-glass-hover);
       color: $text-primary;
     }
 
     &--active {
-      background: $primary-bg-active;
+      background: $primary-color;      // Action Blue
       color: $text-white;
-      box-shadow: $shadow-primary;
 
       &:hover {
-        background: $primary-bg-active;
+        background: $primary-light;
         color: $text-white;
       }
     }

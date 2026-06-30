@@ -1,30 +1,32 @@
-// ==================== 极简配色方案 ====================
+// ==================== Apple 设计配色方案 ====================
 // 主题相关的颜色已迁移到 _theme.scss 中的 CSS 自定义属性
 // 此处 SCSS 变量引用 CSS 自定义属性，保持现有代码兼容
 
-// 主色调 - 靛蓝
-$primary-color: #4f6df5;
-$primary-light: #7b93f8;
-$primary-dark: #3b52c7;
-// 选中/激活态背景色（极简风格使用纯色，不再使用渐变）
+// Apple 交互色 - Action Blue
+$primary-color: #0066cc;          // Action Blue
+$primary-light: #0071e1;          // Hover state
+$primary-dark: #005bb5;           // Pressed state
+$link-color: #2997ff;             // Sky Link Blue（深色表面链接）
+// 选中/激活态背景色
 $primary-bg-active: $primary-color;
 
-// 次要色 - 蓝
-$secondary-color: #3b82f6;
-$secondary-light: #60a5fa;
-$secondary-dark: #2563eb;
+// 次要色 - 使用 Sky Link Blue（深色表面的链接色）
+$secondary-color: #2997ff;        // Sky Link Blue
+$secondary-light: #3a8cff;
+$secondary-dark: #1a7ae8;
 
-// 强调色 - 紫
-$accent-color: #8b5cf6;
-$accent-light: #a78bfa;
-$accent-dark: #7c3aed;
-
-// 活力琥珀
+// 琥珀色 - 语义色，保持不变
 $yellow-color: #fbbf24;
 $yellow-light: #fcd34d;
 $yellow-dark: #f59e0b;
 
-// 成功/警告/错误
+// 兼容层 - accent-color 改为使用 primary 的变体
+// Apple 设计不使用紫色强调色，这里用 primary 替代以兼容现有代码
+$accent-color: #0066cc;           // Action Blue（替代原紫色）
+$accent-light: #0071e1;           // primary-light
+$accent-dark: #005bb5;            // primary-dark
+
+// 成功/警告/错误 - 保持语义色
 $success-color: #34d399;
 $warning-color: #fbbf24;
 $error-color: #f87171;
@@ -44,7 +46,7 @@ $text-primary: var(--text-primary);
 $text-secondary: var(--text-secondary);
 $text-light: var(--text-light);
 $text-white: #ffffff;
-$text-dark: #1c1917;
+$text-dark: #1d1d1f;              // Apple Near-Black Ink
 
 // 富文本编辑区
 $editor-bg: #fefce8;
@@ -55,7 +57,7 @@ $border-light: var(--border-light);
 $border-bold: var(--border-bold);
 $border-glass: var(--border-glass);
 
-// 尺寸
+// 尺寸 - 基于 8px 网格
 $spacing-xs: 4px;
 $spacing-sm: 8px;
 $spacing-md: 16px;
@@ -63,14 +65,15 @@ $spacing-lg: 24px;
 $spacing-xl: 32px;
 $spacing-2xl: 48px;
 $spacing-3xl: 64px;
+$spacing-section: 80px;           // Apple section padding
 
-// 圆角
-$radius-sm: 8px;
-$radius-md: 12px;
-$radius-lg: 16px;
-$radius-xl: 16px;
-$radius-2xl: 20px;
-$radius-full: 9999px;
+// Apple 圆角层级
+$radius-sm: 8px;                  // 实用按钮、小型元素
+$radius-md: 11px;                 // 珍珠按钮
+$radius-lg: 18px;                 // 卡片
+$radius-xl: 18px;                 // 同 lg
+$radius-2xl: 18px;                // 同 lg
+$radius-full: 9999px;             // CTA pill 按钮
 
 // 阴影 — 引用 CSS 自定义属性
 $shadow-sm: var(--shadow-sm);
@@ -82,16 +85,28 @@ $shadow-secondary: var(--shadow-secondary);
 $shadow-glow-primary: var(--shadow-glow-primary);
 $shadow-glow-secondary: var(--shadow-glow-secondary);
 
-// 字体
+// 字体 - 保留 Outfit（用户确认）
 $font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+// Apple 字号系统（保留原有层级，调整关键尺寸）
 $font-size-xs: 12px;
 $font-size-sm: 14px;
-$font-size-md: 16px;
-$font-size-lg: 18px;
-$font-size-xl: 20px;
-$font-size-2xl: 24px;
-$font-size-3xl: 32px;
-$font-size-4xl: 40px;
+$font-size-md: 17px;              // Apple 标准正文尺寸
+$font-size-lg: 21px;              // Tagline
+$font-size-xl: 28px;              // Lead
+$font-size-2xl: 40px;             // Display lg
+$font-size-3xl: 48px;             // Hero
+$font-size-4xl: 56px;             // 页面大标题
+
+// Apple 字重（无 500）
+$font-weight-light: 300;
+$font-weight-normal: 400;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// Apple 负字间距（标题）
+$letter-spacing-title: -0.028em;
+$letter-spacing-hero: -0.0374em;
 
 // 布局
 $sidebar-width: 300px;
