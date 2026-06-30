@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "vite",
-    "start:prod": "cross-env NODE_ENV=production vite",
+    "start": "pnpm generate-icons && vite",
+    "start:prod": "pnpm generate-icons && cross-env NODE_ENV=production vite",
     "generate-icons": "node scripts/generate-icon-bundle.cjs",
     "build": "pnpm generate-icons && vue-tsc && vite build",
     "preview": "vite preview",

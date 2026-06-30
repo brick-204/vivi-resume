@@ -1,6 +1,9 @@
 node_modules/
 dist/
 
+# 自动生成产物（图标 bundle，运行 pnpm generate-icons 重建）
+src/generated/
+
 # 测试文件
 test_*.py
 test_screenshots/
