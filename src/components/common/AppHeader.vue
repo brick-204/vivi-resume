@@ -12,7 +12,7 @@
           <Icon icon="mdi:home-outline" :width="16" />
           <span>首页</span>
         </router-link>
-        <router-link to="/" class="app-header__nav-tab" active-class="app-header__nav-tab--active">
+        <router-link to="/dashboard" class="app-header__nav-tab" active-class="app-header__nav-tab--active">
           <Icon icon="mdi:view-dashboard-outline" :width="16" />
           <span>控制台</span>
         </router-link>

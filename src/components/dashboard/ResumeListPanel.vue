@@ -245,7 +245,7 @@ const handleAIImport = (resumeId: string) => {
 
 const handleGoToAISettings = () => {
   showAIImportModal.value = false
-  router.push({ path: '/', query: { tab: 'ai' } })
+  router.push({ path: '/dashboard', query: { tab: 'ai' } })
 }
 </script>
 

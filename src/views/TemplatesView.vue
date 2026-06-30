@@ -95,7 +95,7 @@ const goBack = async () => {
   if (isEmpty) {
     // 删除空简历，返回首页
     await store.deleteResume(resumeId.value)
-    router.push('/')
+    router.push('/dashboard')
   } else {
     // 返回编辑器
     router.push(`/editor/${resumeId.value}`)

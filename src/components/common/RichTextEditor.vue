@@ -356,7 +356,7 @@ const applyAIResult = (html: string) => {
 }
 
 const goToAISettings = () => {
-  router.push({ path: '/', query: { tab: 'ai' } })
+  router.push({ path: '/dashboard', query: { tab: 'ai' } })
 }
 
 // ========== 原有逻辑 ==========

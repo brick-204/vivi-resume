@@ -259,11 +259,11 @@ onMounted(async () => {
   const id = route.params.id as string
   if (id) {
     if (!(await store.loadResume(id))) {
-      router.push('/')
+      router.push('/dashboard')
       return
     }
   } else {
-    router.push('/')
+    router.push('/dashboard')
     return
   }
   isReady.value = true
