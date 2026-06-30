@@ -27,7 +27,6 @@ import CTASection from '@/components/home/CTASection.vue'
   min-height: 100vh;
   background: $bg-secondary;
   position: relative;
-  overflow-x: hidden;
   display: flex;
   flex-direction: column;
 }

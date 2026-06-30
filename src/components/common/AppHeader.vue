@@ -173,6 +173,8 @@ const onExportSelect = (key: string) => {
   border-bottom: 1px solid $border-glass;
   z-index: 100;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
 
   &__left {
     display: flex;
