@@ -12,13 +12,38 @@
       :model="formData"
       :rules="rules"
       label-placement="left"
-      label-width="80"
+      label-width="100"
     >
       <n-form-item label="配置名称" path="name">
         <n-input v-model:value="formData.name" placeholder="如：我的 DeepSeek" />
       </n-form-item>
 
-      <n-form-item label="服务商" path="provider">
+      <n-form-item path="provider">
+        <template #label>
+          <span class="label-with-hint">
+            服务商
+            <n-popover trigger="hover" placement="top" :width="240">
+              <template #trigger>
+                <span class="hint-icon" :class="{ 'hint-icon--warning': !selectedProvider?.corsFriendly }">
+                  <Icon icon="mdi:alert-circle-outline" :width="14" />
+                </span>
+              </template>
+              <div class="hint-content">
+                <template v-if="!selectedProvider?.corsFriendly">
+                  <template v-if="isDev && devProxyEndpoint">
+                    开发环境对官方 API 已自动使用代理地址，无需额外配置
+                  </template>
+                  <template v-else>
+                    该服务商官方 API 不支持浏览器直调，你可能需要配置代理
+                  </template>
+                </template>
+                <template v-else>
+                  此服务商官方 API 支持浏览器直接调用
+                </template>
+              </div>
+            </n-popover>
+          </span>
+        </template>
         <n-select
           v-model:value="formData.provider"
           :options="providerOptions"
@@ -30,7 +55,22 @@
         <n-input v-model:value="formData.modelId" placeholder="如：gpt-4o-mini、deepseek-chat" />
       </n-form-item>
 
-      <n-form-item label="API Key" path="apiKey">
+      <n-form-item path="apiKey">
+        <template #label>
+          <span class="label-with-hint">
+            API Key
+            <n-popover trigger="hover" placement="top" :width="260">
+              <template #trigger>
+                <span class="hint-icon hint-icon--warning">
+                  <Icon icon="mdi:alert-circle-outline" :width="14" />
+                </span>
+              </template>
+              <div class="hint-content">
+                API Key 将以明文存储在本地浏览器或设置的本地目录中，请勿在公共设备上保存密钥
+              </div>
+            </n-popover>
+          </span>
+        </template>
         <n-input
           v-model:value="formData.apiKey"
           type="password"
@@ -38,10 +78,6 @@
           placeholder="sk-..."
         />
       </n-form-item>
-      <div class="api-key-warning">
-        <Icon icon="mdi:shield-alert-outline" :width="14" />
-        <span>API Key 将以明文存储在本地浏览器或设置的本地目录中，请勿在公共设备上保存密钥</span>
-      </div>
 
       <n-form-item label="API 地址" path="endpoint">
         <n-input v-model:value="formData.endpoint" placeholder="https://api.example.com/v1" />
@@ -49,19 +85,6 @@
           <div v-if="endpointError" class="endpoint-error">
             <Icon icon="mdi:alert-circle-outline" :width="14" />
             {{ endpointError }}
-          </div>
-          <div v-else-if="!selectedProvider?.corsFriendly" class="cors-warning">
-            <Icon icon="mdi:alert-circle-outline" :width="14" />
-            <template v-if="isDev && devProxyEndpoint">
-              开发环境已自动使用代理地址，无需额外配置
-            </template>
-            <template v-else>
-              该服务商不支持浏览器直调 API，你可能需要配置代理
-            </template>
-          </div>
-          <div v-else-if="formData.endpoint" class="cors-ok">
-            <Icon icon="mdi:check-circle-outline" :width="14" />
-            此服务商支持浏览器直接调用
           </div>
         </template>
       </n-form-item>
@@ -81,7 +104,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NForm, NFormItem, NInput, NSelect, NButton, type FormInst, type FormRules } from 'naive-ui'
+import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NPopover, type FormInst, type FormRules } from 'naive-ui'
 import type { AIServiceConfig, AIProvider } from '@/types/aiConfig'
 import { AI_PROVIDERS, getProviderInfo } from '@/types/aiConfig'
 import { getDevProxyEndpoint } from '@/services/aiService'
@@ -211,22 +234,28 @@ const handleSave = async () => {
   padding-top: $spacing-md;
 }
 
-.cors-warning {
-  display: flex;
+.label-with-hint {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
-  font-size: $font-size-xs;
-  color: $warning-color;
 }
 
-.cors-ok {
-  display: flex;
+.hint-icon {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  font-size: $font-size-xs;
   color: $success-color;
+  cursor: help;
+  vertical-align: middle;
+  margin-top: -2px;
+
+  &--warning {
+    color: $warning-color;
+  }
+}
+
+.hint-content {
+  font-size: $font-size-xs;
+  line-height: 1.5;
 }
 
 .endpoint-error {
@@ -236,15 +265,5 @@ const handleSave = async () => {
   margin-top: 4px;
   font-size: $font-size-xs;
   color: $error-color;
-}
-
-.api-key-warning {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: -8px;
-  margin-bottom: 12px;
-  font-size: $font-size-xs;
-  color: $warning-color;
 }
 </style>
