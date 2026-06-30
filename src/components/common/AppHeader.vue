@@ -3,12 +3,12 @@
     <!-- 左侧：Logo + 导航标签 -->
     <div class="app-header__left">
       <slot name="left-extra" />
-      <router-link to="/home" class="app-header__logo">
+      <router-link to="/" class="app-header__logo">
         <img src="/favicon.ico" alt="Vivi Resume" class="app-header__favicon" />
         <span class="app-header__logo-text">Vivi Resume</span>
       </router-link>
       <nav class="app-header__nav">
-        <router-link to="/home" class="app-header__nav-tab" active-class="app-header__nav-tab--active">
+        <router-link to="/" class="app-header__nav-tab" active-class="app-header__nav-tab--active">
           <Icon icon="mdi:home-outline" :width="16" />
           <span>首页</span>
         </router-link>
