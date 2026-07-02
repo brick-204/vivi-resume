@@ -1,6 +1,6 @@
 <template>
   <div class="carousel-item">
-    <div class="carousel-item__preview" ref="previewContainer">
+    <div ref="previewContainer" class="carousel-item__preview">
       <div class="carousel-item__scale" :style="scaleStyle">
         <ResumeDocument :resume="sampleResume as any" :template-id="template.id" />
       </div>

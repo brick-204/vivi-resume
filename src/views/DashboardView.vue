@@ -10,7 +10,7 @@
     </AppHeader>
 
     <!-- 主体区域 -->
-    <div class="dashboard__body" id="main-content">
+    <div id="main-content" class="dashboard__body">
       <!-- 移动端遮罩 -->
       <Transition name="fade">
         <div v-if="mobileMenuOpen" class="dashboard__mobile-overlay" @click="mobileMenuOpen = false" />
@@ -24,7 +24,7 @@
       </Transition>
 
       <!-- 桌面端侧边栏 -->
-      <SidebarNav :active-tab="activeTab" @update:active-tab="activeTab = $event" class="dashboard__sidebar" />
+      <SidebarNav :active-tab="activeTab" class="dashboard__sidebar" @update:active-tab="activeTab = $event" />
 
       <!-- 内容区 -->
       <div class="dashboard__content">

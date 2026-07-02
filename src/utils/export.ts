@@ -2,7 +2,12 @@
  * 导出工具函数
  */
 
-import { formatTimestamp } from '@/utils/timestamp'
+/** 生成 YYYYMMDD_HHmmss 格式的时间戳字符串（本地时间） */
+const formatTimestamp = (): string => {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+}
 
 /**
  * 将 JSON 字符串下载为文件

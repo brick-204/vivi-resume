@@ -65,7 +65,7 @@
       </div>
 
       <!-- 头像（始终在顶部，不参与拖拽） -->
-      <div class="field-row" v-if="isFieldInOrder('photo')">
+      <div v-if="isFieldInOrder('photo')" class="field-row">
         <div class="field-row__label">
           <span>头像</span>
           <div class="field-row__actions">
@@ -114,9 +114,9 @@
             </div>
             <n-input
               :value="basicInfo[fieldKey as keyof BasicInfo] as string"
-              @update:value="updateFieldValue(fieldKey, $event)"
               :placeholder="getFieldPlaceholder(fieldKey)"
               size="small"
+              @update:value="updateFieldValue(fieldKey, $event)"
             />
           </div>
         </div>
@@ -163,9 +163,9 @@
               <template v-if="isCustomField(element.key)">
                 <n-input
                   :value="getCustomField(element.key)?.value ?? ''"
-                  @update:value="updateCustomFieldValue(element.key, $event)"
                   placeholder="请输入内容"
                   size="small"
+                  @update:value="updateCustomFieldValue(element.key, $event)"
                 />
               </template>
               <!-- 固定字段 -->
@@ -174,19 +174,19 @@
                 <n-date-picker
                   v-if="element.key === 'birthday'"
                   :value="birthdayTimestamp"
-                  @update:value="updateBirthday"
                   type="month"
                   size="small"
                   clearable
                   placeholder="选择年月"
+                  @update:value="updateBirthday"
                 />
                 <!-- 其他固定字段：文本输入 -->
                 <n-input
                   v-else
                   :value="basicInfo[element.key as keyof BasicInfo] as string"
-                  @update:value="updateFieldValue(element.key, $event)"
                   :placeholder="getFieldPlaceholder(element.key)"
                   size="small"
+                  @update:value="updateFieldValue(element.key, $event)"
                 />
               </template>
             </div>

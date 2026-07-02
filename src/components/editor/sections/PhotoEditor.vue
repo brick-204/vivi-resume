@@ -9,11 +9,11 @@
   >
     <div class="photo-editor">
       <div
+        ref="canvasAreaRef"
         class="photo-editor__canvas-area"
         :class="{
           'photo-editor__canvas-area--dragging': isDragging
         }"
-        ref="canvasAreaRef"
       >
         <canvas ref="canvasRef" :width="canvasW" :height="canvasH" class="photo-editor__canvas" />
         <div class="photo-editor__overlay">
@@ -75,18 +75,18 @@
         <div class="photo-editor__group">
           <span class="photo-editor__label">缩放</span>
           <div class="photo-editor__slider-row">
-            <n-button size="tiny" quaternary @click="zoomOut" title="缩小"><Icon icon="mdi:magnify-minus" :width="18" /></n-button>
+            <n-button size="tiny" quaternary title="缩小" @click="zoomOut"><Icon icon="mdi:magnify-minus" :width="18" /></n-button>
             <n-slider v-model:value="zoom" :min="minZoom" :max="3" :step="0.01" size="small" />
-            <n-button size="tiny" quaternary @click="zoomIn" title="放大"><Icon icon="mdi:magnify-plus" :width="18" /></n-button>
+            <n-button size="tiny" quaternary title="放大" @click="zoomIn"><Icon icon="mdi:magnify-plus" :width="18" /></n-button>
           </div>
         </div>
 
         <div class="photo-editor__group">
           <span class="photo-editor__label">旋转</span>
           <div class="photo-editor__btns">
-            <n-button size="small" quaternary @click="rotateLeft" title="左旋转90°"><Icon icon="mdi:rotate-left" :width="18" /></n-button>
-            <n-button size="small" quaternary @click="rotateRight" title="右旋转90°"><Icon icon="mdi:rotate-right" :width="18" /></n-button>
-            <n-button size="small" quaternary @click="resetAll" title="重置"><Icon icon="mdi:undo" :width="18" /></n-button>
+            <n-button size="small" quaternary title="左旋转90°" @click="rotateLeft"><Icon icon="mdi:rotate-left" :width="18" /></n-button>
+            <n-button size="small" quaternary title="右旋转90°" @click="rotateRight"><Icon icon="mdi:rotate-right" :width="18" /></n-button>
+            <n-button size="small" quaternary title="重置" @click="resetAll"><Icon icon="mdi:undo" :width="18" /></n-button>
           </div>
         </div>
 

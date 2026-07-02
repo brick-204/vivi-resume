@@ -568,7 +568,7 @@ const handleViewCard = (sectionId: string, itemId: string) => {
 
   &:hover {
     background: rgba($error-color, 0.08);
-    color: darken($error-color, 5%);
+    color: #e85555; // ponytail: darken($error-color, 5%) → 手动计算，避免 Sass 3.0 弃用警告
   }
 
   &:active {

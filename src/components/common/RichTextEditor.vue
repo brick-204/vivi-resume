@@ -4,10 +4,10 @@
     <div v-if="editor" class="rich-text-editor__wrapper" :class="{ 'rich-text-editor__wrapper--focused': focused }" @mousedown="focusEditor">
       <div class="rich-text-editor__toolbar">
         <!-- 撤销/重做 -->
-        <button type="button" class="toolbar-btn" title="撤销" @click="editor.chain().focus().undo().run()" :disabled="!editor.can().undo()">
+        <button type="button" class="toolbar-btn" title="撤销" :disabled="!editor.can().undo()" @click="editor.chain().focus().undo().run()">
           <Icon icon="mdi:undo" :width="18" />
         </button>
-        <button type="button" class="toolbar-btn" title="重做" @click="editor.chain().focus().redo().run()" :disabled="!editor.can().redo()">
+        <button type="button" class="toolbar-btn" title="重做" :disabled="!editor.can().redo()" @click="editor.chain().focus().redo().run()">
           <Icon icon="mdi:redo" :width="18" />
         </button>
         <span class="toolbar-divider" />

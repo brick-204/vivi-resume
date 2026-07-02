@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="TEXT_EDIT_ICON" :width="18" :height="18" />
         </span>
-        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, sectionId)" @keydown.enter.prevent @blur="saveTitle($event, sectionId)"></span>
+        <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, sectionId)" v-text="getSectionTitle(store.currentResume, sectionId)"></span>
       </h3>
     </div>
     <div class="section__form">

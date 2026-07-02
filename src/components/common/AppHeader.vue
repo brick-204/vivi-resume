@@ -33,7 +33,7 @@
     <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
     <div class="app-header__right">
       <template v-if="showEditorRight">
-        <n-dropdown :options="aiHelpOptions" @select="onAiHelpSelect" @update:show="v => aiHelpOpen = v" placement="bottom-end" width="trigger">
+        <n-dropdown :options="aiHelpOptions" placement="bottom-end" width="trigger" @select="onAiHelpSelect" @update:show="v => aiHelpOpen = v">
           <button class="header-btn header-btn--ai-help" aria-haspopup="true" :aria-expanded="aiHelpOpen" aria-label="AI 帮帮">
             <Icon icon="mdi:creation" :width="16" />
             <span class="header-btn__text">AI 帮帮</span>
@@ -44,7 +44,7 @@
           <Icon icon="mdi:view-grid-outline" :width="16" />
           <span class="header-btn__text">更换模板</span>
         </button>
-        <n-dropdown :options="exportOptions" @select="onExportSelect" @update:show="v => exportOpen = v" placement="bottom-end">
+        <n-dropdown :options="exportOptions" placement="bottom-end" @select="onExportSelect" @update:show="v => exportOpen = v">
           <button class="header-btn header-btn--export" aria-haspopup="true" :aria-expanded="exportOpen" aria-label="导出简历">
             <Icon icon="mdi:download" :width="16" />
             <span class="header-btn__text">导出</span>
@@ -53,7 +53,7 @@
         </n-dropdown>
       </template>
 
-      <n-dropdown :options="themeOptions" @select="onThemeSelect" @update:show="v => themeOpen = v" placement="bottom-end">
+      <n-dropdown :options="themeOptions" placement="bottom-end" @select="onThemeSelect" @update:show="v => themeOpen = v">
         <button class="app-header__theme-btn" aria-haspopup="true" :aria-expanded="themeOpen" aria-label="切换主题">
           <Icon :icon="themeIcon" :width="18" />
         </button>
@@ -75,7 +75,6 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { getTemplate } from '@/config/templates'
 import { useTheme } from '@/composables/useTheme'
 import type { ThemeMode } from '@/composables/useTheme'
-import { APP_CONFIG } from '@/config/app'
 
 defineProps<{
   /** 是否显示编辑模式中间区域（简历名称输入框 + 模板标签） */
@@ -100,7 +99,8 @@ const emit = defineEmits<{
 const store = useResumeStore()
 const { mode, resolvedTheme, setMode } = useTheme()
 
-const githubUrl = APP_CONFIG.githubUrl
+// ponytail: 稳定常量直接内联，无需 config 层
+const githubUrl = 'https://github.com/brick-204/vivi-resume'
 
 // 下拉菜单展开状态（供 aria-expanded 使用）
 const aiHelpOpen = ref(false)

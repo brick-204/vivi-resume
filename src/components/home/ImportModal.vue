@@ -26,7 +26,7 @@
         </div>
         <p class="drop-zone__text">{{ dropText }}</p>
         <p class="drop-zone__hint">支持 .json 格式</p>
-        <input ref="fileInput" type="file" accept=".json" @change="onFileSelect" hidden />
+        <input ref="fileInput" type="file" accept=".json" hidden @change="onFileSelect" />
       </div>
     </div>
   </n-modal>

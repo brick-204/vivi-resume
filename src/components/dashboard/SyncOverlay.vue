@@ -1,5 +1,5 @@
 <template>
-  <div class="sync-overlay" v-if="isLocked">
+  <div v-if="isLocked" class="sync-overlay">
     <div class="sync-overlay__backdrop" />
     <div class="sync-overlay__card">
       <div class="sync-overlay__spinner">

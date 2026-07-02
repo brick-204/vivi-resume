@@ -69,14 +69,12 @@
       </n-tabs>
 
       <!-- 流式期间：直接显示结果（无 Tab） -->
-      <template v-if="isStreaming">
-        <div class="interview-result__content">
-          <template>{{ resultText }}</template>
-          <span v-if="!isConnected" class="interview-result__placeholder">正在连接 AI 服务...</span>
-          <span v-if="isConnected && !hasResult" class="interview-result__placeholder">正在生成面试题...</span>
-          <span class="interview-result__cursor" aria-hidden="true">▌</span>
-        </div>
-      </template>
+      <div v-if="isStreaming" class="interview-result__content">
+        {{ resultText }}
+        <span v-if="!isConnected" class="interview-result__placeholder">正在连接 AI 服务...</span>
+        <span v-if="isConnected && !hasResult" class="interview-result__placeholder">正在生成面试题...</span>
+        <span class="interview-result__cursor" aria-hidden="true">▌</span>
+      </div>
     </div>
 
     <template #footer>

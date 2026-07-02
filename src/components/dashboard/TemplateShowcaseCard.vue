@@ -9,7 +9,7 @@
     @keydown.space.prevent="$emit('use', template.id)"
   >
     <!-- 预览区 -->
-    <div class="template-showcase-card__preview" ref="previewContainer">
+    <div ref="previewContainer" class="template-showcase-card__preview">
       <!-- 空白模板：纯视觉占位，不渲染任何模板样式 -->
       <div v-if="template.id === 'blank'" class="template-showcase-card__blank-placeholder">
         <Icon icon="mdi:file-document-plus-outline" :width="48" />

@@ -4,7 +4,7 @@
     :class="{ 'template-card--selected': selected }"
     @click="$emit('select', template.id)"
   >
-    <div class="template-card__preview" ref="previewContainer">
+    <div ref="previewContainer" class="template-card__preview">
       <div class="template-card__scale" :style="scaleStyle">
         <ResumeDocument :resume="previewResume" :template-id="template.id" />
       </div>

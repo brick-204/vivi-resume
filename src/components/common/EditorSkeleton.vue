@@ -62,7 +62,7 @@
               </div>
             </div>
             <div class="sk-field-grid">
-              <div class="sk-field" v-for="i in 4" :key="i">
+              <div v-for="i in 4" :key="i" class="sk-field">
                 <div class="skeleton-bar" style="width: 40px; height: 12px;" />
                 <div class="skeleton-bar" :style="{ width: fieldWidths[i - 1], height: '28px', borderRadius: '6px' }" />
               </div>
@@ -76,7 +76,7 @@
             <div class="skeleton-bar" style="width: 45%; height: 16px;" />
           </div>
           <div class="sk-card__body">
-            <div class="sk-entry" v-for="i in 2" :key="i">
+            <div v-for="i in 2" :key="i" class="sk-entry">
               <div class="skeleton-bar" style="width: 60%; height: 14px;" />
               <div class="skeleton-bar" style="width: 80%; height: 12px; margin-top: 6px;" />
               <div class="skeleton-bar" style="width: 50%; height: 12px; margin-top: 4px;" />
@@ -117,7 +117,7 @@
           <!-- 分隔线 -->
           <div class="sk-page__divider" />
           <!-- Section 块 -->
-          <div class="sk-page__section" v-for="i in 3" :key="i">
+          <div v-for="i in 3" :key="i" class="sk-page__section">
             <div class="skeleton-bar" style="width: 30%; height: 12px;" />
             <div class="sk-page__section-content">
               <div class="skeleton-bar" style="width: 90%; height: 8px;" />

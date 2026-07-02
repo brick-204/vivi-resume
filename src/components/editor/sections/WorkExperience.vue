@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="BRIEFCASE_ICON" :width="18" :height="18" />
         </span>
-        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'work')" @keydown.enter.prevent @blur="saveTitle($event, 'work')"></span>
+        <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, 'work')" v-text="getSectionTitle(store.currentResume, 'work')"></span>
       </h3>
     </div>
 
@@ -24,9 +24,7 @@
               <span class="card__position">{{
                 item.position || "未填写职位"
               }}</span>
-              <span class="card__company"
-                >@ {{ item.company || "未填写公司" }}</span
-              >
+              <span class="card__company">@ {{ item.company || "未填写公司" }}</span>
             </div>
             <div class="card__actions">
               <button class="card__toggle-visibility" :aria-label="item.hidden ? '显示' : '隐藏'" @click.stop="updateItemField(item.id, 'hidden', !item.hidden)">
@@ -52,11 +50,11 @@
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">公司名称</span>
-                <n-input :value="item.company" @update:value="(val: string) => updateItemField(item.id, 'company', val)" placeholder="请输入公司名称" size="small" />
+                <n-input :value="item.company" placeholder="请输入公司名称" size="small" @update:value="(val: string) => updateItemField(item.id, 'company', val)" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">职位</span>
-                <n-input :value="item.position" @update:value="(val: string) => updateItemField(item.id, 'position', val)" placeholder="请输入职位" size="small" />
+                <n-input :value="item.position" placeholder="请输入职位" size="small" @update:value="(val: string) => updateItemField(item.id, 'position', val)" />
               </div>
             </div>
             <div class="form__row">
@@ -83,18 +81,17 @@
             </div>
             <RichTextEditor
               :model-value="item.description"
-              @update:model-value="(val: string) => updateItemField(item.id, 'description', val)"
               label="工作描述"
               placeholder="描述你的主要职责和成就..."
               :rows="3"
               :ai-context="`${item.position || '职位'} @ ${item.company || '公司'}`"
+              @update:model-value="(val: string) => updateItemField(item.id, 'description', val)"
             />
           </div>
         </div>
       </template>
     </draggable>
-
-  </div>
+</div>
 </template>
 
 <script setup lang="ts">

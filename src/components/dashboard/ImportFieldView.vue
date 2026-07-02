@@ -16,8 +16,7 @@
 
       <!-- 模块内容（可折叠） -->
       <div v-show="!isSectionCollapsed(sectionId)" class="field-section__body">
-
-        <!-- 基本信息 -->
+<!-- 基本信息 -->
         <template v-if="sectionId === 'basic'">
           <div v-if="resume.basicInfo.photo" class="field-row field-row--photo">
             <label>头像</label>

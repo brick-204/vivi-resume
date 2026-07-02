@@ -1,7 +1,7 @@
 <template>
   <div class="section-navigator" :class="{ 'section-navigator--collapsed': isCollapsed }">
     <!-- 中间区域：导航列表 + 主题色，流式排列，占满空间 -->
-    <div class="navigator__middle" ref="navigatorListRef">
+    <div ref="navigatorListRef" class="navigator__middle">
       <div class="navigator__list" role="tablist" aria-label="简历模块导航">
         <draggable
           v-model="sortableSections"

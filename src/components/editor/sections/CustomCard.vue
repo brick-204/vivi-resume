@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="LIST_BOX_ICON" :width="18" :height="18" />
         </span>
-        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, sectionId)" @keydown.enter.prevent @blur="saveTitle($event, sectionId)"></span>
+        <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, sectionId)" v-text="getSectionTitle(store.currentResume, sectionId)"></span>
       </h3>
     </div>
 
@@ -45,11 +45,11 @@
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">名称</span>
-                <n-input :value="item.name" @update:value="(val: string) => updateItemField(item.id, 'name', val)" placeholder="请输入名称" size="small" />
+                <n-input :value="item.name" placeholder="请输入名称" size="small" @update:value="(val: string) => updateItemField(item.id, 'name', val)" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">角色</span>
-                <n-input :value="item.role" @update:value="(val: string) => updateItemField(item.id, 'role', val)" placeholder="如：负责人" size="small" />
+                <n-input :value="item.role" placeholder="如：负责人" size="small" @update:value="(val: string) => updateItemField(item.id, 'role', val)" />
               </div>
             </div>
             <div class="form__row">
@@ -74,7 +74,7 @@
                 </div>
               </div>
             </div>
-            <RichTextEditor :model-value="item.description" @update:model-value="(val: string) => updateItemField(item.id, 'description', val)" label="描述" placeholder="描述内容..." :rows="3" />
+            <RichTextEditor :model-value="item.description" label="描述" placeholder="描述内容..." :rows="3" @update:model-value="(val: string) => updateItemField(item.id, 'description', val)" />
             <div class="keyword-section">
               <label class="keyword__label">关键词</label>
                 <n-input v-model:value="newKeyword" placeholder="输入关键词后按回车添加" size="small" @keydown.enter.prevent="addKeyword(item.id)" />
@@ -89,8 +89,7 @@
         </div>
       </template>
     </draggable>
-
-  </div>
+</div>
 </template>
 
 <script setup lang="ts">

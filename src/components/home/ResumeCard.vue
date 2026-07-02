@@ -1,6 +1,6 @@
 <template>
   <div class="resume-card" @click="$emit('edit')">
-    <div class="resume-card__preview" ref="previewContainer">
+    <div ref="previewContainer" class="resume-card__preview">
       <div class="resume-card__scale" :style="scaleStyle">
         <ResumeDocument :resume="resume" :template-id="resume.templateId || 'classic'" />
       </div>
@@ -25,13 +25,13 @@
       </div>
     </div>
     <div class="resume-card__actions">
-      <button class="resume-card__btn resume-card__btn--edit" @click.stop="$emit('edit')" title="编辑">
+      <button class="resume-card__btn resume-card__btn--edit" title="编辑" @click.stop="$emit('edit')">
         <Icon icon="mdi:pencil-outline" :width="16" />
       </button>
-      <button class="resume-card__btn resume-card__btn--copy" :disabled="isCopying" @click.stop="onCopy" title="复制">
+      <button class="resume-card__btn resume-card__btn--copy" :disabled="isCopying" title="复制" @click.stop="onCopy">
         <Icon :icon="isCopying ? 'mdi:loading' : 'mdi:content-copy'" :width="16" :class="{ 'spin': isCopying }" />
       </button>
-      <button class="resume-card__btn resume-card__btn--delete" @click.stop="$emit('delete')" title="删除">
+      <button class="resume-card__btn resume-card__btn--delete" title="删除" @click.stop="$emit('delete')">
         <Icon icon="mdi:trash-can-outline" :width="16" />
       </button>
     </div>

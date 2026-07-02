@@ -36,7 +36,7 @@
         </div>
         <p class="drop-zone__text">{{ dropText }}</p>
         <p class="drop-zone__hint">支持 .md / .docx / .pdf 格式</p>
-        <input ref="fileInput" type="file" accept=".md,.docx,.pdf" @change="onFileSelect" hidden />
+        <input ref="fileInput" type="file" accept=".md,.docx,.pdf" hidden @change="onFileSelect" />
       </div>
       <div v-if="!aiConfigStore.activeConfig" class="ai-import-no-config">
         <Icon icon="mdi:alert-circle-outline" :width="16" />

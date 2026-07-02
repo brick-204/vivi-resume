@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="EDUCATION_ICON" :width="18" :height="18" />
         </span>
-        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'education')" @keydown.enter.prevent @blur="saveTitle($event, 'education')"></span>
+        <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, 'education')" v-text="getSectionTitle(store.currentResume, 'education')"></span>
       </h3>
     </div>
 
@@ -44,16 +44,16 @@
           <div v-show="!collapsedIds.has(item.id)" class="card__form">
             <div class="form-field">
               <span class="form-field__label">学校名称</span>
-              <n-input :value="item.school" @update:value="(val: string) => updateItemField(item.id, 'school', val)" placeholder="请输入学校名称" size="small" />
+              <n-input :value="item.school" placeholder="请输入学校名称" size="small" @update:value="(val: string) => updateItemField(item.id, 'school', val)" />
             </div>
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">学历</span>
-                <n-input :value="item.degree" @update:value="(val: string) => updateItemField(item.id, 'degree', val)" placeholder="如：本科" size="small" />
+                <n-input :value="item.degree" placeholder="如：本科" size="small" @update:value="(val: string) => updateItemField(item.id, 'degree', val)" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">专业</span>
-                <n-input :value="item.major" @update:value="(val: string) => updateItemField(item.id, 'major', val)" placeholder="请输入专业" size="small" />
+                <n-input :value="item.major" placeholder="请输入专业" size="small" @update:value="(val: string) => updateItemField(item.id, 'major', val)" />
               </div>
             </div>
             <div class="form__row">
@@ -78,13 +78,12 @@
                 </div>
               </div>
             </div>
-            <RichTextEditor :model-value="item.description" @update:model-value="(val: string) => updateItemField(item.id, 'description', val)" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" :ai-context="`${item.school || '学校'}`" />
+            <RichTextEditor :model-value="item.description" label="补充说明" placeholder="如：GPA、获奖情况等..." :rows="2" :ai-context="`${item.school || '学校'}`" @update:model-value="(val: string) => updateItemField(item.id, 'description', val)" />
           </div>
         </div>
       </template>
     </draggable>
-
-  </div>
+</div>
 </template>
 
 <script setup lang="ts">

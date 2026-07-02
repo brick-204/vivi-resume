@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="ROCKET_ICON" :width="18" :height="18" />
         </span>
-        <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'projects')" @keydown.enter.prevent @blur="saveTitle($event, 'projects')"></span>
+        <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, 'projects')" v-text="getSectionTitle(store.currentResume, 'projects')"></span>
       </h3>
     </div>
 
@@ -45,11 +45,11 @@
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">项目名称</span>
-                <n-input :value="item.name" @update:value="(val: string) => updateItemField(item.id, 'name', val)" placeholder="请输入项目名称" size="small" />
+                <n-input :value="item.name" placeholder="请输入项目名称" size="small" @update:value="(val: string) => updateItemField(item.id, 'name', val)" />
               </div>
               <div class="form-field">
                 <span class="form-field__label">担任角色</span>
-                <n-input :value="item.role" @update:value="(val: string) => updateItemField(item.id, 'role', val)" placeholder="如：前端负责人" size="small" />
+                <n-input :value="item.role" placeholder="如：前端负责人" size="small" @update:value="(val: string) => updateItemField(item.id, 'role', val)" />
               </div>
             </div>
             <div class="form__row">
@@ -76,11 +76,11 @@
             </div>
             <RichTextEditor
               :model-value="item.description"
-              @update:model-value="(val: string) => updateItemField(item.id, 'description', val)"
               label="项目描述"
               placeholder="描述项目背景、你的职责和成果..."
               :rows="3"
               :ai-context="`${item.name || '项目'}`"
+              @update:model-value="(val: string) => updateItemField(item.id, 'description', val)"
             />
             <div class="tech-section">
               <label class="tech__label">技术栈</label>
@@ -102,8 +102,7 @@
         </div>
       </template>
     </draggable>
-
-  </div>
+</div>
 </template>
 
 <script setup lang="ts">

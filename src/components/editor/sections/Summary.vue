@@ -4,7 +4,7 @@
       <span class="title__icon">
         <Icon :icon="MESSAGE_ICON" :width="18" :height="18" />
       </span>
-      <span class="section__title-text" contenteditable v-text="getSectionTitle(store.currentResume, 'summary')" @keydown.enter.prevent @blur="saveTitle($event, 'summary')"></span>
+      <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, 'summary')" v-text="getSectionTitle(store.currentResume, 'summary')"></span>
     </h3>
     <div class="section__form">
       <RichTextEditor

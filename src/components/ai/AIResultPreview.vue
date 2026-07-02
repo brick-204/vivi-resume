@@ -83,7 +83,9 @@
           class="preview-view-tab"
           :class="{ 'preview-view-tab--active': activeView === tab.id }"
           @click="activeView = tab.id"
-        >{{ tab.label }}</button>
+        >
+{{ tab.label }}
+</button>
       </div>
 
       <!-- Diff 视图 -->

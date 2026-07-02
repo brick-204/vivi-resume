@@ -3,7 +3,7 @@
   <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides" :locale="zhCN">
     <n-message-provider>
       <router-view />
-      <div aria-live="polite" aria-atomic="true" class="sr-only" id="aria-live-status"></div>
+      <div id="aria-live-status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
     </n-message-provider>
   </n-config-provider>
 </template>

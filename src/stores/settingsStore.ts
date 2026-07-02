@@ -351,6 +351,10 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   // ========== 通知 stores 重新加载 ==========
+  // ponytail: 动态 import resumeStore/aiConfigStore 用于 notifyStoresReload，
+  // 但这些模块也被其他 29 个文件静态 import，Vite 会警告动态导入无法移入独立 chunk。
+  // 这是架构设计的副作用（settingsStore 必须先 ready，resumeStore 等 await 后才初始化），
+  // 若要彻底解决需将 reloadFromStorage 路径抽到独立模块，但收益低（仅影响首次加载时的 chunk 划分）。
   const notifyStoresReload = async () => {
     // 动态导入避免循环依赖
     const { useResumeStore } = await import('@/stores/resumeStore')

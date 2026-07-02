@@ -1,5 +1,5 @@
 <template>
-  <section class="ai-demo-section" ref="sectionRef">
+  <section ref="sectionRef" class="ai-demo-section">
     <div class="ai-demo-section__header">
       <h2 class="ai-demo-section__title">
         <span class="ai-demo-section__title-highlight">AI</span> 智能助手

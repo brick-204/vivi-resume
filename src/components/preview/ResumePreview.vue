@@ -1,5 +1,5 @@
 <template>
-  <div class="resume-preview" ref="previewRef" :style="previewStyle">
+  <div ref="previewRef" class="resume-preview" :style="previewStyle">
     <!-- A4 分页线 -->
     <div
       v-for="(top, i) in pageBreaks"

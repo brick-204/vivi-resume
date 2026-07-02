@@ -20,7 +20,7 @@
     <Transition name="editor-fade">
       <EditorSkeleton v-if="!isReady" key="skeleton" />
 
-      <main v-else key="editor" id="main-content" class="editor-body">
+      <main v-else id="main-content" key="editor" class="editor-body">
       <!-- 第一列：模块导航栏 -->
       <aside
         class="editor-body__nav"

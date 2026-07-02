@@ -1,7 +1,7 @@
 <template>
   <div class="section-editor">
     <!-- 内容区 -->
-    <div class="editor__content" ref="editorContentRef">
+    <div ref="editorContentRef" class="editor__content">
       <BasicInfo v-if="activeSectionId === 'basic'" />
       <Summary v-else-if="activeSectionId === 'summary'" />
       <WorkExperience v-else-if="activeSectionId === 'work'" ref="workRef" @click-entry="(itemId) => emit('click-entry', itemId)" />
@@ -10,7 +10,7 @@
       <Skills v-else-if="activeSectionId === 'skills'" />
       <SelfEvaluation v-else-if="activeSectionId === 'evaluation'" />
       <CustomText v-else-if="isCustomText" :section-id="activeSectionId" />
-      <CustomCard v-else-if="isCustomCard" :section-id="activeSectionId" ref="customCardRef" @click-entry="(itemId) => emit('click-entry', itemId)" />
+      <CustomCard v-else-if="isCustomCard" ref="customCardRef" :section-id="activeSectionId" @click-entry="(itemId) => emit('click-entry', itemId)" />
 
       <!-- 添加按钮，随内容滚动 -->
       <button v-if="canAdd" class="editor__add-btn" @click="handleAdd">
