@@ -32,6 +32,7 @@ const features = [
   { icon: 'mdi:creation', title: '一键优化', desc: 'AI 系统性润色整份简历，全面提升' },
   { icon: 'mdi:account-tie', title: '面试准备', desc: '生成面试题和复习要点，从容应战' },
   { icon: 'mdi:file-import-outline', title: 'AI 智能导入', desc: '上传 PDF/Word/Markdown，AI 解析为结构化简历' },
+  { icon: 'mdi:delete-restore', title: '回收站保护', desc: '删除内容可恢复，30 天暂存防误删' },
   { icon: 'mdi:eye-outline', title: '实时预览', desc: '所见即所得编辑体验，边改边看' },
   { icon: 'mdi:download', title: '多格式导出', desc: 'PDF / 图片 / JSON 一键导出' },
   { icon: 'mdi:moon-waning-crescent', title: '深色模式', desc: '护眼深色主题，夜间编辑更舒适' },
