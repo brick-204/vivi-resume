@@ -152,9 +152,10 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
 </script>
 
 <style lang="scss" scoped>
+// ponytail: 改用 opacity 动画（composite-only），避免 background-position 的 paint 开销（K）
 @keyframes skeleton-shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
 }
 
 .editor-skeleton {
@@ -376,6 +377,7 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
 }
 
 // ========== 基础骨架元素 ==========
+// ponytail: 静态渐变背景 + opacity 动画，省去 background-position repaint（K）
 .skeleton-bar {
   background: linear-gradient(
     90deg,
@@ -383,10 +385,8 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
     var(--bg-glass-hover) 50%,
     var(--bg-glass) 75%
   );
-  background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: $radius-sm;
-  opacity: 0.7;
 }
 
 .skeleton-circle {
@@ -398,9 +398,7 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
     var(--bg-glass-hover) 50%,
     var(--bg-glass) 75%
   );
-  background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  opacity: 0.7;
 }
 
 .skeleton-pill {
@@ -411,9 +409,7 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
     var(--bg-glass-hover) 50%,
     var(--bg-glass) 75%
   );
-  background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  opacity: 0.7;
 }
 
 // Header 按钮样式
@@ -430,7 +426,6 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
     rgba($primary-color, 0.25) 50%,
     rgba($primary-color, 0.15) 75%
   ) !important;
-  background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 

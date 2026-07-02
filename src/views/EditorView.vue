@@ -86,42 +86,42 @@
         </div>
         <!-- 内容 -->
         <div class="preview-wrapper">
-          <ResumePreview v-if="previewTab === 'preview'" ref="previewRef" @click-section="handleClickSection" />
-          <TrashBinPanel v-else />
+          <!-- ponytail: 分帧渲染 — 预览区延迟到下一帧，避免阻塞挂载帧（INP） -->
+          <ResumePreview v-if="previewReady && previewTab === 'preview'" ref="previewRef" @click-section="handleClickSection" />
+          <TrashBinPanel v-else-if="previewTab === 'trash'" />
         </div>
       </section>
     </main>
     </Transition>
 
-    <!-- 弹窗只在就绪后渲染（依赖 store 数据） -->
-    <template v-if="isReady">
-      <!-- AI 简历评估弹窗 -->
-      <ResumeEvaluationModal
-        :show="showEvalModal"
-        @close="showEvalModal = false"
-      />
+    <!-- 弹窗只在首次打开时渲染（懒挂载，降低初始 load 成本） -->
+    <!-- ponytail: AI 弹窗懒挂载 — 未打开时不渲染，零 setup 成本 -->
+    <ResumeEvaluationModal
+      v-if="showEvalModal"
+      :show="showEvalModal"
+      @close="showEvalModal = false"
+    />
 
-      <!-- JD 关键词扫描弹窗 -->
-      <JDScanModal
-        :visible="showJDScanModal"
-        :config="aiConfigStore.activeConfig ?? null"
-        @close="showJDScanModal = false"
-      />
+    <JDScanModal
+      v-if="showJDScanModal"
+      :visible="showJDScanModal"
+      :config="aiConfigStore.activeConfig ?? null"
+      @close="showJDScanModal = false"
+    />
 
-      <!-- AI 一键优化弹窗 -->
-      <FullResumeOptimizeModal
-        :show="showFullOptimizeModal"
-        @close="showFullOptimizeModal = false"
-        @apply="handleFullOptimizeApply"
-      />
+    <FullResumeOptimizeModal
+      v-if="showFullOptimizeModal"
+      :show="showFullOptimizeModal"
+      @close="showFullOptimizeModal = false"
+      @apply="handleFullOptimizeApply"
+    />
 
-      <!-- AI 面试准备弹窗 -->
-      <InterviewPrepModal
-        :visible="showInterviewModal"
-        :config="aiConfigStore.activeConfig ?? null"
-        @close="showInterviewModal = false"
-      />
-    </template>
+    <InterviewPrepModal
+      v-if="showInterviewModal"
+      :visible="showInterviewModal"
+      :config="aiConfigStore.activeConfig ?? null"
+      @close="showInterviewModal = false"
+    />
   </div>
 </template>
 
@@ -163,6 +163,8 @@ const showJDScanModal = ref(false)
 const showFullOptimizeModal = ref(false)
 const showInterviewModal = ref(false)
 const isReady = ref(false)
+// ponytail: 预览区延迟一帧渲染，让导航+编辑区先绘制（降低 INP）
+const previewReady = ref(false)
 
 const saveTitle = async () => {
   await store.saveCurrentResumeNow()
@@ -277,22 +279,23 @@ const exportDOCX = async () => {
 }
 
 onMounted(async () => {
-  // 等待 store 初始化完成（Worker 异步加载 IndexedDB 数据）
-  await store.ready
-  await aiConfigStore.ready
+  // ponytail: 两个 store 并行等待，节省串行时间（E）
+  await Promise.all([store.ready, aiConfigStore.ready])
   const id = route.params.id as string
   if (id) {
     if (!(await store.loadResume(id))) {
       router.push('/dashboard')
       return
     }
-    // ponytail: 进入编辑器时清理过期暂存数据
-    store.cleanupDeletedData()
+    // ponytail: 延后清理，不阻塞首帧（I）
+    setTimeout(() => store.cleanupDeletedData(), 100)
   } else {
     router.push('/dashboard')
     return
   }
   isReady.value = true
+  // 下一帧再渲染预览区，避免与挂载帧的长任务叠加（INP 优化）
+  requestAnimationFrame(() => { previewReady.value = true })
 })
 </script>
 

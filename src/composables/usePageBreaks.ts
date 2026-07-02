@@ -87,7 +87,8 @@ export function usePageBreaks(
         resizeObserver = new ResizeObserver(scheduleUpdate)
       }
       resizeObserver.observe(el)
-      updateBreaks()
+      // ponytail: 首测走防抖路径，避免阻塞挂载帧（INP）
+      scheduleUpdate()
     } else {
       pageBreaks.value = []
     }
