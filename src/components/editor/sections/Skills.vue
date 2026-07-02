@@ -77,6 +77,8 @@ const content = computed({
   color: $yellow-color;
 }
 
+@include editable-title;
+
 .skills-content {
   :deep(.rich-text-editor) {
     min-height: 150px;

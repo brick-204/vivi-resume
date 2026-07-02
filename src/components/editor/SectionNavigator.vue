@@ -60,7 +60,7 @@
                     <Icon :icon="TRASH_ICON" :width="20" :height="20" />
                   </button>
                 </template>
-                确定删除「{{ resumeStore.currentResume ? getSectionTitle(resumeStore.currentResume, item.id) : item.label }}」？删除后可通过「添加模块」恢复。
+                确定删除「{{ resumeStore.currentResume ? getSectionTitle(resumeStore.currentResume, item.id) : item.label }}」？删除后可在「回收箱」恢复或者通过「添加模块」重新添加空模块。
               </n-popconfirm>
             </div>
           </template>
@@ -478,10 +478,10 @@ const handleToggleVisible = (sectionId: string) => {
 
 const removeSection = (sectionId: string) => {
   if (sectionId === 'basic') return
+  // ponytail: section 删除时暂存到 deletedSections
+  resumeStore.trashSection(sectionId)
   if (isCustomSection(sectionId)) {
     resumeStore.removeCustomSection(sectionId)
-  } else {
-    resumeStore.removeSection(sectionId)
   }
   if (activeSectionId.value === sectionId) {
     layoutStore.setActiveSection(sortableSections.value[0]?.id || 'basic')

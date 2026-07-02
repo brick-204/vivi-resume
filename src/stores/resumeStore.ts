@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef, toRaw } from 'vue'
-import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult, InterviewResult } from '@/types/resume'
+import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult, InterviewResult, DeletedItems, DeletedSections, WorkItem, EducationItem, ProjectItem, SkillItem, CustomCardItem, FieldConflict, ConflictDetectionResult } from '@/types/resume'
 import { validateResumeJSON, type ValidationError } from '@/schemas/resumeSchema'
 
 /** 导入结果 */
@@ -15,7 +15,14 @@ import {
   getCustomSectionType,
   getCustomSectionIndex,
   generateCustomSectionId,
+  getSectionTitle,
 } from '@/types/resume'
+import {
+  isTextSection,
+  isArraySection,
+  getArraySectionConfig,
+  getTextSectionConfig,
+} from '@/utils/trashConfig'
 import { useWorkerSerializer } from '@/composables/useWorkerSerializer'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -26,6 +33,10 @@ import {
   saveResumeList,
   getCurrentId,
   setCurrentId,
+  getTrash,
+  saveTrash,
+  getTrashRetentionDays,
+  setTrashRetentionDays,
 } from '@/utils/storageAdapter'
 // 颜色设置迁移 — 将旧的 boolean 字段迁移到新的三态枚举
 const migrateResumeColors = (resume: Resume): Resume => {
@@ -68,6 +79,10 @@ const migrateHighlights = (resume: Resume): Resume => {
 export const useResumeStore = defineStore('resume', () => {
   // 简历列表
   const resumeList = shallowRef<Resume[]>([])
+
+  // 回收站
+  const trash = shallowRef<Resume[]>([])
+  const trashRetentionDays = ref(30)
 
   // 当前编辑的简历
   const currentResume = ref<Resume | null>(null)
@@ -126,6 +141,22 @@ export const useResumeStore = defineStore('resume', () => {
         const json = await serialize(resume)
         currentResume.value = await parse<Resume>(json)
       }
+    }
+
+    // Step 4: 加载回收站
+    try {
+      const [trashData, retentionDays] = await Promise.all([
+        getTrash(),
+        getTrashRetentionDays(),
+      ])
+      trash.value = trashData
+      trashRetentionDays.value = retentionDays
+
+      // 自动清理过期简历
+      await cleanupTrash()
+    } catch (e) {
+      console.error('Failed to load trash:', e)
+      trash.value = []
     }
 
     // 标记初始化完成
@@ -260,21 +291,78 @@ export const useResumeStore = defineStore('resume', () => {
   }
 
 
-  // 删除简历
-  const deleteResume = (id: string) => {
-    const index = resumeList.value.findIndex(r => r.id === id)
-    if (index !== -1) {
-      // 先同步移除内存数据，让 UI 立即响应
-      resumeList.value = resumeList.value.filter(r => r.id !== id)
-      if (currentResume.value?.id === id) {
-        currentResume.value = null
-      }
-      // 后台持久化
-      saveToStorageNow().catch(e => {
-        console.error('[resumeStore] deleteResume persist failed:', e)
-        naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
-      })
+  // 移到回收站（软删除）
+  const trashResume = (id: string) => {
+    const resume = resumeList.value.find(r => r.id === id)
+    if (!resume) return
+
+    // 标记删除时间
+    const deletedResume = { ...resume, deletedAt: new Date().toISOString() }
+
+    // 从列表移除
+    resumeList.value = resumeList.value.filter(r => r.id !== id)
+    if (currentResume.value?.id === id) {
+      currentResume.value = null
     }
+
+    // 加入回收站
+    trash.value = [...trash.value, deletedResume]
+
+    // 持久化
+    Promise.all([saveToStorageNow(), saveTrash(trash.value)]).catch(e => {
+      console.error('[resumeStore] trashResume persist failed:', e)
+      naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
+    })
+  }
+
+  // 从回收站恢复
+  const restoreResume = async (id: string) => {
+    const resume = trash.value.find(r => r.id === id)
+    if (!resume) return
+
+    // 移除删除标记
+    const restored = { ...resume, deletedAt: undefined }
+
+    // 从回收站移除
+    trash.value = trash.value.filter(r => r.id !== id)
+
+    // 加入列表
+    resumeList.value = [...resumeList.value, restored]
+
+    // 持久化
+    await Promise.all([saveToStorageNow(), saveTrash(trash.value)])
+  }
+
+  // 永久删除
+  const permanentDeleteResume = async (id: string) => {
+    trash.value = trash.value.filter(r => r.id !== id)
+    await saveTrash(trash.value)
+  }
+
+  // 清空回收站
+  const emptyTrash = async () => {
+    trash.value = []
+    await saveTrash([])
+  }
+
+  // 自动清理过期简历
+  const cleanupTrash = async () => {
+    const cutoff = Date.now() - trashRetentionDays.value * 24 * 60 * 60 * 1000
+    const valid = trash.value.filter(r => {
+      const deletedAt = r.deletedAt ? new Date(r.deletedAt).getTime() : Date.now()
+      return deletedAt > cutoff
+    })
+    if (valid.length !== trash.value.length) {
+      trash.value = valid
+      await saveTrash(valid)
+    }
+  }
+
+  // 更新保留天数（触发清理）
+  const updateTrashRetentionDays = async (days: number) => {
+    trashRetentionDays.value = days
+    await setTrashRetentionDays(days)
+    await cleanupTrash()
   }
 
   // 复制简历
@@ -529,6 +617,554 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  // ========== Card/Section 暂存（固定 7 天） ==========
+
+  const CARD_RETENTION_DAYS = 7
+
+  /** 暂存 card 到 deletedItems */
+  const trashCard = (sectionId: string, item: WorkItem | EducationItem | ProjectItem | SkillItem | CustomCardItem, customSectionId?: string) => {
+    if (!currentResume.value) return
+
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+    const deletedAt = new Date().toISOString()
+
+    // ponytail: 配置驱动消除重复分支
+    if (sectionId === 'work') {
+      if (!deletedItems.work) deletedItems.work = []
+      deletedItems.work.push({ data: item as WorkItem, deletedAt })
+    } else if (sectionId === 'education') {
+      if (!deletedItems.education) deletedItems.education = []
+      deletedItems.education.push({ data: item as EducationItem, deletedAt })
+    } else if (sectionId === 'projects') {
+      if (!deletedItems.projects) deletedItems.projects = []
+      deletedItems.projects.push({ data: item as ProjectItem, deletedAt })
+    } else if (sectionId === 'skills') {
+      if (!deletedItems.skills) deletedItems.skills = []
+      deletedItems.skills.push({ data: item as SkillItem, deletedAt })
+    } else if (sectionId === 'customCard' && customSectionId) {
+      if (!deletedItems.customCards) deletedItems.customCards = []
+      deletedItems.customCards.push({ data: { ...(item as CustomCardItem), sectionId: customSectionId }, deletedAt })
+    }
+
+    updateCurrentResume({ deletedItems })
+  }
+
+  /** 从 deletedItems 恢复 card，返回 'ok' | 'duplicate' | 'notfound' | 'section_deleted' */
+  const restoreCard = (sectionId: string, itemId: string): 'ok' | 'duplicate' | 'notfound' | 'section_deleted' => {
+    if (!currentResume.value) return 'notfound'
+
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
+    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
+    const items = deletedItems[key]
+    if (!items) return 'notfound'
+
+    const index = items.findIndex((d: any) => d.data.id === itemId)
+    if (index === -1) return 'notfound'
+
+    const item = items[index]
+
+    // 检查目标 section 是否存在
+    if (sectionId === 'customCard') {
+      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (item.data as any).sectionId)
+      if (sectionIdx === -1) return 'section_deleted'
+    } else if (!currentResume.value.sectionOrder.includes(sectionId)) {
+      return 'section_deleted'
+    }
+
+    // 检查重复
+    const targetArr = isFixed
+      ? (currentResume.value as any)[sectionId === 'work' ? 'workExperience' : sectionId === 'education' ? 'education' : sectionId === 'projects' ? 'projects' : 'skills']
+      : null
+    if (targetArr && targetArr.some((c: any) => c.id === itemId)) return 'duplicate'
+
+    // 移除 deletedItems
+    const newItems = [...items]
+    newItems.splice(index, 1)
+    if (newItems.length === 0) delete deletedItems[key]
+    else (deletedItems as any)[key] = newItems
+
+    // 恢复到对应数组
+    if (sectionId === 'work') {
+      updateCurrentResume({ workExperience: [...currentResume.value.workExperience, item.data as WorkItem], deletedItems })
+    } else if (sectionId === 'education') {
+      updateCurrentResume({ education: [...currentResume.value.education, item.data as EducationItem], deletedItems })
+    } else if (sectionId === 'projects') {
+      updateCurrentResume({ projects: [...currentResume.value.projects, item.data as ProjectItem], deletedItems })
+    } else if (sectionId === 'skills') {
+      updateCurrentResume({ skills: [...currentResume.value.skills, item.data as SkillItem], deletedItems })
+    } else if (sectionId === 'customCard') {
+      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (item.data as any).sectionId)
+      if (sectionIdx !== -1) {
+        const customCards = [...currentResume.value.customCards]
+        customCards[sectionIdx] = { ...customCards[sectionIdx], items: [...customCards[sectionIdx].items, item.data as CustomCardItem] }
+        updateCurrentResume({ customCards, deletedItems })
+      }
+    }
+
+    return 'ok'
+  }
+
+  /** 恢复 card（处理重复：overwrite 覆盖现有，merge 追加到末尾） */
+  const restoreCardWithMerge = (sectionId: string, itemId: string, merge: boolean) => {
+    if (!currentResume.value) return
+
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
+    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
+    const items = deletedItems[key]
+    if (!items) return
+
+    const index = items.findIndex((d: any) => d.data.id === itemId)
+    if (index === -1) return
+
+    const item = items[index]
+
+    // 移除 deletedItems
+    const newItems = [...items]
+    newItems.splice(index, 1)
+    if (newItems.length === 0) delete deletedItems[key]
+    else (deletedItems as any)[key] = newItems
+
+    // ponytail: 用 RESUME_KEY_MAP 消除重复
+    const RESUME_KEY_MAP: Record<string, keyof Resume> = {
+      work: 'workExperience',
+      education: 'education',
+      projects: 'projects',
+      skills: 'skills',
+    }
+
+    if (sectionId in RESUME_KEY_MAP) {
+      const resumeKey = RESUME_KEY_MAP[sectionId]
+      const existing = currentResume.value[resumeKey] as any[]
+      const newData = merge ? [...existing, item.data] : existing.map(c => c.id === itemId ? item.data : c)
+      updateCurrentResume({ [resumeKey]: newData, deletedItems })
+    } else if (sectionId === 'customCard') {
+      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (item.data as any).sectionId)
+      if (sectionIdx !== -1) {
+        const customCards = [...currentResume.value.customCards]
+        const targetItems = customCards[sectionIdx].items
+        const newItems = merge ? [...targetItems, item.data as CustomCardItem] : targetItems.map(c => c.id === itemId ? (item.data as CustomCardItem) : c)
+        customCards[sectionIdx] = { ...customCards[sectionIdx], items: newItems }
+        updateCurrentResume({ customCards, deletedItems })
+      }
+    }
+  }
+
+  /** 将 card 恢复到新创建的 section（处理原 section 被删除的情况） */
+  const restoreCardToNewSection = (sectionId: string, itemId: string) => {
+    if (!currentResume.value) return
+
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
+    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
+    const items = deletedItems[key]
+    if (!items) return
+
+    const index = items.findIndex((d: any) => d.data.id === itemId)
+    if (index === -1) return
+
+    const item = items[index]
+
+    // 移除 deletedItems
+    const newItems = [...items]
+    newItems.splice(index, 1)
+    if (newItems.length === 0) delete deletedItems[key]
+    else (deletedItems as any)[key] = newItems
+
+    const RESUME_KEY_MAP: Record<string, keyof Resume> = {
+      work: 'workExperience',
+      education: 'education',
+      projects: 'projects',
+      skills: 'skills',
+    }
+
+    if (sectionId in RESUME_KEY_MAP) {
+      addSection(sectionId)
+      const resumeKey = RESUME_KEY_MAP[sectionId]
+      const newData = [...(currentResume.value[resumeKey] as any[]), item.data]
+      updateCurrentResume({ [resumeKey]: newData, deletedItems })
+    } else if (sectionId === 'customCard') {
+      const customCards = [...currentResume.value.customCards]
+      customCards.push({ id: generateId(), items: [item.data as CustomCardItem] })
+      const newSectionId = generateCustomSectionId('customCard', customCards.length - 1)
+      updateCurrentResume({ customCards, sectionOrder: [...currentResume.value.sectionOrder, newSectionId], deletedItems })
+    }
+  }
+
+  /** 永久删除暂存的 card */
+  const permanentDeleteCard = (sectionId: string, itemId: string) => {
+    if (!currentResume.value) return
+
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
+    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
+    const items = deletedItems[key]
+    if (!items) return
+
+    const index = items.findIndex((d: any) => d.data.id === itemId)
+    if (index === -1) return
+
+    const newItems = [...items]
+    newItems.splice(index, 1)
+    if (newItems.length === 0) delete deletedItems[key]
+    else (deletedItems as any)[key] = newItems
+
+    updateCurrentResume({ deletedItems })
+  }
+
+  /** 清空暂存的 card */
+  const clearDeletedCards = (sectionId?: string) => {
+    if (!currentResume.value) return
+
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+
+    if (sectionId) {
+      const key = ['work', 'education', 'projects', 'skills'].includes(sectionId as any) ? sectionId as keyof DeletedItems : 'customCards'
+      delete deletedItems[key]
+    } else {
+      // 清空所有
+      Object.keys(deletedItems).forEach((k: string) => delete deletedItems[k as keyof DeletedItems])
+    }
+
+    updateCurrentResume({ deletedItems })
+  }
+
+  /** 暂存 section 到 deletedSections */
+  const trashSection = (sectionId: string) => {
+    if (!currentResume.value || sectionId === 'basic') return
+
+    const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
+    const deletedAt = new Date().toISOString()
+    const sectionTitle = currentResume.value.sectionTitles[sectionId]
+    const type = getCustomSectionType(sectionId)
+
+    // 固有数组模块
+    if (isArraySection(sectionId)) {
+      const config = getArraySectionConfig(sectionId)
+      const arr = currentResume.value[config.resumeKey] as any[]
+      if (arr.length > 0) {
+        deletedSections[config.deletedKey] = { data: [...arr], deletedAt, sectionTitle }
+      }
+    } else if (isTextSection(sectionId)) {
+      // 单富文本模块
+      const config = getTextSectionConfig(sectionId)
+      const content = currentResume.value[config.resumeKey]
+      if (content) {
+        deletedSections[config.deletedKey] = { data: content as string, deletedAt, sectionTitle }
+      }
+    } else if (type === 'customText') {
+      // 自定义文本模块
+      const index = getCustomSectionIndex(sectionId)
+      if (index !== null && currentResume.value.customTexts[index]) {
+        if (!deletedSections.customTexts) deletedSections.customTexts = {}
+        deletedSections.customTexts[sectionId] = {
+          data: { ...currentResume.value.customTexts[index] },
+          deletedAt,
+          sectionTitle,
+        }
+      }
+    } else if (type === 'customCard') {
+      // 自定义卡片模块
+      const index = getCustomSectionIndex(sectionId)
+      if (index !== null && currentResume.value.customCards[index]) {
+        if (!deletedSections.customCards) deletedSections.customCards = {}
+        deletedSections.customCards[sectionId] = {
+          data: { ...currentResume.value.customCards[index], items: [...currentResume.value.customCards[index].items] },
+          deletedAt,
+          sectionTitle,
+        }
+      }
+    }
+
+    // 清空当前 section 数据
+    removeSection(sectionId)
+    updateCurrentResume({ deletedSections })
+  }
+
+  /** 从 deletedSections 恢复 section，返回 'ok' | 'duplicate' | 'notfound' */
+  const restoreSection = (sectionId: string): 'ok' | 'duplicate' | 'notfound' => {
+    if (!currentResume.value) return 'notfound'
+
+    const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
+    const type = getCustomSectionType(sectionId)
+
+    // 固定模块恢复
+    if (!type) {
+      const sectionData = deletedSections[sectionId as keyof DeletedSections] as { data: any; deletedAt: string; sectionTitle?: string } | undefined
+      if (!sectionData) return 'notfound'
+
+      // 检查目标是否已有数据（重复检测）
+      const hasExisting = isArraySection(sectionId)
+        ? currentResume.value[getArraySectionConfig(sectionId).resumeKey].length > 0
+        : isTextSection(sectionId)
+          ? (currentResume.value[getTextSectionConfig(sectionId).resumeKey]?.trim().length ?? 0) > 0
+          : false
+      if (hasExisting) return 'duplicate'
+
+      // 恢复数据
+      const updates: Partial<Resume> = { deletedSections }
+      if (isArraySection(sectionId)) {
+        const config = getArraySectionConfig(sectionId)
+        ;(updates as any)[config.resumeKey] = sectionData.data
+      } else if (isTextSection(sectionId)) {
+        const config = getTextSectionConfig(sectionId)
+        ;(updates as any)[config.resumeKey] = sectionData.data
+      }
+
+      // 恢复 sectionOrder
+      updates.sectionOrder = currentResume.value.sectionOrder.includes(sectionId)
+        ? currentResume.value.sectionOrder
+        : [...currentResume.value.sectionOrder, sectionId]
+
+      // 恢复 sectionTitle
+      if (sectionData.sectionTitle) {
+        updates.sectionTitles = { ...currentResume.value.sectionTitles, [sectionId]: sectionData.sectionTitle }
+      }
+
+      // 从 deletedSections 移除
+      delete deletedSections[sectionId as keyof DeletedSections]
+
+      updateCurrentResume(updates)
+      return 'ok'
+    }
+
+    // 自定义模块恢复
+    const index = getCustomSectionIndex(sectionId)
+    if (index === null) return 'notfound'
+
+    const recordKey = type === 'customText' ? 'customTexts' : 'customCards'
+    const deletedRecord = deletedSections[recordKey as 'customTexts' | 'customCards']
+    if (!deletedRecord || !deletedRecord[sectionId]) return 'notfound'
+
+    const sectionData = deletedRecord[sectionId]
+    // 检查是否已有该索引
+    const targetArr = type === 'customText' ? currentResume.value.customTexts : currentResume.value.customCards
+    if (targetArr[index]) return 'duplicate'
+
+    // 恢复数据
+    const newTargetArr = [...targetArr as any[]]
+    while (newTargetArr.length < index) {
+      newTargetArr.push(type === 'customText' ? { id: generateId(), content: '' } : { id: generateId(), items: [] })
+    }
+    newTargetArr[index] = sectionData.data
+
+    const sectionOrder = currentResume.value.sectionOrder.includes(sectionId)
+      ? currentResume.value.sectionOrder
+      : [...currentResume.value.sectionOrder, sectionId]
+
+    delete deletedRecord[sectionId]
+    const restoreKey = type === 'customText' ? 'customTexts' : 'customCards'
+    const finalUpdates: Partial<Resume> = { [restoreKey]: newTargetArr, sectionOrder, deletedSections }
+    updateCurrentResume(finalUpdates as any)
+    return 'ok'
+  }
+
+  /** 检测固有模块恢复时的字段冲突（仅用于合并模式前的二次确认） */
+  const detectSectionConflicts = (sectionId: string): ConflictDetectionResult => {
+    if (!currentResume.value) return { hasConflict: false, conflicts: [] }
+
+    const deletedSections = currentResume.value.deletedSections
+    if (!deletedSections) return { hasConflict: false, conflicts: [] }
+
+    const sectionData = deletedSections[sectionId as keyof DeletedSections] as { data: any; deletedAt: string; sectionTitle?: string } | undefined
+    if (!sectionData) return { hasConflict: false, conflicts: [] }
+
+    const conflicts: FieldConflict[] = []
+
+    // 1. 检测 sectionTitle 冲突
+    const existingTitle = getSectionTitle(currentResume.value, sectionId)
+    const trashTitle = sectionData.sectionTitle || getSectionTitle(null, sectionId)
+    if (existingTitle && trashTitle && existingTitle !== trashTitle) {
+      conflicts.push({
+        key: 'sectionTitle',
+        label: '模块标题',
+        existingValue: existingTitle,
+        trashValue: trashTitle,
+        mergedValue: `${existingTitle} + ${trashTitle}`,
+        choice: 'merged',
+      })
+    }
+
+    // 2. 单富文本字段模块（evaluation）内容冲突
+    if (isTextSection(sectionId)) {
+      const config = getTextSectionConfig(sectionId)
+      const existingContent = currentResume.value[config.resumeKey] || ''
+      const trashContent = sectionData.data || ''
+      if (existingContent && trashContent) {
+        conflicts.push({
+          key: 'content',
+          label: '自我评价内容',
+          existingValue: existingContent,
+          trashValue: trashContent,
+          mergedValue: `${existingContent}\n\n${trashContent}`,
+          choice: 'merged',
+        })
+      }
+    }
+
+    return {
+      hasConflict: conflicts.length > 0,
+      conflicts,
+    }
+  }
+
+  /** 恢复 section（处理重复：overwrite 覆盖现有，merge 追加；自定义模块始终追加为新模块到末尾） */
+  const restoreSectionWithMerge = (sectionId: string, merge: boolean, conflicts?: FieldConflict[]) => {
+    if (!currentResume.value) return
+
+    const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
+    const type = getCustomSectionType(sectionId)
+
+    // 固定模块恢复
+    if (!type) {
+      const sectionData = deletedSections[sectionId as keyof DeletedSections] as { data: any; deletedAt: string; sectionTitle?: string } | undefined
+      if (!sectionData) return
+
+      const updates: Partial<Resume> = { deletedSections }
+      const incoming = sectionData.data
+
+      // 应用字段级冲突结果（合并模式 + 有冲突时）
+      let conflictHandledEvaluation = false
+      if (merge && conflicts && conflicts.length > 0) {
+        const newTitles = { ...currentResume.value.sectionTitles }
+        conflicts.forEach(c => {
+          if (c.key === 'sectionTitle') {
+            newTitles[sectionId] = c.choice === 'current' ? c.existingValue
+              : c.choice === 'trash' ? c.trashValue
+              : c.mergedValue
+          } else if (c.key === 'content' && isTextSection(sectionId)) {
+            const config = getTextSectionConfig(sectionId)
+            ;(updates as any)[config.resumeKey] = c.choice === 'current' ? c.existingValue
+              : c.choice === 'trash' ? c.trashValue
+              : c.mergedValue
+            conflictHandledEvaluation = true
+          }
+        })
+        updates.sectionTitles = newTitles
+      }
+
+      if (isArraySection(sectionId)) {
+        const config = getArraySectionConfig(sectionId)
+        const existing = currentResume.value[config.resumeKey]
+        ;(updates as any)[config.resumeKey] = merge ? [...existing, ...incoming] : incoming
+      } else if (isTextSection(sectionId) && !conflictHandledEvaluation) {
+        const config = getTextSectionConfig(sectionId)
+        const existing = currentResume.value[config.resumeKey] || ''
+        ;(updates as any)[config.resumeKey] = merge ? (existing ? existing + '\n\n' + incoming : incoming) : incoming
+      }
+
+      // 恢复 sectionOrder
+      updates.sectionOrder = currentResume.value.sectionOrder.includes(sectionId)
+        ? currentResume.value.sectionOrder
+        : [...currentResume.value.sectionOrder, sectionId]
+
+      // 恢复 sectionTitle（无冲突时使用回收箱标题；有冲突时已在上方处理）
+      if (!conflicts?.length && sectionData.sectionTitle) {
+        updates.sectionTitles = { ...currentResume.value.sectionTitles, [sectionId]: sectionData.sectionTitle }
+      }
+
+      // 从 deletedSections 移除
+      delete deletedSections[sectionId as keyof DeletedSections]
+
+      updateCurrentResume(updates)
+      return
+    }
+
+    // 自定义模块恢复：始终追加为新模块到末尾
+    const recordKey = type === 'customText' ? 'customTexts' : 'customCards'
+    const deletedRecord = deletedSections[recordKey as 'customTexts' | 'customCards']
+    if (!deletedRecord || !deletedRecord[sectionId]) return
+
+    const sectionData = deletedRecord[sectionId]
+    const targetArr = type === 'customText'
+      ? [...currentResume.value.customTexts, { ...sectionData.data, id: generateId() } as CustomTextSection]
+      : [...currentResume.value.customCards, { ...sectionData.data, id: generateId(), items: [...(sectionData.data as CustomCardSection).items] } as CustomCardSection]
+
+    const newCustomSectionId = generateCustomSectionId(type, targetArr.length - 1)
+    const sectionOrder = [...currentResume.value.sectionOrder, newCustomSectionId]
+
+    // 恢复 sectionTitles：优先使用回收箱保存的标题
+    const newTitles = { ...currentResume.value.sectionTitles }
+    const restoredTitle = sectionData.sectionTitle || currentResume.value.sectionTitles[sectionId]
+    if (restoredTitle) {
+      newTitles[newCustomSectionId] = restoredTitle
+    }
+    if (newTitles[sectionId]) {
+      delete newTitles[sectionId]
+    }
+
+    delete deletedRecord[sectionId]
+    const finalUpdates: Partial<Resume> = { [recordKey]: targetArr as any, sectionOrder, sectionTitles: newTitles, deletedSections }
+    updateCurrentResume(finalUpdates as any)
+  }
+
+  /** 永久删除暂存的 section */
+  const permanentDeleteSection = (sectionId: string) => {
+    if (!currentResume.value) return
+
+    const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
+    const type = getCustomSectionType(sectionId)
+
+    if (!type) {
+      // 固定模块
+      delete deletedSections[sectionId as keyof DeletedSections]
+    } else if (type === 'customText') {
+      // 自定义文本模块
+      if (deletedSections.customTexts) {
+        delete deletedSections.customTexts[sectionId]
+      }
+    } else if (type === 'customCard') {
+      // 自定义卡片模块
+      if (deletedSections.customCards) {
+        delete deletedSections.customCards[sectionId]
+      }
+    }
+
+    updateCurrentResume({ deletedSections })
+  }
+
+  /** 自动清理过期 card/section */
+  const cleanupDeletedData = () => {
+    if (!currentResume.value) return
+
+    const cutoff = Date.now() - CARD_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    let needsUpdate = false
+    const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
+    const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
+
+    // 清理过期 card（ponytail: 用 any 绕过 union array 类型问题）
+    for (const key of Object.keys(deletedItems) as (keyof DeletedItems)[]) {
+      const items = deletedItems[key] as any[] | undefined
+      if (!items) continue
+      const valid = items.filter(item => new Date(item.deletedAt).getTime() > cutoff)
+      if (valid.length !== items.length) {
+        needsUpdate = true
+        if (valid.length === 0) {
+          delete deletedItems[key]
+        } else {
+          (deletedItems as any)[key] = valid
+        }
+      }
+    }
+
+    // 清理过期 section（ponytail: customTexts/customCards 是 Record，需要特殊处理）
+    for (const key of Object.keys(deletedSections) as (keyof DeletedSections)[]) {
+      const section = deletedSections[key]
+      if (!section) continue
+      // customTexts/customCards 是 Record，不能直接用 section.deletedAt
+      const deletedAt = (section as any).deletedAt
+      if (deletedAt && new Date(deletedAt).getTime() <= cutoff) {
+        needsUpdate = true
+        delete deletedSections[key]
+      }
+    }
+
+    if (needsUpdate) {
+      updateCurrentResume({ deletedItems, deletedSections })
+    }
+  }
+
   // ========== AI 评估结果 ==========
 
   /** 保存评估结果到当前简历（立即持久化，不走防抖） */
@@ -618,7 +1254,28 @@ export const useResumeStore = defineStore('resume', () => {
     loadResume,
     updateCurrentResume,
     saveCurrentResumeNow,
-    deleteResume,
+    deleteResume: trashResume, // 兼容旧接口
+    trashResume,
+    restoreResume,
+    permanentDeleteResume,
+    emptyTrash,
+    cleanupTrash,
+    updateTrashRetentionDays,
+    trash,
+    trashRetentionDays,
+    // Card/Section 暂存
+    trashCard,
+    restoreCard,
+    restoreCardWithMerge,
+    restoreCardToNewSection,
+    permanentDeleteCard,
+    clearDeletedCards,
+    trashSection,
+    restoreSection,
+    restoreSectionWithMerge,
+    detectSectionConflicts,
+    permanentDeleteSection,
+    cleanupDeletedData,
     copyResume,
     exportToJSON,
     importFromJSON,

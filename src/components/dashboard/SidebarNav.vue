@@ -31,6 +31,15 @@
       </button>
       <button
         class="sidebar-nav__item"
+        :class="{ 'sidebar-nav__item--active': activeTab === 'trash' }"
+        :aria-current="activeTab === 'trash' ? 'page' : undefined"
+        @click="$emit('update:activeTab', 'trash')"
+      >
+        <Icon icon="mdi:delete-outline" :width="20" />
+        <span class="sidebar-nav__item-label">回收站</span>
+      </button>
+      <button
+        class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'settings' }"
         :aria-current="activeTab === 'settings' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'settings')"
@@ -46,13 +55,13 @@
 import { Icon } from '@iconify/vue'
 
 defineProps<{
-  activeTab: 'resumes' | 'templates' | 'ai' | 'settings'
+  activeTab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings'
   /** 是否为移动端抽屉模式（始终完整显示，不受 mobile 媒体查询隐藏） */
   mobile?: boolean
 }>()
 
 defineEmits<{
-  'update:activeTab': [value: 'resumes' | 'templates' | 'ai' | 'settings']
+  'update:activeTab': [value: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings']
 }>()
 </script>
 

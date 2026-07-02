@@ -230,3 +230,46 @@ export async function getMeta<T = unknown>(key: string): Promise<T | undefined> 
 export async function setMeta(key: string, value: unknown): Promise<void> {
   return idb.setMeta(key, value)
 }
+
+// ========== 回收站（meta.json / meta store） ==========
+
+/** 读取回收站简历列表 */
+export async function getTrash(): Promise<Resume[]> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.trash as Resume[]) ?? []
+  }
+  return (await idb.getMeta<Resume[]>('trash')) ?? []
+}
+
+/** 写入回收站简历列表 */
+export async function saveTrash(trash: Resume[]): Promise<void> {
+  const plain = toPlain(trash)
+  if (isDirectoryMode()) {
+    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
+    meta.trash = plain
+    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+  } else {
+    await idb.setMeta('trash', plain)
+  }
+}
+
+/** 读取回收站保留天数（默认 30） */
+export async function getTrashRetentionDays(): Promise<number> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.trashRetentionDays as number) ?? 30
+  }
+  return (await idb.getMeta<number>('trashRetentionDays')) ?? 30
+}
+
+/** 写入回收站保留天数 */
+export async function setTrashRetentionDays(days: number): Promise<void> {
+  if (isDirectoryMode()) {
+    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
+    meta.trashRetentionDays = days
+    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+  } else {
+    await idb.setMeta('trashRetentionDays', days)
+  }
+}

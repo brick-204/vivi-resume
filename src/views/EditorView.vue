@@ -63,10 +63,31 @@
         @reset="layoutStore.resetEditorWidth"
       />
 
-      <!-- 第三列：简历预览区 -->
+      <!-- 第三列：简历预览区 / 回收箱 -->
       <section class="editor-body__preview">
+        <!-- Tab 切换 -->
+        <div class="preview-tabs">
+          <button
+            class="preview-tab"
+            :class="{ 'preview-tab--active': previewTab === 'preview' }"
+            @click="previewTab = 'preview'"
+          >
+            <Icon icon="mdi:file-document-outline" :width="16" />
+            预览
+          </button>
+          <button
+            class="preview-tab"
+            :class="{ 'preview-tab--active': previewTab === 'trash' }"
+            @click="previewTab = 'trash'"
+          >
+            <Icon icon="mdi:delete-restore" :width="16" />
+            回收箱
+          </button>
+        </div>
+        <!-- 内容 -->
         <div class="preview-wrapper">
-          <ResumePreview ref="previewRef" @click-section="handleClickSection" />
+          <ResumePreview v-if="previewTab === 'preview'" ref="previewRef" @click-section="handleClickSection" />
+          <TrashBinPanel v-else />
         </div>
       </section>
     </main>
@@ -116,10 +137,12 @@ import { exportAsImage } from '@/utils/exportImage'
 import { exportDocx } from '@/utils/exportDocx'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+import { Icon } from '@iconify/vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import EditorSkeleton from '@/components/common/EditorSkeleton.vue'
 import SectionNavigator from '@/components/editor/SectionNavigator.vue'
 import SectionEditor from '@/components/editor/SectionEditor.vue'
+import TrashBinPanel from '@/components/editor/TrashBinPanel.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
 import ResumePreview from '@/components/preview/ResumePreview.vue'
 import ResumeEvaluationModal from '@/components/ai/ResumeEvaluationModal.vue'
@@ -134,6 +157,7 @@ const aiConfigStore = useAIConfigStore()
 const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
+const previewTab = ref<'preview' | 'trash'>('preview')
 const showEvalModal = ref(false)
 const showJDScanModal = ref(false)
 const showFullOptimizeModal = ref(false)
@@ -262,6 +286,8 @@ onMounted(async () => {
       router.push('/dashboard')
       return
     }
+    // ponytail: 进入编辑器时清理过期暂存数据
+    store.cleanupDeletedData()
   } else {
     router.push('/dashboard')
     return
@@ -312,37 +338,60 @@ onMounted(async () => {
     flex: 1;
     min-width: 400px;
     background: $bg-secondary;
-    padding: $spacing-xl;
     overflow-y: auto;
     position: relative;
+    display: flex;
+    flex-direction: column;
     @include scrollbar;
   }
 }
 
-// 编辑区滑入滑出动画
-.slide-left-enter-active,
-.slide-left-leave-active {
-  transition: all 0.25s ease;
+// 预览/回收箱 Tab 切换栏
+.preview-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-xl;
+  border-bottom: 1px solid $border-glass;
+  background: var(--editor-panel-bg);
 }
 
-.slide-left-enter-from,
-.slide-left-leave-to {
-  width: 0 !important;
-  opacity: 0;
-  margin-left: 0;
-  padding: 0;
-  overflow: hidden;
+.preview-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: $spacing-xs $spacing-md;
+  border: none;
+  border-radius: $radius-md;
+  background: transparent;
+  color: $text-secondary;
+  font-size: $font-size-sm;
+  font-family: $font-family;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $bg-glass-hover;
+    color: $text-primary;
+  }
+
+  &--active {
+    background: $primary-bg-active;
+    color: $text-white;
+  }
 }
 
 // 预览背景光晕
 .preview-wrapper {
+  flex: 1;
   position: relative;
   max-width: 820px;
+  width: 100%;
   margin: 0 auto;
   @include glass;
-  padding: 0;
-  min-height: 100%;
-  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  overflow-y: auto;
+  @include scrollbar;
 }
 
 // 骨架屏 → 编辑器淡入过渡

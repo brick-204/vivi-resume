@@ -32,6 +32,7 @@
           <ResumeListPanel v-if="activeTab === 'resumes'" />
           <TemplateMarketPanel v-else-if="activeTab === 'templates'" />
           <AISettingsPanel v-else-if="activeTab === 'ai'" />
+          <TrashPanel v-else-if="activeTab === 'trash'" />
           <SettingsPanel v-else-if="activeTab === 'settings'" />
         </div>
       </div>
@@ -55,6 +56,7 @@ import ResumeListPanel from '@/components/dashboard/ResumeListPanel.vue'
 import TemplateMarketPanel from '@/components/dashboard/TemplateMarketPanel.vue'
 import AISettingsPanel from '@/components/dashboard/AISettingsPanel.vue'
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue'
+import TrashPanel from '@/components/dashboard/TrashPanel.vue'
 import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
 
 const store = useResumeStore()
@@ -62,18 +64,18 @@ const aiConfigStore = useAIConfigStore()
 const settingsStore = useSettingsStore()
 const route = useRoute()
 
-const activeTab = ref<'resumes' | 'templates' | 'ai' | 'settings'>('resumes')
+const activeTab = ref<'resumes' | 'templates' | 'ai' | 'trash' | 'settings'>('resumes')
 const mobileMenuOpen = ref(false)
 const storesReady = ref(false)
 
 // 根据 URL query 参数切换 tab
 watch(() => route.query.tab, (tab) => {
-  if (['ai', 'settings', 'templates', 'resumes'].includes(tab as string)) {
+  if (['ai', 'settings', 'templates', 'resumes', 'trash'].includes(tab as string)) {
     activeTab.value = tab as typeof activeTab.value
   }
 }, { immediate: true })
 
-const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'settings') => {
+const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings') => {
   activeTab.value = tab
   mobileMenuOpen.value = false
 }

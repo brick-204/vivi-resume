@@ -186,7 +186,7 @@ const openResume = (id: string) => {
 const onDeleteResume = (id: string) => {
   dialog.warning({
     title: '删除简历',
-    content: '确定要删除这个简历吗？此操作不可撤销。',
+    content: '确定要删除这个简历吗？如需找回可前往回收站',
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: () => {

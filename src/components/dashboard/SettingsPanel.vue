@@ -91,6 +91,26 @@
       </div>
     </div>
 
+    <!-- 回收站设置 -->
+    <div class="settings-section">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:delete-clock-outline" :width="20" />
+        回收站设置
+      </h3>
+      <p class="settings-section__desc">
+        删除的简历会移到回收站，在设定天数后自动清理。
+      </p>
+      <div class="settings-section__row">
+        <span class="settings-section__label">保留天数</span>
+        <NSelect
+          v-model:value="retentionDays"
+          :options="retentionOptions"
+          size="small"
+          style="width: 100px"
+        />
+      </div>
+    </div>
+
     <!-- 解绑确认弹窗 -->
     <n-modal
       :show="showUnbindConfirm"
@@ -119,13 +139,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal } from 'naive-ui'
+import { NModal, NSelect } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useResumeStore } from '@/stores/resumeStore'
 
 const settingsStore = useSettingsStore()
+const resumeStore = useResumeStore()
 const showUnbindConfirm = ref(false)
+
+// 回收站保留天数选项
+const retentionOptions = [
+  { label: '7 天', value: 7 },
+  { label: '15 天', value: 15 },
+  { label: '30 天', value: 30 },
+]
+
+const retentionDays = computed({
+  get: () => resumeStore.trashRetentionDays,
+  set: (val: number) => resumeStore.updateTrashRetentionDays(val),
+})
 
 const handleBind = () => {
   settingsStore.bindDirectory()
@@ -261,6 +295,17 @@ const handleResync = () => {
     &--warn {
       color: $warning-color;
     }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  &__label {
+    font-size: $font-size-sm;
+    color: $text-secondary;
   }
 }
 

@@ -59,12 +59,19 @@
             <div class="form__row">
               <div class="form-field">
                 <span class="form-field__label">开始时间</span>
-                <n-input :value="item.startDate" @update:value="(val: string) => updateItemField(item.id, 'startDate', val)" placeholder="YYYY-MM" size="small" />
+                <MonthDatePicker
+                  :value="item.startDate"
+                  @update:value="(val: string) => updateItemField(item.id, 'startDate', val)"
+                />
               </div>
               <div class="date-field">
                 <div class="form-field">
                   <span class="form-field__label">结束时间</span>
-                  <n-input :value="item.endDate === '至今' ? '' : item.endDate" @update:value="(val: string) => updateItemField(item.id, 'endDate', val)" placeholder="YYYY-MM" size="small" :disabled="item.endDate === '至今'" />
+                  <MonthDatePicker
+                    :value="item.endDate === '至今' ? '' : item.endDate"
+                    :disabled="item.endDate === '至今'"
+                    @update:value="(val: string) => updateItemField(item.id, 'endDate', val)"
+                  />
                 </div>
                 <div class="date-field__present">
                   <n-checkbox :checked="item.endDate === '至今'" @update:checked="(val: boolean) => updateItemField(item.id, 'endDate', val ? '至今' : '')">至今</n-checkbox>
@@ -91,6 +98,7 @@ import { TRASH_ICON, EDUCATION_ICON, EYE_ICON, EYE_OFF_ICON, DRAG_HANDLE_ICON, C
 import { Icon } from '@iconify/vue'
 import { NInput, NPopconfirm, NCheckbox } from 'naive-ui'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
+import MonthDatePicker from '@/components/common/MonthDatePicker.vue'
 import { ScrollContainerKey } from '../scrollContainerKey'
 import { useFlipAnimation } from '@/composables/useFlipAnimation'
 
@@ -135,9 +143,12 @@ const addItem = () => {
 }
 
 const deleteItem = (id: string) => {
+  const item = items.value.find(i => i.id === id);
+  if (!item) return;
+  store.trashCard('education', item);
   store.updateCurrentResume({
-    education: items.value.filter(item => item.id !== id)
-  })
+    education: items.value.filter((item) => item.id !== id),
+  });
 }
 
 const duplicateItem = (id: string) => {

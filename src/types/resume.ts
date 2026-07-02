@@ -89,6 +89,32 @@ export interface SkillItem {
   content: string  // 技能内容，支持多行
 }
 
+// 删除项包装器
+export interface DeletedItem<T> {
+  data: T
+  deletedAt: string  // ISO timestamp
+}
+
+// Card 暂存（固定 7 天）
+export interface DeletedItems {
+  work?: DeletedItem<WorkItem>[]
+  education?: DeletedItem<EducationItem>[]
+  projects?: DeletedItem<ProjectItem>[]
+  skills?: DeletedItem<SkillItem>[]
+  customCards?: DeletedItem<CustomCardItem & { sectionId: string }>[]
+}
+
+// Section 暂存（固定 7 天）
+export interface DeletedSections {
+  work?: { data: WorkItem[], deletedAt: string, sectionTitle?: string }
+  education?: { data: EducationItem[], deletedAt: string, sectionTitle?: string }
+  projects?: { data: ProjectItem[], deletedAt: string, sectionTitle?: string }
+  skills?: { data: SkillItem[], deletedAt: string, sectionTitle?: string }
+  evaluation?: { data: string, deletedAt: string, sectionTitle?: string }
+  customTexts?: Record<string, { data: CustomTextSection, deletedAt: string, sectionTitle?: string }>
+  customCards?: Record<string, { data: CustomCardSection, deletedAt: string, sectionTitle?: string }>
+}
+
 // 自定义文本模块
 export interface CustomTextSection {
   id: string
@@ -168,6 +194,26 @@ export interface Resume {
   lastInterview?: InterviewResult
   createdAt: string
   updatedAt: string
+  // 回收站与暂存
+  deletedItems?: DeletedItems
+  deletedSections?: DeletedSections
+  deletedAt?: string  // 仅回收站中的简历使用
+}
+
+// 字段级冲突项（用于恢复时的合并冲突处理）
+export interface FieldConflict {
+  key: string           // 字段名：'sectionTitle' | 'content' | ...
+  label: string         // 中文标签：'模块标题' | '内容' | ...
+  existingValue: string // 当前值（序列化为字符串）
+  trashValue: string    // 回收箱值
+  mergedValue: string   // 合并预览值（可编辑）
+  choice: 'current' | 'trash' | 'merged'  // 用户选择
+}
+
+// 冲突检测结果
+export interface ConflictDetectionResult {
+  hasConflict: boolean
+  conflicts: FieldConflict[]
 }
 
 // 默认模块顺序
@@ -292,8 +338,8 @@ export const DEFAULT_SECTION_TITLES: Record<string, string> = {
   projects: '项目经历',
   skills: '专业技能',
   evaluation: '自我评价',
-  customText: '自定义模块一',
-  customCard: '自定义模块二',
+  customText: '纯文本模块',
+  customCard: '卡片类模块',
 }
 
 export const getSectionTitle = (resume: Resume | undefined | null, sectionId: string): string => {

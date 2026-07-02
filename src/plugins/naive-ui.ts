@@ -76,8 +76,13 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     dotColor: '#0066cc',
     dotBorderActive: '2px solid #0071e1',
   },
+  Dialog: {
+    actionStyle: 'justify-content: center !important;',
+  },
   Popconfirm: {
     borderRadius: '18px',
+    actionStyle: 'justify-content: center !important;',
+    maxWidth: '360px',
   },
   ColorPicker: {
     borderRadius: '11px',
@@ -148,6 +153,9 @@ export const lightThemeOverrides: GlobalThemeOverrides = {
   Modal: {
     borderRadius: '18px',
   },
+  Dialog: {
+    actionStyle: 'justify-content: center !important;',
+  },
   Switch: {
     borderRadius: '11px',
   },
@@ -166,6 +174,8 @@ export const lightThemeOverrides: GlobalThemeOverrides = {
   },
   Popconfirm: {
     borderRadius: '18px',
+    actionStyle: 'justify-content: center !important;',
+    maxWidth: '360px',
   },
   ColorPicker: {
     borderRadius: '11px',
