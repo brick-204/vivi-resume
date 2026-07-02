@@ -4,7 +4,7 @@
       <h3 class="trash-bin__title">
         <Icon icon="mdi:delete-restore" :width="20" />
         回收箱
-        <span class="trash-bin__hint">（保留 7 天）</span>
+        <span class="trash-bin__hint">（保留 {{ store.trashBinRetentionDays }} 天）</span>
       </h3>
       <button v-if="hasDeletedData" class="trash-bin__clear" @click="handleClearAll">
         <Icon icon="mdi:delete-forever" :width="16" />

@@ -189,6 +189,7 @@ const onDeleteResume = (id: string) => {
     content: '确定要删除这个简历吗？如需找回可前往回收站',
     positiveText: '删除',
     negativeText: '取消',
+    actionStyle: 'justify-content: center',
     onPositiveClick: () => {
       // 不用 async — 避免 Naive UI 等待 Promise resolve 才关闭弹窗
       // deleteResume 内部 await saveToStorageNow() 是持久化写入，

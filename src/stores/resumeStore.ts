@@ -37,6 +37,8 @@ import {
   saveTrash,
   getTrashRetentionDays,
   setTrashRetentionDays,
+  getTrashBinRetentionDays,
+  setTrashBinRetentionDays,
 } from '@/utils/storageAdapter'
 // 颜色设置迁移 — 将旧的 boolean 字段迁移到新的三态枚举
 const migrateResumeColors = (resume: Resume): Resume => {
@@ -83,6 +85,9 @@ export const useResumeStore = defineStore('resume', () => {
   // 回收站
   const trash = shallowRef<Resume[]>([])
   const trashRetentionDays = ref(30)
+
+  // 回收箱（卡片/模块暂存）
+  const trashBinRetentionDays = ref(7)
 
   // 当前编辑的简历
   const currentResume = ref<Resume | null>(null)
@@ -145,12 +150,14 @@ export const useResumeStore = defineStore('resume', () => {
 
     // Step 4: 加载回收站
     try {
-      const [trashData, retentionDays] = await Promise.all([
+      const [trashData, retentionDays, trashBinDays] = await Promise.all([
         getTrash(),
         getTrashRetentionDays(),
+        getTrashBinRetentionDays(),
       ])
       trash.value = trashData
       trashRetentionDays.value = retentionDays
+      trashBinRetentionDays.value = trashBinDays
 
       // 自动清理过期简历
       await cleanupTrash()
@@ -363,6 +370,13 @@ export const useResumeStore = defineStore('resume', () => {
     trashRetentionDays.value = days
     await setTrashRetentionDays(days)
     await cleanupTrash()
+  }
+
+  // 更新回收箱保留天数（触发清理）
+  const updateTrashBinRetentionDays = async (days: number) => {
+    trashBinRetentionDays.value = days
+    await setTrashBinRetentionDays(days)
+    cleanupDeletedData()
   }
 
   // 复制简历
@@ -617,9 +631,7 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
-  // ========== Card/Section 暂存（固定 7 天） ==========
-
-  const CARD_RETENTION_DAYS = 7
+  // ========== Card/Section 暂存（保留天数可配置） ==========
 
   /** 暂存 card 到 deletedItems */
   const trashCard = (sectionId: string, item: WorkItem | EducationItem | ProjectItem | SkillItem | CustomCardItem, customSectionId?: string) => {
@@ -1128,7 +1140,7 @@ export const useResumeStore = defineStore('resume', () => {
   const cleanupDeletedData = () => {
     if (!currentResume.value) return
 
-    const cutoff = Date.now() - CARD_RETENTION_DAYS * 24 * 60 * 60 * 1000
+    const cutoff = Date.now() - trashBinRetentionDays.value * 24 * 60 * 60 * 1000
     let needsUpdate = false
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
     const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
@@ -1263,6 +1275,8 @@ export const useResumeStore = defineStore('resume', () => {
     updateTrashRetentionDays,
     trash,
     trashRetentionDays,
+    updateTrashBinRetentionDays,
+    trashBinRetentionDays,
     // Card/Section 暂存
     trashCard,
     restoreCard,

@@ -8,8 +8,15 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getMeta, setMeta, deleteMeta, clearResumesStore, clearAIConfigsStore } from '@/utils/storage'
+import {
+  getMeta,
+  setMeta,
+  deleteMeta,
+  clearResumesStore,
+  clearAIConfigsStore,
+} from '@/utils/storage'
 import * as idb from '@/utils/storage'
+import * as adapter from '@/utils/storageAdapter'
 import {
   isFileSystemAccessSupported,
   pickDirectory,
@@ -22,10 +29,9 @@ import {
   readAllJsonFiles,
   readJsonFile,
 } from '@/utils/directoryStorage'
-import { extractPhotos } from '@/utils/photoFileRef'
+import { extractPhotos} from '@/utils/photoFileRef'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSyncWorker } from '@/composables/useSyncWorker'
-import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
@@ -209,7 +215,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const handle = directoryHandle.value
 
       // 1. 从目录读取全部数据
-      const resumes = await readAllJsonFiles<Resume>(handle, 'resumes')
+      const resumes = await adapter.getAllResumes()
       const aiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
       const metaJson = await readJsonFile<Record<string, string>>(handle, 'meta.json')
 
@@ -314,7 +320,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const handle = directoryHandle.value
 
       // 1. 从目录读取全部数据
-      const resumes = await readAllJsonFiles<Resume>(handle, 'resumes')
+      const resumes = await adapter.getAllResumes()
       const aiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
       const metaJson = await readJsonFile<Record<string, string>>(handle, 'meta.json')
 

@@ -273,3 +273,23 @@ export async function setTrashRetentionDays(days: number): Promise<void> {
     await idb.setMeta('trashRetentionDays', days)
   }
 }
+
+/** 读取回收箱保留天数（默认 7） */
+export async function getTrashBinRetentionDays(): Promise<number> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.trashBinRetentionDays as number) ?? 7
+  }
+  return (await idb.getMeta<number>('trashBinRetentionDays')) ?? 7
+}
+
+/** 写入回收箱保留天数 */
+export async function setTrashBinRetentionDays(days: number): Promise<void> {
+  if (isDirectoryMode()) {
+    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
+    meta.trashBinRetentionDays = days
+    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+  } else {
+    await idb.setMeta('trashBinRetentionDays', days)
+  }
+}

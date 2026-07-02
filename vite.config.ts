@@ -22,6 +22,13 @@ export default defineConfig({
     }),
   ],
   build: {
+    // assetsInlineLimit 函数形式：对 Lux.png（模板简历示例头像）强制内联为 data URL，
+    // 确保目录模式下 extractPhotos 能将其提取为独立照片文件，避免解绑/重新构建后路径失效。
+    // 其余资源走默认 4KB 阈值。
+    assetsInlineLimit: (filePath, content) => {
+      if (filePath.includes('Lux.png')) return true
+      return content.length < 4096
+    },
     rollupOptions: {
       output: {
         manualChunks: {

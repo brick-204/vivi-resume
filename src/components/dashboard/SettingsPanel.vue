@@ -111,6 +111,26 @@
       </div>
     </div>
 
+    <!-- 回收箱设置 -->
+    <div class="settings-section">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:delete-restore" :width="20" />
+        回收箱设置
+      </h3>
+      <p class="settings-section__desc">
+        编辑时删除的模块和卡片会暂存在回收箱，在设定天数后自动清理。
+      </p>
+      <div class="settings-section__row">
+        <span class="settings-section__label">保留天数</span>
+        <NSelect
+          v-model:value="trashBinDays"
+          :options="retentionOptions"
+          size="small"
+          style="width: 100px"
+        />
+      </div>
+    </div>
+
     <!-- 解绑确认弹窗 -->
     <n-modal
       :show="showUnbindConfirm"
@@ -161,6 +181,11 @@ const retentionDays = computed({
   set: (val: number) => resumeStore.updateTrashRetentionDays(val),
 })
 
+const trashBinDays = computed({
+  get: () => resumeStore.trashBinRetentionDays,
+  set: (val: number) => resumeStore.updateTrashBinRetentionDays(val),
+})
+
 const handleBind = () => {
   settingsStore.bindDirectory()
 }
@@ -182,6 +207,9 @@ const handleResync = () => {
 <style lang="scss" scoped>
 .settings-panel {
   max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
 }
 
 // 面板头部（复用 AISettingsPanel 样式）
