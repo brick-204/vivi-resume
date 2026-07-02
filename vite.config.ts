@@ -22,6 +22,9 @@ export default defineConfig({
     }),
   ],
   build: {
+    // 警告阈值调高：Lux.png 作为示例头像被强制内联为 data URL（目录模式提取需要），
+    // 使 useScaledPreview chunk 达 2.2MB；纯客户端 SPA + gzip 后 1.7MB，可接受
+    chunkSizeWarningLimit: 2500,
     // assetsInlineLimit 函数形式：对 Lux.png（模板简历示例头像）强制内联为 data URL，
     // 确保目录模式下 extractPhotos 能将其提取为独立照片文件，避免解绑/重新构建后路径失效。
     // 其余资源走默认 4KB 阈值。
