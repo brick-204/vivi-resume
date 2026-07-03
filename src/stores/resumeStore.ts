@@ -273,6 +273,8 @@ export const useResumeStore = defineStore('resume', () => {
 
   // 加载简历到编辑器（优先 structuredClone 快速路径，失败 fallback Worker）
   const loadResume = async (id: string): Promise<boolean> => {
+    // ponytail: 复用 currentResume，避免从 resumeList 克隆覆盖 updateCurrentResume 的同步修改（防抖保存前 resumeList 未刷新，导致换模板跳转滞后一拍）
+    if (currentResume.value?.id === id) return true
     const resume = getResume(id)
     if (resume) {
       try {
