@@ -64,14 +64,14 @@ describe('makePhotoRef + parsePhotoRef round-trip', () => {
 })
 
 describe('extractPhotos', () => {
-  it('extracts photo data URL and replaces with ref', () => {
+  it('extracts photo data URL and replaces with ref', async () => {
     const resume = {
       basicInfo: {
         name: 'Test',
         photo: 'data:image/jpeg;base64,/9j/4AAQ',
       },
     }
-    const { resume: result, photos } = extractPhotos(resume, 'r1')
+    const { resume: result, photos } = await extractPhotos(resume, 'r1')
 
     expect(photos.length).toBe(1)
     expect(photos[0].relativePath).toBe('photos/r1.jpg')
@@ -80,7 +80,7 @@ describe('extractPhotos', () => {
     expect((result as any).basicInfo.photo).toBe('__PHOTO_REF__:photos/r1.jpg')
   })
 
-  it('extracts photoOriginal as well', () => {
+  it('extracts photoOriginal as well', async () => {
     const resume = {
       basicInfo: {
         name: 'Test',
@@ -88,7 +88,7 @@ describe('extractPhotos', () => {
         photoOriginal: 'data:image/png;base64,iVBOR',
       },
     }
-    const { resume: result, photos } = extractPhotos(resume, 'r2')
+    const { resume: result, photos } = await extractPhotos(resume, 'r2')
 
     expect(photos.length).toBe(2)
     expect(photos[0].relativePath).toBe('photos/r2.jpg')
@@ -99,49 +99,82 @@ describe('extractPhotos', () => {
     )
   })
 
-  it('skips photo field that is already a ref', () => {
+  it('skips photo field that is already a ref', async () => {
     const resume = {
       basicInfo: {
         name: 'Test',
         photo: '__PHOTO_REF__:photos/r1.jpg',
       },
     }
-    const { photos } = extractPhotos(resume, 'r1')
+    const { photos } = await extractPhotos(resume, 'r1')
     expect(photos.length).toBe(0)
   })
 
-  it('skips photo field that is not a data URL', () => {
+  it('skips photo field that is not a data URL', async () => {
     const resume = {
       basicInfo: {
         name: 'Test',
         photo: 'https://example.com/photo.jpg',
       },
     }
-    const { photos } = extractPhotos(resume, 'r1')
+    const { photos } = await extractPhotos(resume, 'r1')
     expect(photos.length).toBe(0)
   })
 
-  it('handles resume with no photo fields', () => {
+  it('handles resume with no photo fields', async () => {
     const resume = {
       basicInfo: {
         name: 'Test',
       },
     }
-    const { resume: result, photos } = extractPhotos(resume, 'r1')
+    const { resume: result, photos } = await extractPhotos(resume, 'r1')
     expect(photos.length).toBe(0)
     expect((result as any).basicInfo.name).toBe('Test')
   })
 
-  it('detects PNG from data URL prefix', () => {
+  it('detects PNG from data URL prefix', async () => {
     const resume = {
       basicInfo: {
         name: 'Test',
         photo: 'data:image/png;base64,iVBOR',
       },
     }
-    const { photos } = extractPhotos(resume, 'r3')
+    const { photos } = await extractPhotos(resume, 'r3')
     expect(photos[0].relativePath).toBe('photos/r3.png')
     expect(photos[0].mimeType).toBe('image/png')
+  })
+
+  it('fetches same-origin URL and extracts as data URL', async () => {
+    // stub fetch → PNG magic bytes，FileReader.readAsDataURL 会产出 data:image/png
+    const origFetch = globalThis.fetch
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    globalThis.fetch = (() =>
+      Promise.resolve({
+        blob: () => Promise.resolve(new Blob([pngBytes], { type: 'image/png' })),
+      })) as unknown as typeof fetch
+    try {
+      const resume = { basicInfo: { photo: '/assets/lux.png' } }
+      const { resume: result, photos } = await extractPhotos(resume, 'r4')
+      expect(photos.length).toBe(1)
+      expect(photos[0].relativePath).toBe('photos/r4.png')
+      expect(photos[0].mimeType).toBe('image/png')
+      expect((result as any).basicInfo.photo).toBe('__PHOTO_REF__:photos/r4.png')
+    } finally {
+      globalThis.fetch = origFetch
+    }
+  })
+
+  it('leaves URL untouched when fetch fails', async () => {
+    const origFetch = globalThis.fetch
+    globalThis.fetch = (() => Promise.reject(new Error('network'))) as unknown as typeof fetch
+    try {
+      const resume = { basicInfo: { photo: '/assets/missing.png' } }
+      const { resume: result, photos } = await extractPhotos(resume, 'r5')
+      expect(photos.length).toBe(0)
+      expect((result as any).basicInfo.photo).toBe('/assets/missing.png')
+    } finally {
+      globalThis.fetch = origFetch
+    }
   })
 })
 
@@ -205,7 +238,7 @@ describe('injectPhotos', () => {
 })
 
 describe('extractPhotos + injectPhotos round-trip', () => {
-  it('round-trips photo data correctly', () => {
+  it('round-trips photo data correctly', async () => {
     const original = {
       basicInfo: {
         name: 'Test',
@@ -214,7 +247,7 @@ describe('extractPhotos + injectPhotos round-trip', () => {
     }
 
     // Extract: photo → ref
-    const { resume: extracted, photos } = extractPhotos(original, 'r1')
+    const { resume: extracted, photos } = await extractPhotos(original, 'r1')
     expect((extracted as any).basicInfo.photo).toBe('__PHOTO_REF__:photos/r1.jpg')
 
     // Build the map from extracted photos
@@ -228,7 +261,7 @@ describe('extractPhotos + injectPhotos round-trip', () => {
     expect((restored as any).basicInfo.photo).toBe('data:image/jpeg;base64,/9j/4AAQ')
   })
 
-  it('round-trips both photo and photoOriginal', () => {
+  it('round-trips both photo and photoOriginal', async () => {
     const original = {
       basicInfo: {
         name: 'Test',
@@ -237,7 +270,7 @@ describe('extractPhotos + injectPhotos round-trip', () => {
       },
     }
 
-    const { resume: extracted, photos } = extractPhotos(original, 'r2')
+    const { resume: extracted, photos } = await extractPhotos(original, 'r2')
     const photoData = new Map<string, string>()
     for (const p of photos) {
       photoData.set(p.relativePath, p.dataUrl)

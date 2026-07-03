@@ -113,7 +113,7 @@ export async function saveResumeList(resumes: Resume[]): Promise<void> {
     // 逐个写入：提取照片为独立文件，JSON 中存储引用路径
     for (const resume of resumes) {
       const plain = toPlain(resume) as unknown as Record<string, unknown>
-      const { resume: refResume, photos } = extractPhotos(plain, resume.id)
+      const { resume: refResume, photos } = await extractPhotos(plain, resume.id)
 
       // 写入照片文件
       for (const photo of photos) {

@@ -6,6 +6,8 @@
  * 目录模式下 JSON 中不再嵌入 base64 字符串，而是存储引用路径
  */
 
+import { blobToBase64 } from '@/utils/storage'
+
 const PHOTO_REF_PREFIX = '__PHOTO_REF__:'
 
 /** 检查字符串是否为照片文件引用 */
@@ -35,36 +37,49 @@ function inferMimeType(dataUrl: string): string {
   return 'image/jpeg'
 }
 
+/** 将同源 URL / blob URL fetch 转 data URL；失败返回 undefined */
+async function fetchUrlToDataUrl(url: string): Promise<string | undefined> {
+  try {
+    const blob = await fetch(url).then(r => r.blob())
+    return await blobToBase64(blob)
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * 从 Resume 对象中提取照片数据，替换为文件引用
  * 返回修改后的 resume（用于 JSON 序列化）和提取出的照片条目
+ *
+ * async：photo 可能是同源 URL（dev 环境静态资源），需 fetch 转 data URL 后再提取。
  */
-export function extractPhotos(
+export async function extractPhotos(
   resume: Record<string, unknown>,
   resumeId: string,
-): {
+): Promise<{
   resume: Record<string, unknown>
   photos: { relativePath: string; dataUrl: string; mimeType: string }[]
-} {
+}> {
   const photos: { relativePath: string; dataUrl: string; mimeType: string }[] = []
   const basicInfo = { ...(resume.basicInfo as Record<string, unknown>) }
 
-  // 提取 photo 字段
-  const photo = basicInfo.photo as string
-  if (photo && !isPhotoRef(photo) && photo.startsWith('data:')) {
-    const ext = inferExt(photo)
-    const relativePath = `photos/${resumeId}.${ext}`
-    photos.push({ relativePath, dataUrl: photo, mimeType: inferMimeType(photo) })
-    basicInfo.photo = makePhotoRef(relativePath)
-  }
+  // 提取 photo / photoOriginal 字段
+  const fields = ['photo', 'photoOriginal'] as const
+  for (const field of fields) {
+    const value = basicInfo[field] as string | undefined
+    // data URL 直接用；同源 / blob URL 先 fetch 转 data URL；其余跳过
+    if (!value || isPhotoRef(value)) continue
+    const isUrl = value.startsWith('/') || value.startsWith('blob:')
+    const dataUrl = value.startsWith('data:')
+      ? value
+      : isUrl ? await fetchUrlToDataUrl(value) : undefined
+    if (!dataUrl) continue
 
-  // 提取 photoOriginal 字段
-  const photoOriginal = basicInfo.photoOriginal as string | undefined
-  if (photoOriginal && !isPhotoRef(photoOriginal) && photoOriginal.startsWith('data:')) {
-    const ext = inferExt(photoOriginal)
-    const relativePath = `photos/${resumeId}_original.${ext}`
-    photos.push({ relativePath, dataUrl: photoOriginal, mimeType: inferMimeType(photoOriginal) })
-    basicInfo.photoOriginal = makePhotoRef(relativePath)
+    const ext = inferExt(dataUrl)
+    const suffix = field === 'photoOriginal' ? '_original' : ''
+    const relativePath = `photos/${resumeId}${suffix}.${ext}`
+    photos.push({ relativePath, dataUrl, mimeType: inferMimeType(dataUrl) })
+    basicInfo[field] = makePhotoRef(relativePath)
   }
 
   return { resume: { ...resume, basicInfo }, photos }

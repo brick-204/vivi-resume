@@ -145,7 +145,7 @@ export const useSettingsStore = defineStore('settings', () => {
           continue
         }
         const resumeId = resumeObj.id as string || file.filename.replace('.json', '')
-        const { resume: refResume, photos } = extractPhotos(resumeObj, resumeId)
+        const { resume: refResume, photos } = await extractPhotos(resumeObj, resumeId)
 
         // 写入照片文件
         for (const photo of photos) {
