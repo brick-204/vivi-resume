@@ -65,6 +65,9 @@ import { dialog } from '@/plugins/naive-ui'
 
 const store = useResumeStore()
 
+// ponytail: naive-ui 主题 overrides 不作用于 prop，dialog 按钮居中需逐个传 actionStyle
+const CENTER_ACTION = 'justify-content: center !important;'
+
 const trashCount = computed(() => store.trash.length)
 
 // 计算剩余天数
@@ -98,8 +101,10 @@ const handleRestore = (id: string) => {
     content: '确定要恢复这个简历吗？',
     positiveText: '恢复',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      await store.restoreResume(id)
+    actionStyle: CENTER_ACTION,
+    // ponytail: 不 await 持久化——store 已同步更新响应式状态，弹窗立即关闭，写盘后台进行
+    onPositiveClick: () => {
+      store.restoreResume(id).catch(e => console.error('[TrashPanel] restoreResume:', e))
     },
   })
 }
@@ -112,8 +117,9 @@ const handlePermanentDelete = (id: string) => {
     content: `确定要永久删除「${resume?.title || '这个简历'}」吗？此操作不可撤销。`,
     positiveText: '删除',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      await store.permanentDeleteResume(id)
+    actionStyle: CENTER_ACTION,
+    onPositiveClick: () => {
+      store.permanentDeleteResume(id).catch(e => console.error('[TrashPanel] permanentDeleteResume:', e))
     },
   })
 }
@@ -125,8 +131,9 @@ const handleEmptyTrash = () => {
     content: `确定要清空回收站吗？这将永久删除 ${trashCount.value} 个简历，此操作不可撤销。`,
     positiveText: '清空',
     negativeText: '取消',
-    onPositiveClick: async () => {
-      await store.emptyTrash()
+    actionStyle: CENTER_ACTION,
+    onPositiveClick: () => {
+      store.emptyTrash().catch(e => console.error('[TrashPanel] emptyTrash:', e))
     },
   })
 }

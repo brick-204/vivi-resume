@@ -195,6 +195,9 @@ import MergeConflictModal from './MergeConflictModal.vue'
 
 const store = useResumeStore()
 
+// ponytail: dialog 按钮居中需逐个传 actionStyle（主题 overrides 不作用于 prop）
+const CENTER_ACTION = 'justify-content: center !important;'
+
 // 查看状态
 const viewingItem = ref<{ type: 'section' | 'card' | 'evaluation'; title: string; data: any } | null>(null)
 
@@ -358,6 +361,7 @@ const handleRestoreSection = (sectionId: string) => {
       content: '该功能模块已存在，请选择操作方式：覆盖将替换现有内容，合并将追加到现有内容之后。',
       positiveText: '覆盖',
       negativeText: '合并',
+      actionStyle: CENTER_ACTION,
       onPositiveClick: () => {
         // 覆盖模式：直接覆盖现有内容
         store.restoreSectionWithMerge(sectionId, false)
@@ -397,6 +401,7 @@ const handleDeleteSection = (sectionId: string) => {
     content: '确定要永久删除这个模块吗？此操作不可撤销。',
     positiveText: '删除',
     negativeText: '取消',
+    actionStyle: CENTER_ACTION,
     onPositiveClick: () => {
       store.permanentDeleteSection(sectionId)
     },
@@ -417,6 +422,7 @@ const handleRestoreCard = (sectionId: string, itemId: string) => {
       content: `该卡片所属模块「${sectionLabel}」已被删除。是否${isCustom ? '新建一个模块' : '重新启用模块'}来承接这张卡片？`,
       positiveText: isCustom ? '新建模块并恢复' : '重新启用并恢复',
       negativeText: '取消',
+      actionStyle: CENTER_ACTION,
       onPositiveClick: () => {
         store.restoreCardToNewSection(sectionId, itemId)
       },
@@ -429,6 +435,7 @@ const handleRestoreCard = (sectionId: string, itemId: string) => {
       content: '该功能模块已存在，请选择操作方式：覆盖将替换现有内容，合并将添加到末尾。',
       positiveText: '覆盖',
       negativeText: '合并',
+      actionStyle: CENTER_ACTION,
       onPositiveClick: () => {
         store.restoreCardWithMerge(sectionId, itemId, false)
       },
@@ -446,6 +453,7 @@ const handleDeleteCard = (sectionId: string, itemId: string) => {
     content: '确定要永久删除这个卡片吗？此操作不可撤销。',
     positiveText: '删除',
     negativeText: '取消',
+    actionStyle: CENTER_ACTION,
     onPositiveClick: () => {
       store.permanentDeleteCard(sectionId, itemId)
     },
@@ -459,6 +467,7 @@ const handleClearAll = () => {
     content: '确定要清空所有已删除的内容吗？此操作不可撤销。',
     positiveText: '清空',
     negativeText: '取消',
+    actionStyle: CENTER_ACTION,
     onPositiveClick: () => {
       store.clearDeletedCards()
     },

@@ -120,9 +120,12 @@ const applyTemplate = async () => {
     })
   }
 
-  // 等待保存完成后再跳转，确保 resumeList 已同步更新
-  await store.saveCurrentResumeNow()
+  // ponytail: 立即跳转到编辑器，后台异步保存，骨架屏先行
   router.push(`/editor/${resumeId.value}`)
+  // 后台持久化，不阻塞跳转
+  store.saveCurrentResumeNow().catch((e) => {
+    console.error('[applyTemplate] Background save failed:', e)
+  })
 }
 </script>
 

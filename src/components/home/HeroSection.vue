@@ -34,7 +34,7 @@
         <div class="hero__card hero__card--1">
           <div class="hero__preview-card">
             <div class="hero__preview-card__header">
-              <img class="hero__preview-card__avatar" src="@/assets/images/Ez.png" alt="" />
+              <img class="hero__preview-card__avatar" src="@/assets/images/Ez.webp" alt="" />
               <div class="hero__preview-card__info">
                 <span class="hero__preview-card__name">张三</span>
                 <span class="hero__preview-card__title">前端工程师</span>
@@ -50,7 +50,7 @@
         <div class="hero__card hero__card--2">
           <div class="hero__preview-card hero__preview-card--accent">
             <div class="hero__preview-card__header">
-              <img class="hero__preview-card__avatar" src="@/assets/images/Timo.png" alt="" />
+              <img class="hero__preview-card__avatar" src="@/assets/images/Timo.webp" alt="" />
               <div class="hero__preview-card__info">
                 <span class="hero__preview-card__name">李四</span>
                 <span class="hero__preview-card__title">产品经理</span>
@@ -65,7 +65,7 @@
         <div class="hero__card hero__card--3">
           <div class="hero__preview-card hero__preview-card--secondary">
             <div class="hero__preview-card__header">
-              <img class="hero__preview-card__avatar" src="@/assets/images/ElementalMaster.png" alt="" />
+              <img class="hero__preview-card__avatar" src="@/assets/images/ElementalMaster.webp" alt="" />
               <div class="hero__preview-card__info">
                 <span class="hero__preview-card__name">王五</span>
                 <span class="hero__preview-card__title">UX 设计师</span>

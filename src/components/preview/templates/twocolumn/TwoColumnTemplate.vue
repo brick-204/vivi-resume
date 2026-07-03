@@ -62,6 +62,8 @@ provide(ResumeDocumentKey, ctx)
 
   :deep(.resume__section:first-child) {
     grid-column: 1;
+    grid-row: 2 / span 999;
+    align-self: start;
     padding: $spacing-lg;
     margin-top: 0;
     background: rgba(0, 0, 0, 0.03);

@@ -1,6 +1,6 @@
 import type { Resume } from '@/types/resume'
 import { DEFAULT_SECTION_ORDER, DEFAULT_FIELD_ORDER } from '@/types/resume'
-import luxPhoto from '@/assets/images/Lux.png'
+import luxPhoto from '@/assets/images/Lux.webp'
 
 // 用于模板画廊预览的示例简历数据
 export const sampleResume: Resume = {

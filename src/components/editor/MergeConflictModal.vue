@@ -202,7 +202,7 @@ const handleCancel = () => {
 
 .modal-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: $spacing-md;
 }
 </style>
