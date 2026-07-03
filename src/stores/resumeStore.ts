@@ -239,13 +239,15 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
-  // 创建新简历
-  const createResume = async (): Promise<string> => {
+  /** 仅同步创建简历到内存并立即返回 ID，后台持久化。调用方需自行安排 saveToStorageNow() */
+  const createResumeDeferred = (): string => {
     const newResume = createEmptyResume()
     resumeList.value = [...resumeList.value, newResume]
     currentResume.value = newResume
-    // 创建操作不可丢失，await 确保写入完成
-    await saveToStorageNow()
+    // 后台持久化，不阻塞导航（与 createResumeFromTemplateDeferred 同模式）
+    saveToStorageNow().catch((e) => {
+      console.error('[createResumeDeferred] Background save failed:', e)
+    })
     return newResume.id
   }
 
@@ -1258,7 +1260,7 @@ export const useResumeStore = defineStore('resume', () => {
     isDirty,
     resumeCount,
     ready,
-    createResume,
+    createResumeDeferred,
     createResumeWithData,
     addResumeInMemory,
     saveToStorageNow,

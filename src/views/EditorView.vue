@@ -126,15 +126,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { downloadJSON } from '@/utils/export'
-import { printViaIframe } from '@/utils/print'
-import { exportAsImage } from '@/utils/exportImage'
-import { exportDocx } from '@/utils/exportDocx'
+// ponytail: 导出工具动态导入 — docx/modern-screenshot 等重库移出 EditorView 静态依赖图，
+// 让路由组件加载更快、编辑器骨架屏尽早显示；导出按钮点击时才拉取对应 chunk
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
@@ -145,10 +144,12 @@ import SectionEditor from '@/components/editor/SectionEditor.vue'
 import TrashBinPanel from '@/components/editor/TrashBinPanel.vue'
 import ResizeHandle from '@/components/common/ResizeHandle.vue'
 import ResumePreview from '@/components/preview/ResumePreview.vue'
-import ResumeEvaluationModal from '@/components/ai/ResumeEvaluationModal.vue'
-import JDScanModal from '@/components/ai/JDScanModal.vue'
-import FullResumeOptimizeModal from '@/components/ai/FullResumeOptimizeModal.vue'
-import InterviewPrepModal from '@/components/ai/InterviewPrepModal.vue'
+// ponytail: AI 弹窗异步加载 — 它们静态拉入 turndown/markdownConverter/resumeSerializer（~90KB+），
+// 移出 EditorView 主图，首次打开时才拉取，编辑器进入更快
+const ResumeEvaluationModal = defineAsyncComponent(() => import('@/components/ai/ResumeEvaluationModal.vue'))
+const JDScanModal = defineAsyncComponent(() => import('@/components/ai/JDScanModal.vue'))
+const FullResumeOptimizeModal = defineAsyncComponent(() => import('@/components/ai/FullResumeOptimizeModal.vue'))
+const InterviewPrepModal = defineAsyncComponent(() => import('@/components/ai/InterviewPrepModal.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -242,6 +243,8 @@ const exportPDF = async () => {
     console.warn('[exportPDF] 预览元素未就绪')
     return
   }
+  // ponytail: 动态加载 print 模块，不阻塞编辑器首屏
+  const { printViaIframe } = await import('@/utils/print')
   await printViaIframe({
     target: el,
     margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
@@ -256,6 +259,8 @@ const exportImage = async () => {
     return
   }
   try {
+    // ponytail: 动态加载 modern-screenshot，不阻塞编辑器首屏
+    const { exportAsImage } = await import('@/utils/exportImage')
     await exportAsImage(
       el,
       store.currentResume?.title || 'resume',
@@ -270,6 +275,8 @@ const exportImage = async () => {
 const exportDOCX = async () => {
   if (!store.currentResume) return
   try {
+    // ponytail: 动态加载 docx 库，不阻塞编辑器首屏
+    const { exportDocx } = await import('@/utils/exportDocx')
     await exportDocx(store.currentResume, store.currentResume.title || 'resume')
     naiveMessage.success('DOCX 导出成功')
   } catch (e) {

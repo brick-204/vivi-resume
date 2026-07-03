@@ -174,12 +174,14 @@ const filteredAndSortedResumes = computed(() => {
   return list
 })
 
-const createNewResume = async () => {
-  const id = await store.createResume()
+const createNewResume = () => {
+  // ponytail: 同步创建 + 立即导航 — 不等待 IndexedDB 写入，模板选择页骨架屏先顶上
+  const id = store.createResumeDeferred()
   router.push(`/templates/${id}`)
 }
 
 const openResume = (id: string) => {
+  // ponytail: 立即跳转，编辑器内部用骨架屏兜住 store 加载与路由 chunk 下载
   router.push(`/editor/${id}`)
 }
 
