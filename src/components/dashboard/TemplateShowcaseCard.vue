@@ -10,14 +10,18 @@
   >
     <!-- 预览区 -->
     <div ref="previewContainer" class="template-showcase-card__preview">
-      <!-- 空白模板：纯视觉占位，不渲染任何模板样式 -->
-      <div v-if="template.id === 'blank'" class="template-showcase-card__blank-placeholder">
-        <Icon icon="mdi:file-document-plus-outline" :width="48" />
-        <span>空白简历</span>
-      </div>
-      <div v-else class="template-showcase-card__scale" :style="scaleStyle">
-        <ResumeDocument :resume="displayResume" :template-id="template.id" />
-      </div>
+      <!-- ponytail: 视口外只显示 shimmer 占位（固定高度撑住布局），进入视口后才渲染 ResumeDocument -->
+      <div v-if="!inView" class="template-showcase-card__placeholder" />
+      <template v-else>
+        <!-- 空白模板：纯视觉占位，不渲染任何模板样式 -->
+        <div v-if="template.id === 'blank'" class="template-showcase-card__blank-placeholder">
+          <Icon icon="mdi:file-document-plus-outline" :width="48" />
+          <span>空白简历</span>
+        </div>
+        <div v-else class="template-showcase-card__scale" :style="scaleStyle">
+          <ResumeDocument :resume="displayResume" :template-id="template.id" />
+        </div>
+      </template>
     </div>
 
     <!-- 信息区 -->
@@ -49,11 +53,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { TemplateConfig } from '@/config/templates'
 import type { Resume } from '@/types/resume'
 import { getSampleResume } from '@/config/sampleData'
 import { useScaledPreview } from '@/composables/useScaledPreview'
+import { useInView } from '@/composables/useInView'
 import { stripStyleOverrides } from '@/utils/resumeStyle'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 import { Icon } from '@iconify/vue'
@@ -85,6 +90,14 @@ const displayResume = computed(() => {
 const layoutLabel = computed(() => LAYOUT_LABELS[props.template.style.headerLayout] || '自定义布局')
 
 const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.value.pagePadding)
+
+// ponytail: 视口懒渲染 — 卡片滚入视口前不挂载 ResumeDocument，避免 8 卡片同时渲染阻塞主线程
+// previewContainer 同时服务于 useScaledPreview（ResizeObserver）和 useInView（IntersectionObserver）
+const { isVisible: inView, setupObserver } = useInView({ rootMargin: '200px' })
+
+onMounted(() => {
+  if (previewContainer.value) setupObserver(previewContainer.value)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -116,6 +129,24 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => displayResume.va
     overflow: hidden;
     position: relative;
     background: #ffffff;
+  }
+
+  // ponytail: 视口外占位 — shimmer 动画撑住卡片高度，避免进入视口时布局跳动
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      var(--bg-glass) 25%,
+      var(--bg-glass-hover) 50%,
+      var(--bg-glass) 75%
+    );
+    animation: template-card-shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes template-card-shimmer {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.85; }
   }
 
   &__blank-placeholder {

@@ -29,11 +29,10 @@
       <!-- 内容区 -->
       <div class="dashboard__content">
         <div class="dashboard__content-inner">
-          <ResumeListPanel v-if="activeTab === 'resumes'" />
-          <TemplateMarketPanel v-else-if="activeTab === 'templates'" />
-          <AISettingsPanel v-else-if="activeTab === 'ai'" />
-          <TrashPanel v-else-if="activeTab === 'trash'" />
-          <SettingsPanel v-else-if="activeTab === 'settings'" />
+          <!-- ponytail: 首屏等待 store 就绪时显示整体骨架，避免空白 -->
+          <DashboardSkeleton v-if="!storesReady" />
+          <!-- ponytail: 面板懒加载（defineAsyncComponent），切换 tab 首次加载时显示骨架 -->
+          <component :is="panelMap[activeTab]" v-else />
         </div>
       </div>
     </div>
@@ -44,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, defineAsyncComponent, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -52,12 +51,45 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import { Icon } from '@iconify/vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
-import ResumeListPanel from '@/components/dashboard/ResumeListPanel.vue'
-import TemplateMarketPanel from '@/components/dashboard/TemplateMarketPanel.vue'
-import AISettingsPanel from '@/components/dashboard/AISettingsPanel.vue'
-import SettingsPanel from '@/components/dashboard/SettingsPanel.vue'
-import TrashPanel from '@/components/dashboard/TrashPanel.vue'
+import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton.vue'
 import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
+
+// ponytail: 面板懒加载，首屏只加载当前 tab 对应面板，切换时按需加载
+// defineAsyncComponent 的 loadingComponent 在组件首次加载时显示
+const ResumeListPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/ResumeListPanel.vue'),
+  loadingComponent: DashboardSkeleton,
+  delay: 0,
+})
+const TemplateMarketPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/TemplateMarketPanel.vue'),
+  loadingComponent: DashboardSkeleton,
+  delay: 0,
+})
+const AISettingsPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/AISettingsPanel.vue'),
+  loadingComponent: DashboardSkeleton,
+  delay: 0,
+})
+const TrashPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/TrashPanel.vue'),
+  loadingComponent: DashboardSkeleton,
+  delay: 0,
+})
+const SettingsPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/SettingsPanel.vue'),
+  loadingComponent: DashboardSkeleton,
+  delay: 0,
+})
+
+// ponytail: 面板映射表，供 <component :is> 动态渲染
+const panelMap: Record<string, Component> = {
+  resumes: ResumeListPanel,
+  templates: TemplateMarketPanel,
+  ai: AISettingsPanel,
+  trash: TrashPanel,
+  settings: SettingsPanel,
+}
 
 const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
@@ -80,10 +112,13 @@ const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'trash' | 'sett
   mobileMenuOpen.value = false
 }
 
+// ponytail: store 并行初始化，缩短首屏等待
 onMounted(async () => {
-  await settingsStore.ready
-  await store.ready
-  await aiConfigStore.ready
+  await Promise.all([
+    settingsStore.ready,
+    store.ready,
+    aiConfigStore.ready,
+  ])
   storesReady.value = true
   // 无简历且无 query tab 时默认显示模版市场
   if (!route.query.tab && store.resumeCount === 0) {

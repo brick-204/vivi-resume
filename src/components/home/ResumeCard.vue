@@ -1,7 +1,9 @@
 <template>
   <div class="resume-card" @click="$emit('edit')">
     <div ref="previewContainer" class="resume-card__preview">
-      <div class="resume-card__scale" :style="scaleStyle">
+      <!-- ponytail: 视口外 shimmer 占位（固定高度撑住布局），进入视口后渲染 ResumeDocument -->
+      <div v-if="!inView" class="resume-card__placeholder" />
+      <div v-else class="resume-card__scale" :style="scaleStyle">
         <ResumeDocument :resume="resume" :template-id="resume.templateId || 'classic'" />
       </div>
     </div>
@@ -39,10 +41,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import type { Resume } from '@/types/resume'
 import { getTemplate } from '@/config/templates'
 import { useScaledPreview } from '@/composables/useScaledPreview'
+import { useInView } from '@/composables/useInView'
 import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 import { Icon } from '@iconify/vue'
 import { getScoreColor } from '@/utils/evaluationScore'
@@ -94,6 +97,13 @@ const evaluationScore = computed(() => props.resume.lastEvaluation?.score ?? nul
 const scoreColor = computed(() => getScoreColor(evaluationScore.value))
 
 const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pagePadding)
+
+// ponytail: 视口懒渲染 — 简历卡片滚入视口前不挂载 ResumeDocument
+const { isVisible: inView, setupObserver } = useInView({ rootMargin: '200px' })
+
+onMounted(() => {
+  if (previewContainer.value) setupObserver(previewContainer.value)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -137,6 +147,24 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => props.resume.pag
       background: linear-gradient(transparent, rgba(255, 255, 255, 0.9));
       pointer-events: none;
     }
+  }
+
+  // ponytail: 视口外 shimmer 占位，撑住卡片高度避免布局跳动
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      var(--bg-glass) 25%,
+      var(--bg-glass-hover) 50%,
+      var(--bg-glass) 75%
+    );
+    animation: resume-card-shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes resume-card-shimmer {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.85; }
   }
 
   &__scale {
