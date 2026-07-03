@@ -8,7 +8,10 @@
   <div class="dashboard-skeleton">
     <!-- 顶部标题 + 操作按钮 -->
     <div class="dashboard-skeleton__header">
-      <div class="sk-bar sk-bar--lg" style="width: 160px; height: 28px;" />
+      <div class="dashboard-skeleton__title-wrap">
+        <div class="sk-bar sk-bar--lg" style="width: 160px; height: 28px;" />
+        <span class="loading-text">加载中...</span>
+      </div>
       <div class="dashboard-skeleton__actions">
         <div class="sk-pill sk-pill--accent" style="width: 96px; height: 34px;" />
         <div class="sk-pill" style="width: 96px; height: 34px;" />
@@ -55,6 +58,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: $spacing-md;
+  }
+
+  &__title-wrap {
+    display: flex;
+    align-items: center;
     gap: $spacing-md;
   }
 

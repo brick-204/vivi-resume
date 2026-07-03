@@ -2,7 +2,9 @@
   <div class="resume-card" @click="$emit('edit')">
     <div ref="previewContainer" class="resume-card__preview">
       <!-- ponytail: 视口外 shimmer 占位（固定高度撑住布局），进入视口后渲染 ResumeDocument -->
-      <div v-if="!inView" class="resume-card__placeholder" />
+      <div v-if="!inView" class="resume-card__placeholder">
+        <span class="loading-text" style="color: rgba(0, 0, 0, 0.45);">加载中...</span>
+      </div>
       <div v-else class="resume-card__scale" :style="scaleStyle">
         <ResumeDocument :resume="resume" :template-id="resume.templateId || 'classic'" />
       </div>
@@ -153,6 +155,9 @@ onMounted(() => {
   &__placeholder {
     width: 100%;
     height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: linear-gradient(
       90deg,
       var(--bg-glass) 25%,

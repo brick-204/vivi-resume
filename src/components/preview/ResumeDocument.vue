@@ -10,7 +10,7 @@
 import { computed, defineAsyncComponent, defineComponent, h, type Component } from 'vue'
 import type { Resume } from '@/types/resume'
 
-/** 模板组件异步加载时的占位 — 简单白色矩形，避免预览区空白 */
+/** 模板组件异步加载时的占位 — 简单白色矩形 + 居中「加载中...」跳动文字，避免预览区空白 */
 const TemplateLoadingPlaceholder = defineComponent({
   render() {
     return h('div', {
@@ -19,8 +19,16 @@ const TemplateLoadingPlaceholder = defineComponent({
         minHeight: '800px',
         background: 'var(--bg-glass)',
         borderRadius: '4px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }
-    })
+    }, [
+      h('span', {
+        class: 'loading-text',
+        style: { color: 'rgba(0, 0, 0, 0.45)' }
+      }, '加载中...')
+    ])
   }
 })
 

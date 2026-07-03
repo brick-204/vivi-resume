@@ -14,3 +14,19 @@
   min-height: 100%;
   @include scrollbar;
 }
+
+// 「加载中...」跳动文字 — 整字上下浮动，全局复用
+// ponytail: 全局类，各骨架屏 inline 引用即可，白底场景局部覆盖 color
+@keyframes loading-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.loading-text {
+  display: inline-flex;
+  font-size: $font-size-sm;
+  color: $text-light;
+  animation: loading-bounce 0.6s ease-in-out infinite;
+  user-select: none;
+  pointer-events: none;
+}

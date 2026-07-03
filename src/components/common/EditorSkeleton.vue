@@ -13,6 +13,7 @@
       <div class="sk-header__center">
         <div class="skeleton-bar" style="width: 180px; height: 28px; border-radius: 8px;" />
         <div class="skeleton-pill" style="width: 48px; height: 18px;" />
+        <span class="loading-text">加载中...</span>
       </div>
       <div class="sk-header__right">
         <div class="skeleton-pill sk-btn" style="width: 72px; height: 28px;" />
