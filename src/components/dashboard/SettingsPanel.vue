@@ -59,7 +59,7 @@
           <button
             class="action-btn action-btn--danger"
             :disabled="settingsStore.isSyncing"
-            @click="showUnbindConfirm = true"
+            @click="openUnbindConfirm"
           >
             <Icon icon="mdi:folder-remove-outline" :width="18" />
             解绑目录
@@ -136,6 +136,7 @@
       :show="showUnbindConfirm"
       preset="dialog"
       title="确认解绑目录"
+      :auto-focus="false"
       :content="`解绑后，数据将恢复到浏览器存储。目录「${settingsStore.directoryName}」中的文件如何处理？`"
       @update:show="v => { if (!v) showUnbindConfirm = false }"
     >
@@ -188,6 +189,10 @@ const trashBinDays = computed({
 
 const handleBind = () => {
   settingsStore.bindDirectory()
+}
+
+const openUnbindConfirm = () => {
+  showUnbindConfirm.value = true
 }
 
 const handleUnbind = (deleteFiles: boolean) => {
