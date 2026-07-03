@@ -91,7 +91,7 @@ function serializeBasicInfo(resume: Resume, sectionId: string): string {
     if (info.email) lines.push(`邮箱：[邮箱]`)
     if (info.phone) lines.push(`电话：[电话]`)
     if (info.location) lines.push(`所在地：${info.location}`)
-    if (info.website) lines.push(`网站：${info.website}`)
+    if (info.website) lines.push(`个人网站：${info.website}`)
     if (info.gender) lines.push(`性别：[性别]`)
     if (info.birthday) lines.push(`出生日期：[出生日期]`)
     if (info.age) lines.push(`年龄：[年龄]`)

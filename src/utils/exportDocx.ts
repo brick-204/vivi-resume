@@ -282,7 +282,7 @@ const FIELD_ICON_SYMBOL: Record<string, string> = {
   phone: '☎',             // 电话
   wechat: '💬',           // 微信
   qq: '🐧',               // QQ
-  website: '🌐',          // 网站
+  website: '🌐',          // 个人网站
   // 常见自定义字段
   jobStatus: '◉',         // 求职状态
   availableDate: '◷',     // 到岗时间
@@ -294,7 +294,7 @@ const FIELD_LABELS: Record<string, string> = {
   gender: '性别', birthday: '生日', age: '年龄',
   location: '所在地', expectedCity: '期望城市',
   workExperience: '工作经验', salaryRange: '薪资',
-  email: '邮箱', phone: '电话', wechat: '微信', qq: 'QQ', website: '网站',
+  email: '邮箱', phone: '电话', wechat: '微信', qq: 'QQ', website: '个人网站',
 }
 
 /** 主题色按指定 alpha 合成到白底，得到不透明 hex（用于需要可见的主题色边框/背景）

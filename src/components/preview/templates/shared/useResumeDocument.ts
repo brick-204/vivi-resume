@@ -349,7 +349,7 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
     age: '年龄',
     location: '所在地', expectedCity: '期望城市',
     workExperience: '工作经验', salaryRange: '薪资', email: '邮箱',
-    phone: '电话', wechat: '微信', qq: 'QQ', website: '网站',
+    phone: '电话', wechat: '微信', qq: 'QQ', website: '个人网站',
   }
 
   const getFieldLabel = (key: string): string => FIELD_LABELS[key] || key
