@@ -349,6 +349,7 @@ const handleResync = () => {
 .unbind-actions {
   display: flex;
   justify-content: center;
+  width: 100%;
   gap: $spacing-sm;
   margin-top: $spacing-md;
 }
