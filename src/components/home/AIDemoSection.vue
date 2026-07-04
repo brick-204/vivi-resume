@@ -35,15 +35,55 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, defineAsyncComponent, h } from 'vue'
 import { Icon } from '@iconify/vue'
-import AIPolishDemo from '@/components/home/demo/AIPolishDemo.vue'
-import AIEvalDemo from '@/components/home/demo/AIEvalDemo.vue'
-import AIScanDemo from '@/components/home/demo/AIScanDemo.vue'
-import AIOptimizeDemo from '@/components/home/demo/AIOptimizeDemo.vue'
-import AIInterviewDemo from '@/components/home/demo/AIInterviewDemo.vue'
-import AIWriteDemo from '@/components/home/demo/AIWriteDemo.vue'
-import AIImportDemo from '@/components/home/demo/AIImportDemo.vue'
+
+// ponytail: 7 个 demo 改异步加载，减小首页 chunk；切换 tab 首次加载时显示内联骨架
+const DemoSkeleton = {
+  render() {
+    return h('div', { class: 'ai-demo-section__loading' }, [
+      h('div', { class: 'ai-demo-section__loading-bar', style: 'width: 60%; height: 14px;' }),
+      h('div', { class: 'ai-demo-section__loading-bar', style: 'width: 80%; height: 14px; margin-top: 12px;' }),
+      h('div', { class: 'ai-demo-section__loading-bar', style: 'width: 45%; height: 14px; margin-top: 12px;' }),
+    ])
+  }
+}
+
+const AIPolishDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIPolishDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
+const AIEvalDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIEvalDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
+const AIScanDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIScanDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
+const AIOptimizeDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIOptimizeDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
+const AIInterviewDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIInterviewDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
+const AIWriteDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIWriteDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
+const AIImportDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIImportDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
 
 const sectionRef = ref<HTMLElement | null>(null)
 const activeTab = ref<'polish' | 'eval' | 'scan' | 'optimize' | 'interview' | 'write' | 'import'>('polish')
@@ -134,5 +174,27 @@ const tabs = [
   border-radius: $radius-lg;
   padding: $spacing-lg;
   overflow: hidden;
+}
+
+// ponytail: demo 异步加载时的内联骨架占位
+.ai-demo-section__loading {
+  padding: $spacing-md;
+  min-height: 80px;
+}
+
+.ai-demo-section__loading-bar {
+  border-radius: $radius-sm;
+  background: linear-gradient(
+    90deg,
+    rgba($primary-color, 0.10) 25%,
+    rgba($primary-color, 0.20) 50%,
+    rgba($primary-color, 0.10) 75%
+  );
+  animation: ai-demo-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-demo-shimmer {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
 }
 </style>

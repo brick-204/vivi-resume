@@ -1,7 +1,9 @@
 <template>
   <div class="carousel-item">
     <div ref="previewContainer" class="carousel-item__preview">
-      <div class="carousel-item__scale" :style="scaleStyle">
+      <!-- ponytail: 非活跃 slide 只显示 shimmer 占位（固定高度撑住布局），避免 8 份简历同时渲染 -->
+      <div v-if="!active" class="carousel-item__placeholder" />
+      <div v-else class="carousel-item__scale" :style="scaleStyle">
         <ResumeDocument :resume="sampleResume as any" :template-id="template.id" />
       </div>
     </div>
@@ -19,8 +21,11 @@ import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 
 defineProps<{
   template: TemplateConfig
+  /** 当前是否处于可见窗口内（含预加载），非活跃时只渲染占位 */
+  active: boolean
 }>()
 
+// ponytail: computed 无响应式依赖，仅首次访问执行一次深拷贝；后续 stripStyleOverrides 走缓存
 const sampleResume = computed(() => stripStyleOverrides(getSampleResume()))
 
 const { previewContainer, scaleStyle } = useScaledPreview(() => 48)
@@ -47,6 +52,24 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => 48)
   @include mobile {
     height: 300px;
   }
+}
+
+// ponytail: 非活跃 slide 占位，固定高度撑住布局；与首页 HomeSkeleton 同款品牌色 shimmer
+.carousel-item__placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 102, 204, 0.08) 25%,
+    rgba(0, 102, 204, 0.16) 50%,
+    rgba(0, 102, 204, 0.08) 75%
+  );
+  animation: carousel-placeholder-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes carousel-placeholder-shimmer {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .carousel-item__scale {

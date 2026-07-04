@@ -21,11 +21,12 @@
       <div class="carousel-track-wrapper">
         <div class="carousel-track" :style="trackStyle">
           <div
-            v-for="template in templates"
+            v-for="(template, idx) in templates"
             :key="template.id"
             class="carousel-slide"
           >
-            <CarouselPreviewItem :template="template" />
+            <!-- ponytail: active 由 currentIndex + visibleCount 计算，仅活跃 slide 渲染完整简历 -->
+            <CarouselPreviewItem :template="template" :active="isSlideActive(idx)" />
           </div>
         </div>
       </div>
@@ -96,6 +97,14 @@ const prev = () => {
 const goTo = (idx: number) => {
   const maxIndex = Math.max(0, templates.length - visibleCount.value)
   currentIndex.value = Math.min(idx, maxIndex)
+}
+
+/** slide 是否处于可见窗口内（含预加载范围），传给 CarouselPreviewItem 控制是否渲染 ResumeDocument */
+const isSlideActive = (idx: number) => {
+  const start = currentIndex.value
+  const end = currentIndex.value + visibleCount.value
+  // 可见窗口 + 前后各 1 个预加载，超出范围用占位
+  return idx >= start - 1 && idx <= end
 }
 
 const startAutoplay = () => {

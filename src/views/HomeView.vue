@@ -5,7 +5,8 @@
     <HeroSection />
 
     <main id="main-content" class="home__content">
-      <TemplateCarousel />
+      <!-- ponytail: 轮播区最重（8 份简历），改异步加载 + 骨架屏，避免回首页卡顿 -->
+      <AsyncTemplateCarousel />
       <AIDemoSection />
       <FeatureGrid />
       <CTASection />
@@ -14,12 +15,20 @@
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import HeroSection from '@/components/home/HeroSection.vue'
-import TemplateCarousel from '@/components/home/TemplateCarousel.vue'
 import AIDemoSection from '@/components/home/AIDemoSection.vue'
 import FeatureGrid from '@/components/home/FeatureGrid.vue'
 import CTASection from '@/components/home/CTASection.vue'
+import HomeSkeleton from '@/components/home/HomeSkeleton.vue'
+
+// ponytail: TemplateCarousel 首屏渲染 8 份完整简历，最重；异步加载期间显示品牌色骨架屏
+const AsyncTemplateCarousel = defineAsyncComponent({
+  loader: () => import('@/components/home/TemplateCarousel.vue'),
+  loadingComponent: HomeSkeleton,
+  delay: 0,
+})
 </script>
 
 <style lang="scss" scoped>
