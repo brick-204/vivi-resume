@@ -7,7 +7,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import {
   getMeta,
   setMeta,
@@ -23,17 +23,21 @@ import {
   queryPermission,
   requestPermission,
   ensureDir,
-  deleteDir,
   writeJsonFile,
   writeDataUrlFile,
   readAllJsonFiles,
   readJsonFile,
 } from '@/utils/directoryStorage'
+import { generateId } from '@/types/resume'
+import type { Resume } from '@/types/resume'
+import type { AIServiceConfig } from '@/types/aiConfig'
+import { getProviderInfo } from '@/types/aiConfig'
 import { extractPhotos} from '@/utils/photoFileRef'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSyncWorker } from '@/composables/useSyncWorker'
-import type { AIServiceConfig } from '@/types/aiConfig'
-import { message as naiveMessage } from '@/plugins/naive-ui'
+import { message as naiveMessage, dialog as naiveDialog } from '@/plugins/naive-ui'
+import { h } from 'vue'
+import MergeConflictModal from '@/components/dashboard/MergeConflictModal.vue'
 
 export const useSettingsStore = defineStore('settings', () => {
   // ========== 状态 ==========
@@ -82,6 +86,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   // ========== 绑定目录 ==========
+  // ========== 绑定目录 ==========
   const bindDirectory = async () => {
     if (!isFileSystemAccessSupported()) {
       naiveMessage.error('当前浏览器不支持本地目录功能，请使用 Chrome 或 Edge')
@@ -108,23 +113,217 @@ export const useSettingsStore = defineStore('settings', () => {
       isSyncing.value = true
       acquireLock('正在准备同步数据...')
 
-      // 4. 从 IndexedDB 读取全部数据（直接用 storage.ts，不走 adapter）
-      const [resumes, aiConfigs, currentId, activeAIConfigId] = await Promise.all([
+      // 4. 从 IndexedDB 读取全部业务数据（直接用 storage.ts，不走 adapter）
+      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId] = await Promise.all([
         idb.getAllResumes(),
         idb.getAllAIConfigs(),
         idb.getCurrentId(),
         idb.getActiveAIConfigId(),
       ])
+      // IndexedDB 的回收站设置（meta store），需一并迁移到目录 meta.json
+      const [idbTrash, trashRetentionDays, trashBinRetentionDays] = await Promise.all([
+        idb.getMeta<Resume[]>('trash'),
+        idb.getMeta<number>('trashRetentionDays'),
+        idb.getMeta<number>('trashBinRetentionDays'),
+      ])
 
-      updateProgress('正在序列化数据...', 5)
+      // 5. 读取目录现有数据（用于冲突检测与合并）
+      const dirResumesRaw = await readAllJsonFiles<Resume>(handle, 'resumes')
+      const dirAiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
+      let dirTrash: Resume[] = []
+      let dirTrashRetentionDays = trashRetentionDays ?? 30
+      let dirTrashBinRetentionDays = trashBinRetentionDays ?? 7
+      try {
+        const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
+        if (dirMeta) {
+          dirTrash = (dirMeta.trash as Resume[]) ?? []
+          if (typeof dirMeta.trashRetentionDays === 'number') dirTrashRetentionDays = dirMeta.trashRetentionDays
+          if (typeof dirMeta.trashBinRetentionDays === 'number') dirTrashBinRetentionDays = dirMeta.trashBinRetentionDays
+        }
+      } catch { /* meta.json 不存在或解析失败，用默认值 */ }
 
-      // 5. 发送给 Worker 序列化
-      const result = await prepareSync(resumes, aiConfigs, {
-        currentId: currentId ?? undefined,
-        activeAIConfigId: activeAIConfigId ?? undefined,
-      })
+      // 6. 冲突检测 + 合并
+      updateProgress('正在合并数据...', 10)
 
-      // 6. 主线程写入目录
+      // 6.1 回收站合并：IndexedDB 的回收站逐条与目录（resume 列表 + 目录回收站）ID 去重
+      //      冲突项静默生成新 id + 改名 "原名字(N)"，不弹窗
+      const idbTrashList = idbTrash ?? []
+      const dirAllIds = new Set<string>([
+        ...dirResumesRaw.map(r => r.id),
+        ...dirTrash.map(r => r.id),
+      ])
+      let trashCounter = 0
+      const mergedTrash: Resume[] = [...dirTrash]
+      for (const t of idbTrashList) {
+        if (!dirAllIds.has(t.id)) {
+          mergedTrash.push(t)
+        } else {
+          trashCounter++
+          mergedTrash.push({
+            ...t,
+            id: generateId(),
+            title: t.title ? `${t.title} (${trashCounter})` : `未命名简历 (${trashCounter})`,
+          })
+        }
+      }
+
+      // 6.2 收集简历与 AI 配置的 ID 冲突项
+      const dirResumeById = new Map(dirResumesRaw.map(r => [r.id, r]))
+      const noConflictIdbResumes = idbResumes.filter(r => !dirResumeById.has(r.id))
+      const resumeConflicts = idbResumes
+        .filter(r => dirResumeById.has(r.id))
+        .map(r => ({
+          key: `resume:${r.id}`,
+          type: 'resume' as const,
+          typeLabel: '简历',
+          idbVersion: { title: r.title || '未命名简历', updatedAt: r.updatedAt },
+          dirVersion: { title: dirResumeById.get(r.id)!.title || '未命名简历', updatedAt: dirResumeById.get(r.id)!.updatedAt },
+        }))
+
+      const dirAiById = new Map(dirAiConfigs.map(c => [c.id, c]))
+      const noConflictIdbAiConfigs = idbAIConfigs.filter(c => !dirAiById.has(c.id))
+      const aiConfigSubtitle = (c: AIServiceConfig) => getProviderInfo(c.provider)?.name ?? c.provider
+      const aiConfigConflicts = idbAIConfigs
+        .filter(c => dirAiById.has(c.id))
+        .map(c => ({
+          key: `aiConfig:${c.id}`,
+          type: 'aiConfig' as const,
+          typeLabel: 'AI 配置',
+          idbVersion: { title: c.name || '未命名配置', subtitle: aiConfigSubtitle(c), updatedAt: c.updatedAt },
+          dirVersion: { title: dirAiById.get(c.id)!.name || '未命名配置', subtitle: aiConfigSubtitle(dirAiById.get(c.id)!), updatedAt: dirAiById.get(c.id)!.updatedAt },
+        }))
+
+      const allConflicts = [...resumeConflicts, ...aiConfigConflicts]
+
+      let perChoice: Record<string, 'idb' | 'dir' | 'both'> = {}
+      if (allConflicts.length > 0) {
+        // ponytail: 弹出冲突选择前，临时释放同步锁，避免 SyncOverlay 遮罩盖住冲突弹窗
+        releaseLock()
+        await nextTick() // 等待 SyncOverlay 完全隐藏
+
+        // 复用 naive-ui 离散 dialog 承载 MergeConflictModal 组件
+        const result = await new Promise<Record<string, 'idb' | 'dir' | 'both'> | null>((resolve) => {
+          const onConfirm = (choices: Record<string, 'idb' | 'dir' | 'both'>) => {
+            naiveDialogInst?.destroy()
+            resolve(choices)
+          }
+          const onCancel = () => {
+            naiveDialogInst?.destroy()
+            resolve(null)
+          }
+          const naiveDialogInst = naiveDialog.create({
+            title: `检测到 ${allConflicts.length} 项数据 ID 冲突`,
+            content: () => h(MergeConflictModal, {
+              conflicts: allConflicts,
+              onMerge: onConfirm,
+              onClose: onCancel,
+            }),
+            showIcon: false,
+            maskClosable: false,
+            closable: false,
+            onClose: onCancel,
+          })
+        })
+
+        // 选择完成，重新加锁继续后续同步
+        acquireLock('正在写入目录...')
+        if (result === null) {
+          // 用户取消：重置绑定状态（directoryHandle/directoryName 在选目录后已设置），
+          // 释放锁、退出，不写目录、不清 IndexedDB
+          directoryHandle.value = null
+          directoryName.value = ''
+          permissionStatus.value = 'prompt'
+          naiveMessage.info('已取消绑定目录')
+          return
+        }
+        perChoice = result
+      }
+
+      // 6.3 根据逐项选择构建合并后的简历列表
+      let bothCounter = 0
+      const mergedResumes: Resume[] = [...dirResumesRaw]          // 先放全部目录简历（含孤儿）
+      for (const r of noConflictIdbResumes) mergedResumes.push(r) // 无冲突的 IndexedDB 简历直接合并
+      for (const c of resumeConflicts) {
+        const resumeId = c.key.replace('resume:', '')
+        const choice = perChoice[c.key] ?? 'both'
+        if (choice === 'idb') {
+          // 保留 IndexedDB 版，替换目录版
+          const idx = mergedResumes.findIndex(x => x.id === resumeId)
+          if (idx >= 0) mergedResumes.splice(idx, 1, idbResumes.find(r => r.id === resumeId)!)
+        } else if (choice === 'dir') {
+          // 保留目录版，已在 mergedResumes 里，无需操作
+        } else {
+          // 两个都要：IndexedDB 版重新生成 id + 改名 "原名字(N)"
+          bothCounter++
+          const idbResume = idbResumes.find(r => r.id === resumeId)!
+          mergedResumes.push({
+            ...idbResume,
+            id: generateId(),
+            title: idbResume.title
+              ? `${idbResume.title} (${bothCounter})`
+              : `未命名简历 (${bothCounter})`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+        }
+      }
+
+      // 6.4 根据逐项选择构建合并后的 AI 配置列表
+      let aiBothCounter = 0
+      const aiIdMapping = new Map<string, string>()   // 旧 id → 新 id（用于 activeAIConfigId 映射）
+      const mergedAiConfigs: AIServiceConfig[] = [...dirAiConfigs] // 先放全部目录配置
+      for (const c of noConflictIdbAiConfigs) mergedAiConfigs.push(c) // 无冲突的 IndexedDB 配置直接合并
+      for (const c of aiConfigConflicts) {
+        const aiConfigId = c.key.replace('aiConfig:', '')
+        const choice = perChoice[c.key] ?? 'both'
+        if (choice === 'idb') {
+          // 保留 IndexedDB 版，替换目录版
+          const idx = mergedAiConfigs.findIndex(x => x.id === aiConfigId)
+          if (idx >= 0) mergedAiConfigs.splice(idx, 1, idbAIConfigs.find(cfg => cfg.id === aiConfigId)!)
+        } else if (choice === 'dir') {
+          // 保留目录版，已在 mergedAiConfigs 里，无需操作
+        } else {
+          // 两个都要：IndexedDB 版重新生成 id + 改名 "原名字(N)"
+          aiBothCounter++
+          const idbConfig = idbAIConfigs.find(cfg => cfg.id === aiConfigId)!
+          const newId = generateId()
+          aiIdMapping.set(aiConfigId, newId)
+          mergedAiConfigs.push({
+            ...idbConfig,
+            id: newId,
+            name: idbConfig.name
+              ? `${idbConfig.name} (${aiBothCounter})`
+              : `未命名配置 (${aiBothCounter})`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+        }
+      }
+
+      // 6.5 合并后的 meta：IndexedDB 设置优先，currentId/activeAIConfigId 失效则回退
+      const resolvedCurrentId = currentId && mergedResumes.some(r => r.id === currentId)
+        ? currentId
+        : (mergedResumes[0]?.id ?? '')
+      const mappedActiveId = activeAIConfigId
+        ? (aiIdMapping.get(activeAIConfigId) ?? activeAIConfigId)
+        : activeAIConfigId
+      const resolvedActiveId = mappedActiveId && mergedAiConfigs.some(c => c.id === mappedActiveId)
+        ? mappedActiveId
+        : (dirAiConfigs[0]?.id ?? mergedAiConfigs[0]?.id ?? '')
+      const mergedMeta = {
+        currentId: resolvedCurrentId,
+        activeAIConfigId: resolvedActiveId,
+        trash: mergedTrash,
+        trashRetentionDays: trashRetentionDays ?? dirTrashRetentionDays,
+        trashBinRetentionDays: trashBinRetentionDays ?? dirTrashBinRetentionDays,
+      }
+
+      updateProgress('正在序列化数据...', 20)
+
+      // 7. 发送给 Worker 序列化（meta 已含 trash + retentionDays，worker 只 JSON.stringify）
+      const result = await prepareSync(mergedResumes, mergedAiConfigs, mergedMeta)
+
+      // 8. 主线程写入目录
       updateProgress('正在写入简历文件...', 50)
 
       // 创建子目录
@@ -171,19 +370,19 @@ export const useSettingsStore = defineStore('settings', () => {
 
       updateProgress('正在清理旧数据...', 90)
 
-      // 7. 存储 handle + directoryMode 到 IndexedDB meta
+      // 9. 存储 handle + directoryMode 到 IndexedDB meta
       await setMeta('directoryMode', true)
       await setMeta('directoryHandle', handle)
 
-      // 8. 清除 IndexedDB 业务数据（保留 meta store）
+      // 10. 清除 IndexedDB 业务数据（保留 meta store）
       await clearResumesStore()
       await clearAIConfigsStore()
 
-      // 9. 切换模式
+      // 11. 切换模式
       isDirectoryMode.value = true
       updateProgress('同步完成！', 100)
 
-      // 10. 通知 stores 重新加载
+      // 12. 通知 stores 重新加载
       await notifyStoresReload()
 
       naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
@@ -201,7 +400,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   // ========== 解绑目录 ==========
-  const unbindDirectory = async (deleteFiles: boolean = true) => {
+  const unbindDirectory = async (copyToBrowser: boolean = false) => {
     if (!directoryHandle.value) return
     if (isLocked.value) {
       naiveMessage.warning('请等待当前同步操作完成')
@@ -219,37 +418,31 @@ export const useSettingsStore = defineStore('settings', () => {
       const aiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
       const metaJson = await readJsonFile<Record<string, string>>(handle, 'meta.json')
 
+      // 2. 根据用户选择决定是否写回 IndexedDB
       updateProgress('正在写入 IndexedDB...', 30)
 
-      // 2. 写回 IndexedDB（直接用 storage.ts，不走 adapter）
-      await idb.saveResumeList(resumes)
+      if (copyToBrowser) {
+        await idb.saveResumeList(resumes)
 
-      for (const config of aiConfigs) {
-        await idb.saveAIConfig(config)
-      }
+        for (const config of aiConfigs) {
+          await idb.saveAIConfig(config)
+        }
 
-      if (metaJson?.currentId) {
-        await idb.setCurrentId(metaJson.currentId)
-      }
-      if (metaJson?.activeAIConfigId) {
-        await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
+        if (metaJson?.currentId) {
+          await idb.setCurrentId(metaJson.currentId)
+        }
+        if (metaJson?.activeAIConfigId) {
+          await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
+        }
       }
 
       updateProgress('正在清理目录模式...', 80)
 
-      // 3. 按用户选择决定是否删除目录中的业务文件
-      if (deleteFiles) {
-        await deleteDir(handle, 'resumes')
-        await deleteDir(handle, 'ai-configs')
-        // 删除 meta.json
-        try { await handle.removeEntry('meta.json') } catch { /* 忽略 */ }
-      }
-
-      // 4. 更新 IndexedDB meta
+      // 3. 清理 IndexedDB 的目录模式元数据（目录文件永远保留）
       await deleteMeta('directoryMode')
       await deleteMeta('directoryHandle')
 
-      // 5. 切换模式
+      // 4. 切换模式
       isDirectoryMode.value = false
       directoryHandle.value = null
       directoryName.value = ''
@@ -257,13 +450,13 @@ export const useSettingsStore = defineStore('settings', () => {
 
       updateProgress('解绑完成！', 100)
 
-      // 6. 通知 stores 重新加载
+      // 5. 通知 stores 重新加载
       await notifyStoresReload()
 
-      if (deleteFiles) {
-        naiveMessage.success('已解绑目录，数据已恢复到浏览器存储，目录文件已清理')
+      if (copyToBrowser) {
+        naiveMessage.success('已解绑目录，数据已复制到浏览器存储')
       } else {
-        naiveMessage.success('已解绑目录，数据已恢复到浏览器存储，目录文件已保留')
+        naiveMessage.success('已解绑目录，应用已切换到浏览器存储模式')
       }
     } catch (e) {
       console.error('[settingsStore] 解绑目录失败:', e)

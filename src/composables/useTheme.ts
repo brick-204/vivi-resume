@@ -53,6 +53,8 @@ function applyTheme(theme: ResolvedTheme) {
 // 初始化
 startMediaListener()
 applyTheme(resolvedTheme.value)
+// ponytail: 离散 API 初始固定 dark，补一次 rebuild 对齐初始主题
+rebuildDiscreteApi(resolvedTheme.value)
 
 watch(resolvedTheme, (theme) => {
   applyTheme(theme)

@@ -137,18 +137,19 @@
       preset="dialog"
       title="确认解绑目录"
       :auto-focus="false"
-      :content="`解绑后，数据将恢复到浏览器存储。目录「${settingsStore.directoryName}」中的文件如何处理？`"
+      :content="`解绑后目录「${settingsStore.directoryName}」中的文件默认保留，应用将切换回浏览器存储。`"
       @update:show="v => { if (!v) showUnbindConfirm = false }"
     >
+      <div class="unbind-copy-option">
+        <NCheckbox v-model:checked="copyToBrowser">
+          同时将目录数据复制到浏览器存储
+        </NCheckbox>
+      </div>
       <template #action>
         <div class="unbind-actions">
-          <button class="action-btn action-btn--danger" @click="handleUnbind(true)">
-            <Icon icon="mdi:delete-outline" :width="16" />
-            解绑并删除文件
-          </button>
-          <button class="action-btn action-btn--primary" @click="handleUnbind(false)">
-            <Icon icon="mdi:folder-check-outline" :width="16" />
-            解绑并保留文件
+          <button class="action-btn action-btn--primary" @click="handleUnbind">
+            <Icon icon="mdi:folder-remove-outline" :width="16" />
+            确认解绑
           </button>
           <button class="action-btn action-btn--ghost" @click="showUnbindConfirm = false">
             取消
@@ -162,13 +163,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect } from 'naive-ui'
+import { NModal, NSelect, NCheckbox } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
 
 const settingsStore = useSettingsStore()
 const resumeStore = useResumeStore()
 const showUnbindConfirm = ref(false)
+const copyToBrowser = ref(false)
 
 // 回收站保留天数选项
 const retentionOptions = [
@@ -192,12 +194,13 @@ const handleBind = () => {
 }
 
 const openUnbindConfirm = () => {
+  copyToBrowser.value = false
   showUnbindConfirm.value = true
 }
 
-const handleUnbind = (deleteFiles: boolean) => {
+const handleUnbind = () => {
   showUnbindConfirm.value = false
-  settingsStore.unbindDirectory(deleteFiles)
+  settingsStore.unbindDirectory(copyToBrowser.value)
 }
 
 const handleReauthorize = () => {
@@ -345,8 +348,19 @@ const handleResync = () => {
 // 解绑弹窗操作区
 .unbind-actions {
   display: flex;
+  justify-content: center;
   gap: $spacing-sm;
   margin-top: $spacing-md;
+}
+
+.unbind-copy-option {
+  margin: $spacing-md 0 0;
+  padding: $spacing-sm $spacing-md;
+  background: var(--bg-glass-hover);
+  border: 1px solid var(--border-glass);
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  color: var(--text-primary);
 }
 
 // 通用操作按钮（复用 AISettingsPanel 样式）
@@ -358,19 +372,20 @@ const handleResync = () => {
   padding: $spacing-sm $spacing-md;
   border-radius: $radius-md;
   font-size: $font-size-sm;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all $transition-base;
   border: 1px solid transparent;
   font-family: $font-family;
 
   &--primary {
-    background: $primary-bg-active;
-    color: $text-white;
+    background: $primary-color;
+    color: #fff;
     border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 
     &:hover {
-      opacity: 0.9;
+      background: $primary-light;
       transform: translateY(-1px);
     }
 
@@ -382,12 +397,12 @@ const handleResync = () => {
   }
 
   &--danger {
-    background: rgba($error-color, 0.1);
+    background: rgba($error-color, 0.12);
     color: $error-color;
-    border-color: rgba($error-color, 0.2);
+    border-color: rgba($error-color, 0.25);
 
     &:hover {
-      background: rgba($error-color, 0.2);
+      background: rgba($error-color, 0.22);
     }
 
     &:disabled {
@@ -397,13 +412,13 @@ const handleResync = () => {
   }
 
   &--ghost {
-    background: transparent;
-    color: $text-secondary;
-    border-color: $border-glass;
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+    border-color: var(--border-glass);
 
     &:hover {
-      background: $bg-glass;
-      color: $text-primary;
+      background: var(--bg-glass-active);
+      border-color: var(--border-hover);
     }
   }
 }
