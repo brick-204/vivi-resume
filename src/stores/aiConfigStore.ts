@@ -154,6 +154,36 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     })
   }
 
+  /** 批量删除配置 */
+  const deleteConfigs = (ids: string[]) => {
+    if (isLocked.value || ids.length === 0) return
+
+    const idSet = new Set(ids)
+    const wasActive = activeConfigId.value ? idSet.has(activeConfigId.value) : false
+
+    // 先同步移除内存数据，让 UI 立即响应
+    configs.value = configs.value.filter(c => !idSet.has(c.id))
+
+    // 后台持久化
+    const persist = async () => {
+      await Promise.all(ids.map(id => deleteAIConfigFromStorage(id)))
+
+      // 如果删除的包含当前激活的配置
+      if (wasActive) {
+        if (configs.value.length > 0) {
+          await setActiveConfig(configs.value[0].id)
+        } else {
+          activeConfigId.value = null
+          await setActiveAIConfigId(null)
+        }
+      }
+    }
+    persist().catch(e => {
+      console.error('[aiConfigStore] deleteConfigs persist failed:', e)
+      naiveMessage.warning('删除未完全同步，请检查存储空间')
+    })
+  }
+
   /** 复制配置（API Key 需重新输入） */
   const duplicateConfig = async (id: string) => {
     if (isLocked.value) return undefined
@@ -260,6 +290,7 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     addConfig,
     updateConfig,
     deleteConfig,
+    deleteConfigs,
     duplicateConfig,
     setActiveConfig,
     reloadFromStorage,

@@ -16,11 +16,19 @@
           <Icon icon="mdi:file-upload-outline" :width="18" />
           导入简历
         </button>
+        <button
+          v-if="store.resumeCount > 0 && !selectionMode"
+          class="action-btn action-btn--secondary"
+          @click="enterSelectionMode"
+        >
+          <Icon icon="mdi:checkbox-multiple-blank-outline" :width="18" />
+          批量管理
+        </button>
       </div>
     </div>
 
     <!-- 简历网格 -->
-    <div v-if="store.resumeCount > 0" class="resume-list-panel__toolbar">
+    <div v-if="store.resumeCount > 0 && !selectionMode" class="resume-list-panel__toolbar">
       <n-input
         v-model:value="searchQuery"
         placeholder="搜索简历标题或内容..."
@@ -41,6 +49,21 @@
       <button class="sort-order-btn" :title="sortOrder === 'desc' ? '降序' : '升序'" @click="sortOrder = sortOrder === 'desc' ? 'asc' : 'desc'">
         <Icon :icon="sortOrder === 'desc' ? 'mdi:sort-descending' : 'mdi:sort-ascending'" :width="18" />
       </button>
+    </div>
+
+    <!-- 选择态工具栏 -->
+    <div v-if="selectionMode" class="resume-list-panel__select-toolbar">
+      <button class="select-toolbar__btn" @click="toggleSelectAll">
+        <Icon :icon="allSelected ? 'mdi:checkbox-multiple-outline' : 'mdi:checkbox-multiple-blank-outline'" :width="18" />
+        {{ allSelected ? '取消全选' : '全选' }}
+      </button>
+      <span class="select-toolbar__count">已选 {{ selectedIds.size }} 项</span>
+      <div class="select-toolbar__spacer"></div>
+      <button class="select-toolbar__btn select-toolbar__btn--danger" :disabled="selectedIds.size === 0" @click="onBatchDelete">
+        <Icon icon="mdi:trash-can-outline" :width="18" />
+        删除选中
+      </button>
+      <button class="select-toolbar__btn" @click="exitSelectionMode">取消</button>
     </div>
 
     <!-- 空状态 -->
@@ -64,9 +87,12 @@
         v-for="resume in filteredAndSortedResumes"
         :key="resume.id"
         :resume="resume"
+        :selectable="selectionMode"
+        :selected="selectedIds.has(resume.id)"
         @edit="openResume(resume.id)"
         @copy="onCopyResume(resume.id)"
         @delete="onDeleteResume(resume.id)"
+        @toggle-select="toggleSelect(resume.id)"
       />
     </div>
 
@@ -147,6 +173,56 @@ const searchQuery = ref('')
 const importErrors = ref<ValidationError[]>([])
 const sortKey = ref<'updatedAt' | 'createdAt' | 'title'>('updatedAt')
 const sortOrder = ref<'asc' | 'desc'>('desc')
+
+// 批量选择
+const selectionMode = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+
+const enterSelectionMode = () => {
+  selectionMode.value = true
+  selectedIds.value = new Set()
+}
+
+const exitSelectionMode = () => {
+  selectionMode.value = false
+  selectedIds.value = new Set()
+}
+
+const toggleSelect = (id: string) => {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+const allSelected = computed(() =>
+  filteredAndSortedResumes.value.length > 0 &&
+  filteredAndSortedResumes.value.every(r => selectedIds.value.has(r.id))
+)
+
+const toggleSelectAll = () => {
+  if (allSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(filteredAndSortedResumes.value.map(r => r.id))
+  }
+}
+
+const onBatchDelete = () => {
+  const ids = [...selectedIds.value]
+  if (ids.length === 0) return
+  dialog.warning({
+    title: '批量删除简历',
+    content: `确定要删除选中的 ${ids.length} 份简历吗？如需找回可前往回收站`,
+    positiveText: '删除',
+    negativeText: '取消',
+    actionStyle: 'justify-content: center',
+    onPositiveClick: () => {
+      store.trashResumes(ids)
+      exitSelectionMode()
+    },
+  })
+}
 
 // 全文搜索
 const { filteredResumes } = useResumeSearch(computed(() => store.resumeList), searchQuery)
@@ -309,6 +385,18 @@ const handleGoToAISettings = () => {
     width: 140px;
   }
 
+  &__select-toolbar {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    margin-bottom: $spacing-lg;
+    padding: $spacing-sm $spacing-md;
+    background: $bg-glass;
+    border: 1px solid $border-glass;
+    border-radius: $radius-md;
+    flex-wrap: wrap;
+  }
+
   &__no-results {
     text-align: center;
     padding: $spacing-3xl 0;
@@ -362,6 +450,52 @@ const handleGoToAISettings = () => {
   &:hover {
     background: $bg-glass;
     color: $primary-light;
+  }
+}
+
+.select-toolbar {
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md;
+    background: transparent;
+    border: 1px solid $border-glass;
+    border-radius: $radius-md;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    transition: all $transition-fast;
+    font-family: $font-family;
+
+    &:hover:not(:disabled) {
+      background: $bg-glass-hover;
+      border-color: $primary-color;
+    }
+
+    &--danger {
+      color: $error-color;
+      border-color: rgba($error-color, 0.4);
+
+      &:hover:not(:disabled) {
+        background: rgba($error-color, 0.1);
+        border-color: $error-color;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &__count {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+  }
+
+  &__spacer {
+    flex: 1;
   }
 }
 

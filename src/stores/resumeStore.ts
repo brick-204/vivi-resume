@@ -302,6 +302,29 @@ export const useResumeStore = defineStore('resume', () => {
   }
 
 
+  // 批量移到回收站（软删除）
+  const trashResumes = (ids: string[]) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    const now = new Date().toISOString()
+    const deleted = resumeList.value
+      .filter(r => idSet.has(r.id))
+      .map(r => ({ ...r, deletedAt: now }))
+
+    if (deleted.length === 0) return
+
+    resumeList.value = resumeList.value.filter(r => !idSet.has(r.id))
+    if (currentResume.value && idSet.has(currentResume.value.id)) {
+      currentResume.value = null
+    }
+    trash.value = [...trash.value, ...deleted]
+
+    Promise.all([saveToStorageNow(), saveTrash(trash.value)]).catch(e => {
+      console.error('[resumeStore] trashResumes persist failed:', e)
+      naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
+    })
+  }
+
   // 移到回收站（软删除）
   const trashResume = (id: string) => {
     const resume = resumeList.value.find(r => r.id === id)
@@ -1251,6 +1274,17 @@ export const useResumeStore = defineStore('resume', () => {
       } else {
         currentResume.value = null
       }
+
+      // 补齐回收站加载：与 init() Step 4 对齐，避免模式切换后回收站显示停留在切换前的内存值
+      const [trashData, retentionDays, trashBinDays] = await Promise.all([
+        getTrash(),
+        getTrashRetentionDays(),
+        getTrashBinRetentionDays(),
+      ])
+      trash.value = trashData
+      trashRetentionDays.value = retentionDays
+      trashBinRetentionDays.value = trashBinDays
+      await cleanupTrash()
     } catch (e) {
       console.error('[resumeStore] reloadFromStorage 失败:', e)
     }
@@ -1272,6 +1306,7 @@ export const useResumeStore = defineStore('resume', () => {
     saveCurrentResumeNow,
     deleteResume: trashResume, // 兼容旧接口
     trashResume,
+    trashResumes,
     restoreResume,
     permanentDeleteResume,
     emptyTrash,

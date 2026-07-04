@@ -5,11 +5,22 @@
       <h2 class="panel__title">
         <Icon icon="mdi:robot-outline" :width="24" />
         AI 服务
+        <span v-if="aiConfigStore.hasConfigs" class="panel__count">{{ aiConfigStore.configs.length }}</span>
       </h2>
-      <button class="action-btn action-btn--primary" @click="openAddModal">
-        <Icon icon="mdi:plus" :width="18" />
-        添加 AI 服务
-      </button>
+      <div class="panel__actions">
+        <button class="action-btn action-btn--primary" @click="openAddModal">
+          <Icon icon="mdi:plus" :width="18" />
+          添加 AI 服务
+        </button>
+        <button
+          v-if="aiConfigStore.hasConfigs && !selectionMode"
+          class="action-btn action-btn--secondary"
+          @click="enterSelectionMode"
+        >
+          <Icon icon="mdi:checkbox-multiple-blank-outline" :width="18" />
+          批量管理
+        </button>
+      </div>
     </div>
 
     <!-- Token 用量（置顶高亮） -->
@@ -41,18 +52,36 @@
       </button>
     </div>
 
+    <!-- 选择态工具栏 -->
+    <div v-if="selectionMode" class="panel__select-toolbar">
+      <button class="select-toolbar__btn" @click="toggleSelectAll">
+        <Icon :icon="allSelected ? 'mdi:checkbox-multiple-outline' : 'mdi:checkbox-multiple-blank-outline'" :width="18" />
+        {{ allSelected ? '取消全选' : '全选' }}
+      </button>
+      <span class="select-toolbar__count">已选 {{ selectedIds.size }} 项</span>
+      <div class="select-toolbar__spacer"></div>
+      <button class="select-toolbar__btn select-toolbar__btn--danger" :disabled="selectedIds.size === 0" @click="onBatchDelete">
+        <Icon icon="mdi:trash-can-outline" :width="18" />
+        删除选中
+      </button>
+      <button class="select-toolbar__btn" @click="exitSelectionMode">取消</button>
+    </div>
+
     <!-- 配置列表 -->
-    <div v-else class="panel__list">
+    <div v-if="aiConfigStore.hasConfigs" class="panel__list">
       <AIConfigCard
         v-for="config in aiConfigStore.configs"
         :key="config.id"
         :config="config"
         :is-active="config.id === aiConfigStore.activeConfigId"
+        :selectable="selectionMode"
+        :selected="selectedIds.has(config.id)"
         @edit="openEditModal(config)"
         @copy="handleCopy(config.id)"
         @delete="handleDelete(config.id)"
         @set-active="aiConfigStore.setActiveConfig(config.id)"
         @deactivate="handleDeactivate"
+        @toggle-select="toggleSelect(config.id)"
       />
     </div>
 
@@ -73,10 +102,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
-import { message as naiveMessage } from '@/plugins/naive-ui'
+import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import AIConfigCard from '@/components/ai/AIConfigCard.vue'
 import AIConfigModal from '@/components/ai/AIConfigModal.vue'
@@ -85,6 +114,56 @@ const aiConfigStore = useAIConfigStore()
 
 const showModal = ref(false)
 const editingConfig = ref<AIServiceConfig | null>(null)
+
+// 批量选择
+const selectionMode = ref(false)
+const selectedIds = ref<Set<string>>(new Set())
+
+const enterSelectionMode = () => {
+  selectionMode.value = true
+  selectedIds.value = new Set()
+}
+
+const exitSelectionMode = () => {
+  selectionMode.value = false
+  selectedIds.value = new Set()
+}
+
+const toggleSelect = (id: string) => {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+const allSelected = computed(() =>
+  aiConfigStore.configs.length > 0 &&
+  aiConfigStore.configs.every(c => selectedIds.value.has(c.id)),
+)
+
+const toggleSelectAll = () => {
+  if (allSelected.value) {
+    selectedIds.value = new Set()
+  } else {
+    selectedIds.value = new Set(aiConfigStore.configs.map(c => c.id))
+  }
+}
+
+const onBatchDelete = () => {
+  const ids = [...selectedIds.value]
+  if (ids.length === 0) return
+  dialog.warning({
+    title: '批量删除 AI 服务',
+    content: `确定要删除选中的 ${ids.length} 个 AI 服务配置吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    actionStyle: 'justify-content: center',
+    onPositiveClick: () => {
+      aiConfigStore.deleteConfigs(ids)
+      exitSelectionMode()
+    },
+  })
+}
 
 const openAddModal = () => {
   editingConfig.value = null
@@ -161,6 +240,8 @@ const handleDeactivate = async () => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: $spacing-xl;
+  flex-wrap: wrap;
+  gap: $spacing-md;
 }
 
 .panel__title {
@@ -172,6 +253,20 @@ const handleDeactivate = async () => {
   color: $text-primary;
   margin: 0;
   @include gradient-text;
+}
+
+.panel__count {
+  padding: $spacing-xs $spacing-md;
+  background: $primary-bg-active;
+  color: $text-white;
+  border-radius: $radius-full;
+  font-size: $font-size-sm;
+  font-weight: 600;
+}
+
+.panel__actions {
+  display: flex;
+  gap: $spacing-md;
 }
 
 .action-btn {
@@ -190,6 +285,75 @@ const handleDeactivate = async () => {
 
   &--primary {
     @include button-primary;
+  }
+
+  &--secondary {
+    background: $bg-glass;
+    color: $text-primary;
+    border: 1px solid $border-glass;
+
+    &:hover {
+      background: $bg-glass-hover;
+      border-color: $primary-color;
+    }
+  }
+}
+
+.panel__select-toolbar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+  padding: $spacing-sm $spacing-md;
+  background: $bg-glass;
+  border: 1px solid $border-glass;
+  border-radius: $radius-md;
+  flex-wrap: wrap;
+}
+
+.select-toolbar {
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md;
+    background: transparent;
+    border: 1px solid $border-glass;
+    border-radius: $radius-md;
+    color: $text-primary;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    transition: all $transition-fast;
+    font-family: $font-family;
+
+    &:hover:not(:disabled) {
+      background: $bg-glass-hover;
+      border-color: $primary-color;
+    }
+
+    &--danger {
+      color: $error-color;
+      border-color: rgba($error-color, 0.4);
+
+      &:hover:not(:disabled) {
+        background: rgba($error-color, 0.1);
+        border-color: $error-color;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &__count {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+  }
+
+  &__spacer {
+    flex: 1;
   }
 }
 

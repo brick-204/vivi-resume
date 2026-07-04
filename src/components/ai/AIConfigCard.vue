@@ -1,5 +1,17 @@
 <template>
-  <div class="ai-config-card" :class="{ 'ai-config-card--active': isActive }">
+  <div
+    class="ai-config-card"
+    :class="{
+      'ai-config-card--active': isActive,
+      'ai-config-card--selectable': selectable,
+      'ai-config-card--selected': selected,
+    }"
+    @click="onCardClick"
+  >
+    <!-- 选择态复选框 -->
+    <div v-if="selectable" class="card__checkbox" :class="{ 'is-checked': selected }">
+      <Icon v-if="selected" icon="mdi:check" :width="16" />
+    </div>
     <div class="card__header">
       <div class="card__info">
         <span class="card__name">{{ config.name }}</span>
@@ -7,7 +19,7 @@
           {{ providerName }}
         </n-tag>
       </div>
-      <div class="card__actions">
+      <div v-if="!selectable" class="card__actions">
         <button v-if="isActive" class="action-btn action-btn--deactivate" title="停用" @click="$emit('deactivate')">
           <Icon icon="mdi:close-circle-outline" :width="16" />
           <span>停用</span>
@@ -63,15 +75,24 @@ import { getProviderInfo } from '@/types/aiConfig'
 const props = defineProps<{
   config: AIServiceConfig
   isActive: boolean
+  selectable?: boolean
+  selected?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   edit: []
   copy: []
   delete: []
   'set-active': []
   deactivate: []
+  'toggle-select': []
 }>()
+
+const onCardClick = () => {
+  if (props.selectable) {
+    emit('toggle-select')
+  }
+}
 
 const providerName = computed(() => {
   const info = getProviderInfo(props.config.provider)
@@ -94,6 +115,7 @@ const maskApiKey = (key: string): string => {
 <style lang="scss" scoped>
 .ai-config-card {
   @include glass-card;
+  position: relative;
   padding: $spacing-md;
   border: 1px solid $border-glass;
   transition: all $transition-base;
@@ -105,6 +127,37 @@ const maskApiKey = (key: string): string => {
   &--active {
     border-color: rgba($primary-color, 0.5);
     box-shadow: 0 0 0 1px rgba($primary-color, 0.2), $shadow-primary;
+  }
+
+  &--selectable {
+    cursor: pointer;
+  }
+
+  &--selected {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 2px rgba($primary-color, 0.4);
+  }
+}
+
+.card__checkbox {
+  position: absolute;
+  top: $spacing-sm;
+  left: $spacing-sm;
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-sm;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  z-index: 3;
+  transition: all 0.15s ease;
+
+  &.is-checked {
+    background: $primary-color;
+    border-color: $primary-color;
   }
 }
 

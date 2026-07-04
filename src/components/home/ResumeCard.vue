@@ -1,5 +1,13 @@
 <template>
-  <div class="resume-card" @click="$emit('edit')">
+  <div
+    class="resume-card"
+    :class="{ 'resume-card--selectable': selectable, 'resume-card--selected': selected }"
+    @click="onCardClick"
+  >
+    <!-- 选择态复选框 -->
+    <div v-if="selectable" class="resume-card__checkbox" :class="{ 'is-checked': selected }">
+      <Icon v-if="selected" icon="mdi:check" :width="16" />
+    </div>
     <div ref="previewContainer" class="resume-card__preview">
       <!-- ponytail: 视口外 shimmer 占位（固定高度撑住布局），进入视口后渲染 ResumeDocument -->
       <div v-if="!inView" class="resume-card__placeholder">
@@ -28,7 +36,7 @@
         <span>{{ templateName }}</span>
       </div>
     </div>
-    <div class="resume-card__actions">
+    <div v-if="!selectable" class="resume-card__actions">
       <button class="resume-card__btn resume-card__btn--edit" title="编辑" @click.stop="$emit('edit')">
         <Icon icon="mdi:pencil-outline" :width="16" />
       </button>
@@ -52,15 +60,24 @@ import ResumeDocument from '@/components/preview/ResumeDocument.vue'
 import { Icon } from '@iconify/vue'
 import { getScoreColor } from '@/utils/evaluationScore'
 
-const props = defineProps<{ resume: Resume }>()
+const props = defineProps<{ resume: Resume; selectable?: boolean; selected?: boolean }>()
 
 const emit = defineEmits<{
   edit: []
   copy: []
   delete: []
+  'toggle-select': []
 }>()
 
 const isCopying = ref(false)
+
+const onCardClick = () => {
+  if (props.selectable) {
+    emit('toggle-select')
+  } else {
+    emit('edit')
+  }
+}
 
 const onCopy = () => {
   if (isCopying.value) return
@@ -127,6 +144,37 @@ onMounted(() => {
     .resume-card__actions {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  &--selectable {
+    cursor: pointer;
+  }
+
+  &--selected {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 2px rgba($primary-color, 0.4);
+  }
+
+  &__checkbox {
+    position: absolute;
+    top: $spacing-sm;
+    left: $spacing-sm;
+    width: 24px;
+    height: 24px;
+    border-radius: $radius-sm;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    z-index: 3;
+    transition: all 0.15s ease;
+
+    &.is-checked {
+      background: $primary-color;
+      border-color: $primary-color;
     }
   }
 
