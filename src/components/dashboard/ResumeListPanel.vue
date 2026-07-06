@@ -251,9 +251,8 @@ const filteredAndSortedResumes = computed(() => {
 })
 
 const createNewResume = () => {
-  // ponytail: 同步创建 + 立即导航 — 不等待 IndexedDB 写入，模板选择页骨架屏先顶上
-  const id = store.createResumeDeferred()
-  router.push(`/templates/${id}`)
+  // 跳转到模板市场tab，让用户选择模板创建简历
+  router.push({ path: '/dashboard', query: { tab: 'templates' } })
 }
 
 const openResume = (id: string) => {

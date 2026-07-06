@@ -5,14 +5,14 @@ import { ref, computed } from 'vue'
 const LAYOUT_CONFIG = {
   // 最小宽度
   MIN_NAV_WIDTH: 48,        // 收缩后的图标列宽度
-  MIN_NAV_EXPANDED: 200,    // 展开后的最小宽度
+  MIN_NAV_EXPANDED: 260,    // 展开后的最小宽度（保证功能模块文字可见）
   MIN_EDITOR_WIDTH: 550,    // 编辑区最小宽度
   MAX_NAV_WIDTH: 320,       // 导航栏最大宽度
   MAX_EDITOR_WIDTH: 800,    // 编辑区最大宽度
   MIN_PREVIEW_WIDTH: 400,   // 预览区最小宽度
 
   // 默认宽度
-  DEFAULT_NAV_WIDTH: 200,   // 导航栏默认宽度
+  DEFAULT_NAV_WIDTH: 260,   // 导航栏默认宽度
   DEFAULT_EDITOR_WIDTH: 550,// 编辑区默认宽度
 
   // 本地存储键
@@ -134,6 +134,11 @@ export const useEditorLayoutStore = defineStore('editorLayout', () => {
         editorWidth.value = data.editorWidth ?? LAYOUT_CONFIG.DEFAULT_EDITOR_WIDTH
         navCollapsed.value = data.navCollapsed ?? false
         editorCollapsed.value = data.editorCollapsed ?? false
+        // ponytail: 迁移旧默认 200 → 260，旧数据若 navWidth < 260 提升到 260
+        // （用户自定义更宽值不受影响，只兜底抬升看不清字的窄值）
+        if (!navCollapsed.value && navWidth.value < LAYOUT_CONFIG.MIN_NAV_EXPANDED) {
+          navWidth.value = LAYOUT_CONFIG.MIN_NAV_EXPANDED
+        }
       } catch (e) {
         console.error('Failed to load layout:', e)
       }

@@ -9,7 +9,6 @@ export interface ImportResult {
   errors?: ValidationError[]
 }
 import {
-  createEmptyResume,
   generateId,
   DEFAULT_SECTION_ORDER,
   getCustomSectionType,
@@ -237,18 +236,6 @@ export const useResumeStore = defineStore('resume', () => {
       // 写入成功后才清除脏标记
       isDirty.value = false
     }
-  }
-
-  /** 仅同步创建简历到内存并立即返回 ID，后台持久化。调用方需自行安排 saveToStorageNow() */
-  const createResumeDeferred = (): string => {
-    const newResume = createEmptyResume()
-    resumeList.value = [...resumeList.value, newResume]
-    currentResume.value = newResume
-    // 后台持久化，不阻塞导航（与 createResumeFromTemplateDeferred 同模式）
-    saveToStorageNow().catch((e) => {
-      console.error('[createResumeDeferred] Background save failed:', e)
-    })
-    return newResume.id
   }
 
   /** 使用预构建数据创建简历（一步到位，避免中间"空简历"状态触发响应式更新） */
@@ -1296,7 +1283,6 @@ export const useResumeStore = defineStore('resume', () => {
     isDirty,
     resumeCount,
     ready,
-    createResumeDeferred,
     createResumeWithData,
     addResumeInMemory,
     saveToStorageNow,

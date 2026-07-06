@@ -323,7 +323,7 @@ onMounted(async () => {
 
   &__nav {
     flex-shrink: 0;
-    min-width: 200px;
+    min-width: 260px;
     background: var(--editor-panel-bg);
     border-right: 1px solid $border-glass;
     overflow-x: hidden;
