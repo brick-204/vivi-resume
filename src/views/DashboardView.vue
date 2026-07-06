@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, defineAsyncComponent, type Component } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -95,17 +95,31 @@ const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
 const settingsStore = useSettingsStore()
 const route = useRoute()
+const router = useRouter()
 
 const activeTab = ref<'resumes' | 'templates' | 'ai' | 'trash' | 'settings'>('resumes')
 const mobileMenuOpen = ref(false)
 const storesReady = ref(false)
 
-// 根据 URL query 参数切换 tab
+// ponytail: URL ↔ activeTab 双向同步，isRouteChange 防循环
+const validTabs = ['resumes', 'templates', 'ai', 'trash', 'settings'] as const
+let isRouteChange = false
+
+// URL → activeTab（处理 router.push 从子组件来的导航）
 watch(() => route.query.tab, (tab) => {
-  if (['ai', 'settings', 'templates', 'resumes', 'trash'].includes(tab as string)) {
+  if (validTabs.includes(tab as any)) {
+    isRouteChange = true
     activeTab.value = tab as typeof activeTab.value
+    isRouteChange = false
   }
 }, { immediate: true })
+
+// activeTab → URL（侧边栏/默认切换时同步 URL，replace 避免多余历史记录）
+watch(activeTab, (tab) => {
+  if (!isRouteChange && route.query.tab !== tab) {
+    router.replace({ path: '/dashboard', query: { tab } })
+  }
+})
 
 const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings') => {
   activeTab.value = tab
@@ -122,7 +136,7 @@ onMounted(async () => {
   storesReady.value = true
   // 无简历且无 query tab 时默认显示模版市场
   if (!route.query.tab && store.resumeCount === 0) {
-    activeTab.value = 'templates'
+    activeTab.value = 'templates' // watch 会自动 replace URL
   }
 })
 </script>
