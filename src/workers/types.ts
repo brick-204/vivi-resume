@@ -5,26 +5,6 @@
 let _requestId = 0
 export const nextRequestId = (): number => ++_requestId
 
-// ========== 序列化 Worker 消息类型 ==========
-
-export interface SerializeMessage {
-  type: 'serialize'
-  id: number
-  data: unknown
-}
-
-export interface ParseMessage {
-  type: 'parse'
-  id: number
-  json: string
-}
-
-export interface SerializerResult {
-  type: 'result'
-  id: number
-  result: string | unknown
-}
-
 // ========== 图片处理 Worker 消息类型 ==========
 
 export interface ImageProcessOptions {
@@ -76,39 +56,5 @@ export interface WorkerError {
 
 // ========== 联合类型 ==========
 
-export type SerializerWorkerMessage = SerializeMessage | ParseMessage
-export type SerializerWorkerResponse = SerializerResult | WorkerError
-
 export type ImageWorkerMessage = ProcessImageMessage | ResizeImageMessage | EncodeImageMessage
 export type ImageWorkerResponse = ImageProcessorResult | WorkerError
-
-// ========== 同步 Worker 消息类型 ==========
-
-/** 同步准备请求 */
-export interface PrepareSyncMessage {
-  type: 'prepare-sync'
-  id: number
-  resumes: unknown[]      // Resume[] — Worker 边界用 unknown
-  aiConfigs: unknown[]    // AIServiceConfig[]
-  meta: { currentId?: string; activeAIConfigId?: string }
-}
-
-/** 同步进度响应 */
-export interface SyncProgressResponse {
-  type: 'progress'
-  id: number
-  message: string
-  percent: number
-}
-
-/** 同步准备完成响应 */
-export interface SyncPreparedResponse {
-  type: 'prepared'
-  id: number
-  resumeFiles: { filename: string; content: string }[]
-  aiConfigFiles: { filename: string; content: string }[]
-  metaContent: string
-}
-
-export type SyncWorkerMessage = PrepareSyncMessage
-export type SyncWorkerResponse = SyncProgressResponse | SyncPreparedResponse | WorkerError

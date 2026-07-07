@@ -61,13 +61,10 @@ const markedInstance = new Marked({
 // ==text== → <mark>text</mark>
 // ~~text~~ → <s>text</s>
 function preprocessMarkdown(md: string): string {
-  // 下划线 __text__
-  let result = md.replace(/__(.+?)__/g, '<u>$1</u>')
-  // 高亮 ==text==
-  result = result.replace(/==(.+?)==/g, '<mark>$1</mark>')
-  // 删除线 ~~text~~（marked 自带支持，但确保渲染为 <s>）
-  result = result.replace(/~~(.+?)~~/g, '<s>$1</s>')
-  return result
+  return md
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/==(.+?)==/g, '<mark>$1</mark>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
 }
 
 // 后处理：将 marked 输出中 TipTap 不支持的标签清理掉

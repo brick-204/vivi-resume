@@ -7,7 +7,6 @@ import {
   Paragraph,
   TextRun,
   ExternalHyperlink,
-  HeadingLevel,
   LevelFormat,
 } from 'docx'
 import { normalizeContent } from '@/utils/normalizeContent'
@@ -303,22 +302,4 @@ function parseStyleColor(style: string): string | null {
   if (NAMED[lower]) return NAMED[lower]
 
   return null
-}
-
-/**
- * 创建 section 标题段落
- */
-export function createSectionHeading(title: string, options?: HtmlToDocxOptions): Paragraph {
-  const accentColor = options?.accentColor
-  return new Paragraph({
-    children: [new TextRun({
-      text: title,
-      bold: true,
-      size: options?.fontSize ? options.fontSize + 4 : 24, // 比正文稍大
-      font: options?.fontFamily ?? DEFAULT_FONT_FAMILY,
-      color: accentColor,
-    })],
-    heading: HeadingLevel.HEADING_2,
-    spacing: { before: 240, after: 120 },
-  })
 }

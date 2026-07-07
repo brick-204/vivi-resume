@@ -7,7 +7,6 @@
  * `@/utils/storage` 改为 `@/utils/storageAdapter`，无需修改任何逻辑。
  */
 
-import { toRaw } from 'vue'
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import * as idb from './storage'
@@ -36,10 +35,7 @@ function getHandle(): FileSystemDirectoryHandle {
   return handle
 }
 
-/** 剥离 Vue Proxy */
-function toPlain<T>(value: T): T {
-  return structuredClone(toRaw(value as object)) as T
-}
+// toPlain 复用自 ./storage，避免 Vue Proxy 剥离逻辑重复
 
 // ========== Resume 操作 ==========
 
@@ -112,7 +108,7 @@ export async function saveResumeList(resumes: Resume[]): Promise<void> {
 
     // 逐个写入：提取照片为独立文件，JSON 中存储引用路径
     for (const resume of resumes) {
-      const plain = toPlain(resume) as unknown as Record<string, unknown>
+      const plain = idb.toPlain(resume) as unknown as Record<string, unknown>
       const { resume: refResume, photos } = await extractPhotos(plain, resume.id)
 
       // 写入照片文件
@@ -177,7 +173,7 @@ export async function getAllAIConfigs(): Promise<AIServiceConfig[]> {
 export async function saveAIConfig(config: AIServiceConfig): Promise<void> {
   if (isDirectoryMode()) {
     const configsDir = await dir.ensureDir(getHandle(), 'ai-configs')
-    await dir.writeJsonFile(configsDir, `${config.id}.json`, toPlain(config))
+    await dir.writeJsonFile(configsDir, `${config.id}.json`, idb.toPlain(config))
   } else {
     return idb.saveAIConfig(config)
   }
@@ -244,7 +240,7 @@ export async function getTrash(): Promise<Resume[]> {
 
 /** 写入回收站简历列表 */
 export async function saveTrash(trash: Resume[]): Promise<void> {
-  const plain = toPlain(trash)
+  const plain = idb.toPlain(trash)
   if (isDirectoryMode()) {
     const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
     meta.trash = plain

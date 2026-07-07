@@ -184,18 +184,6 @@ export async function deleteFile(
   }
 }
 
-/** 删除子目录（递归） */
-export async function deleteDir(
-  parentHandle: FileSystemDirectoryHandle,
-  name: string,
-): Promise<void> {
-  try {
-    await parentHandle.removeEntry(name, { recursive: true })
-  } catch {
-    // 目录不存在，忽略
-  }
-}
-
 // ========== 二进制文件读写（照片独立存储） ==========
 
 /** ArrayBuffer → base64 字符串（分块处理，避免大数组逐字节拼接的 GC 压力） */
@@ -267,25 +255,6 @@ export async function readDataUrlFile(
     return `data:${mimeType};base64,${base64}`
   } catch {
     return undefined
-  }
-}
-
-/** 按完整路径删除文件 */
-export async function deleteFileByPath(
-  rootHandle: FileSystemDirectoryHandle,
-  path: string,
-): Promise<void> {
-  try {
-    const parts = path.split('/')
-    let dirHandle = rootHandle
-
-    for (let i = 0; i < parts.length - 1; i++) {
-      dirHandle = await dirHandle.getDirectoryHandle(parts[i])
-    }
-
-    await dirHandle.removeEntry(parts[parts.length - 1])
-  } catch {
-    // 文件不存在，忽略
   }
 }
 

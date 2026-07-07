@@ -22,7 +22,6 @@ import {
   getArraySectionConfig,
   getTextSectionConfig,
 } from '@/utils/trashConfig'
-import { useWorkerSerializer } from '@/composables/useWorkerSerializer'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
@@ -97,8 +96,8 @@ export const useResumeStore = defineStore('resume', () => {
   // 计算属性：简历数量
   const resumeCount = computed(() => resumeList.value.length)
 
-  // 序列化 Worker（persistent 模式：store 生命周期内持续存在，不依赖 onUnmounted）
-  const { serialize, parse } = useWorkerSerializer({ persistent: true })
+  // ponytail: 深拷贝简历——structuredClone(toRaw) 剥离 Vue Proxy 并递归克隆，替代 Worker 序列化
+  const cloneResume = <T>(data: T): T => structuredClone(toRaw(data)) as T
 
   // 同步锁（模块级单例）
   const { isLocked } = useSyncLock()
@@ -142,8 +141,7 @@ export const useResumeStore = defineStore('resume', () => {
     if (currentId) {
       const resume = resumeList.value.find(r => r.id === currentId)
       if (resume) {
-        const json = await serialize(resume)
-        currentResume.value = await parse<Resume>(json)
+        currentResume.value = cloneResume(resume)
       }
     }
 
@@ -202,8 +200,7 @@ export const useResumeStore = defineStore('resume', () => {
       const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
       if (index !== -1) {
         currentResume.value.updatedAt = new Date().toISOString()
-        const json = await serialize(currentResume.value)
-        const parsed = await parse<Resume>(json)
+        const parsed = cloneResume(currentResume.value)
         const newList = [...resumeList.value]
         newList[index] = parsed
         resumeList.value = newList
@@ -227,8 +224,7 @@ export const useResumeStore = defineStore('resume', () => {
     const index = resumeList.value.findIndex(r => r.id === currentResume.value!.id)
     if (index !== -1) {
       currentResume.value.updatedAt = new Date().toISOString()
-      const json = await serialize(currentResume.value)
-      const parsed = await parse<Resume>(json)
+      const parsed = cloneResume(currentResume.value)
       const newList = [...resumeList.value]
       newList[index] = parsed
       resumeList.value = newList
@@ -258,20 +254,13 @@ export const useResumeStore = defineStore('resume', () => {
     return resumeList.value.find(r => r.id === id)
   }
 
-  // 加载简历到编辑器（优先 structuredClone 快速路径，失败 fallback Worker）
+  // 加载简历到编辑器
   const loadResume = async (id: string): Promise<boolean> => {
     // ponytail: 复用 currentResume，避免从 resumeList 克隆覆盖 updateCurrentResume 的同步修改（防抖保存前 resumeList 未刷新，导致换模板跳转滞后一拍）
     if (currentResume.value?.id === id) return true
     const resume = getResume(id)
     if (resume) {
-      try {
-        const plain = toRaw(resume)
-        currentResume.value = structuredClone(plain) as Resume
-      } catch {
-        // fallback：Worker 深拷贝（处理含不可克隆值的极端情况）
-        const json = await serialize(resume)
-        currentResume.value = await parse<Resume>(json)
-      }
+      currentResume.value = cloneResume(resume)
       return true
     }
     return false
@@ -397,8 +386,7 @@ export const useResumeStore = defineStore('resume', () => {
   const copyResume = async (id: string): Promise<string> => {
     const source = resumeList.value.find(r => r.id === id)
     if (!source) return ''
-    const json = await serialize(source)
-    const copy = await parse<Resume>(json)
+    const copy = cloneResume(source)
     copy.id = generateId()
     copy.title = `${source.title} (副本)`
     copy.createdAt = new Date().toISOString()
@@ -422,9 +410,9 @@ export const useResumeStore = defineStore('resume', () => {
       return { success: false, errors: validation.errors }
     }
 
-    // 第二步：Worker 解析（深拷贝 + 反序列化）
+    // 第二步：解析 JSON（Zod 已校验，直接 parse）
     try {
-      const data = await parse<Resume>(json)
+      const data = JSON.parse(json) as Resume
       data.id = generateId()
       data.createdAt = new Date().toISOString()
       data.updatedAt = new Date().toISOString()
@@ -1255,8 +1243,7 @@ export const useResumeStore = defineStore('resume', () => {
       if (currentId) {
         const resume = resumeList.value.find(r => r.id === currentId)
         if (resume) {
-          const json = await serialize(resume)
-          currentResume.value = await parse<Resume>(json)
+          currentResume.value = cloneResume(resume)
         }
       } else {
         currentResume.value = null

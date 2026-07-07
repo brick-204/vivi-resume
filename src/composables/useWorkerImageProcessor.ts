@@ -13,7 +13,7 @@
  * - 组件卸载时自动 terminate Worker（非 persistent 模式）
  */
 
-import { ref, onUnmounted } from 'vue'
+import { onUnmounted } from 'vue'
 import type { ImageProcessOptions } from '@/workers/types'
 import { nextRequestId } from '@/workers/types'
 
@@ -30,8 +30,6 @@ export interface UseWorkerImageProcessorOptions {
 }
 
 export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions) {
-  const isWorkerActive = ref(false)
-
   // 检测 Worker + OffscreenCanvas + convertToBlob 支持
   const isSupported = typeof Worker !== 'undefined' &&
     typeof OffscreenCanvas !== 'undefined' &&
@@ -46,13 +44,11 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
           new URL('@/workers/imageProcessor.worker.ts', import.meta.url),
           { type: 'module' }
         )
-        isWorkerActive.value = true
       } catch {
         console.warn('[useWorkerImageProcessor] Worker 创建失败，回退到主线程执行')
         return null
       }
     }
-    isWorkerActive.value = true
     return _worker
   }
 
@@ -275,7 +271,6 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
         _worker = null
         _workerRefCount = 0
       }
-      isWorkerActive.value = false
     })
   }
 
@@ -283,7 +278,5 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
     processImage,
     resizeImage,
     encodeImage,
-    isSupported,
-    isWorkerActive,
   }
 }

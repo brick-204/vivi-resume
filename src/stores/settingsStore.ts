@@ -7,7 +7,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, toRaw } from 'vue'
 import {
   getMeta,
   setMeta,
@@ -34,7 +34,6 @@ import type { AIServiceConfig } from '@/types/aiConfig'
 import { getProviderInfo } from '@/types/aiConfig'
 import { extractPhotos} from '@/utils/photoFileRef'
 import { useSyncLock } from '@/composables/useSyncLock'
-import { useSyncWorker } from '@/composables/useSyncWorker'
 import { message as naiveMessage, dialog as naiveDialog } from '@/plugins/naive-ui'
 import { h } from 'vue'
 import MergeConflictModal from '@/components/dashboard/MergeConflictModal.vue'
@@ -47,8 +46,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const isSyncing = ref(false)
   const permissionStatus = ref<PermissionState>('prompt')
 
-  // Worker + Lock
-  const { prepareSync } = useSyncWorker({ persistent: true })
+  // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
 
   // ========== 就绪 Promise ==========
@@ -320,8 +318,17 @@ export const useSettingsStore = defineStore('settings', () => {
 
       updateProgress('正在序列化数据...', 20)
 
-      // 7. 发送给 Worker 序列化（meta 已含 trash + retentionDays，worker 只 JSON.stringify）
-      const result = await prepareSync(mergedResumes, mergedAiConfigs, mergedMeta)
+      // 7. 序列化为目录文件内容（meta 已含 trash + retentionDays，纯 JSON.stringify）
+      // ponytail: 数据 KB 级，原 Worker 序列化无收益，改为同步 map + stringify
+      const toFile = (item: { id: string }) => ({
+        filename: `${item.id}.json`,
+        content: JSON.stringify(structuredClone(toRaw(item)), null, 2),
+      })
+      const result = {
+        resumeFiles: mergedResumes.map(toFile),
+        aiConfigFiles: mergedAiConfigs.map(toFile),
+        metaContent: JSON.stringify(structuredClone(toRaw(mergedMeta)), null, 2),
+      }
 
       // 8. 主线程写入目录
       updateProgress('正在写入简历文件...', 50)

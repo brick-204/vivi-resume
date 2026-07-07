@@ -90,7 +90,7 @@ export function blobToBase64(blob: Blob): Promise<string> {
 // 无法克隆 Proxy 上的内部属性（__v_skip、__v_raw 等），必须先转为普通对象。
 
 /** 递归剥离 Vue Proxy，返回可被 structured clone 的纯对象 */
-function toPlain<T>(value: T): T {
+export function toPlain<T>(value: T): T {
   return structuredClone(toRaw(value as object)) as T
 }
 
