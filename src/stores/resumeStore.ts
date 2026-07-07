@@ -97,7 +97,16 @@ export const useResumeStore = defineStore('resume', () => {
   const resumeCount = computed(() => resumeList.value.length)
 
   // ponytail: 深拷贝简历——structuredClone(toRaw) 剥离 Vue Proxy 并递归克隆，替代 Worker 序列化
-  const cloneResume = <T>(data: T): T => structuredClone(toRaw(data)) as T
+  // ponytail: structuredClone 对当前纯 JSON 兼容的 Resume 不会抛错，但保留 JSON 往返兜底，
+  // 防御未来可能新增的不可克隆字段（函数/DOM节点/类实例），与原 Worker fallback 等价
+  const cloneResume = <T>(data: T): T => {
+    const raw = toRaw(data)
+    try {
+      return structuredClone(raw) as T
+    } catch {
+      return JSON.parse(JSON.stringify(raw)) as T
+    }
+  }
 
   // 同步锁（模块级单例）
   const { isLocked } = useSyncLock()
@@ -402,7 +411,7 @@ export const useResumeStore = defineStore('resume', () => {
     return JSON.stringify(currentResume.value, null, 2)
   }
 
-  // 导入 JSON（Zod 校验 + Worker 解析）
+  // 导入 JSON（Zod 校验 + JSON.parse）
   const importFromJSON = async (json: string): Promise<ImportResult> => {
     // 第一步：Zod 结构校验
     const validation = validateResumeJSON(json)

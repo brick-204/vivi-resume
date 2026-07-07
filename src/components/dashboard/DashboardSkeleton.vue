@@ -354,26 +354,25 @@ withDefaults(defineProps<{
 }
 
 // ========== 基础骨架块 ==========
-.sk-bar {
+// ponytail: 三种基础块共享同一段 shimmer 渐变，抽 mixin 避免重复
+@mixin skeleton-gradient {
   background: linear-gradient(
     90deg,
     var(--bg-glass) 25%,
     var(--bg-glass-hover) 50%,
     var(--bg-glass) 75%
   );
-  border-radius: $radius-sm;
   animation: dashboard-shimmer 1.5s ease-in-out infinite;
 }
 
+.sk-bar {
+  @include skeleton-gradient;
+  border-radius: $radius-sm;
+}
+
 .sk-pill {
+  @include skeleton-gradient;
   border-radius: 100px;
-  background: linear-gradient(
-    90deg,
-    var(--bg-glass) 25%,
-    var(--bg-glass-hover) 50%,
-    var(--bg-glass) 75%
-  );
-  animation: dashboard-shimmer 1.5s ease-in-out infinite;
 
   // ponytail: 语义色变体统一生成，避免重复 linear-gradient
   @each $name, $color in (
@@ -393,14 +392,8 @@ withDefaults(defineProps<{
 }
 
 .sk-square {
+  @include skeleton-gradient;
   border-radius: $radius-sm;
-  background: linear-gradient(
-    90deg,
-    var(--bg-glass) 25%,
-    var(--bg-glass-hover) 50%,
-    var(--bg-glass) 75%
-  );
-  animation: dashboard-shimmer 1.5s ease-in-out infinite;
 }
 
 // 响应式
