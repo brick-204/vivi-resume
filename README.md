@@ -114,15 +114,16 @@ src/
 │   ├── home/              # 首页组件（ResumeCard、ImportModal）
 │   └── template/          # 模板卡片组件
 ├── composables/
-│   ├── useWorkerSerializer.ts    # Worker JSON 序列化（toRaw + structuredClone）
 │   ├── useWorkerImageProcessor.ts # Worker 图片处理
-│   ├── useSyncWorker.ts          # 目录同步 Worker
 │   ├── useSyncLock.ts            # 同步锁（防并发）
 │   ├── useTheme.ts               # 主题切换（浅色/深色/跟随系统）
 │   ├── useScaledPreview.ts       # 缩放预览
 │   ├── useSectionTitle.ts        # 模块标题
 │   ├── useFlipAnimation.ts       # FLIP 动画
-│   └── usePageBreaks.ts          # 分页计算
+│   ├── usePageBreaks.ts          # 分页计算
+│   ├── useResumeSearch.ts        # 全文搜索 + 缓存
+│   ├── useAriaLive.ts            # 无障碍实时播报
+│   └── useInView.ts             # 视口可见性观察
 ├── config/
 │   ├── templates.ts       # 8 种模板配置（样式、字体默认值、头部模式）
 │   ├── fonts.ts           # 字体选项 + 字号派生逻辑
@@ -141,8 +142,9 @@ src/
 │   ├── resume.ts          # TypeScript 类型 + 默认常量（含 EvaluationResult）
 │   └── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口 + 全局级操作类型）
 ├── utils/
-│   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移、Blob 照片存储）
-│   ├── storageAdapter.ts  # 存储适配层（IndexedDB / 目录模式切换）
+│   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移、Blob 照片存储、toPlain）
+│   ├── storageAdapter.ts  # 存储适配层（IndexedDB / 目录模式切换，复用 idb.toPlain）
+│   ├── timestamp.ts       # formatTimestamp，供各导出路径复用
 │   ├── colorUtils.ts      # 主题色派生（标题色、标签色等）
 │   ├── evaluationScore.ts # 评估分数工具（三档色值 + 等级文案）
 │   ├── resumeStyle.ts     # 简历样式工具（样式覆盖字段剥离）
@@ -156,10 +158,8 @@ src/
 ├── plugins/
 │   └── naive-ui.ts        # Naive UI 主题覆盖 + Provider 注册 + createDiscreteApi
 ├── workers/
-│   ├── serializer.worker.ts    # JSON 序列化 Worker
-│   ├── imageProcessor.worker.ts # 图片裁剪/缩放 Worker
-│   ├── sync.worker.ts          # 目录同步 Worker
-│   └── types.ts                # Worker 消息类型
+│   ├── imageProcessor.worker.ts # 图片裁剪/缩放 Worker（OffscreenCanvas + convertToBlob）
+│   └── types.ts                # Worker 消息类型 + 共享 requestId 计数器
 ├── views/
 │   ├── DashboardView.vue  # Dashboard 主页（两列布局）
 │   ├── EditorView.vue     # 编辑器页面（含 AI 评估按钮）
@@ -317,7 +317,7 @@ pnpm preview
 - **Naive UI** - AI 弹窗、配置表单等使用 Naive UI 组件库，深色/浅色主题完整覆盖
 - **流畅动画** - 平滑的过渡和 FLIP 动画效果
 - **CSS 变量** - 模板样式通过 CSS 自定义属性灵活控制，支持主题色 / 字号 / 行高 / 间距全链路传递
-- **Web Worker** - JSON 序列化、图片处理、目录同步在 Worker 线程完成，不阻塞主线程
+- **Web Worker** - 图片处理在 Worker 线程完成（OffscreenCanvas 编码），不阻塞主线程
 - **Reduced Motion** - `prefers-reduced-motion: reduce` 下自动禁用 backdrop-filter
 
 ## 性能优化
