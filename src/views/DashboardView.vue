@@ -43,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, defineAsyncComponent, type Component } from 'vue'
+import { ref, onMounted, watch, defineAsyncComponent, defineComponent, h, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -56,29 +56,33 @@ import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
 
 // ponytail: 面板懒加载，首屏只加载当前 tab 对应面板，切换时按需加载
 // defineAsyncComponent 的 loadingComponent 在组件首次加载时显示
+// ponytail: 每个面板用不同 variant 的骨架屏，与实际布局匹配
+const skeletonFor = (variant: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings') =>
+  defineComponent({ render: () => h(DashboardSkeleton, { variant }) })
+
 const ResumeListPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/ResumeListPanel.vue'),
-  loadingComponent: DashboardSkeleton,
+  loadingComponent: skeletonFor('resumes'),
   delay: 0,
 })
 const TemplateMarketPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/TemplateMarketPanel.vue'),
-  loadingComponent: DashboardSkeleton,
+  loadingComponent: skeletonFor('templates'),
   delay: 0,
 })
 const AISettingsPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/AISettingsPanel.vue'),
-  loadingComponent: DashboardSkeleton,
+  loadingComponent: skeletonFor('ai'),
   delay: 0,
 })
 const TrashPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/TrashPanel.vue'),
-  loadingComponent: DashboardSkeleton,
+  loadingComponent: skeletonFor('trash'),
   delay: 0,
 })
 const SettingsPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/SettingsPanel.vue'),
-  loadingComponent: DashboardSkeleton,
+  loadingComponent: skeletonFor('settings'),
   delay: 0,
 })
 

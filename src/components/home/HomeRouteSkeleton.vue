@@ -45,27 +45,69 @@
       </div>
     </section>
 
-    <!-- 内容区（轮播为主，其余用普通条） -->
+    <!-- 内容区 -->
     <main class="hrs-content">
+      <!-- 轮播区 -->
       <div class="hrs-carousel">
+        <div class="hrs-carousel__header">
+          <div class="hrs-bar" style="width: 160px; height: 28px; margin: 0 auto;" />
+          <div class="hrs-bar" style="width: 140px; height: 14px; margin: 8px auto 0;" />
+        </div>
         <div v-for="i in 3" :key="i" class="hrs-carousel__slide">
           <div class="hrs-carousel__preview" />
           <div class="hrs-bar hrs-carousel__name" style="width: 80px; height: 14px;" />
         </div>
-      </div>
-      <div class="hrs-content-rows">
-        <div v-for="i in 3" :key="i" class="hrs-section">
-          <div class="hrs-bar" style="width: 30%; height: 16px;" />
-          <div class="hrs-bar" style="width: 70%; height: 10px;" />
-          <div class="hrs-bar" style="width: 60%; height: 10px;" />
+        <div class="hrs-carousel__dots">
+          <div class="hrs-dot" />
+          <div class="hrs-dot hrs-dot--active" />
+          <div class="hrs-dot" />
         </div>
+      </div>
+
+      <!-- AI Demo 区 -->
+      <div class="hrs-ai-demo">
+        <div class="hrs-ai-demo__header">
+          <div class="hrs-bar" style="width: 120px; height: 24px;" />
+          <div class="hrs-bar" style="width: 80px; height: 14px;" />
+        </div>
+        <div class="hrs-ai-demo__tabs">
+          <div v-for="i in 7" :key="i" class="hrs-pill" :style="{ width: tabWidths[i - 1], height: '28px' }" />
+        </div>
+        <div class="hrs-ai-demo__content">
+          <div class="hrs-bar" style="width: 60%; height: 14px;" />
+          <div class="hrs-bar" style="width: 80%; height: 14px; margin-top: 12px;" />
+          <div class="hrs-bar" style="width: 45%; height: 14px; margin-top: 12px;" />
+        </div>
+      </div>
+
+      <!-- Feature Grid 区 -->
+      <div class="hrs-features">
+        <div class="hrs-features__header">
+          <div class="hrs-bar" style="width: 100px; height: 24px;" />
+          <div class="hrs-bar" style="width: 160px; height: 14px;" />
+        </div>
+        <div class="hrs-features__grid">
+          <div v-for="i in 8" :key="i" class="hrs-feature-card">
+            <div class="hrs-feature-card__icon" />
+            <div class="hrs-bar" style="width: 60%; height: 12px;" />
+            <div class="hrs-bar" style="width: 80%; height: 10px; margin-top: 4px;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA 区 -->
+      <div class="hrs-cta">
+        <div class="hrs-bar" style="width: 200px; height: 24px;" />
+        <div class="hrs-bar" style="width: 160px; height: 14px;" />
+        <div class="hrs-pill hrs-pill--primary" style="width: 120px; height: 40px;" />
       </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-// 纯展示骨架，无逻辑
+// ponytail: 7 个 AI Demo tab 宽度，模拟真实标签长度
+const tabWidths = ['72px', '80px', '72px', '72px', '72px', '72px', '88px']
 </script>
 
 <style lang="scss" scoped>
@@ -261,6 +303,11 @@
 }
 
 .hrs-carousel {
+  &__header {
+    text-align: center;
+    margin-bottom: $spacing-2xl;
+  }
+
   display: flex;
   gap: $spacing-xs;
   align-items: stretch;
@@ -314,16 +361,121 @@
   margin-top: $spacing-md;
 }
 
-.hrs-content-rows {
+.hrs-carousel__dots {
   display: flex;
-  flex-direction: column;
-  gap: $spacing-2xl;
+  justify-content: center;
+  gap: $spacing-xs;
+  margin-top: $spacing-lg;
+  width: 100%;
 }
 
-.hrs-section {
+.hrs-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-glass);
+  animation: home-route-shimmer 1.5s ease-in-out infinite;
+
+  &--active {
+    width: 24px;
+    border-radius: $radius-full;
+    background: linear-gradient(90deg,
+      rgba($primary-color, 0.4) 25%,
+      rgba($primary-color, 0.6) 50%,
+      rgba($primary-color, 0.4) 75%
+    );
+  }
+}
+
+// ========== AI Demo 区 ==========
+.hrs-ai-demo {
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: $spacing-lg;
+
+  &__header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-xs;
+  }
+
+  &__tabs {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+  }
+
+  &__content {
+    padding: $spacing-lg;
+    background: var(--bg-glass);
+    border: 1px solid $border-glass;
+    border-radius: $radius-lg;
+  }
+}
+
+// ========== Feature Grid 区 ==========
+.hrs-features {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+
+  &__header {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-xs;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: $spacing-md;
+
+    @include tablet {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    @include mobile {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+.hrs-feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: $spacing-md;
+  background: var(--bg-glass);
+  border: 1px solid $border-glass;
+  border-radius: $radius-lg;
+  gap: $spacing-xs;
+
+  &__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: $radius-md;
+    background: linear-gradient(90deg,
+      rgba($primary-color, 0.10) 25%,
+      rgba($primary-color, 0.20) 50%,
+      rgba($primary-color, 0.10) 75%
+    );
+    animation: home-route-shimmer 1.5s ease-in-out infinite;
+  }
+}
+
+// ========== CTA 区 ==========
+.hrs-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-3xl 0;
 }
 
 // ========== 基础骨架元素 ==========
@@ -345,6 +497,14 @@
     var(--bg-glass) 75%
   );
   animation: home-route-shimmer 1.5s ease-in-out infinite;
+
+  &--primary {
+    background: linear-gradient(90deg,
+      rgba($primary-color, 0.4) 25%,
+      rgba($primary-color, 0.6) 50%,
+      rgba($primary-color, 0.4) 75%
+    ) !important;
+  }
 }
 
 // favicon / logo 文字也走 shimmer
