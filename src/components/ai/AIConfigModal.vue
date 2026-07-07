@@ -119,7 +119,7 @@ const emit = defineEmits<{
   save: [data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'updatedAt'>]
 }>()
 
-const isDev = import.meta.env.DEV
+const isDev = import.meta.env.MODE === 'development'
 const isEdit = computed(() => !!props.config)
 
 const formRef = ref<FormInst | null>(null)

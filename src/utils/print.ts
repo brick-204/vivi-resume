@@ -104,7 +104,7 @@ export async function printViaIframe(options: PrintOptions): Promise<void> {
  */
 function collectAllStyles(): string[] {
   const styles: string[] = []
-  const isDev = import.meta.env.DEV
+  const isDev = import.meta.env.MODE === 'development'
 
   if (isDev) {
     // 开发模式：收集所有 <style> 标签

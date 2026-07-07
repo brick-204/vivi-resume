@@ -8,8 +8,8 @@ import { buildMessages, type FullAIOperation } from '@/services/aiPrompts'
 
 // ========== 开发代理支持 ==========
 
-/** 是否为开发环境 */
-const isDev = import.meta.env.DEV
+/** 是否为开发环境（按 mode 判断，与 main.ts 的生产判断同基准） */
+const isDev = import.meta.env.MODE === 'development'
 
 /**
  * 获取请求 URL

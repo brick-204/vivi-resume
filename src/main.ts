@@ -12,9 +12,9 @@ app.use(pinia)
 app.use(router)
 app.mount('#app')
 
-// Cloudflare Web Analytics：仅生产环境加载，token 从 .env 读取（不进版本库）
+// Cloudflare Web Analytics：仅生产模式加载，token 从 .env 读取（不进版本库）
 const cfToken = import.meta.env.VITE_CF_TOKEN
-if (!import.meta.env.DEV && cfToken) {
+if (import.meta.env.MODE === 'production' && cfToken) {
   const s = document.createElement('script')
   s.defer = true
   s.src = 'https://static.cloudflareinsights.com/beacon.min.js'
