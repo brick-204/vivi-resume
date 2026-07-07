@@ -12,3 +12,8 @@ test_screenshots/
 pnpm-lock.yaml
 
 repo-docs/
+
+# 本地环境变量（含 Cloudflare token 等敏感值，不入版本库）
+.env
+.env.local
+.env.*.local
