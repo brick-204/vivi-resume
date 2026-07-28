@@ -32,20 +32,9 @@
 
       <!-- 会话列表（横向 chip） -->
       <div v-if="sessions.length > 0" class="consult-sessions">
-        <n-input
-          v-model:value="searchKeyword"
-          size="small"
-          placeholder="搜索会话"
-          clearable
-          class="consult-sessions__search"
-        >
-          <template #prefix>
-            <Icon icon="mdi:magnify" :width="14" />
-          </template>
-        </n-input>
         <div class="consult-sessions__list">
           <div
-            v-for="s in filteredSessions"
+            v-for="s in sessions"
             :key="s.id"
             class="consult-sessions__chip"
             :class="{ 'is-active': s.id === currentSessionId, 'is-disabled': isStreaming, 'is-editing': editingId === s.id }"
@@ -73,9 +62,6 @@
               class="consult-sessions__del"
               @click.stop="onDeleteSession(s.id)"
             />
-          </div>
-          <div v-if="filteredSessions.length === 0" class="consult-sessions__empty">
-            无匹配会话
           </div>
         </div>
       </div>
@@ -157,7 +143,7 @@
                 :width="18"
               />
               <span class="consult-resume-pop__name">{{ r.title || '未命名简历' }}</span>
-              <span v-if="r.id === currentResumeId" class="consult-resume-pop__cur">当前</span>
+              <span v-if="r.id === editingResumeId" class="consult-resume-pop__cur">当前</span>
             </div>
             <div class="consult-resume-pop__hint">
               选中的简历会与下一条提问一起发送
@@ -210,6 +196,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import {
   NDrawer, NDrawerContent, NButton, NInput, NPopover,
@@ -238,23 +225,20 @@ const {
 
 // resumeStore 的属性访问直接用 store 实例（模板和 computed 里自动响应式）
 const resumeList = computed(() => resumeStore.resumeList)
-const currentResumeId = computed(() => resumeStore.currentResume?.id ?? null)
+
+const route = useRoute()
+// 仅当真正在编辑器中打开某份简历时才标「当前」：
+// resumeStore.currentResume 在 Dashboard 等页面会残留上次打开的 id，不能作为「正在编辑」判据
+const editingResumeId = computed(() =>
+  route.name === 'editor' ? (route.params.id as string | undefined) ?? null : null,
+)
 
 const inputText = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
 
-// 会话搜索（UI 层过滤，不影响持久化）
-const searchKeyword = ref('')
-
 // 会话重命名编辑态
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
-
-const filteredSessions = computed(() => {
-  const kw = searchKeyword.value.trim().toLowerCase()
-  if (!kw) return sessions.value
-  return sessions.value.filter(s => (s.title || '新会话').toLowerCase().includes(kw))
-})
 
 const drawerWidth = computed(() => Math.min(560, window.innerWidth - 40))
 
@@ -390,7 +374,6 @@ watch(() => props.show, (v) => {
 
 .consult-sessions {
   display: flex; flex-direction: column; gap: 6px; padding: 8px 0;
-  &__search { width: 100%; }
   &__list {
     display: flex; gap: 6px; overflow-x: auto;
     min-height: 28px;
@@ -408,10 +391,6 @@ watch(() => props.show, (v) => {
   &__title { max-width: 120px; overflow: hidden; text-overflow: ellipsis; user-select: none; }
   &__edit { width: 120px; }
   &__del { opacity: 0.6; &:hover { opacity: 1; } }
-  &__empty {
-    font-size: 12px; color: var(--n-text-color-3, #999);
-    padding: 4px 8px; white-space: nowrap;
-  }
 }
 
 .consult-messages {

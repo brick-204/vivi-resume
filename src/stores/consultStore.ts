@@ -141,10 +141,12 @@ export const useConsultStore = defineStore('consult', () => {
    * shallowRef 下原地改 session 属性不触发响应式：currentMessages computed
    * 依赖 currentSession.value，若 session 引用不变则不重算 → UI 不更新。
    * 改 messages/title 等可变字段后必须走这里替换 + 重新取引用。
+   * messages 也必须生成新数组引用：currentMessages computed 返回 currentSession.value?.messages，
+   * Vue 用 Object.is 比较新旧返回值，若仍是同一数组引用则认为未变、不通知下游（visibleMessages/组件不重渲染）。
    * 返回新 session 对象供调用方继续使用。
    */
   const commitSession = (session: ConsultSession): ConsultSession => {
-    const next = { ...session, messages: session.messages }
+    const next = { ...session, messages: [...session.messages] }
     sessions.value = sessions.value.map(s => (s.id === session.id ? next : s))
     return next
   }
@@ -390,7 +392,12 @@ export const useConsultStore = defineStore('consult', () => {
         })
         session.updatedAt = Date.now()
         session = commitSession(session)
-        persistSession(session)
+        // ponytail: assistant 消息立即落盘，不走 300ms 防抖
+        // 防抖依赖 visibilitychange/pagehide flush，但 reload 时该 async 不可靠，
+        // 瞬间刷新会让 assistant 消息（仍在 streamChat await 中）丢失
+        saveConsultSession(session).catch(e => {
+          console.error('[consultStore] persist assistant message failed:', e)
+        })
         await enforceSessionLimit()
       }
     } catch (err) {
@@ -411,7 +418,9 @@ export const useConsultStore = defineStore('consult', () => {
           })
           session.updatedAt = Date.now()
           session = commitSession(session)
-          persistSession(session)
+          saveConsultSession(session).catch(e => {
+            console.error('[consultStore] persist aborted assistant message failed:', e)
+          })
           await enforceSessionLimit()
         } else {
           session = commitSession(session)
