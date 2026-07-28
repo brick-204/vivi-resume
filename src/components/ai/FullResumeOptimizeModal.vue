@@ -74,6 +74,15 @@
         AI 输出因长度限制被截断，部分模块结果可能不完整
       </div>
 
+      <!-- 错误状态 -->
+      <div v-if="errorMessage && !isStreaming" class="optimize-error-card">
+        <Icon icon="mdi:alert-circle-outline" :width="16" />
+        <span class="optimize-error-card__msg">{{ errorMessage }}</span>
+        <n-button size="small" type="primary" ghost @click="handleStart">
+          重试
+        </n-button>
+      </div>
+
       <!-- Section 分组结果 -->
       <div v-if="parsedSections.length > 0" class="optimize-sections">
         <div
@@ -143,7 +152,7 @@
 
     <template #footer>
       <div class="optimize-footer">
-        <n-button @click="handleClose">
+        <n-button :autofocus="isStreaming" @click="handleClose">
           {{ isStreaming ? '取消生成' : '取消' }}
         </n-button>
         <n-button
@@ -189,6 +198,7 @@ const resultText = ref('')
 const isStreaming = ref(false)
 const isConnected = ref(false)
 const wasTruncated = ref(false)
+const errorMessage = ref('')
 const elapsedSeconds = ref(0)
 const parsedSections = ref<SectionResult[]>([])
 const appliedIds = ref<Set<string>>(new Set())
@@ -249,6 +259,7 @@ watch(() => props.show, (val) => {
     isStreaming.value = false
     isConnected.value = false
     wasTruncated.value = false
+    errorMessage.value = ''
     elapsedSeconds.value = 0
     parsedSections.value = []
     appliedIds.value = new Set()
@@ -294,6 +305,7 @@ const handleStart = async () => {
   isStreaming.value = true
   isConnected.value = false
   wasTruncated.value = false
+  errorMessage.value = ''
   elapsedSeconds.value = 0
   parsedSections.value = []
   appliedIds.value = new Set()
@@ -332,8 +344,10 @@ const handleStart = async () => {
       // 用户取消
     } else if (err instanceof AIServiceError) {
       naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+      errorMessage.value = AI_ERROR_MESSAGES[err.code] || err.message
     } else {
       naiveMessage.error('优化失败，请重试')
+      errorMessage.value = '优化失败，请重试'
     }
   } finally {
     isStreaming.value = false
@@ -495,6 +509,22 @@ const handleClose = () => {
   border-radius: $radius-sm;
   font-size: $font-size-xs;
   color: $warning-color;
+}
+
+.optimize-error-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.25);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $error-color;
+
+  &__msg {
+    flex: 1;
+  }
 }
 
 .optimize-sections {

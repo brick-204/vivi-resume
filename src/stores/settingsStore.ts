@@ -391,12 +391,14 @@ export const useSettingsStore = defineStore('settings', () => {
       await setMeta('directoryMode', true)
       await setMeta('directoryHandle', handle)
 
+      // 11. 切换模式（提前到 clear 之前：清空 IndexedDB 业务数据期间，
+      // 任何绕过 isLocked 的写入会路由到目录而非已清空的 IndexedDB，避免数据丢失）
+      isDirectoryMode.value = true
+
       // 10. 清除 IndexedDB 业务数据（保留 meta store）
       await clearResumesStore()
       await clearAIConfigsStore()
 
-      // 11. 切换模式
-      isDirectoryMode.value = true
       updateProgress('同步完成！', 100)
 
       // 12. 通知 stores 重新加载

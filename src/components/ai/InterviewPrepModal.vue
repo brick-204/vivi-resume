@@ -56,6 +56,15 @@
         AI 输出因长度限制被截断，结果可能不完整
       </div>
 
+      <!-- 错误状态 -->
+      <div v-if="errorMessage && !isStreaming" class="interview-error-card">
+        <Icon icon="mdi:alert-circle-outline" :width="16" />
+        <span class="interview-error-card__msg">{{ errorMessage }}</span>
+        <n-button size="small" type="primary" ghost @click="handleStartPrep">
+          重试
+        </n-button>
+      </div>
+
       <!-- Tab 切换：面试准备 / 原始 JD -->
       <n-tabs v-if="hasResult && !isStreaming" v-model:value="activeTab" type="line" size="small">
         <n-tab-pane name="result" tab="面试准备">
@@ -83,6 +92,7 @@
           v-if="isStreaming || hasResult"
           type="primary"
           :ghost="hasResult && !isStreaming"
+          :autofocus="isStreaming"
           @click="handleStartPrep"
         >
           <template #icon>
@@ -128,6 +138,7 @@ const resultText = ref('')
 const isStreaming = ref(false)
 const isConnected = ref(false)
 const wasTruncated = ref(false)
+const errorMessage = ref('')
 const isLoadedResult = ref(false)
 const loadedPreparedAt = ref('')
 const activeTab = ref('result')
@@ -154,6 +165,7 @@ watch(() => props.visible, (val) => {
     isStreaming.value = false
     isConnected.value = false
     activeTab.value = 'result'
+    errorMessage.value = ''
 
     // 加载上次准备结果
     const last = resumeStore.currentResume?.lastInterview
@@ -205,6 +217,7 @@ const handleStartPrep = async () => {
   isStreaming.value = true
   isConnected.value = false
   wasTruncated.value = false
+  errorMessage.value = ''
   isLoadedResult.value = false
   saveDone = false
   activeTab.value = 'result'
@@ -234,8 +247,10 @@ const handleStartPrep = async () => {
       // 用户取消
     } else if (err instanceof AIServiceError) {
       naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+      errorMessage.value = AI_ERROR_MESSAGES[err.code] || err.message
     } else {
       naiveMessage.error('面试准备生成失败，请重试')
+      errorMessage.value = '面试准备生成失败，请重试'
     }
   } finally {
     isStreaming.value = false
@@ -370,6 +385,22 @@ const handleClose = () => {
 
 .interview-truncation-warning {
   @include truncation-warning;
+}
+
+.interview-error-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.25);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $error-color;
+
+  &__msg {
+    flex: 1;
+  }
 }
 
 @keyframes blink {

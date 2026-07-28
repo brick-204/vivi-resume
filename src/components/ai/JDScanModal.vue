@@ -57,6 +57,15 @@
         AI 输出因长度限制被截断，结果可能不完整
       </div>
 
+      <!-- 错误状态 -->
+      <div v-if="errorMessage && !isStreaming" class="jd-error-card">
+        <Icon icon="mdi:alert-circle-outline" :width="16" />
+        <span class="jd-error-card__msg">{{ errorMessage }}</span>
+        <n-button size="small" type="primary" ghost @click="handleStartScan">
+          重试
+        </n-button>
+      </div>
+
       <!-- Tab 切换：扫描结果 / 原始 JD -->
       <n-tabs v-if="hasResult && !isStreaming" v-model:value="activeTab" type="line" size="small">
         <n-tab-pane name="result" tab="扫描结果">
@@ -109,6 +118,7 @@
           v-if="isStreaming || hasResult"
           type="primary"
           :ghost="hasResult && !isStreaming"
+          :autofocus="isStreaming"
           :disabled="isStreaming ? false : !jdText.trim()"
           @click="handleStartScan"
         >
@@ -156,6 +166,7 @@ const isStreaming = ref(false)
 const isConnected = ref(false)
 const matchScore = ref<number | null>(null)
 const wasTruncated = ref(false)
+const errorMessage = ref('')
 const isLoadedResult = ref(false)   // 当前显示的是从 store 加载的旧结果
 const loadedScannedAt = ref('')     // 旧结果的扫描时间
 const activeTab = ref('result')     // Tab 切换：result | jd
@@ -223,6 +234,7 @@ watch(() => props.visible, (val) => {
     isStreaming.value = false
     isConnected.value = false
     activeTab.value = 'result'
+    errorMessage.value = ''
 
     // 加载上次扫描结果（如果有）
     const last = resumeStore.currentResume?.lastJdScan
@@ -272,6 +284,7 @@ const handleStartScan = async () => {
   isConnected.value = false
   matchScore.value = null
   wasTruncated.value = false
+  errorMessage.value = ''
   isLoadedResult.value = false
   saveDone = false
   activeTab.value = 'result'
@@ -302,8 +315,10 @@ const handleStartScan = async () => {
       // 用户取消
     } else if (err instanceof AIServiceError) {
       naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+      errorMessage.value = AI_ERROR_MESSAGES[err.code] || err.message
     } else {
       naiveMessage.error('JD 扫描失败，请重试')
+      errorMessage.value = 'JD 扫描失败，请重试'
     }
   } finally {
     isStreaming.value = false
@@ -507,5 +522,22 @@ const handleClose = () => {
 // ========== 截断警告 ==========
 .jd-truncation-warning {
   @include truncation-warning;
+}
+
+// ========== 错误卡片 ==========
+.jd-error-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.25);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $error-color;
+
+  &__msg {
+    flex: 1;
+  }
 }
 </style>

@@ -140,6 +140,24 @@ export async function deleteResume(id: string): Promise<void> {
 
 // ========== Meta 操作 ==========
 
+// meta.json 写串行锁：所有目录模式下的 meta 写操作排队执行，
+// 避免并发 read-modify-write 后写覆盖前写导致 currentId/trash 等字段丢失。
+// ponytail: 单文件串行，per-field locks if throughput matters
+let _metaQueue: Promise<unknown> = Promise.resolve()
+
+/** 串行化更新 meta.json（仅目录模式）：读取 → 应用 patch → 写回，全程排队 */
+async function updateMeta(patch: (meta: Record<string, unknown>) => void): Promise<void> {
+  const run = _metaQueue.then(async () => {
+    const handle = getHandle()
+    const meta = (await dir.readJsonFile<Record<string, unknown>>(handle, 'meta.json')) ?? {}
+    patch(meta)
+    await dir.writeJsonFile(handle, 'meta.json', meta)
+  })
+  // 错误不污染后续链
+  _metaQueue = run.catch(() => {})
+  await run
+}
+
 export async function getCurrentId(): Promise<string | null> {
   if (isDirectoryMode()) {
     const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
@@ -150,13 +168,13 @@ export async function getCurrentId(): Promise<string | null> {
 
 export async function setCurrentId(id: string | null): Promise<void> {
   if (isDirectoryMode()) {
-    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
-    if (id) {
-      meta.currentId = id
-    } else {
-      delete meta.currentId
-    }
-    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+    await updateMeta(meta => {
+      if (id) {
+        meta.currentId = id
+      } else {
+        delete meta.currentId
+      }
+    })
   } else {
     return idb.setCurrentId(id)
   }
@@ -199,13 +217,13 @@ export async function getActiveAIConfigId(): Promise<string | null> {
 
 export async function setActiveAIConfigId(id: string | null): Promise<void> {
   if (isDirectoryMode()) {
-    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
-    if (id) {
-      meta.activeAIConfigId = id
-    } else {
-      delete meta.activeAIConfigId
-    }
-    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+    await updateMeta(meta => {
+      if (id) {
+        meta.activeAIConfigId = id
+      } else {
+        delete meta.activeAIConfigId
+      }
+    })
   } else {
     return idb.setActiveAIConfigId(id)
   }
@@ -270,9 +288,9 @@ export async function getTrash(): Promise<Resume[]> {
 export async function saveTrash(trash: Resume[]): Promise<void> {
   const plain = idb.toPlain(trash)
   if (isDirectoryMode()) {
-    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
-    meta.trash = plain
-    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+    await updateMeta(meta => {
+      meta.trash = plain
+    })
   } else {
     await idb.setMeta('trash', plain)
   }
@@ -290,9 +308,9 @@ export async function getTrashRetentionDays(): Promise<number> {
 /** 写入回收站保留天数 */
 export async function setTrashRetentionDays(days: number): Promise<void> {
   if (isDirectoryMode()) {
-    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
-    meta.trashRetentionDays = days
-    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+    await updateMeta(meta => {
+      meta.trashRetentionDays = days
+    })
   } else {
     await idb.setMeta('trashRetentionDays', days)
   }
@@ -310,9 +328,9 @@ export async function getTrashBinRetentionDays(): Promise<number> {
 /** 写入回收箱保留天数 */
 export async function setTrashBinRetentionDays(days: number): Promise<void> {
   if (isDirectoryMode()) {
-    const meta = (await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')) ?? {}
-    meta.trashBinRetentionDays = days
-    await dir.writeJsonFile(getHandle(), 'meta.json', meta)
+    await updateMeta(meta => {
+      meta.trashBinRetentionDays = days
+    })
   } else {
     await idb.setMeta('trashBinRetentionDays', days)
   }

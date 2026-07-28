@@ -65,6 +65,15 @@
         AI 输出因长度限制被截断，结果可能不完整
       </div>
 
+      <!-- 错误状态 -->
+      <div v-if="errorMessage && !isStreaming" class="eval-error-card">
+        <Icon icon="mdi:alert-circle-outline" :width="16" />
+        <span class="eval-error-card__msg">{{ errorMessage }}</span>
+        <n-button size="small" type="primary" ghost @click="startEvaluation">
+          重试
+        </n-button>
+      </div>
+
       <template v-if="hasResult">
         <!-- 流式期间纯文本（打字机效果） -->
         <template v-if="isStreaming">{{ resultText }}</template>
@@ -80,7 +89,7 @@
 
     <template #footer>
       <div class="eval-footer">
-        <n-button @click="handleClose">
+        <n-button :autofocus="isStreaming" @click="handleClose">
           {{ isStreaming ? '停止生成' : '关闭' }}
         </n-button>
       </div>
@@ -114,6 +123,7 @@ const elapsedSeconds = ref(0)
 const isLoadedResult = ref(false)    // 当前显示的是从 store 加载的旧结果
 const loadedEvaluatedAt = ref('')    // 旧结果的评估时间
 const wasTruncated = ref(false)      // AI 输出是否被截断
+const errorMessage = ref('')
 let abortController: AbortController | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 let saveDone = false  // 防止 handleClose 和 finally 双重保存
@@ -221,6 +231,7 @@ watch(() => props.show, (val) => {
     isStreaming.value = false
     isConnected.value = false
     elapsedSeconds.value = 0
+    errorMessage.value = ''
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
       elapsedTimer = null
@@ -273,6 +284,7 @@ const startEvaluation = async () => {
   isLoadedResult.value = false
   saveDone = false
   wasTruncated.value = false
+  errorMessage.value = ''
   abortController = new AbortController()
 
   // 启动计时器
@@ -309,8 +321,10 @@ const startEvaluation = async () => {
       // 用户取消，静默
     } else if (err instanceof AIServiceError) {
       naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+      errorMessage.value = AI_ERROR_MESSAGES[err.code] || err.message
     } else {
       naiveMessage.error('评估失败，请重试')
+      errorMessage.value = '评估失败，请重试'
     }
   } finally {
     isStreaming.value = false
@@ -556,6 +570,23 @@ const handleClose = () => {
 // ========== 截断警告 ==========
 .eval-truncation-warning {
   @include truncation-warning;
+}
+
+// ========== 错误卡片 ==========
+.eval-error-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.25);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $error-color;
+
+  &__msg {
+    flex: 1;
+  }
 }
 
 // ========== 隐私提示 ==========

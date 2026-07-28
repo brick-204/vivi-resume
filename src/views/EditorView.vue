@@ -136,6 +136,7 @@ import { downloadJSON } from '@/utils/export'
 // 让路由组件加载更快、编辑器骨架屏尽早显示；导出按钮点击时才拉取对应 chunk
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+import { announceToScreenReader } from '@/composables/useAriaLive'
 import { Icon } from '@iconify/vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import EditorSkeleton from '@/components/common/EditorSkeleton.vue'
@@ -269,6 +270,7 @@ const exportImage = async () => {
   } catch (e) {
     console.error('[exportImage] 导出图片失败:', e)
     naiveMessage.error('导出图片失败，请重试')
+    announceToScreenReader('导出失败')
   }
 }
 
@@ -279,9 +281,11 @@ const exportDOCX = async () => {
     const { exportDocx } = await import('@/utils/exportDocx')
     await exportDocx(store.currentResume, store.currentResume.title || 'resume')
     naiveMessage.success('DOCX 导出成功')
+    announceToScreenReader('导出成功')
   } catch (e) {
     console.error('[exportDOCX] 导出 DOCX 失败:', e)
     naiveMessage.error('导出 DOCX 失败，请重试')
+    announceToScreenReader('导出失败')
   }
 }
 

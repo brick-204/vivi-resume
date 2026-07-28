@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef, toRaw } from 'vue'
+import { ref, computed, shallowRef, toRaw, onScopeDispose } from 'vue'
 import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult, InterviewResult, DeletedItems, DeletedSections, WorkItem, EducationItem, ProjectItem, SkillItem, CustomCardItem, FieldConflict, ConflictDetectionResult } from '@/types/resume'
 import { validateResumeJSON, type ValidationError } from '@/schemas/resumeSchema'
 
@@ -190,6 +190,13 @@ export const useResumeStore = defineStore('resume', () => {
 
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
 
+    // 排空在途的防抖保存链，避免与本次立即写并发覆盖（如 lastEvaluation）
+    // ponytail: 单 store 内串行，跨 store 并发由各自 _savePromise 处理
+    if (_savePromise) {
+      await _savePromise
+      _savePromise = null
+    }
+
     // 先保存完整列表（包含当前简历的最新状态）
     // 再单独更新 currentId 元数据
     // 避免并行 clear+put 导致竞态条件
@@ -218,6 +225,12 @@ export const useResumeStore = defineStore('resume', () => {
           await saveToStorageNow()
           // 写入成功后才清除脏标记，避免写入失败导致数据丢失
           isDirty.value = false
+        }).catch(err => {
+          console.error('[resumeStore] 自动保存失败：', err)
+          naiveMessage.warning('保存失败，请检查存储空间或权限')
+          // 复位为已 resolve 的链，避免 rejected 状态卡死后续 scheduleAutoSave
+          _savePromise = Promise.resolve()
+          // isDirty 保持 true，下次编辑触发重试
         })
       }
     }, AUTO_SAVE_DELAY)
@@ -1202,6 +1215,8 @@ export const useResumeStore = defineStore('resume', () => {
         currentResume.value.lastEvaluation = result
       }
       // 立即写入 IndexedDB，避免防抖期间数据丢失
+      // ponytail: 取消未触发的防抖 + saveToStorageNow 内排空在途链，双保险防覆盖
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
       saveToStorageNow()
     }
   }
@@ -1216,6 +1231,7 @@ export const useResumeStore = defineStore('resume', () => {
       if (currentResume.value?.id === resumeId) {
         currentResume.value.lastJdScan = result
       }
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
       saveToStorageNow()
     }
   }
@@ -1230,6 +1246,7 @@ export const useResumeStore = defineStore('resume', () => {
       if (currentResume.value?.id === resumeId) {
         currentResume.value.lastInterview = result
       }
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
       saveToStorageNow()
     }
   }
@@ -1271,6 +1288,20 @@ export const useResumeStore = defineStore('resume', () => {
     } catch (e) {
       console.error('[resumeStore] reloadFromStorage 失败:', e)
     }
+  }
+
+  // 页面关闭/刷新前尽力保存最近编辑（与 aiConfigStore/consultStore 对齐）
+  // ponytail: best-effort，idb/file 的 beforeunload async 不可靠，但触发比不触发强
+  if (typeof window !== 'undefined') {
+    const onBeforeUnload = () => {
+      if (isDirty.value) {
+        saveCurrentResumeNow()
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    onScopeDispose(() => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    })
   }
 
   return {

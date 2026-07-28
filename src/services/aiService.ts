@@ -5,6 +5,7 @@
 
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { buildMessages, type FullAIOperation } from '@/services/aiPrompts'
+import { announceToScreenReader } from '@/composables/useAriaLive'
 
 // ========== 开发代理支持 ==========
 
@@ -47,6 +48,11 @@ export const AI_ERROR_MESSAGES: Record<AIErrorCode, string> = {
   network: '网络连接失败，请检查网络',
   invalid_response: 'AI 返回格式异常，请重试',
   unknown: '处理失败，请重试',
+}
+
+// ponytail: AI 错误统一播报，复用 AI_ERROR_MESSAGES 避免每处 throw 重复拼接
+function announceAIError(code: AIErrorCode): void {
+  announceToScreenReader('AI 操作失败：' + AI_ERROR_MESSAGES[code])
 }
 
 // ========== HTML ↔ 纯文本转换 ==========
@@ -233,8 +239,10 @@ export async function streamChat(
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') return { wasTruncated: false, finalText: accumulatedText }
       if (err instanceof TypeError) {
+        announceAIError('cors')
         throw new AIServiceError('网络请求被阻止，可能是 CORS 限制或网络不可达', 'cors')
       }
+      announceAIError('network')
       throw new AIServiceError('网络连接失败', 'network')
     }
 
@@ -242,9 +250,11 @@ export async function streamChat(
     if (!response.ok) {
       const status = response.status
       if (status === 401 || status === 403) {
+        announceAIError('auth')
         throw new AIServiceError('API Key 无效或无权限', 'auth')
       }
       if (status === 429) {
+        announceAIError('rate_limit')
         throw new AIServiceError('请求过于频繁', 'rate_limit')
       }
       let detail = ''
@@ -252,15 +262,18 @@ export async function streamChat(
         const body = await response.json()
         detail = body?.error?.message || body?.message || ''
       } catch { /* ignore */ }
+      const fallbackCode: AIErrorCode = status >= 500 ? 'network' : 'unknown'
+      announceAIError(fallbackCode)
       throw new AIServiceError(
         detail || `请求失败 (${status})`,
-        status >= 500 ? 'network' : 'unknown',
+        fallbackCode,
       )
     }
 
     // ---- 解析 SSE 流 ----
     const reader = response.body?.getReader()
     if (!reader) {
+      announceAIError('invalid_response')
       throw new AIServiceError('响应体不可读', 'invalid_response')
     }
 
@@ -278,6 +291,7 @@ export async function streamChat(
         buffer += decoder.decode(value, { stream: true })
         totalBufferedSize += value?.byteLength || 0
         if (totalBufferedSize > MAX_BUFFER_SIZE) {
+          announceAIError('invalid_response')
           throw new AIServiceError('响应数据超过大小限制 (1MB)', 'invalid_response')
         }
         const lines = buffer.split('\n')

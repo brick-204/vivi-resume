@@ -75,6 +75,15 @@
         AI 输出因长度限制被截断，结果可能不完整
       </div>
 
+      <!-- 错误状态 -->
+      <div v-if="errorMessage && !isStreaming" class="preview-error-card">
+        <Icon icon="mdi:alert-circle-outline" :width="16" />
+        <span class="preview-error-card__msg">{{ errorMessage }}</span>
+        <n-button size="small" type="primary" ghost @click="handleRetry">
+          重试
+        </n-button>
+      </div>
+
       <!-- 视图切换 -->
       <div class="preview-view-tabs">
         <button
@@ -151,7 +160,7 @@
 
     <template #footer>
       <div class="preview-footer">
-        <n-button @click="handleCancel">
+        <n-button :autofocus="isStreaming" @click="handleCancel">
           {{ isStreaming ? '取消生成' : '不应用' }}
         </n-button>
         <n-button
@@ -226,6 +235,7 @@ const conversationHistory = ref<ChatMessage[]>([])
 const showRefineInput = ref(false)
 const refineInstruction = ref('')
 const wasTruncated = ref(false)
+const errorMessage = ref('')
 let abortController: AbortController | null = null
 let elapsedTimer: ReturnType<typeof setInterval> | null = null
 
@@ -336,6 +346,7 @@ watch(() => props.visible, (val) => {
     showRefineInput.value = false
     refineInstruction.value = ''
     wasTruncated.value = false
+    errorMessage.value = ''
     if (elapsedTimer) {
       clearInterval(elapsedTimer)
       elapsedTimer = null
@@ -374,6 +385,7 @@ const startGenerate = async () => {
   isStreaming.value = true
   isConnected.value = false
   elapsedSeconds.value = 0
+  errorMessage.value = ''
   abortController = new AbortController()
 
   // 启动计时器
@@ -416,8 +428,10 @@ const startGenerate = async () => {
       // 用户取消，静默
     } else if (err instanceof AIServiceError) {
       naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+      errorMessage.value = AI_ERROR_MESSAGES[err.code] || err.message
     } else {
       naiveMessage.error('AI 处理失败，请重试')
+      errorMessage.value = 'AI 处理失败，请重试'
     }
   } finally {
     isStreaming.value = false
@@ -469,6 +483,7 @@ const refineGenerate = async () => {
   isStreaming.value = true
   isConnected.value = false
   elapsedSeconds.value = 0
+  errorMessage.value = ''
   abortController = new AbortController()
   let newContentStarted = false
 
@@ -513,8 +528,10 @@ const refineGenerate = async () => {
       // 用户取消，静默
     } else if (err instanceof AIServiceError) {
       naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
+      errorMessage.value = AI_ERROR_MESSAGES[err.code] || err.message
     } else {
       naiveMessage.error('AI 处理失败，请重试')
+      errorMessage.value = 'AI 处理失败，请重试'
     }
   } finally {
     isStreaming.value = false
@@ -524,6 +541,16 @@ const refineGenerate = async () => {
       clearInterval(elapsedTimer)
       elapsedTimer = null
     }
+  }
+}
+
+/** 错误卡片重试：追问失败时重试追问，否则重新生成 */
+const handleRetry = () => {
+  errorMessage.value = ''
+  if (showRefineInput.value && refineInstruction.value.trim()) {
+    refineGenerate()
+  } else {
+    handleStartGenerate()
   }
 }
 </script>
@@ -788,6 +815,23 @@ const refineGenerate = async () => {
 // ========== 截断警告 ==========
 .truncation-warning {
   @include truncation-warning;
+}
+
+// ========== 错误卡片 ==========
+.preview-error-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($error-color, 0.08);
+  border: 1px solid rgba($error-color, 0.25);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $error-color;
+
+  &__msg {
+    flex: 1;
+  }
 }
 
 // 移动端：上下排列

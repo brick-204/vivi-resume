@@ -136,6 +136,19 @@ export const useConsultStore = defineStore('consult', () => {
 
   // ========== 会话管理 ==========
 
+  /**
+   * 用新对象替换 sessions 中对应 session（不可变更新）。
+   * shallowRef 下原地改 session 属性不触发响应式：currentMessages computed
+   * 依赖 currentSession.value，若 session 引用不变则不重算 → UI 不更新。
+   * 改 messages/title 等可变字段后必须走这里替换 + 重新取引用。
+   * 返回新 session 对象供调用方继续使用。
+   */
+  const commitSession = (session: ConsultSession): ConsultSession => {
+    const next = { ...session, messages: session.messages }
+    sessions.value = sessions.value.map(s => (s.id === session.id ? next : s))
+    return next
+  }
+
   /** 新建空会话并切换（不立即持久化，首次发送时才落盘）；流式中禁止新建 */
   const createSession = (): string => {
     if (isStreaming.value) return currentSessionId.value ?? ''
@@ -186,9 +199,9 @@ export const useConsultStore = defineStore('consult', () => {
     if (!session || session.title === trimmed) return false
     session.title = trimmed
     session.updatedAt = Date.now()
-    sessions.value = [...sessions.value]
+    const next = commitSession(session)
     // 重命名是低频操作，直接写不走防抖，避免关闭抽屉时丢失
-    await saveConsultSession(session)
+    await saveConsultSession(next)
     return true
   }
 
@@ -261,8 +274,8 @@ export const useConsultStore = defineStore('consult', () => {
     }
 
     // 确保有当前会话（惰性创建）
-    let session = currentSession.value
-    if (!session) {
+    let session: ConsultSession = currentSession.value!
+    if (!currentSession.value) {
       createSession()
       session = currentSession.value!
     }
@@ -275,6 +288,7 @@ export const useConsultStore = defineStore('consult', () => {
     // 注入简历上下文（进入历史）
     if (resumeContextMsg) {
       session.messages.push(resumeContextMsg)
+      session = commitSession(session)
       currentTurnMsgs.push(resumeContextMsg)
       outgoing.push({ role: 'user', content: resumeContextMsg.content })
     }
@@ -304,7 +318,7 @@ export const useConsultStore = defineStore('consult', () => {
       naiveMessage.info('已取消')
       // 移除当轮已 push 的消息（resume-context），不保留
       currentTurnMsgs.forEach(() => session.messages.pop())
-      sessions.value = [...sessions.value]
+      session = commitSession(session)
       isStreaming.value = false
       streamingText.value = ''
       abortController = null
@@ -336,9 +350,9 @@ export const useConsultStore = defineStore('consult', () => {
 
     const fullMessages = [...historyMessages, ...outgoing]
 
-    // 更新时间戳 & 触发响应式（shallowRef 需整体替换）
+    // 更新时间戳 & 触发响应式（不可变更新：push user 消息后立即让 UI 显示）
     session.updatedAt = Date.now()
-    sessions.value = [...sessions.value]
+    session = commitSession(session)
 
     // 清空挂起
     pendingResumeIds.value = []
@@ -369,7 +383,7 @@ export const useConsultStore = defineStore('consult', () => {
           timestamp: Date.now(),
         })
         session.updatedAt = Date.now()
-        sessions.value = [...sessions.value]
+        session = commitSession(session)
         persistSession(session)
         await enforceSessionLimit()
       }
@@ -390,18 +404,18 @@ export const useConsultStore = defineStore('consult', () => {
             timestamp: Date.now(),
           })
           session.updatedAt = Date.now()
-          sessions.value = [...sessions.value]
+          session = commitSession(session)
           persistSession(session)
           await enforceSessionLimit()
         } else {
-          sessions.value = [...sessions.value]
+          session = commitSession(session)
         }
       } else if (err instanceof AIServiceError) {
         naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
-        sessions.value = [...sessions.value]
+        session = commitSession(session)
       } else {
         naiveMessage.error('咨询失败，请重试')
-        sessions.value = [...sessions.value]
+        session = commitSession(session)
       }
     } finally {
       isStreaming.value = false
@@ -503,7 +517,7 @@ export const useConsultStore = defineStore('consult', () => {
       timestamp: Date.now(),
     })
     session.updatedAt = Date.now()
-    sessions.value = [...sessions.value]
+    commitSession(session)
     persistSession(session)
   }
 
@@ -528,6 +542,8 @@ export const useConsultStore = defineStore('consult', () => {
   // ========== 重新加载（目录模式切换后调用） ==========
 
   const reloadFromStorage = async () => {
+    // 等 init 完成后再重载，避免与 init 并发读 IndexedDB 互相覆盖
+    await ready
     // 清理在途状态：若正在流式，先中止；清空 pending 持久化定时器，避免旧快照写回覆盖新数据
     if (isStreaming.value) {
       abortController?.abort()
