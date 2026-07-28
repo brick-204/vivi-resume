@@ -7,6 +7,13 @@
         </span>
         基本信息
       </h3>
+      <button
+        class="section__toggle-visibility"
+        :aria-label="isBasicVisible ? '隐藏' : '显示'"
+        @click="toggleBasicVisibility"
+      >
+        <Icon :icon="isBasicVisible ? EYE_ICON : EYE_OFF_ICON" :width="18" :height="18" />
+      </button>
     </div>
 
     <div class="section__form">
@@ -338,6 +345,20 @@ const basicInfo = computed({
   set: (value) => store.updateCurrentResume({ basicInfo: value })
 })
 
+// ---- 基本信息整段显示控制 ----
+const isBasicVisible = computed(() => {
+  const hidden = store.currentResume?.hiddenSections || []
+  return !hidden.includes('basic')
+})
+
+const toggleBasicVisibility = () => {
+  if (isBasicVisible.value) {
+    store.hideSection('basic')
+  } else {
+    store.showSection('basic')
+  }
+}
+
 // 字段元信息
 const FIELD_META: Record<string, { label: string; placeholder: string }> = {
   name: { label: '姓名', placeholder: '请输入姓名' },
@@ -649,6 +670,26 @@ const removeCustomField = (id: string) => {
 .title__icon {
   display: flex;
   color: $primary-light;
+}
+
+.section__toggle-visibility {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  color: $text-secondary;
+  border: none;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-fast;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba($text-secondary, 0.15);
+    color: $text-primary;
+  }
 }
 
 // 头像区域

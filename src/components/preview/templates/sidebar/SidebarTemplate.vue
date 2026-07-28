@@ -1,6 +1,6 @@
 <template>
-  <div class="resume-document resume--sidebar" :style="ctx.sidebarCSSVars.value">
-    <SidebarAside @click-section="(s: string, i?: string) => emit('click-section', s, i)" />
+  <div class="resume-document resume--sidebar" :class="{ 'resume--sidebar--no-basic': !ctx.isSectionVisible('basic') }" :style="ctx.sidebarCSSVars.value">
+    <SidebarAside v-if="ctx.isSectionVisible('basic')" @click-section="(s: string, i?: string) => emit('click-section', s, i)" />
     <main class="sidebar__right">
       <AnimatedSidebarSectionList
         :sections="ctx.sidebarContentSections.value"
@@ -40,6 +40,11 @@ provide(ResumeDocumentKey, ctx)
   overflow: visible;
   font-size: var(--t-body-font-size, 13px);
   font-family: var(--t-font-family, $font-family);
+}
+
+// 隐藏基本信息后，右侧主内容占满整行
+.resume--sidebar--no-basic {
+  grid-template-columns: 1fr;
 }
 
 // 左侧边栏

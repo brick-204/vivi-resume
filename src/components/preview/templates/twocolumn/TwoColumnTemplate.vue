@@ -1,6 +1,6 @@
 <template>
   <div class="resume-document resume--twocolumn" :style="ctx.templateCSSVars.value">
-    <BasicHeader @click-section="(s: string, i?: string) => emit('click-section', s, i)" />
+    <BasicHeader v-if="ctx.isSectionVisible('basic')" @click-section="(s: string, i?: string) => emit('click-section', s, i)" />
     <AnimatedSectionList
       :sections="ctx.contentSections.value"
       @click-section="(s: string, i?: string) => emit('click-section', s, i)"

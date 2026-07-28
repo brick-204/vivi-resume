@@ -483,7 +483,7 @@ export const useResumeStore = defineStore('resume', () => {
 
   // 隐藏模块（保留排序位置）
   const hideSection = (sectionId: string) => {
-    if (!currentResume.value || sectionId === 'basic') return
+    if (!currentResume.value) return
     const hidden = currentResume.value.hiddenSections || []
     if (!hidden.includes(sectionId)) {
       updateCurrentResume({ hiddenSections: [...hidden, sectionId] })

@@ -48,7 +48,7 @@
               </span>
               <span v-if="!isCollapsed" class="nav-item__label">{{ item.label }}</span>
               <button
-                v-if="!isCollapsed && item.id !== 'basic'"
+                v-if="!isCollapsed"
                 class="nav-item__hide"
                 @click.stop="handleToggleVisible(item.id)"
               >
@@ -399,7 +399,7 @@ const hiddenSections = computed(() => {
   const visibleIds = resumeStore.getSectionOrder()
   const result: string[] = []
   for (const id of Object.keys(SECTION_CONFIG)) {
-    if (!visibleIds.includes(id) && id !== 'basic' && id !== 'customText' && id !== 'customCard') {
+    if (!visibleIds.includes(id) && id !== 'customText' && id !== 'customCard') {
       result.push(id)
     }
   }
@@ -467,7 +467,6 @@ const handleAddSection = (sectionId: string) => {
 }
 
 const handleToggleVisible = (sectionId: string) => {
-  if (sectionId === 'basic') return
   const hidden = resumeStore.currentResume?.hiddenSections || []
   if (hidden.includes(sectionId)) {
     resumeStore.showSection(sectionId)
