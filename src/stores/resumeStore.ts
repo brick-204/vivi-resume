@@ -185,8 +185,9 @@ export const useResumeStore = defineStore('resume', () => {
 
   // 防抖写入
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  // 防止并发写入的锁
-  let _savePromise: Promise<void> | null = null
+  // 写锁：所有持久化写操作排队串行，避免并发覆盖（save*Result 立即写 vs scheduleAutoSave 防抖写）
+  // ponytail: 独立写锁，不与防抖回调 promise 混用，避免 await 自身形成循环死锁
+  let _writeLock: Promise<void> = Promise.resolve()
   // 自动保存防抖延迟
   const AUTO_SAVE_DELAY = 1000
 
@@ -197,20 +198,16 @@ export const useResumeStore = defineStore('resume', () => {
 
     if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
 
-    // 排空在途的防抖保存链，避免与本次立即写并发覆盖（如 lastEvaluation）
-    // ponytail: 单 store 内串行，跨 store 并发由各自 _savePromise 处理
-    if (_savePromise) {
-      await _savePromise
-      _savePromise = null
-    }
-
-    // 先保存完整列表（包含当前简历的最新状态）
-    // 再单独更新 currentId 元数据
-    // 避免并行 clear+put 导致竞态条件
-    await saveResumeList(resumeList.value)
-    if (currentResume.value) {
-      await setCurrentId(currentResume.value.id)
-    }
+    // 排到写锁末尾：与在途的防抖写串行，不 await 自身的回调 promise
+    _writeLock = _writeLock.then(async () => {
+      // 先保存完整列表（包含当前简历的最新状态），再单独更新 currentId 元数据
+      // 避免并行 clear+put 导致竞态条件
+      await saveResumeList(resumeList.value)
+      if (currentResume.value) {
+        await setCurrentId(currentResume.value.id)
+      }
+    })
+    await _writeLock
   }
 
   /** 防抖自动保存：1s 内无新变更时执行深拷贝 + 写入 */
@@ -227,16 +224,17 @@ export const useResumeStore = defineStore('resume', () => {
         const newList = [...resumeList.value]
         newList[index] = parsed
         resumeList.value = newList
-        // 串行化写入，避免并发覆盖
-        _savePromise = (_savePromise || Promise.resolve()).then(async () => {
-          await saveToStorageNow()
+        // 串行化写入，避免并发覆盖；写锁 catch 复位避免 rejected 链卡死后续写
+        _writeLock = _writeLock.then(async () => {
+          await saveResumeList(resumeList.value)
+          if (currentResume.value) {
+            await setCurrentId(currentResume.value.id)
+          }
           // 写入成功后才清除脏标记，避免写入失败导致数据丢失
           isDirty.value = false
         }).catch(err => {
           console.error('[resumeStore] 自动保存失败：', err)
           naiveMessage.warning('保存失败，请检查存储空间或权限')
-          // 复位为已 resolve 的链，避免 rejected 状态卡死后续 scheduleAutoSave
-          _savePromise = Promise.resolve()
           // isDirty 保持 true，下次编辑触发重试
         })
       }
@@ -972,35 +970,9 @@ export const useResumeStore = defineStore('resume', () => {
       return 'ok'
     }
 
-    // 自定义模块恢复
-    const index = getCustomSectionIndex(sectionId)
-    if (index === null) return 'notfound'
-
-    const recordKey = type === 'customText' ? 'customTexts' : 'customCards'
-    const deletedRecord = deletedSections[recordKey as 'customTexts' | 'customCards']
-    if (!deletedRecord || !deletedRecord[sectionId]) return 'notfound'
-
-    const sectionData = deletedRecord[sectionId]
-    // 检查是否已有该索引
-    const targetArr = type === 'customText' ? currentResume.value.customTexts : currentResume.value.customCards
-    if (targetArr[index]) return 'duplicate'
-
-    // 恢复数据
-    const newTargetArr = [...targetArr as any[]]
-    while (newTargetArr.length < index) {
-      newTargetArr.push(type === 'customText' ? { id: generateId(), content: '' } : { id: generateId(), items: [] })
-    }
-    newTargetArr[index] = sectionData.data
-
-    const sectionOrder = currentResume.value.sectionOrder.includes(sectionId)
-      ? currentResume.value.sectionOrder
-      : [...currentResume.value.sectionOrder, sectionId]
-
-    delete deletedRecord[sectionId]
-    const restoreKey = type === 'customText' ? 'customTexts' : 'customCards'
-    const finalUpdates: Partial<Resume> = { [restoreKey]: newTargetArr, sectionOrder, deletedSections }
-    updateCurrentResume(finalUpdates as any)
-    return 'ok'
+    // ponytail: 自定义模块恢复走 restoreSectionWithMerge（追加到末尾 + 新 sectionId），
+    // 此处不可达——TrashBinPanel 对自定义模块提前 return 走 merge 路径。
+    return 'notfound'
   }
 
   /** 检测固有模块恢复时的字段冲突（仅用于合并模式前的二次确认） */

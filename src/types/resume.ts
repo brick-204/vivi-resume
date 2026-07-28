@@ -353,5 +353,6 @@ export const getSectionTitle = (resume: Resume | undefined | null, sectionId: st
 
 export const generateId = (): string => {
   // ponytail: 浏览器原生 UUID，零碰撞（纯客户端 SPA，无 SSR）
-  return crypto.randomUUID()
+  // 非安全上下文（http/file 协议）下 crypto.randomUUID 可能缺失，降级到时间戳+随机
+  return crypto?.randomUUID?.() ?? (Date.now().toString(36) + Math.random().toString(36).substring(2))
 }
