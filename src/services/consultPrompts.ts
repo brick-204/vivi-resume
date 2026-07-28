@@ -76,3 +76,24 @@ export const RESUME_CONTEXT_TEMPLATE = (resumeTexts: string[]): string => {
     .join('\n\n')
     .replace(/^/, '以下是用户的多份简历内容，请基于这些回答后续提问：\n\n')
 }
+
+// ========== 历史压缩摘要 ==========
+
+/**
+ * 历史压缩 prompt：把多轮历史对话压缩为简洁摘要，保留关键事实与上下文。
+ * {{HISTORY}} 由调用方替换为格式化后的历史文本。
+ */
+export const COMPRESS_HISTORY_PROMPT = `请把以下 AI 咨询助手与用户的历史对话压缩成一份简洁的摘要，用于作为后续对话的上下文。
+
+要求：
+- 保留用户的关键问题意图、已注入简历的关键信息（如岗位、目标方向、核心经历要点）
+- 保留 AI 已给出的核心建议、结论、未解决的待办
+- 丢弃寒暄、重复内容、无关细节
+- 用第三人称陈述，不要对话形式
+- 控制在 400 字以内，分段清晰
+
+【历史对话】
+{{HISTORY}}`
+
+/** 把摘要文本包装为注入模型的前置消息内容 */
+export const wrapSummary = (text: string): string => `【历史对话摘要】\n${text}`

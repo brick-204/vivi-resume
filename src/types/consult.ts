@@ -7,9 +7,11 @@ export interface ConsultMessage extends ChatMessage {
    * - 'resume-context'：用户注入的简历上下文消息（与提问一起发送）
    * - 'user-question'：用户的实际提问
    * - 'assistant-answer'：AI 的流式回复
+   * - 'history-summary'：历史压缩摘要（不在 UI 渲染，作为前置上下文注入）
+   * - 'compress-notice'：历史压缩提示 chip（UI 居中渲染，不发给模型，不参与压缩）
    * - undefined：system 消息
    */
-  kind?: 'resume-context' | 'user-question' | 'assistant-answer'
+  kind?: 'resume-context' | 'user-question' | 'assistant-answer' | 'history-summary' | 'compress-notice'
   /** 这轮注入了哪些简历（仅 resume-context 消息携带） */
   attachedResumeIds?: string[]
   /** 消息时间戳（ms），用于持久化排序 */
@@ -22,6 +24,8 @@ export interface ConsultSession {
   /** 会话标题，取首条 user 提问前 20 字 */
   title: string
   messages: ConsultMessage[]
+  /** 被压缩归档的原始消息副本（压缩时从 messages 移出的 user-question/assistant-answer 段） */
+  archivedMessages?: ConsultMessage[]
   createdAt: number
   updatedAt: number
 }

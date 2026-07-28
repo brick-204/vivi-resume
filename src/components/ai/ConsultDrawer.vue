@@ -32,20 +32,51 @@
 
       <!-- 会话列表（横向 chip） -->
       <div v-if="sessions.length > 0" class="consult-sessions">
-        <div
-          v-for="s in sessions"
-          :key="s.id"
-          class="consult-sessions__chip"
-          :class="{ 'is-active': s.id === currentSessionId, 'is-disabled': isStreaming }"
-          @click="onSwitchSession(s.id)"
+        <n-input
+          v-model:value="searchKeyword"
+          size="small"
+          placeholder="搜索会话"
+          clearable
+          class="consult-sessions__search"
         >
-          <span class="consult-sessions__title">{{ s.title || '新会话' }}</span>
-          <Icon
-            icon="mdi:close"
-            :width="14"
-            class="consult-sessions__del"
-            @click.stop="onDeleteSession(s.id)"
-          />
+          <template #prefix>
+            <Icon icon="mdi:magnify" :width="14" />
+          </template>
+        </n-input>
+        <div class="consult-sessions__list">
+          <div
+            v-for="s in filteredSessions"
+            :key="s.id"
+            class="consult-sessions__chip"
+            :class="{ 'is-active': s.id === currentSessionId, 'is-disabled': isStreaming, 'is-editing': editingId === s.id }"
+            @click="onSwitchSession(s.id)"
+          >
+            <n-input
+              v-if="editingId === s.id"
+              v-model:value="editingTitle"
+              size="tiny"
+              :autofocus="true"
+              class="consult-sessions__edit"
+              @click.stop
+              @keydown.enter.prevent="commitRename"
+              @keydown.esc.prevent="cancelRename"
+              @blur="commitRename"
+            />
+            <span
+              v-else
+              class="consult-sessions__title"
+              @dblclick.stop="startRename(s.id, s.title)"
+            >{{ s.title || '新会话' }}</span>
+            <Icon
+              icon="mdi:close"
+              :width="14"
+              class="consult-sessions__del"
+              @click.stop="onDeleteSession(s.id)"
+            />
+          </div>
+          <div v-if="filteredSessions.length === 0" class="consult-sessions__empty">
+            无匹配会话
+          </div>
         </div>
       </div>
 
@@ -66,6 +97,12 @@
           <div v-if="msg.kind === 'resume-context'" class="consult-ctx">
             <Icon icon="mdi:file-document-outline" :width="14" />
             <span>已注入简历上下文（{{ attachedResumeLabels(msg) }}）</span>
+          </div>
+
+          <!-- 历史压缩提示：居中 chip -->
+          <div v-else-if="msg.kind === 'compress-notice'" class="consult-ctx consult-ctx--notice">
+            <Icon icon="mdi:archive-outline" :width="14" />
+            <span>{{ msg.content }}</span>
           </div>
 
           <!-- 用户提问：右对齐 -->
@@ -181,6 +218,7 @@ import { useConsultStore } from '@/stores/consultStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 import type { ConsultMessage } from '@/types/consult'
 
 const props = defineProps<{ show: boolean }>()
@@ -195,7 +233,7 @@ const {
   isStreaming, streamingText,
 } = storeToRefs(consultStore)
 const {
-  sendMessage, abort, createSession, switchSession, deleteSession, clearPending, togglePendingResume,
+  sendMessage, abort, createSession, switchSession, deleteSession, renameSession, clearPending, togglePendingResume,
 } = consultStore
 
 // resumeStore 的属性访问直接用 store 实例（模板和 computed 里自动响应式）
@@ -205,11 +243,24 @@ const currentResumeId = computed(() => resumeStore.currentResume?.id ?? null)
 const inputText = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
 
+// 会话搜索（UI 层过滤，不影响持久化）
+const searchKeyword = ref('')
+
+// 会话重命名编辑态
+const editingId = ref<string | null>(null)
+const editingTitle = ref('')
+
+const filteredSessions = computed(() => {
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (!kw) return sessions.value
+  return sessions.value.filter(s => (s.title || '新会话').toLowerCase().includes(kw))
+})
+
 const drawerWidth = computed(() => Math.min(560, window.innerWidth - 40))
 
-/** UI 可见消息（过滤掉 system） */
+/** UI 可见消息（过滤掉 system 与 history-summary；保留 compress-notice 作为提示 chip） */
 const visibleMessages = computed<ConsultMessage[]>(() =>
-  currentMessages.value.filter(m => m.kind),
+  currentMessages.value.filter(m => m.kind && m.kind !== 'history-summary'),
 )
 
 /** 发送按钮可用条件：有文字；若挂起了简历也必须有文字（必须和提问一起发） */
@@ -261,10 +312,43 @@ const onNewSession = () => {
 }
 
 const onSwitchSession = (id: string) => {
+  // 正在编辑此 chip 时，click 不触发切换（避免编辑中误切）
+  if (editingId.value === id) return
   if (isStreaming.value) return
   switchSession(id)
   inputText.value = ''
   renderCache.clear()
+}
+
+// ========== 会话重命名 ==========
+const startRename = (id: string, title: string) => {
+  // 流式中禁止进入编辑态（chip 已 is-disabled，双击不会触发，此处显式守卫）
+  if (isStreaming.value) return
+  editingId.value = id
+  editingTitle.value = title || '新会话'
+}
+
+const commitRename = async () => {
+  const id = editingId.value
+  if (id === null) return
+  const trimmed = editingTitle.value.trim()
+  // 先清编辑态，避免 blur 二次进入
+  editingId.value = null
+  editingTitle.value = ''
+  // 流式中提交：提示并取消，不调 store（renameSession 内 isStreaming 守卫会静默 return）
+  if (isStreaming.value) {
+    naiveMessage.warning('流式中无法重命名，请稍后重试')
+    return
+  }
+  // 空标题保留原标题：不调用 renameSession
+  if (trimmed) {
+    await renameSession(id, trimmed)
+  }
+}
+
+const cancelRename = () => {
+  editingId.value = null
+  editingTitle.value = ''
 }
 
 const onDeleteSession = async (id: string) => {
@@ -305,7 +389,12 @@ watch(() => props.show, (v) => {
 }
 
 .consult-sessions {
-  display: flex; gap: 6px; overflow-x: auto; padding: 8px 0;
+  display: flex; flex-direction: column; gap: 6px; padding: 8px 0;
+  &__search { width: 100%; }
+  &__list {
+    display: flex; gap: 6px; overflow-x: auto;
+    min-height: 28px;
+  }
   &__chip {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 4px 8px; border-radius: 12px; font-size: 12px;
@@ -314,9 +403,15 @@ watch(() => props.show, (v) => {
     &:hover { background: var(--n-color-hover, rgba(0,0,0,0.08)); }
     &.is-active { background: var(--primary-color, #18a058); color: #fff; }
     &.is-disabled { opacity: 0.5; pointer-events: none; }
+    &.is-editing { cursor: default; background: var(--n-color-hover, rgba(0,0,0,0.08)); }
   }
-  &__title { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  &__title { max-width: 120px; overflow: hidden; text-overflow: ellipsis; user-select: none; }
+  &__edit { width: 120px; }
   &__del { opacity: 0.6; &:hover { opacity: 1; } }
+  &__empty {
+    font-size: 12px; color: var(--n-text-color-3, #999);
+    padding: 4px 8px; white-space: nowrap;
+  }
 }
 
 .consult-messages {
@@ -335,6 +430,7 @@ watch(() => props.show, (v) => {
   font-size: 12px; color: var(--n-text-color-3, #999);
   padding: 4px 10px; border-radius: 10px;
   background: var(--n-color-target, rgba(0,0,0,0.04));
+  &--notice { font-size: 11px; opacity: 0.85; }
 }
 
 .consult-bubble {

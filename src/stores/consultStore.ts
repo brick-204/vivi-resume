@@ -14,9 +14,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef } from 'vue'
 import type { ChatMessage } from '@/services/aiService'
+import type { AIServiceConfig } from '@/types/aiConfig'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
-import { CONSULT_SYSTEM_PROMPT, RESUME_CONTEXT_TEMPLATE } from '@/services/consultPrompts'
+import { CONSULT_SYSTEM_PROMPT, RESUME_CONTEXT_TEMPLATE, COMPRESS_HISTORY_PROMPT, wrapSummary } from '@/services/consultPrompts'
+import {
+  shouldCompress,
+  partitionCompressible,
+  formatHistoryForCompress,
+} from '@/services/consultTokens'
 import { generateId } from '@/types/resume'
 import type { ConsultMessage, ConsultSession } from '@/types/consult'
 import { MAX_CONSULT_SESSIONS } from '@/types/consult'
@@ -171,6 +177,21 @@ export const useConsultStore = defineStore('consult', () => {
     pendingResumeIds.value = []
   }
 
+  /** 重命名会话；流式中禁止重命名（避免与流式写回竞争） */
+  const renameSession = async (id: string, title: string) => {
+    if (isStreaming.value) return false
+    const trimmed = title.trim()
+    if (!trimmed) return false // 空标题保留原标题
+    const session = sessions.value.find(s => s.id === id)
+    if (!session || session.title === trimmed) return false
+    session.title = trimmed
+    session.updatedAt = Date.now()
+    sessions.value = [...sessions.value]
+    // 重命名是低频操作，直接写不走防抖，避免关闭抽屉时丢失
+    await saveConsultSession(session)
+    return true
+  }
+
   /** 清空挂起简历（关闭抽屉时调用） */
   const clearPending = () => {
     pendingResumeIds.value = []
@@ -248,11 +269,46 @@ export const useConsultStore = defineStore('consult', () => {
 
     // 构造发送给 streamChat 的 messages（ChatMessage[]，去掉 ConsultMessage 的扩展字段）
     const outgoing: ChatMessage[] = []
+    // 当轮 push 进 session.messages 的消息（resume-context + user-question），用于回滚与构造历史时显式排除
+    const currentTurnMsgs: ConsultMessage[] = []
 
     // 注入简历上下文（进入历史）
     if (resumeContextMsg) {
       session.messages.push(resumeContextMsg)
+      currentTurnMsgs.push(resumeContextMsg)
       outgoing.push({ role: 'user', content: resumeContextMsg.content })
+    }
+
+    // 进入流式状态（覆盖压缩期 UI；压缩失败静默降级，UI 仍显示"正在思考"）
+    isStreaming.value = true
+    streamingText.value = ''
+    abortController = new AbortController()
+
+    // 上下文超阈值自动压缩（在 push 当轮 user-question 之前，基于历史触发）
+    // 硬上限：单次 sendMessage 最多 1 次压缩，不递归
+    try {
+      if (shouldCompress(session.messages)) {
+        const result = await tryCompressHistory(session, config, abortController.signal)
+        if (result.ok) {
+          applyCompressedHistoryToSession(session, result)
+        }
+        // 失败静默降级，historyForRequest 保持未压缩
+      }
+    } catch (e) {
+      // 压缩异常不应阻断主流程，静默降级
+      console.warn('[consultStore] 历史压缩异常，降级未压缩:', e)
+    }
+
+    // 若压缩期被 abort，主请求必然失败，提前走取消语义
+    if (abortController.signal.aborted) {
+      naiveMessage.info('已取消')
+      // 移除当轮已 push 的消息（resume-context），不保留
+      currentTurnMsgs.forEach(() => session.messages.pop())
+      sessions.value = [...sessions.value]
+      isStreaming.value = false
+      streamingText.value = ''
+      abortController = null
+      return
     }
 
     // 用户提问
@@ -263,6 +319,7 @@ export const useConsultStore = defineStore('consult', () => {
       timestamp: Date.now(),
     }
     session.messages.push(userMsg)
+    currentTurnMsgs.push(userMsg)
     outgoing.push({ role: 'user', content: trimmed })
 
     // 首条提问作为会话标题
@@ -270,9 +327,11 @@ export const useConsultStore = defineStore('consult', () => {
       session.title = trimmed.slice(0, 20) + (trimmed.length > 20 ? '…' : '')
     }
 
-    // 历史消息（system + 之前的轮次）
+    // 历史消息：排除当轮 push 的消息（currentTurnMsgs）+ compress-notice（提示不发给模型）
+    // 不再用 slice(0, -n) 索引推断——压缩会重排 messages，索引不可靠（ponytail: 修复无简历时 -0 陷阱）
+    const currentTurnSet = new Set(currentTurnMsgs)
     const historyMessages: ChatMessage[] = session.messages
-      .slice(0, -outgoing.length) // 排除刚 push 的
+      .filter(m => !currentTurnSet.has(m) && m.kind !== 'compress-notice')
       .map(m => ({ role: m.role, content: m.content }))
 
     const fullMessages = [...historyMessages, ...outgoing]
@@ -283,11 +342,6 @@ export const useConsultStore = defineStore('consult', () => {
 
     // 清空挂起
     pendingResumeIds.value = []
-
-    // 流式调用
-    isStreaming.value = true
-    streamingText.value = ''
-    abortController = new AbortController()
 
     try {
       const result = await streamChat(
@@ -321,8 +375,13 @@ export const useConsultStore = defineStore('consult', () => {
       }
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === 'AbortError'
+      // 统一用 currentTurnSet 过滤移除当轮 push 的消息（resume-context + user-question）
+      // 不再用 pop()+末尾比较——压缩成功后 messages 被重排，末尾不再是 resumeContextMsg
+      const toRemove = new Set(currentTurnMsgs)
+      session.messages = session.messages.filter(m => !toRemove.has(m))
+
       if (isAbort) {
-        // SSE 流式阶段 abort：保留已生成部分 + 标记；fetch 前 abort（streamingText 为空）：移除本轮 user 消息
+        // SSE 流式阶段 abort：保留已生成部分 + 标记；fetch 前 abort（streamingText 为空）：仅移除当轮消息
         if (streamingText.value && sessions.value.some(s => s.id === session.id)) {
           session.messages.push({
             role: 'assistant',
@@ -335,23 +394,13 @@ export const useConsultStore = defineStore('consult', () => {
           persistSession(session)
           await enforceSessionLimit()
         } else {
-          session.messages.pop() // 移除 user-question
-          if (resumeContextMsg && session.messages[session.messages.length - 1] === resumeContextMsg) {
-            session.messages.pop()
-          }
           sessions.value = [...sessions.value]
         }
       } else if (err instanceof AIServiceError) {
         naiveMessage.error(AI_ERROR_MESSAGES[err.code] || err.message)
-        // 失败时移除本轮的 user 消息与简历上下文（避免历史污染）
-        session.messages.pop() // 移除 user-question
-        if (resumeContextMsg && session.messages[session.messages.length - 1] === resumeContextMsg) {
-          session.messages.pop()
-        }
         sessions.value = [...sessions.value]
       } else {
         naiveMessage.error('咨询失败，请重试')
-        session.messages.pop()
         sessions.value = [...sessions.value]
       }
     } finally {
@@ -359,6 +408,103 @@ export const useConsultStore = defineStore('consult', () => {
       streamingText.value = ''
       abortController = null
     }
+  }
+
+  // ========== 历史压缩（方案 A：摘要注入前置消息） ==========
+
+  /** 压缩结果 */
+  interface CompressResult {
+    ok: boolean
+    /** 新的 history-summary 消息（替换旧 summary + 被压缩段） */
+    summaryMsg?: ConsultMessage
+    /** 被压缩归档的原始消息（含旧 summary 若有） */
+    archivedOriginal?: ConsultMessage[]
+    /** 压缩后保留在 messages 里的其余消息（不含 systemMsg，已剔除被压缩段与旧 summary） */
+    newMessages?: ConsultMessage[]
+  }
+
+  /**
+   * 调用一次非流式 streamChat 把历史压缩为摘要。
+   * onChunk 传空函数取 finalText；maxTokens 800。
+   * 失败（AIServiceError / 空 finalText / abort）返回 { ok: false }，不提示用户。
+   */
+  const tryCompressHistory = async (
+    session: ConsultSession,
+    config: AIServiceConfig,
+    signal: AbortSignal,
+  ): Promise<CompressResult> => {
+    const { systemMsg, toCompress, toRetain, oldSummary } = partitionCompressible(session.messages)
+    if (toCompress.length === 0) return { ok: false }
+
+    const historyText = formatHistoryForCompress(toCompress, oldSummary)
+    const compressMessages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: COMPRESS_HISTORY_PROMPT.replace('{{HISTORY}}', historyText),
+      },
+    ]
+
+    try {
+      const result = await streamChat(
+        config,
+        compressMessages,
+        () => {}, // 非流式：忽略 chunk
+        { signal, maxTokens: 800 },
+      )
+      const summary = result.finalText.trim()
+      if (!summary) return { ok: false }
+
+      const now = Date.now()
+      const summaryMsg: ConsultMessage = {
+        role: 'system',
+        kind: 'history-summary',
+        content: wrapSummary(summary),
+        timestamp: now,
+      }
+      // 归档被压缩的原始段 + 旧 summary（若有）
+      const archivedOriginal: ConsultMessage[] = [...toCompress]
+      if (oldSummary) archivedOriginal.unshift(oldSummary)
+
+      // newMessages = [systemMsg, summaryMsg, ...toRetain 去掉旧 summary]
+      const filteredRetain = oldSummary
+        ? toRetain.filter(m => m !== oldSummary)
+        : toRetain
+      const newMessages: ConsultMessage[] = [systemMsg, summaryMsg, ...filteredRetain]
+
+      return { ok: true, summaryMsg, archivedOriginal, newMessages }
+    } catch (err) {
+      // abort 或 AIServiceError 都静默降级
+      console.warn('[consultStore] 历史压缩失败，降级未压缩:', err)
+      return { ok: false }
+    }
+  }
+
+  /**
+   * 把压缩结果应用到 session：替换 messages、追加 archivedMessages、插入 compress-notice 提示。
+   * 触发响应式 + 持久化。
+   */
+  const applyCompressedHistoryToSession = (session: ConsultSession, result: CompressResult) => {
+    if (!result.ok || !result.newMessages || !result.summaryMsg || !result.archivedOriginal) return
+
+    // 追加归档副本
+    // ponytail: archivedMessages 暂仅写不读（保留原始历史副本作安全网，未来"展开历史"功能可读）；
+    //           无裁剪上限，单会话压缩超 50 次时考虑裁剪（当前 5 会话上限下量级可控）
+    session.archivedMessages = [
+      ...(session.archivedMessages ?? []),
+      ...result.archivedOriginal,
+    ]
+    // 替换 messages
+    session.messages = result.newMessages
+    // 插入 compress-notice 提示到末尾（UI 按 kind 渲染居中 chip，位置不影响；发给模型时被 filter 排除）
+    session.messages.push({
+      role: 'user',
+      kind: 'compress-notice',
+      content: `已自动整理历史对话（${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}）`,
+      timestamp: Date.now(),
+    })
+    session.updatedAt = Date.now()
+    sessions.value = [...sessions.value]
+    persistSession(session)
   }
 
   /** 中止当前流式 */
@@ -421,6 +567,7 @@ export const useConsultStore = defineStore('consult', () => {
     createSession,
     switchSession,
     deleteSession,
+    renameSession,
     clearPending,
     togglePendingResume,
     reloadFromStorage,
