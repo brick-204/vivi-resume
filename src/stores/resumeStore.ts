@@ -51,29 +51,36 @@ const migrateResumeColors = (resume: Resume): Resume => {
 }
 
 // highlights 迁移 — 将旧的 highlights[] 合并到 description 中
-const migrateHighlights = (resume: Resume): Resume => {
+// 修复：(1) 子串误判——只要任一 highlights 项不在 description 中即合并（旧逻辑仅看 highlights[0]，
+//         若它是子串则整个数组都不迁移，其余项即便不重复也被丢弃）
+//       (2) 序列化非幂等——structuredClone 保留 highlights:undefined 但 JSON.stringify 丢弃，
+//         导致写盘后字段消失、二次加载不再触发迁移。改用 delete 显式移除属性，内存与写盘一致
+const migrateHighlightsList = <T extends { highlights?: string[]; description?: string }>(items: T[]): { list: T[]; changed: boolean } => {
   let changed = false
-  const work = (resume.workExperience || []).map(item => {
-    if (item.highlights?.length && !(item.description || '').includes(item.highlights[0])) {
+  const list = items.map(item => {
+    if (!item.highlights?.length) return item
+    // 仅当所有 highlights 项都已是 description 子串时才跳过（视为已迁移）
+    const allIncluded = item.highlights.every(h => (item.description || '').includes(h))
+    if (allIncluded) {
+      const { highlights: _omit, ...rest } = item
       changed = true
-      const merged = item.description
-        ? item.description + '\n- ' + item.highlights.join('\n- ')
-        : '- ' + item.highlights.join('\n- ')
-      return { ...item, description: merged, highlights: undefined }
+      return rest as T
     }
-    return item
+    changed = true
+    const merged = item.description
+      ? item.description + '\n- ' + item.highlights.join('\n- ')
+      : '- ' + item.highlights.join('\n- ')
+    const { highlights: _omit, ...rest } = item
+    return { ...rest, description: merged } as T
   })
-  const projects = (resume.projects || []).map(item => {
-    if (item.highlights?.length && !(item.description || '').includes(item.highlights[0])) {
-      changed = true
-      const merged = item.description
-        ? item.description + '\n- ' + item.highlights.join('\n- ')
-        : '- ' + item.highlights.join('\n- ')
-      return { ...item, description: merged, highlights: undefined }
-    }
-    return item
-  })
-  return changed ? { ...resume, workExperience: work, projects: projects } : resume
+  return { list, changed }
+}
+
+const migrateHighlights = (resume: Resume): Resume => {
+  const work = migrateHighlightsList(resume.workExperience || [])
+  const projects = migrateHighlightsList(resume.projects || [])
+  if (!work.changed && !projects.changed) return resume
+  return { ...resume, workExperience: work.list, projects: projects.list }
 }
 
 export const useResumeStore = defineStore('resume', () => {
@@ -439,7 +446,7 @@ export const useResumeStore = defineStore('resume', () => {
       data.createdAt = new Date().toISOString()
       data.updatedAt = new Date().toISOString()
       // 保留 JSON 中的 title，不使用文件名覆盖
-      const migrated = migrateResumeColors(data)
+      const migrated = migrateHighlights(migrateResumeColors(data))
       resumeList.value = [...resumeList.value, migrated]
       await saveToStorageNow()
       return { success: true }
@@ -456,7 +463,7 @@ export const useResumeStore = defineStore('resume', () => {
     clone.id = generateId()
     clone.createdAt = new Date().toISOString()
     clone.updatedAt = new Date().toISOString()
-    const migrated = migrateResumeColors(clone)
+    const migrated = migrateHighlights(migrateResumeColors(clone))
     resumeList.value = [...resumeList.value, migrated]
     await saveToStorageNow()
     return clone.id

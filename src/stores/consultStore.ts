@@ -12,7 +12,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef } from 'vue'
+import { ref, computed, shallowRef, onScopeDispose } from 'vue'
 import type { ChatMessage } from '@/services/aiService'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
@@ -354,6 +354,12 @@ export const useConsultStore = defineStore('consult', () => {
     session.updatedAt = Date.now()
     session = commitSession(session)
 
+    // user 消息立即落盘（不等流式结束），避免关页面丢本轮对话
+    // ponytail: 直接 saveConsultSession 不走防抖，因为马上要进 await streamChat
+    saveConsultSession(session).catch(e => {
+      console.error('[consultStore] persist user message failed:', e)
+    })
+
     // 清空挂起
     pendingResumeIds.value = []
 
@@ -526,13 +532,22 @@ export const useConsultStore = defineStore('consult', () => {
     abortController?.abort()
   }
 
-  // 页面关闭前 flush 当前会话
+  // 页面隐藏/关闭时 flush 当前会话
+  // ponytail: beforeunload 的 async 不可靠；visibilitychange（hidden 时）时机更早，
+  //           pagehide 在页面卸载时兜底。两者配合最大化落盘概率。
+  //           visibilitychange 在 visible 时也会触发，但重复 flush 无害（内部已 clearTimeout）
+  const flushCurrentSession = () => {
+    if (currentSessionId.value) {
+      flushSession(currentSessionId.value)
+    }
+  }
   if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-      if (currentSessionId.value) {
-        // 同步触发（async 在 beforeunload 里不可靠，但 saveConsultSession 内部走 idb/file 已是异步尽力而为）
-        flushSession(currentSessionId.value)
-      }
+    const onVisibility = () => { if (document.hidden) flushCurrentSession() }
+    window.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', flushCurrentSession)
+    onScopeDispose(() => {
+      window.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', flushCurrentSession)
     })
   }
 

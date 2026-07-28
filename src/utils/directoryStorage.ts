@@ -30,6 +30,11 @@ declare global {
   interface Window {
     showDirectoryPicker(options?: ShowDirectoryPickerOptions): Promise<FileSystemDirectoryHandle>
   }
+  // ponytail: FileSystemFileHandle.move 在 Chrome 111+ 是原子重命名，TS lib 尚未声明
+  interface FileSystemFileHandle {
+    move(name: string): Promise<void>
+    move(dir: FileSystemDirectoryHandle, name: string): Promise<void>
+  }
 }
 
 // ========== 浏览器支持检测 ==========
@@ -114,6 +119,41 @@ export async function readJsonFile<T>(
   }
 }
 
+/**
+ * 原子写入：先写 .tmp 临时文件，成功后 move 覆盖目标文件。
+ * ponytail: createWritable 默认先截断再写，中断时文件损坏；
+ *           .tmp + move（Chrome 111+ 原子重命名）保证目标文件要么是旧内容要么是新内容，永不损坏。
+ *           move 失败时 fallback 到直接写（保证至少能写，退回非原子但可用）。
+ */
+async function writeAtomically(
+  dirHandle: FileSystemDirectoryHandle,
+  fileName: string,
+  writer: (writable: FileSystemWritableFileStream) => Promise<void>,
+): Promise<void> {
+  const tmpName = `${fileName}.tmp`
+  try {
+    const tmpHandle = await dirHandle.getFileHandle(tmpName, { create: true })
+    const writable = await tmpHandle.createWritable()
+    try {
+      await writer(writable)
+    } finally {
+      await writable.close()
+    }
+    // 原子覆盖：tmp → fileName（Chrome 111+ 同目录重命名是原子操作，目标存在则覆盖）
+    await tmpHandle.move(fileName)
+  } catch (e) {
+    // move 不可用或失败，fallback：清理 tmp 后直接写目标（非原子，但保证可用）
+    try { await dirHandle.removeEntry(tmpName) } catch { /* ignore */ }
+    const fileHandle = await dirHandle.getFileHandle(fileName, { create: true })
+    const writable = await fileHandle.createWritable()
+    try {
+      await writer(writable)
+    } finally {
+      await writable.close()
+    }
+  }
+}
+
 /** 将数据以 JSON 格式写入目录中的文件 */
 export async function writeJsonFile(
   rootHandle: FileSystemDirectoryHandle,
@@ -129,15 +169,11 @@ export async function writeJsonFile(
   }
 
   const fileName = parts[parts.length - 1]
-  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true })
-  const writable = await fileHandle.createWritable()
-  try {
+  await writeAtomically(dirHandle, fileName, async (writable) => {
     // 如果 data 已经是 JSON 字符串则直接写入，否则序列化
     const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
     await writable.write(content)
-  } finally {
-    await writable.close()
-  }
+  })
 }
 
 /** 读取子目录中的所有 JSON 文件，返回解析后的对象数组 */
@@ -212,10 +248,7 @@ export async function writeDataUrlFile(
   }
 
   const fileName = parts[parts.length - 1]
-  const fileHandle = await dirHandle.getFileHandle(fileName, { create: true })
-  const writable = await fileHandle.createWritable()
-
-  try {
+  await writeAtomically(dirHandle, fileName, async (writable) => {
     // data URL → 手动解析 base64 → Uint8Array → Blob → 写入
     const commaIdx = dataUrl.indexOf(',')
     const base64 = commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : ''
@@ -229,9 +262,7 @@ export async function writeDataUrlFile(
     const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg'
     const blob = new Blob([bytes], { type: mimeType })
     await writable.write(blob)
-  } finally {
-    await writable.close()
-  }
+  })
 }
 
 /** 读取二进制文件并返回 data URL */

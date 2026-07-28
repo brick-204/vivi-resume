@@ -333,8 +333,11 @@ function applyListSectionOptimization<T extends { description: string; hidden?: 
       const item = visibleItems[i]
       const header = getHeader(item)
 
-      // 模糊匹配：首行包含条目的关键信息
-      if (firstLine.includes(header.split(' · ')[0]) || header.includes(firstLine.split(' · ')[0])) {
+      // 匹配：先精确匹配完整 header，未命中再降级到公司/姓名关键词子串
+      // ponytail: 旧逻辑双向 includes 误判面大——同公司不同职位会都命中第一个
+      const headerKey = header.split(' · ')[0]
+      const matched = firstLine === header || firstLine.includes(headerKey)
+      if (matched) {
         // 找到在原始数组中的索引
         const originalIndex = items.indexOf(item)
         // 提取描述部分（跳过首行和可能的日期行）
