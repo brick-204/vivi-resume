@@ -407,34 +407,4 @@ withDefaults(defineProps<{
     }
   }
 }
-
-@include mobile {
-  .dashboard-skeleton__grid {
-    grid-template-columns: 1fr;
-    gap: $spacing-md;
-
-    &--templates {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .dashboard-skeleton__card-preview {
-    height: 180px;
-
-    &--tall {
-      height: 280px;
-    }
-  }
-
-  .dashboard-skeleton__list-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: $spacing-sm;
-
-    &-actions {
-      width: 100%;
-      justify-content: flex-end;
-    }
-  }
-}
 </style>

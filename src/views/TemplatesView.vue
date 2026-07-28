@@ -205,18 +205,4 @@ const applyTemplate = async () => {
     }
   }
 }
-
-@include mobile {
-  .templates-view {
-    &__grid {
-      grid-template-columns: 1fr;
-      padding: $spacing-md;
-      gap: $spacing-md;
-    }
-
-    &__header {
-      padding: $spacing-sm $spacing-md;
-    }
-  }
-}
 </style>

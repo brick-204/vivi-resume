@@ -176,34 +176,4 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => previewResume.va
     }
   }
 }
-
-@include mobile {
-  .template-card {
-    &__preview {
-      height: 280px;
-    }
-
-    &__info {
-      padding: $spacing-sm $spacing-md;
-    }
-
-    &__name {
-      font-size: $font-size-sm;
-    }
-
-    &__desc {
-      font-size: $font-size-xs;
-    }
-
-    &__check {
-      top: $spacing-xs;
-      right: $spacing-xs;
-
-      svg {
-        width: 16px;
-        height: 16px;
-      }
-    }
-  }
-}
 </style>

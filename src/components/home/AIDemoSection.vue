@@ -114,10 +114,6 @@ const tabs = [
   font-weight: 700;
   color: $text-primary;
   margin-bottom: $spacing-sm;
-
-  @include mobile {
-    font-size: $font-size-2xl;
-  }
 }
 
 .ai-demo-section__title-highlight {

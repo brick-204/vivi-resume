@@ -69,10 +69,6 @@ onUnmounted(() => {
   grid-template-columns: 1fr auto 1fr;
   gap: $spacing-md;
   align-items: stretch;
-
-  @include mobile {
-    grid-template-columns: 1fr;
-  }
 }
 
 .ai-demo__pane {
@@ -109,11 +105,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   color: $primary-light;
-
-  @include mobile {
-    justify-content: center;
-    transform: rotate(90deg);
-  }
 }
 
 .ai-demo__typing {

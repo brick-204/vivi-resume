@@ -279,21 +279,4 @@ onMounted(() => {
     }
   }
 }
-
-@include mobile {
-  .template-showcase-card {
-    &__preview {
-      height: 280px;
-    }
-
-    &__info {
-      padding: $spacing-md;
-    }
-
-    &__use-btn {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-}
 </style>

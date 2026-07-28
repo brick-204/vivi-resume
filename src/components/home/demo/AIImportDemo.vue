@@ -103,10 +103,6 @@ onUnmounted(() => {
   gap: $spacing-md;
   align-items: stretch;
   padding: $spacing-lg;
-
-  @include mobile {
-    grid-template-columns: 1fr;
-  }
 }
 
 .import-demo__upload,
@@ -197,11 +193,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   color: $primary-light;
-
-  @include mobile {
-    justify-content: center;
-    transform: rotate(90deg);
-  }
 }
 
 .import-demo__fields {

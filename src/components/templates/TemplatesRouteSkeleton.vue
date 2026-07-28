@@ -55,10 +55,6 @@
   border-bottom: 1px solid var(--border-light);
   flex-shrink: 0;
   z-index: 10;
-
-  @include mobile {
-    padding: $spacing-sm $spacing-md;
-  }
 }
 
 .trs-title {
@@ -95,12 +91,6 @@
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: $spacing-md;
     padding: $spacing-lg;
-  }
-
-  @include mobile {
-    grid-template-columns: 1fr;
-    padding: $spacing-md;
-    gap: $spacing-md;
   }
 }
 

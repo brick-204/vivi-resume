@@ -160,10 +160,6 @@ const navWidths = ['65%', '80%', '55%', '70%', '45%']
   gap: $spacing-xs;
   padding: $spacing-lg $spacing-md;
   overflow: hidden;
-
-  @include mobile {
-    display: none;
-  }
 }
 
 .drs-nav-item {
@@ -209,10 +205,6 @@ const navWidths = ['65%', '80%', '55%', '70%', '45%']
   @include tablet {
     padding: $spacing-lg;
   }
-
-  @include mobile {
-    padding: $spacing-md;
-  }
 }
 
 .drs-toolbar {
@@ -246,11 +238,6 @@ const navWidths = ['65%', '80%', '55%', '70%', '45%']
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: $spacing-md;
   }
-
-  @include mobile {
-    grid-template-columns: 1fr;
-    gap: $spacing-md;
-  }
 }
 
 .drs-card {
@@ -264,10 +251,6 @@ const navWidths = ['65%', '80%', '55%', '70%', '45%']
   width: 100%;
   height: 220px;
   background: var(--bg-glass);
-
-  @include mobile {
-    height: 180px;
-  }
 }
 
 .drs-card__info {

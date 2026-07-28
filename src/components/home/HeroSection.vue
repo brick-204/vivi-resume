@@ -132,10 +132,6 @@ const scrollToFeatures = () => {
     text-align: center;
     padding: $spacing-2xl $spacing-lg;
   }
-
-  @include mobile {
-    padding: $spacing-xl $spacing-md;
-  }
 }
 
 // Apple 风格：静态渐变背景，无动画
@@ -193,10 +189,6 @@ const scrollToFeatures = () => {
   font-weight: $font-weight-semibold;
   line-height: 1.05;
   letter-spacing: $letter-spacing-hero;  // Apple tight tracking
-
-  @include mobile {
-    font-size: $font-size-2xl;
-  }
 }
 
 .hero__title-highlight {

@@ -54,10 +54,6 @@ const goToDashboard = () => {
   font-weight: 700;
   color: $text-primary;
   margin-bottom: $spacing-md;
-
-  @include mobile {
-    font-size: $font-size-2xl;
-  }
 }
 
 .cta-section__highlight {

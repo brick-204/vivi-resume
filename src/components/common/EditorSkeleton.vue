@@ -446,25 +446,4 @@ const fieldWidths = ['85%', '70%', '90%', '60%']
     width: 28px !important;
   }
 }
-
-@include mobile {
-  .sk-header__nav-pills {
-    display: none;
-  }
-
-  .sk-header__left {
-    .skeleton-bar {
-      display: none;
-    }
-  }
-
-  .sk-btn,
-  .sk-btn--accent {
-    width: 28px !important;
-  }
-
-  .sk-field-grid {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

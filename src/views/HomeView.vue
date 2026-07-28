@@ -52,9 +52,5 @@ const AsyncTemplateCarousel = defineAsyncComponent({
   @include tablet {
     padding: 0 $spacing-lg;
   }
-
-  @include mobile {
-    padding: 0 $spacing-md;
-  }
 }
 </style>

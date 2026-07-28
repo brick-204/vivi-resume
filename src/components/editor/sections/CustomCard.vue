@@ -325,10 +325,6 @@ defineExpose({ addItem })
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: $spacing-md;
-
-  @include mobile {
-    grid-template-columns: 1fr;
-  }
 }
 
 @include date-field;

@@ -56,10 +56,6 @@ const features = [
   font-weight: 700;
   color: $text-primary;
   margin-bottom: $spacing-sm;
-
-  @include mobile {
-    font-size: $font-size-2xl;
-  }
 }
 
 .feature-grid__subtitle {
@@ -74,10 +70,6 @@ const features = [
 
   @include tablet {
     grid-template-columns: repeat(2, 1fr);
-  }
-
-  @include mobile {
-    grid-template-columns: 1fr;
   }
 }
 

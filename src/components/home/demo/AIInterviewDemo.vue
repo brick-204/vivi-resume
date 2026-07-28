@@ -95,10 +95,6 @@ onUnmounted(() => {
   gap: $spacing-md;
   align-items: stretch;
   padding: $spacing-lg;
-
-  @include mobile {
-    grid-template-columns: 1fr;
-  }
 }
 
 .interview-demo__questions,

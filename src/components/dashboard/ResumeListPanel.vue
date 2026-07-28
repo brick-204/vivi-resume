@@ -545,29 +545,6 @@ const handleGoToAISettings = () => {
   }
 }
 
-@include mobile {
-  .resume-list-panel {
-    &__header {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    &__actions {
-      width: 100%;
-    }
-
-    &__grid {
-      grid-template-columns: 1fr;
-      gap: $spacing-md;
-    }
-  }
-
-  .action-btn {
-    flex: 1;
-    justify-content: center;
-  }
-}
-
 // 导入校验错误列表
 .import-error-list {
   list-style: none;

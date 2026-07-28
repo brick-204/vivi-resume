@@ -90,13 +90,4 @@ const handleUseTemplate = (templateId: string) => {
     }
   }
 }
-
-@include mobile {
-  .template-market-panel {
-    &__grid {
-      grid-template-columns: 1fr;
-      gap: $spacing-md;
-    }
-  }
-}
 </style>

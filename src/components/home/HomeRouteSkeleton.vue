@@ -219,10 +219,6 @@ const tabWidths = ['72px', '80px', '72px', '72px', '72px', '72px', '88px']
       text-align: center;
       padding: $spacing-2xl $spacing-lg;
     }
-
-    @include mobile {
-      padding: $spacing-xl $spacing-md;
-    }
   }
 
   &__content {
@@ -296,10 +292,6 @@ const tabWidths = ['72px', '80px', '72px', '72px', '72px', '72px', '88px']
   @include tablet {
     padding: 0 $spacing-lg $spacing-2xl;
   }
-
-  @include mobile {
-    padding: 0 $spacing-md $spacing-xl;
-  }
 }
 
 .hrs-carousel {
@@ -318,16 +310,6 @@ const tabWidths = ['72px', '80px', '72px', '72px', '72px', '72px', '88px']
     }
     .hrs-carousel__slide {
       flex-basis: calc(100% / 2);
-    }
-  }
-
-  @include mobile {
-    .hrs-carousel__slide:nth-child(2),
-    .hrs-carousel__slide:nth-child(3) {
-      display: none;
-    }
-    .hrs-carousel__slide {
-      flex-basis: 100%;
     }
   }
 }
@@ -351,10 +333,6 @@ const tabWidths = ['72px', '80px', '72px', '72px', '72px', '72px', '88px']
     rgba($primary-color, 0.10) 75%
   );
   animation: home-route-shimmer 1.5s ease-in-out infinite;
-
-  @include mobile {
-    height: 300px;
-  }
 }
 
 .hrs-carousel__name {
@@ -437,10 +415,6 @@ const tabWidths = ['72px', '80px', '72px', '72px', '72px', '72px', '88px']
 
     @include tablet {
       grid-template-columns: repeat(2, 1fr);
-    }
-
-    @include mobile {
-      grid-template-columns: 1fr;
     }
   }
 }

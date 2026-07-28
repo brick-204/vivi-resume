@@ -421,38 +421,4 @@ const onExportSelect = (key: string) => {
     display: none;
   }
 }
-
-@include mobile {
-  .app-header {
-    padding: 0 $spacing-md;
-
-    &__favicon {
-      width: 24px;
-      height: 24px;
-    }
-
-    &__logo-text {
-      font-size: $font-size-md;
-    }
-
-    &__nav-tab {
-      padding: $spacing-xs $spacing-md;
-      font-size: $font-size-xs;
-
-      span {
-        display: none;
-      }
-    }
-
-    &__title-input {
-      min-width: 120px;
-      max-width: 200px;
-      font-size: $font-size-md;
-    }
-  }
-
-  .header-btn__text {
-    display: none;
-  }
-}
 </style>

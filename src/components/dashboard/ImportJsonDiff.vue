@@ -424,25 +424,4 @@ function onLeftScroll() {
     color: $error-color;
   }
 }
-
-@include mobile {
-  .json-diff-split {
-    flex-direction: column;
-    height: auto;
-    max-height: 400px;
-  }
-
-  .json-diff-divider {
-    width: auto;
-    height: 1px;
-  }
-
-  .json-diff-pane__content {
-    max-height: 150px;
-  }
-
-  .json-diff-edit-wrapper {
-    max-height: 200px;
-  }
-}
 </style>

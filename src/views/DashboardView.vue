@@ -1,18 +1,6 @@
 <template>
   <div class="dashboard">
     <AppHeader />
-    <!-- 移动端导航条：仅 ≤768px 显示，桌面端 display:none -->
-    <div class="dashboard__mobile-bar">
-      <button
-        class="dashboard__hamburger"
-        type="button"
-        aria-label="打开导航菜单"
-        @click="mobileDrawerOpen = true"
-      >
-        <Icon icon="mdi:menu" :width="24" />
-      </button>
-    </div>
-
     <!-- 主体区域 -->
     <div id="main-content" class="dashboard__body">
       <!-- 侧边栏 -->
@@ -29,17 +17,6 @@
       </div>
     </div>
 
-    <!-- 移动端导航抽屉：SidebarNav 的 mobile prop 覆盖 mobile 媒体查询的 display:none -->
-    <n-drawer v-model:show="mobileDrawerOpen" :width="240" placement="left" :auto-focus="false">
-      <n-drawer-content closable title="导航">
-        <SidebarNav
-          mobile
-          :active-tab="activeTab"
-          @update:active-tab="handleMobileTabSelect"
-        />
-      </n-drawer-content>
-    </n-drawer>
-
     <!-- 同步遮罩 -->
     <SyncOverlay />
   </div>
@@ -48,8 +25,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, defineAsyncComponent, defineComponent, h, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NDrawer, NDrawerContent } from 'naive-ui'
-import { Icon } from '@iconify/vue'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -107,14 +82,6 @@ const router = useRouter()
 
 const activeTab = ref<'resumes' | 'templates' | 'ai' | 'trash' | 'settings'>('resumes')
 const storesReady = ref(false)
-// ponytail: 移动端导航抽屉开关，仅 ≤768px 触发器可达
-const mobileDrawerOpen = ref(false)
-
-// ponytail: 抽屉内点击 tab 后更新 activeTab 并关闭抽屉
-const handleMobileTabSelect = (tab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings') => {
-  activeTab.value = tab
-  mobileDrawerOpen.value = false
-}
 
 // ponytail: URL ↔ activeTab 双向同步，isRouteChange 防循环
 const validTabs = ['resumes', 'templates', 'ai', 'trash', 'settings'] as const
@@ -168,34 +135,6 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-// 移动端导航条：桌面端隐藏，仅 ≤768px 显示
-.dashboard__mobile-bar {
-  display: none;
-}
-
-.dashboard__hamburger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  color: $text-primary;
-  cursor: pointer;
-  border-radius: $radius-md;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: $bg-glass-hover;
-  }
-
-  &:focus-visible {
-    outline: 2px solid $primary-color;
-    outline-offset: 2px;
-  }
-}
-
 // 内容区
 .dashboard__content {
   flex: 1;
@@ -217,21 +156,6 @@ onMounted(async () => {
 @include tablet {
   .dashboard__content-inner {
     padding: $spacing-lg;
-  }
-}
-
-@include mobile {
-  .dashboard__content-inner {
-    padding: $spacing-md;
-  }
-
-  // 移动端：显示导航条 + 汉堡按钮
-  .dashboard__mobile-bar {
-    display: flex;
-    align-items: center;
-    padding: $spacing-xs $spacing-md;
-    border-bottom: 1px solid $border-glass;
-    flex-shrink: 0;
   }
 }
 </style>

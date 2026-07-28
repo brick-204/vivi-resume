@@ -149,10 +149,6 @@ onUnmounted(() => {
   font-weight: 700;
   color: $text-primary;
   margin-bottom: $spacing-sm;
-
-  @include mobile {
-    font-size: $font-size-2xl;
-  }
 }
 
 .template-carousel__title-highlight {
@@ -192,10 +188,6 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   overflow: hidden;
-
-  @include mobile {
-    min-height: 280px;
-  }
 }
 
 // 箭头按钮
@@ -218,11 +210,6 @@ onUnmounted(() => {
     background: $bg-glass-hover;
     color: $primary-light;
     border-color: $primary-color;
-  }
-
-  @include mobile {
-    width: 32px;
-    height: 32px;
   }
 }
 

@@ -106,10 +106,6 @@ onUnmounted(() => {
   gap: $spacing-md;
   align-items: stretch;
   padding: $spacing-lg;
-
-  @include mobile {
-    grid-template-columns: 1fr;
-  }
 }
 
 .opt-demo__before,
@@ -184,10 +180,5 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   color: $primary-light;
-
-  @include mobile {
-    justify-content: center;
-    transform: rotate(90deg);
-  }
 }
 </style>

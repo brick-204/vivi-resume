@@ -384,20 +384,4 @@ onMounted(() => {
     }
   }
 }
-
-@include mobile {
-  .resume-card {
-    &__preview {
-      height: 280px;
-    }
-
-    &__info {
-      padding: $spacing-sm $spacing-md;
-    }
-
-    &__title {
-      font-size: $font-size-sm;
-    }
-  }
-}
 </style>

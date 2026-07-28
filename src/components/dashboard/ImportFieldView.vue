@@ -670,14 +670,4 @@ function onFieldChange(path: (string | number)[], value: unknown) {
     border-top: 1px solid $border-glass;
   }
 }
-
-@include mobile {
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .field-section__summary {
-    display: none;
-  }
-}
 </style>

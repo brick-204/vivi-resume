@@ -75,10 +75,6 @@
     rgba($primary-color, 0.10) 75%
   );
   animation: home-shimmer 1.5s ease-in-out infinite;
-
-  @include mobile {
-    height: 300px;
-  }
 }
 
 .home-skeleton__slide-name {
@@ -145,18 +141,6 @@
     }
     .home-skeleton__slide {
       flex-basis: calc(100% / 2);
-    }
-  }
-}
-
-@include mobile {
-  .home-skeleton__carousel {
-    .home-skeleton__slide:nth-child(2),
-    .home-skeleton__slide:nth-child(3) {
-      display: none;
-    }
-    .home-skeleton__slide {
-      flex-basis: 100%;
     }
   }
 }

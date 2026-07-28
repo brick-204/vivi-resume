@@ -48,10 +48,6 @@ const { previewContainer, scaleStyle } = useScaledPreview(() => 48)
   background: #ffffff;
   border-radius: $radius-sm;
   box-shadow: $shadow-md;
-
-  @include mobile {
-    height: 300px;
-  }
 }
 
 // ponytail: 非活跃 slide 占位，固定高度撑住布局；与首页 HomeSkeleton 同款品牌色 shimmer

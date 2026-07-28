@@ -658,10 +658,4 @@ const handleClose = () => {
 @keyframes blink {
   50% { opacity: 0; }
 }
-
-@include mobile {
-  .optimize-section-card__diff {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

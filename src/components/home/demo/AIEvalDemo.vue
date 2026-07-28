@@ -109,11 +109,6 @@ onUnmounted(() => {
   align-items: center;
   gap: $spacing-2xl;
   padding: $spacing-lg;
-
-  @include mobile {
-    flex-direction: column;
-    gap: $spacing-lg;
-  }
 }
 
 .eval-demo__score {

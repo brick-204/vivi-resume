@@ -833,16 +833,4 @@ const handleRetry = () => {
     flex: 1;
   }
 }
-
-// 移动端：上下排列
-@include mobile {
-  .preview-body {
-    flex-direction: column;
-  }
-
-  .preview-divider {
-    width: auto;
-    height: 1px;
-  }
-}
 </style>

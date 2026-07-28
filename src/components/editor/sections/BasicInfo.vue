@@ -852,10 +852,6 @@ const removeCustomField = (id: string) => {
   grid-template-columns: 1fr 1fr;
   gap: $spacing-sm $spacing-md;
 
-  @include mobile {
-    grid-template-columns: 1fr;
-  }
-
   &--fixed {
     gap: $spacing-sm $spacing-md;
   }

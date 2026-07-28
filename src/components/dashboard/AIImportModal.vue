@@ -927,12 +927,4 @@ function goToAISettings() {
 @keyframes blink {
   50% { opacity: 0; }
 }
-
-@include mobile {
-  .preview-tabs {
-    :deep(.n-tabs-pane-wrapper) {
-      max-height: 70vh;
-    }
-  }
-}
 </style>

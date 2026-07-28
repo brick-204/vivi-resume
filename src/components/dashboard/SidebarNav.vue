@@ -1,5 +1,5 @@
 <template>
-  <aside class="sidebar-nav" :class="{ 'sidebar-nav--mobile': mobile }">
+  <aside class="sidebar-nav">
     <!-- 导航项 -->
     <nav class="sidebar-nav__items">
       <button
@@ -74,8 +74,6 @@ import { useSettingsStore } from '@/stores/settingsStore'
 
 const props = defineProps<{
   activeTab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings'
-  /** 是否为移动端抽屉模式（始终完整显示，不受 mobile 媒体查询隐藏） */
-  mobile?: boolean
 }>()
 
 defineEmits<{
@@ -126,11 +124,6 @@ const showAlert = computed(() => directoryAlert.value && !dismissed.value)
   padding: $spacing-lg $spacing-md;
   transition: width $transition-base;
   overflow: hidden;
-
-  // 移动端抽屉模式：覆盖 mobile 媒体查询的 display:none
-  &--mobile {
-    width: 240px;
-  }
 
   &__items {
     display: flex;
@@ -223,13 +216,6 @@ const showAlert = computed(() => directoryAlert.value && !dismissed.value)
     &__item-label {
       display: none;
     }
-  }
-}
-
-// 移动端：桌面侧边栏隐藏（抽屉模式的由 DashboardView 通过 v-if 控制）
-@include mobile {
-  .sidebar-nav:not(.sidebar-nav--mobile) {
-    display: none;
   }
 }
 </style>
