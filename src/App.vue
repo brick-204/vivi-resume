@@ -6,6 +6,18 @@
       <!-- ponytail: 路由级骨架覆盖层 — 切换路由时立即显示目标页骨架，不顿在原页面 -->
       <RouteSkeletonOverlay :visible="routeLoading" :name="skeletonName" />
       <div id="aria-live-status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+
+      <!-- AI 咨询悬浮按钮 + 抽屉 -->
+      <button
+        v-show="!consultVisible"
+        class="consult-fab"
+        :aria-label="'AI 咨询'"
+        title="AI 咨询"
+        @click="consultVisible = true"
+      >
+        <Icon icon="mdi:comment-question-outline" :width="24" />
+      </button>
+      <ConsultDrawer v-model:show="consultVisible" />
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -14,15 +26,19 @@
 import { computed, ref, nextTick } from 'vue'
 import { NConfigProvider, NMessageProvider } from 'naive-ui'
 import { zhCN } from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import { getNaiveTheme, getNaiveThemeOverrides } from '@/plugins/naive-ui'
 import { useTheme } from '@/composables/useTheme'
 import router from '@/router'
 import RouteSkeletonOverlay from '@/components/common/RouteSkeletonOverlay.vue'
+import ConsultDrawer from '@/components/ai/ConsultDrawer.vue'
 
 const { resolvedTheme } = useTheme()
 
 const naiveTheme = computed(() => getNaiveTheme(resolvedTheme.value))
 const naiveThemeOverrides = computed(() => getNaiveThemeOverrides(resolvedTheme.value))
+
+const consultVisible = ref(false)
 
 // ponytail: 路由级骨架状态
 // beforeEach 同步置 true，覆盖层下一帧出现；afterEach + nextTick 撤掉，让 router-view 先渲染
@@ -69,5 +85,32 @@ router.onError(() => { routeLoading.value = false })
 
 .skip-to-content:focus {
   top: 0;
+}
+
+/* AI 咨询悬浮按钮 */
+.consult-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, #4f6df5, #7b5cff);
+  box-shadow: 0 4px 16px rgba(79, 109, 245, 0.4);
+  z-index: 2000;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.consult-fab:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(79, 109, 245, 0.5);
+}
+.consult-fab:active {
+  transform: translateY(0) scale(0.98);
 }
 </style>

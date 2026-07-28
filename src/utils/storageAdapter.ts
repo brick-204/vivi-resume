@@ -9,6 +9,7 @@
 
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
+import type { ConsultSession } from '@/types/consult'
 import * as idb from './storage'
 import * as dir from './directoryStorage'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -207,6 +208,33 @@ export async function setActiveAIConfigId(id: string | null): Promise<void> {
     await dir.writeJsonFile(getHandle(), 'meta.json', meta)
   } else {
     return idb.setActiveAIConfigId(id)
+  }
+}
+
+// ========== AI 咨询会话操作 ==========
+
+export async function getAllConsultSessions(): Promise<ConsultSession[]> {
+  if (isDirectoryMode()) {
+    return dir.readAllJsonFiles<ConsultSession>(getHandle(), 'consult-sessions')
+  }
+  return idb.getAllConsultSessions()
+}
+
+export async function saveConsultSession(session: ConsultSession): Promise<void> {
+  if (isDirectoryMode()) {
+    const sessionsDir = await dir.ensureDir(getHandle(), 'consult-sessions')
+    await dir.writeJsonFile(sessionsDir, `${session.id}.json`, idb.toPlain(session))
+  } else {
+    return idb.saveConsultSession(session)
+  }
+}
+
+export async function deleteConsultSession(id: string): Promise<void> {
+  if (isDirectoryMode()) {
+    const sessionsDir = await dir.ensureDir(getHandle(), 'consult-sessions')
+    await dir.deleteFile(sessionsDir, `${id}.json`)
+  } else {
+    return idb.deleteConsultSession(id)
   }
 }
 

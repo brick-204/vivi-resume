@@ -10,12 +10,14 @@ import { openDB, type IDBPDatabase } from 'idb'
 import { toRaw } from 'vue'
 import type { Resume, BasicInfo } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
+import type { ConsultSession } from '@/types/consult'
 
 const DB_NAME = 'vivi-resume-db'
-const DB_VERSION = 4
+const DB_VERSION = 5
 const RESUMES_STORE = 'resumes'
 const META_STORE = 'meta'
 const AI_CONFIGS_STORE = 'aiConfigs'
+const CONSULT_SESSIONS_STORE = 'consultSessions'
 
 // localStorage 旧 key（用于迁移检测）
 const LEGACY_LIST_KEY = 'vivi-resume-list'
@@ -51,6 +53,10 @@ async function getDB(): Promise<IDBPDatabase> {
       // v3→v4: 清理 v3 遗留的 thumbnails store（如有）
       if (oldVersion < 4 && db.objectStoreNames.contains('thumbnails')) {
         db.deleteObjectStore('thumbnails')
+      }
+      // v5: 新增 AI 咨询会话 store
+      if (oldVersion < 5 && !db.objectStoreNames.contains(CONSULT_SESSIONS_STORE)) {
+        db.createObjectStore(CONSULT_SESSIONS_STORE, { keyPath: 'id' })
       }
     },
   })
@@ -279,6 +285,27 @@ export async function setActiveAIConfigId(id: string | null): Promise<void> {
   } else {
     await db.delete(META_STORE, 'activeAIConfigId')
   }
+}
+
+// ========== AI 咨询会话 CRUD ==========
+
+/** 获取所有 AI 咨询会话 */
+export async function getAllConsultSessions(): Promise<ConsultSession[]> {
+  const db = await getDB()
+  return db.getAll(CONSULT_SESSIONS_STORE) as Promise<ConsultSession[]>
+}
+
+/** 保存单个 AI 咨询会话（新增或更新） */
+export async function saveConsultSession(session: ConsultSession): Promise<void> {
+  const db = await getDB()
+  const plain = toPlain(session)
+  await db.put(CONSULT_SESSIONS_STORE, plain)
+}
+
+/** 删除单个 AI 咨询会话 */
+export async function deleteConsultSession(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete(CONSULT_SESSIONS_STORE, id)
 }
 
 // ========== 通用 Meta 读写 ==========

@@ -131,12 +131,17 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirTrash: Resume[] = []
       let dirTrashRetentionDays = trashRetentionDays ?? 30
       let dirTrashBinRetentionDays = trashBinRetentionDays ?? 7
+      // 目录现有选中态（重新绑定时应保留，而非用陈旧的 IndexedDB 值覆盖）
+      let dirCurrentId: string | null = null
+      let dirActiveAIConfigId: string | null = null
       try {
         const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
         if (dirMeta) {
           dirTrash = (dirMeta.trash as Resume[]) ?? []
           if (typeof dirMeta.trashRetentionDays === 'number') dirTrashRetentionDays = dirMeta.trashRetentionDays
           if (typeof dirMeta.trashBinRetentionDays === 'number') dirTrashBinRetentionDays = dirMeta.trashBinRetentionDays
+          if (typeof dirMeta.currentId === 'string') dirCurrentId = dirMeta.currentId
+          if (typeof dirMeta.activeAIConfigId === 'string') dirActiveAIConfigId = dirMeta.activeAIConfigId
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
 
@@ -298,13 +303,18 @@ export const useSettingsStore = defineStore('settings', () => {
         }
       }
 
-      // 6.5 合并后的 meta：IndexedDB 设置优先，currentId/activeAIConfigId 失效则回退
-      const resolvedCurrentId = currentId && mergedResumes.some(r => r.id === currentId)
-        ? currentId
+      // 6.5 合并后的 meta：选中态优先用目录现有值（重新绑定场景），
+      //     IndexedDB 值次之（首次绑定迁移场景），最后回退到第一个
+      // ponytail: 目录值优先——目录模式下 activeAIConfigId 只写目录 meta.json，
+      //           IndexedDB 该字段陈旧，用作首选会覆盖目录正确状态
+      const candidateCurrentId = dirCurrentId ?? currentId ?? null
+      const resolvedCurrentId = candidateCurrentId && mergedResumes.some(r => r.id === candidateCurrentId)
+        ? candidateCurrentId
         : (mergedResumes[0]?.id ?? '')
-      const mappedActiveId = activeAIConfigId
-        ? (aiIdMapping.get(activeAIConfigId) ?? activeAIConfigId)
-        : activeAIConfigId
+      const rawActiveId = dirActiveAIConfigId ?? activeAIConfigId ?? null
+      const mappedActiveId = rawActiveId
+        ? (aiIdMapping.get(rawActiveId) ?? rawActiveId)
+        : null
       const resolvedActiveId = mappedActiveId && mergedAiConfigs.some(c => c.id === mappedActiveId)
         ? mappedActiveId
         : (dirAiConfigs[0]?.id ?? mergedAiConfigs[0]?.id ?? '')
@@ -565,14 +575,17 @@ export const useSettingsStore = defineStore('settings', () => {
     // 动态导入避免循环依赖
     const { useResumeStore } = await import('@/stores/resumeStore')
     const { useAIConfigStore } = await import('@/stores/aiConfigStore')
+    const { useConsultStore } = await import('@/stores/consultStore')
 
     const resumeStore = useResumeStore()
     const aiConfigStore = useAIConfigStore()
+    const consultStore = useConsultStore()
 
-    // 两个 store 独立 reload，一个失败不影响另一个
+    // 各 store 独立 reload，一个失败不影响另一个
     await Promise.allSettled([
       resumeStore.reloadFromStorage?.(),
       aiConfigStore.reloadFromStorage?.(),
+      consultStore.reloadFromStorage?.(),
     ])
   }
 
