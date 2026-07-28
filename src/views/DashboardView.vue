@@ -1,30 +1,10 @@
 <template>
   <div class="dashboard">
-    <!-- 公共头部 -->
-    <AppHeader>
-      <template #left-extra>
-        <button class="dashboard__mobile-menu-btn" @click="mobileMenuOpen = true">
-          <Icon icon="mdi:menu" :width="24" />
-        </button>
-      </template>
-    </AppHeader>
-
+    <AppHeader />
     <!-- 主体区域 -->
     <div id="main-content" class="dashboard__body">
-      <!-- 移动端遮罩 -->
-      <Transition name="fade">
-        <div v-if="mobileMenuOpen" class="dashboard__mobile-overlay" @click="mobileMenuOpen = false" />
-      </Transition>
-
-      <!-- 移动端侧边栏抽屉 -->
-      <Transition name="slide">
-        <div v-if="mobileMenuOpen" class="dashboard__mobile-sidebar">
-          <SidebarNav :active-tab="activeTab" mobile @update:active-tab="onMobileNavChange" />
-        </div>
-      </Transition>
-
-      <!-- 桌面端侧边栏 -->
-      <SidebarNav :active-tab="activeTab" class="dashboard__sidebar" @update:active-tab="activeTab = $event" />
+      <!-- 侧边栏 -->
+      <SidebarNav v-model:active-tab="activeTab" class="dashboard__sidebar" />
 
       <!-- 内容区 -->
       <div class="dashboard__content">
@@ -48,7 +28,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { Icon } from '@iconify/vue'
 import AppHeader from '@/components/common/AppHeader.vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton.vue'
@@ -102,7 +81,6 @@ const route = useRoute()
 const router = useRouter()
 
 const activeTab = ref<'resumes' | 'templates' | 'ai' | 'trash' | 'settings'>('resumes')
-const mobileMenuOpen = ref(false)
 const storesReady = ref(false)
 
 // ponytail: URL ↔ activeTab 双向同步，isRouteChange 防循环
@@ -124,11 +102,6 @@ watch(activeTab, (tab) => {
     router.replace({ path: '/dashboard', query: { tab } })
   }
 })
-
-const onMobileNavChange = (tab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings') => {
-  activeTab.value = tab
-  mobileMenuOpen.value = false
-}
 
 // ponytail: store 并行初始化，缩短首屏等待
 onMounted(async () => {
@@ -162,35 +135,6 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-// 移动端汉堡菜单按钮（默认隐藏，移动端显示）
-.dashboard__mobile-menu-btn {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: $bg-glass;
-  border-radius: $radius-md;
-  color: $text-primary;
-  cursor: pointer;
-  transition: all $transition-base;
-  flex-shrink: 0;
-
-  &:hover {
-    background: $bg-glass-hover;
-  }
-
-  @include mobile {
-    display: flex;
-  }
-}
-
-// 桌面端侧边栏
-.dashboard__sidebar {
-  // SidebarNav 自带样式，此处仅做定位
-}
-
 // 内容区
 .dashboard__content {
   flex: 1;
@@ -208,43 +152,6 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-// 移动端遮罩
-.dashboard__mobile-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay-bg);
-  z-index: 90;
-}
-
-// 移动端侧边栏抽屉
-.dashboard__mobile-sidebar {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 240px;
-  z-index: 100;
-}
-
-// 过渡动画
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.slide-enter-from,
-.slide-leave-to {
-  transform: translateX(-100%);
-}
-
 // 响应式
 @include tablet {
   .dashboard__content-inner {
@@ -253,10 +160,6 @@ onMounted(async () => {
 }
 
 @include mobile {
-  .dashboard__sidebar {
-    display: none;
-  }
-
   .dashboard__content-inner {
     padding: $spacing-md;
   }

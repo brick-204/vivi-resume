@@ -2,7 +2,6 @@
   <header class="app-header">
     <!-- 左侧：Logo + 导航标签 -->
     <div class="app-header__left">
-      <slot name="left-extra" />
       <router-link to="/" class="app-header__logo">
         <img src="/favicon.ico" alt="Vivi Resume" class="app-header__favicon" />
         <span class="app-header__logo-text">Vivi Resume</span>
