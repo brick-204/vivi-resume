@@ -33,6 +33,19 @@ button {
   font-family: inherit;
 }
 
+// 全局键盘焦点环（WCAG 2.4.7 Focus Visible AA）
+// ponytail: 默认浏览器焦点环被各组件 :focus { outline: none } 抹掉，统一在此补 :focus-visible 基线
+button,
+a,
+[role="button"],
+[tabindex]:not([tabindex="-1"]) {
+  &:focus-visible {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
 input,
 textarea,
 select {

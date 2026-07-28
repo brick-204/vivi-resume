@@ -284,6 +284,8 @@ const editor = useEditor({
   editorProps: {
     attributes: {
       class: 'rich-text-editor__content',
+      // ponytail: contenteditable 默认无可访问名称，屏幕阅读器只读到"编辑区"
+      'aria-label': props.label || '富文本编辑区',
     },
     handleKeyDown: (_view, event) => {
       // Tab 键：插入 4 个真实空格（U+0020），而非 NBSP

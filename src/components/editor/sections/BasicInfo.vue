@@ -152,7 +152,7 @@
             </span>
             <div class="field-item__content">
               <div class="field-row__label">
-                <span v-if="isCustomField(element.key)" class="custom-field__label-text" contenteditable @keydown.enter.prevent @blur="onCustomLabelBlur(element.key, $event)">{{ getFieldLabel(element.key) }}</span>
+                <span v-if="isCustomField(element.key)" class="custom-field__label-text" contenteditable role="textbox" aria-label="字段标签" @keydown.enter.prevent @blur="onCustomLabelBlur(element.key, $event)">{{ getFieldLabel(element.key) }}</span>
                 <span v-else>{{ getFieldLabel(element.key) }}</span>
                 <div class="field-row__actions">
                   <button class="field-display-mode" :title="getDisplayModeTitle(element.key)" @click="cycleDisplayMode(element.key)">

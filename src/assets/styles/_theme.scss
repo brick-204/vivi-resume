@@ -17,7 +17,7 @@
   // 文字颜色 - Apple 风格
   --text-primary: #f5f5f7;        // Parchment（浅色文字）
   --text-secondary: #a1a1a6;      // Secondary gray
-  --text-light: #6e6e73;          // Tertiary gray
+  --text-light: #8e8e93;          // Tertiary gray（ponytail: 调亮过 WCAG AA 4.5:1，与 secondary 保持层级）
 
   // 边框 - 极细或无
   --border-color: rgba(255, 255, 255, 0.1);
@@ -97,7 +97,7 @@
   // 文字颜色 - Apple Near-Black Ink
   --text-primary: #1d1d1f;        // Near-Black Ink
   --text-secondary: #6e6e73;      // Secondary gray
-  --text-light: #86868b;          // Tertiary gray
+  --text-light: #636366;          // Tertiary gray（ponytail: 调深过 WCAG AA 4.5:1，与 secondary 保持层级）
 
   // 边框 - 极细边框
   --border-color: rgba(0, 0, 0, 0.08);

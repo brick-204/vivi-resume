@@ -5,7 +5,7 @@
         <span class="title__icon">
           <Icon :icon="ZAP_ICON" :width="18" :height="18" />
         </span>
-        <span class="section__title-text" contenteditable @keydown.enter.prevent @blur="saveTitle($event, 'skills')" v-text="getSectionTitle(store.currentResume, 'skills')"></span>
+        <span class="section__title-text" contenteditable role="textbox" aria-label="模块标题" @keydown.enter.prevent @blur="saveTitle($event, 'skills')" v-text="getSectionTitle(store.currentResume, 'skills')"></span>
       </h3>
     </div>
 
