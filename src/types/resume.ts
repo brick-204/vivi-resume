@@ -1,93 +1,54 @@
+import type { z } from 'zod'
+import {
+  HeaderLayoutSchema,
+  HeaderTextColorSchema,
+  HeaderIconColorSchema,
+  FieldDisplayModeSchema,
+  CustomFieldSchema,
+  BasicInfoSchema,
+  WorkItemSchema,
+  EducationItemSchema,
+  ProjectItemSchema,
+  SkillItemSchema,
+  CustomTextSectionSchema,
+  CustomCardItemSchema,
+  CustomCardSectionSchema,
+  EvaluationResultSchema,
+  JdScanResultSchema,
+  InterviewResultSchema,
+  ResumeSchema,
+} from '@/schemas/resumeSchema'
+
+// ========== 字面量类型（从 schema 派生，单一来源） ==========
+
 // 字段显示模式
-export type FieldDisplayMode = 'iconLabelValue' | 'labelValue' | 'iconValue'
+export type FieldDisplayMode = z.infer<typeof FieldDisplayModeSchema>
 
 // 头部布局模式
-export type HeaderLayout = 'centered' | 'photo-left' | 'photo-right'
+export type HeaderLayout = z.infer<typeof HeaderLayoutSchema>
 
 // 头部文字颜色模式
-export type HeaderTextColor = 'black' | 'white' | 'accent'
+export type HeaderTextColor = z.infer<typeof HeaderTextColorSchema>
 
 // 头部图标颜色模式
-export type HeaderIconColor = 'black' | 'white' | 'accent'
+export type HeaderIconColor = z.infer<typeof HeaderIconColorSchema>
 
 // 简历基本信息
-export interface CustomField {
-  id: string
-  label: string
-  value: string
-  hidden: boolean
-}
+export type CustomField = z.infer<typeof CustomFieldSchema>
 
-export interface BasicInfo {
-  name: string
-  title: string
-  photo: string
-  email: string
-  phone: string
-  location: string
-  website: string
-  summary: string
-  gender: string
-  birthday: string
-  age: string
-  expectedCity: string
-  workExperience: string
-  wechat: string
-  qq: string
-  salaryRange: string
-  hiddenFields: Record<string, boolean>
-  customFields: CustomField[]
-  fieldOrder: string[]
-  fieldDisplayMode: Record<string, FieldDisplayMode>
-  photoShape?: 'circle' | 'rectangle'
-  photoOriginal?: string
-  headerLayout?: HeaderLayout
-}
+export type BasicInfo = z.infer<typeof BasicInfoSchema>
 
 // 工作经历
-export interface WorkItem {
-  id: string
-  company: string
-  position: string
-  startDate: string
-  endDate: string
-  description: string
-  /** @deprecated 已合并到 description，仅做向后兼容读取 */
-  highlights?: string[]
-  hidden?: boolean
-}
+export type WorkItem = z.infer<typeof WorkItemSchema>
 
 // 教育经历
-export interface EducationItem {
-  id: string
-  school: string
-  degree: string
-  major: string
-  startDate: string
-  endDate: string
-  description: string
-  hidden?: boolean
-}
+export type EducationItem = z.infer<typeof EducationItemSchema>
 
 // 项目经历
-export interface ProjectItem {
-  id: string
-  name: string
-  role: string
-  startDate: string
-  endDate: string
-  description: string
-  technologies: string[]
-  /** @deprecated 已合并到 description，仅做向后兼容读取 */
-  highlights?: string[]
-  hidden?: boolean
-}
+export type ProjectItem = z.infer<typeof ProjectItemSchema>
 
 // 技能（改为纯文本，用户自由列举）
-export interface SkillItem {
-  id: string
-  content: string  // 技能内容，支持多行
-}
+export type SkillItem = z.infer<typeof SkillItemSchema>
 
 // 删除项包装器
 export interface DeletedItem<T> {
@@ -116,84 +77,29 @@ export interface DeletedSections {
 }
 
 // 自定义文本模块
-export interface CustomTextSection {
-  id: string
-  content: string
-}
+export type CustomTextSection = z.infer<typeof CustomTextSectionSchema>
 
 // 自定义列表模块
-export interface CustomCardItem {
-  id: string
-  name: string
-  role: string
-  startDate: string
-  endDate: string
-  description: string
-  keywords: string[]
-  hidden?: boolean
-}
+export type CustomCardItem = z.infer<typeof CustomCardItemSchema>
 
-export interface CustomCardSection {
-  id: string
-  items: CustomCardItem[]
-}
+export type CustomCardSection = z.infer<typeof CustomCardSectionSchema>
 
 // AI 评估结果
-export interface EvaluationResult {
-  score: number | null
-  text: string        // Markdown 原文
-  evaluatedAt: string // ISO 时间戳
-}
+export type EvaluationResult = z.infer<typeof EvaluationResultSchema>
 
 // JD 扫描结果
-export interface JdScanResult {
-  score: number | null
-  text: string        // AI 返回的 Markdown 原文
-  jdText: string      // 用户输入的 JD 原文
-  scannedAt: string   // ISO 时间戳
-}
+export type JdScanResult = z.infer<typeof JdScanResultSchema>
 
 // AI 面试准备结果
-export interface InterviewResult {
-  text: string        // AI 返回的 Markdown 原文
-  jdText: string      // 用户输入的 JD 原文（可为空）
-  preparedAt: string  // ISO 时间戳
-}
+export type InterviewResult = z.infer<typeof InterviewResultSchema>
 
 // 简历完整数据
-export interface Resume {
-  id: string
-  title: string
-  templateId: string
-  themeAccentColor?: string
-  whiteHeaderText?: boolean
-  iconFollowAccent?: boolean
-  headerTextColor?: HeaderTextColor
-  headerIconColor?: HeaderIconColor
-  fontFamily?: string
-  lineHeight?: number
-  bodyFontSize?: number
-  sectionTitleFontSize?: number
-  entryTitleFontSize?: number
-  pagePadding?: number
-  moduleSpacing?: number
-  paragraphSpacing?: number
-  basicInfo: BasicInfo
-  workExperience: WorkItem[]
-  education: EducationItem[]
-  projects: ProjectItem[]
-  skills: SkillItem[]
-  selfEvaluation: string
-  customTexts: CustomTextSection[]
-  customCards: CustomCardSection[]
-  sectionOrder: string[]
-  sectionTitles: Record<string, string>  // 自定义模块标题
-  hiddenSections: string[]  // 已隐藏/删除的模块
-  lastEvaluation?: EvaluationResult
-  lastJdScan?: JdScanResult
-  lastInterview?: InterviewResult
-  createdAt: string
-  updatedAt: string
+// 核心字段从 ResumeSchema 派生；回收站运行时状态（deletedItems/deletedSections/deletedAt）
+// schema 仅 z.unknown() 占位放行，类型在此手写覆盖
+export type Resume = Omit<
+  z.infer<typeof ResumeSchema>,
+  'deletedItems' | 'deletedSections' | 'deletedAt'
+> & {
   // 回收站与暂存
   deletedItems?: DeletedItems
   deletedSections?: DeletedSections

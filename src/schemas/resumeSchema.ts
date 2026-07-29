@@ -1,6 +1,6 @@
 /**
  * Resume Zod Schema — 用于 JSON 导入时的严格校验
- * 镜像 src/types/resume.ts 的类型定义
+ * 单一来源：resume.ts 的类型从此 schema 的 z.infer 派生，消除双重维护
  */
 import { z } from 'zod'
 import { FIELD_LABELS } from '@/constants/fieldLabels'
@@ -13,16 +13,24 @@ function formatPath(path: Array<string | number>): string {
   }).join(' - ')
 }
 
+// ========== 字面量类型 Schema（独立导出，供 TS 类型派生） ==========
+
+export const PhotoShapeSchema = z.enum(['circle', 'rectangle'])
+export const HeaderLayoutSchema = z.enum(['centered', 'photo-left', 'photo-right'])
+export const HeaderTextColorSchema = z.enum(['black', 'white', 'accent'])
+export const HeaderIconColorSchema = z.enum(['black', 'white', 'accent'])
+export const FieldDisplayModeSchema = z.enum(['iconLabelValue', 'labelValue', 'iconValue'])
+
 // ========== 基础 Schema ==========
 
-const CustomFieldSchema = z.object({
+export const CustomFieldSchema = z.object({
   id: z.string(),
   label: z.string(),
   value: z.string(),
   hidden: z.boolean(),
-}).passthrough()
+})
 
-const BasicInfoSchema = z.object({
+export const BasicInfoSchema = z.object({
   name: z.string(),
   title: z.string(),
   photo: z.string(),
@@ -42,13 +50,13 @@ const BasicInfoSchema = z.object({
   hiddenFields: z.record(z.string(), z.boolean()),
   customFields: z.array(CustomFieldSchema),
   fieldOrder: z.array(z.string()),
-  fieldDisplayMode: z.record(z.string(), z.string()),
-  photoShape: z.enum(['circle', 'rectangle']).optional(),
+  fieldDisplayMode: z.record(z.string(), FieldDisplayModeSchema),
+  photoShape: PhotoShapeSchema.optional(),
   photoOriginal: z.string().optional(),
-  headerLayout: z.enum(['centered', 'photo-left', 'photo-right']).optional(),
-}).passthrough()
+  headerLayout: HeaderLayoutSchema.optional(),
+})
 
-const WorkItemSchema = z.object({
+export const WorkItemSchema = z.object({
   id: z.string(),
   company: z.string(),
   position: z.string(),
@@ -57,9 +65,9 @@ const WorkItemSchema = z.object({
   description: z.string(),
   highlights: z.array(z.string()).optional(),
   hidden: z.boolean().optional(),
-}).passthrough()
+})
 
-const EducationItemSchema = z.object({
+export const EducationItemSchema = z.object({
   id: z.string(),
   school: z.string(),
   degree: z.string(),
@@ -68,9 +76,9 @@ const EducationItemSchema = z.object({
   endDate: z.string(),
   description: z.string(),
   hidden: z.boolean().optional(),
-}).passthrough()
+})
 
-const ProjectItemSchema = z.object({
+export const ProjectItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: z.string(),
@@ -80,19 +88,19 @@ const ProjectItemSchema = z.object({
   technologies: z.array(z.string()),
   highlights: z.array(z.string()).optional(),
   hidden: z.boolean().optional(),
-}).passthrough()
+})
 
-const SkillItemSchema = z.object({
+export const SkillItemSchema = z.object({
   id: z.string(),
   content: z.string(),
-}).passthrough()
+})
 
-const CustomTextSectionSchema = z.object({
+export const CustomTextSectionSchema = z.object({
   id: z.string(),
   content: z.string(),
-}).passthrough()
+})
 
-const CustomCardItemSchema = z.object({
+export const CustomCardItemSchema = z.object({
   id: z.string(),
   name: z.string(),
   role: z.string(),
@@ -101,43 +109,43 @@ const CustomCardItemSchema = z.object({
   description: z.string(),
   keywords: z.array(z.string()),
   hidden: z.boolean().optional(),
-}).passthrough()
+})
 
-const CustomCardSectionSchema = z.object({
+export const CustomCardSectionSchema = z.object({
   id: z.string(),
   items: z.array(CustomCardItemSchema),
-}).passthrough()
+})
 
-const EvaluationResultSchema = z.object({
+export const EvaluationResultSchema = z.object({
   score: z.number().nullable(),
   text: z.string(),
   evaluatedAt: z.string(),
-}).passthrough()
+})
 
-const JdScanResultSchema = z.object({
+export const JdScanResultSchema = z.object({
   score: z.number().nullable(),
   text: z.string(),
   jdText: z.string(),
   scannedAt: z.string(),
-}).passthrough()
+})
 
-const InterviewResultSchema = z.object({
+export const InterviewResultSchema = z.object({
   text: z.string(),
   jdText: z.string(),
   preparedAt: z.string(),
-}).passthrough()
+})
 
 // ========== 完整 Resume Schema ==========
 
-const ResumeSchema = z.object({
+export const ResumeSchema = z.object({
   id: z.string(),
   title: z.string(),
   templateId: z.string(),
   themeAccentColor: z.string().optional(),
   whiteHeaderText: z.boolean().optional(),
   iconFollowAccent: z.boolean().optional(),
-  headerTextColor: z.enum(['black', 'white', 'accent']).optional(),
-  headerIconColor: z.enum(['black', 'white', 'accent']).optional(),
+  headerTextColor: HeaderTextColorSchema.optional(),
+  headerIconColor: HeaderIconColorSchema.optional(),
   fontFamily: z.string().optional(),
   lineHeight: z.number().optional(),
   bodyFontSize: z.number().optional(),
@@ -162,7 +170,11 @@ const ResumeSchema = z.object({
   lastInterview: InterviewResultSchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
-}).passthrough()
+  // 回收站运行时状态：导入校验时仅占位放行，类型由 resume.ts 手写 interface 维护
+  deletedItems: z.unknown().optional(),
+  deletedSections: z.unknown().optional(),
+  deletedAt: z.string().optional(),
+})
 
 // ========== 校验结果类型 ==========
 
@@ -234,7 +246,8 @@ function translateIssue(issue: z.ZodIssue): ValidationError {
 
 /**
  * 校验 JSON 字符串是否符合 Resume 类型
- * 使用 passthrough 模式，允许额外字段（前向兼容）
+ * ponytail: 默认 strip 模式，未知字段被丢弃（而非 passthrough 静默放行），
+ * 避免掩盖 TS 类型新增字段未同步到 schema 的情况
  */
 export function validateResumeJSON(json: string): ValidationResult {
   let parsed: unknown
