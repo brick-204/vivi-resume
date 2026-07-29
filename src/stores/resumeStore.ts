@@ -21,7 +21,10 @@ import {
   isArraySection,
   getArraySectionConfig,
   getTextSectionConfig,
+  ARRAY_SECTION_CONFIG,
+  getDeletedCardKey,
 } from '@/utils/trashConfig'
+import type { DeletedCardKey } from '@/utils/trashConfig'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
@@ -690,55 +693,66 @@ export const useResumeStore = defineStore('resume', () => {
     updateCurrentResume({ deletedItems })
   }
 
+  /**
+   * 从 deletedItems 移除指定 itemId 的条目并写回。
+   * ponytail: DeletedItems 各分支是异构数组（DeletedItem<WorkItem>[] 等），
+   * 动态 key 写回时 TS 要求联合交集，故在此统一断言一次，调用方零 as any。
+   */
+  const removeFromDeletedCards = (
+    deletedItems: DeletedItems,
+    key: DeletedCardKey,
+    itemId: string
+  ): { removed: boolean; data?: unknown } => {
+    // ponytail: DeletedItems 各分支是异构数组（DeletedItem<WorkItem>[] 等），
+    // 动态 key 访问/写回时 TS 要求联合交集，故按 Record 统一处理，断言收敛于此
+    const map = deletedItems as unknown as Record<string, { data: { id: string }; deletedAt: string }[]>
+    const items = map[key]
+    if (!items) return { removed: false }
+    const index = items.findIndex(d => d.data.id === itemId)
+    if (index === -1) return { removed: false }
+    const data = items[index].data
+    const next = [...items]
+    next.splice(index, 1)
+    if (next.length === 0) delete map[key]
+    else map[key] = next
+    return { removed: true, data }
+  }
+
   /** 从 deletedItems 恢复 card，返回 'ok' | 'duplicate' | 'notfound' | 'section_deleted' */
   const restoreCard = (sectionId: string, itemId: string): 'ok' | 'duplicate' | 'notfound' | 'section_deleted' => {
     if (!currentResume.value) return 'notfound'
 
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
-    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
-    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
-    const items = deletedItems[key]
-    if (!items) return 'notfound'
-
-    const index = items.findIndex((d: any) => d.data.id === itemId)
-    if (index === -1) return 'notfound'
-
-    const item = items[index]
+    const key = getDeletedCardKey(sectionId)
+    const removed = removeFromDeletedCards(deletedItems, key, itemId)
+    if (!removed.removed) return 'notfound'
+    const itemData = removed.data
 
     // 检查目标 section 是否存在
     if (sectionId === 'customCard') {
-      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (item.data as any).sectionId)
+      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (itemData as CustomCardItem & { sectionId: string }).sectionId)
       if (sectionIdx === -1) return 'section_deleted'
     } else if (!currentResume.value.sectionOrder.includes(sectionId)) {
       return 'section_deleted'
     }
 
     // 检查重复
-    const targetArr = isFixed
-      ? (currentResume.value as any)[sectionId === 'work' ? 'workExperience' : sectionId === 'education' ? 'education' : sectionId === 'projects' ? 'projects' : 'skills']
-      : null
-    if (targetArr && targetArr.some((c: any) => c.id === itemId)) return 'duplicate'
-
-    // 移除 deletedItems
-    const newItems = [...items]
-    newItems.splice(index, 1)
-    if (newItems.length === 0) delete deletedItems[key]
-    else (deletedItems as any)[key] = newItems
+    if (isArraySection(sectionId)) {
+      const resumeKey = ARRAY_SECTION_CONFIG[sectionId].resumeKey
+      const targetArr = currentResume.value[resumeKey] as { id: string }[]
+      if (targetArr.some(c => c.id === itemId)) return 'duplicate'
+    }
 
     // 恢复到对应数组
-    if (sectionId === 'work') {
-      updateCurrentResume({ workExperience: [...currentResume.value.workExperience, item.data as WorkItem], deletedItems })
-    } else if (sectionId === 'education') {
-      updateCurrentResume({ education: [...currentResume.value.education, item.data as EducationItem], deletedItems })
-    } else if (sectionId === 'projects') {
-      updateCurrentResume({ projects: [...currentResume.value.projects, item.data as ProjectItem], deletedItems })
-    } else if (sectionId === 'skills') {
-      updateCurrentResume({ skills: [...currentResume.value.skills, item.data as SkillItem], deletedItems })
+    if (isArraySection(sectionId)) {
+      const resumeKey = ARRAY_SECTION_CONFIG[sectionId].resumeKey
+      const existing = currentResume.value[resumeKey] as { id: string }[]
+      updateCurrentResume({ [resumeKey]: [...existing, itemData], deletedItems } as Partial<Resume>)
     } else if (sectionId === 'customCard') {
-      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (item.data as any).sectionId)
+      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (itemData as CustomCardItem & { sectionId: string }).sectionId)
       if (sectionIdx !== -1) {
         const customCards = [...currentResume.value.customCards]
-        customCards[sectionIdx] = { ...customCards[sectionIdx], items: [...customCards[sectionIdx].items, item.data as CustomCardItem] }
+        customCards[sectionIdx] = { ...customCards[sectionIdx], items: [...customCards[sectionIdx].items, itemData as CustomCardItem] }
         updateCurrentResume({ customCards, deletedItems })
       }
     }
@@ -751,42 +765,23 @@ export const useResumeStore = defineStore('resume', () => {
     if (!currentResume.value) return
 
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
-    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
-    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
-    const items = deletedItems[key]
-    if (!items) return
+    const key = getDeletedCardKey(sectionId)
+    const removed = removeFromDeletedCards(deletedItems, key, itemId)
+    if (!removed.removed) return
+    const itemData = removed.data
 
-    const index = items.findIndex((d: any) => d.data.id === itemId)
-    if (index === -1) return
-
-    const item = items[index]
-
-    // 移除 deletedItems
-    const newItems = [...items]
-    newItems.splice(index, 1)
-    if (newItems.length === 0) delete deletedItems[key]
-    else (deletedItems as any)[key] = newItems
-
-    // ponytail: 用 RESUME_KEY_MAP 消除重复
-    const RESUME_KEY_MAP: Record<string, keyof Resume> = {
-      work: 'workExperience',
-      education: 'education',
-      projects: 'projects',
-      skills: 'skills',
-    }
-
-    if (sectionId in RESUME_KEY_MAP) {
-      const resumeKey = RESUME_KEY_MAP[sectionId]
-      const existing = currentResume.value[resumeKey] as any[]
-      const newData = merge ? [...existing, item.data] : existing.map(c => c.id === itemId ? item.data : c)
-      updateCurrentResume({ [resumeKey]: newData, deletedItems })
+    if (isArraySection(sectionId)) {
+      const resumeKey = ARRAY_SECTION_CONFIG[sectionId].resumeKey
+      const existing = currentResume.value[resumeKey] as { id: string }[]
+      const newData = merge ? [...existing, itemData] : existing.map(c => c.id === itemId ? itemData : c)
+      updateCurrentResume({ [resumeKey]: newData, deletedItems } as Partial<Resume>)
     } else if (sectionId === 'customCard') {
-      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (item.data as any).sectionId)
+      const sectionIdx = currentResume.value.customCards.findIndex(c => c.id === (itemData as CustomCardItem & { sectionId: string }).sectionId)
       if (sectionIdx !== -1) {
         const customCards = [...currentResume.value.customCards]
         const targetItems = customCards[sectionIdx].items
-        const newItems = merge ? [...targetItems, item.data as CustomCardItem] : targetItems.map(c => c.id === itemId ? (item.data as CustomCardItem) : c)
-        customCards[sectionIdx] = { ...customCards[sectionIdx], items: newItems }
+        const restored = merge ? [...targetItems, itemData as CustomCardItem] : targetItems.map(c => c.id === itemId ? (itemData as CustomCardItem) : c)
+        customCards[sectionIdx] = { ...customCards[sectionIdx], items: restored }
         updateCurrentResume({ customCards, deletedItems })
       }
     }
@@ -797,37 +792,19 @@ export const useResumeStore = defineStore('resume', () => {
     if (!currentResume.value) return
 
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
-    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
-    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
-    const items = deletedItems[key]
-    if (!items) return
+    const key = getDeletedCardKey(sectionId)
+    const removed = removeFromDeletedCards(deletedItems, key, itemId)
+    if (!removed.removed) return
+    const itemData = removed.data
 
-    const index = items.findIndex((d: any) => d.data.id === itemId)
-    if (index === -1) return
-
-    const item = items[index]
-
-    // 移除 deletedItems
-    const newItems = [...items]
-    newItems.splice(index, 1)
-    if (newItems.length === 0) delete deletedItems[key]
-    else (deletedItems as any)[key] = newItems
-
-    const RESUME_KEY_MAP: Record<string, keyof Resume> = {
-      work: 'workExperience',
-      education: 'education',
-      projects: 'projects',
-      skills: 'skills',
-    }
-
-    if (sectionId in RESUME_KEY_MAP) {
+    if (isArraySection(sectionId)) {
       addSection(sectionId)
-      const resumeKey = RESUME_KEY_MAP[sectionId]
-      const newData = [...(currentResume.value[resumeKey] as any[]), item.data]
-      updateCurrentResume({ [resumeKey]: newData, deletedItems })
+      const resumeKey = ARRAY_SECTION_CONFIG[sectionId].resumeKey
+      const existing = currentResume.value[resumeKey] as { id: string }[]
+      updateCurrentResume({ [resumeKey]: [...existing, itemData], deletedItems } as Partial<Resume>)
     } else if (sectionId === 'customCard') {
       const customCards = [...currentResume.value.customCards]
-      customCards.push({ id: generateId(), items: [item.data as CustomCardItem] })
+      customCards.push({ id: generateId(), items: [itemData as CustomCardItem] })
       const newSectionId = generateCustomSectionId('customCard', customCards.length - 1)
       updateCurrentResume({ customCards, sectionOrder: [...currentResume.value.sectionOrder, newSectionId], deletedItems })
     }
@@ -838,18 +815,8 @@ export const useResumeStore = defineStore('resume', () => {
     if (!currentResume.value) return
 
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
-    const isFixed = ['work', 'education', 'projects', 'skills'].includes(sectionId)
-    const key = isFixed ? sectionId as keyof DeletedItems : 'customCards'
-    const items = deletedItems[key]
-    if (!items) return
-
-    const index = items.findIndex((d: any) => d.data.id === itemId)
-    if (index === -1) return
-
-    const newItems = [...items]
-    newItems.splice(index, 1)
-    if (newItems.length === 0) delete deletedItems[key]
-    else (deletedItems as any)[key] = newItems
+    const key = getDeletedCardKey(sectionId)
+    removeFromDeletedCards(deletedItems, key, itemId)
 
     updateCurrentResume({ deletedItems })
   }
@@ -861,7 +828,7 @@ export const useResumeStore = defineStore('resume', () => {
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
 
     if (sectionId) {
-      const key = ['work', 'education', 'projects', 'skills'].includes(sectionId as any) ? sectionId as keyof DeletedItems : 'customCards'
+      const key = getDeletedCardKey(sectionId)
       delete deletedItems[key]
     } else {
       // 清空所有
@@ -1148,30 +1115,29 @@ export const useResumeStore = defineStore('resume', () => {
     const deletedItems: DeletedItems = currentResume.value.deletedItems ? { ...currentResume.value.deletedItems } : {}
     const deletedSections: DeletedSections = currentResume.value.deletedSections ? { ...currentResume.value.deletedSections } : {}
 
-    // 清理过期 card（ponytail: 用 any 绕过 union array 类型问题）
-    for (const key of Object.keys(deletedItems) as (keyof DeletedItems)[]) {
-      const items = deletedItems[key] as any[] | undefined
+    // 清理过期 card（ponytail: DeletedItems 各分支是异构数组，统一按 Record 清理）
+    const itemsMap = deletedItems as Record<string, { data: unknown; deletedAt: string }[]>
+    for (const key of Object.keys(itemsMap)) {
+      const items = itemsMap[key]
       if (!items) continue
       const valid = items.filter(item => new Date(item.deletedAt).getTime() > cutoff)
       if (valid.length !== items.length) {
         needsUpdate = true
-        if (valid.length === 0) {
-          delete deletedItems[key]
-        } else {
-          (deletedItems as any)[key] = valid
-        }
+        if (valid.length === 0) delete itemsMap[key]
+        else itemsMap[key] = valid
       }
     }
 
-    // 清理过期 section（ponytail: customTexts/customCards 是 Record，需要特殊处理）
-    for (const key of Object.keys(deletedSections) as (keyof DeletedSections)[]) {
-      const section = deletedSections[key]
+    // 清理过期 section
+    // ponytail: 固有 section 是 { data, deletedAt, sectionTitle }，按 deletedAt 整体清理；
+    // customTexts/customCards 是 Record<id, {...}>，无顶层 deletedAt，原逻辑不自动清理（保留原行为）
+    for (const key of Object.keys(deletedSections)) {
+      const section = deletedSections[key as keyof DeletedSections]
       if (!section) continue
-      // customTexts/customCards 是 Record，不能直接用 section.deletedAt
-      const deletedAt = (section as any).deletedAt
+      const deletedAt = (section as { deletedAt?: string }).deletedAt
       if (deletedAt && new Date(deletedAt).getTime() <= cutoff) {
         needsUpdate = true
-        delete deletedSections[key]
+        delete deletedSections[key as keyof DeletedSections]
       }
     }
 

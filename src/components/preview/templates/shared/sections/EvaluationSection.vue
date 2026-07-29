@@ -1,5 +1,5 @@
 <template>
-  <section class="resume__section" data-section="evaluation" @click="emit('click-section', 'evaluation')">
+  <section class="resume__section" data-export-cv data-section="evaluation" @click="emit('click-section', 'evaluation')">
     <h2 class="section__title">
       <span class="section__icon section__icon--eval"></span>
       {{ ctx.getSectionTitle(ctx.resume, 'evaluation') }}

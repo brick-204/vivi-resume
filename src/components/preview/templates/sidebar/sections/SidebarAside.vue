@@ -48,14 +48,14 @@
     </template>
 
     <TransitionGroup v-if="ctx.orderedAllFields.value.length" name="field-reorder" tag="div" class="sidebar__fields">
-      <div v-for="field in ctx.orderedAllFields.value" :key="field.key" :data-flip-id="`field-${field.key}`" class="sidebar__field">
+      <div v-for="field in ctx.orderedAllFields.value" :key="field.key" :data-flip-id="`field-${field.key}`" class="sidebar__field" data-export-flex-child>
         <span class="sidebar__field-prefix">
           <span v-if="field.showIcon" class="sidebar__field-icon">
             <Icon :icon="field.icon" />
           </span>
           <span v-if="field.showLabel" class="sidebar__field-label">{{ field.label }}</span>
         </span>
-        <span class="sidebar__field-value">{{ field.value }}</span>
+        <span class="sidebar__field-value" data-export-flex-child>{{ field.value }}</span>
       </div>
     </TransitionGroup>
 

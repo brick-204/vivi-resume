@@ -1,5 +1,5 @@
 <template>
-  <section class="resume__section" :data-section="sectionId" @click="emit('click-section', sectionId)">
+  <section class="resume__section" data-export-cv :data-section="sectionId" @click="emit('click-section', sectionId)">
     <ProfessionalSectionHeader :title="ctx.getSectionTitle(ctx.resume, sectionId)" />
     <div v-if="ctx.getCustomTextContent.value(sectionId)" class="section__text" v-html="ctx.renderHtml(ctx.getCustomTextContent.value(sectionId))"></div>
   </section>

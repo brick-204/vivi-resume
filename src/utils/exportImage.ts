@@ -11,9 +11,14 @@ import { formatTimestamp } from '@/utils/timestamp'
 
 /** 浏览器 Canvas 单边最大像素限制 */
 const MAX_CANVAS_DIMENSION = 16384
+/** Canvas 总像素安全上限（保守取值，避开各浏览器 ~256M 上限留余量） */
+const MAX_CANVAS_PIXELS = 67_000_000
 
-/** 需要 content-visibility 覆盖的选择器 */
-const CV_SELECTORS = '.resume__section, .entry, .sidebar__section, .main__entry'
+/**
+ * 需要 content-visibility 覆盖的选择器
+ * ponytail: data 属性优先（模板显式标记），类名兜底保证旧元素仍被处理
+ */
+const CV_SELECTORS = '[data-export-cv], .resume__section, .entry, .sidebar__section, .main__entry'
 
 /**
  * 需要移除内联 width 的选择器
@@ -23,6 +28,7 @@ const CV_SELECTORS = '.resume__section, .entry, .sidebar__section, .main__entry'
  * 文本换行/溢出。移除这些元素的内联 width 后，flex 布局可自然伸缩。
  */
 const FLEX_CHILD_SELECTORS = [
+  '[data-export-flex-child]',
   // entry header（flex 容器 + 子元素）
   '.entry__header',
   '.entry__info',
@@ -49,14 +55,14 @@ const FLEX_CHILD_SELECTORS = [
  * 日期和标签文本在 SVG foreignObject 中容易被内联宽度挤压而换行，
  * 强制 white-space: nowrap 确保它们保持单行显示。
  */
-const NO_WRAP_SELECTORS = '.entry__date, .main__entry-date, .tech-tag, .main__tech-tag'
+const NO_WRAP_SELECTORS = '[data-export-nowrap], .entry__date, .main__entry-date, .tech-tag, .main__tech-tag'
 
 /**
  * 需要禁止 flex 收缩的选择器
  *
  * 日期元素在 flex 容器中不应被压缩，否则文字仍可能换行。
  */
-const NO_SHRINK_SELECTORS = '.entry__date, .main__entry-date'
+const NO_SHRINK_SELECTORS = '[data-export-no-shrink], .entry__date, .main__entry-date'
 
 /**
  * 需要 min-width: 0 的选择器
@@ -65,7 +71,7 @@ const NO_SHRINK_SELECTORS = '.entry__date, .main__entry-date'
  * 这会导致右侧日期元素空间不足。设置 min-width: 0 允许 info 区域缩小，
  * 为日期腾出空间。
  */
-const MIN_WIDTH_ZERO_SELECTORS = '.entry__info, .main__entry-info'
+const MIN_WIDTH_ZERO_SELECTORS = '[data-export-min-width-0], .entry__info, .main__entry-info'
 
 /**
  * 将 DOM 元素导出为 PNG 图片并触发下载
@@ -172,12 +178,18 @@ export async function exportAsImage(
 
 /**
  * 根据元素尺寸计算合适的 scale
- * 2x 用于高清输出；若超过 Canvas 最大尺寸则降为 1x
+ * 2x 用于高清输出；超过 Canvas 单边或总像素上限则降为 1x，仍超则进一步降级
  */
 function calculateScale(element: HTMLElement): number {
   const { scrollWidth, scrollHeight } = element
-  if (scrollWidth * 2 > MAX_CANVAS_DIMENSION || scrollHeight * 2 > MAX_CANVAS_DIMENSION) {
-    return 1
-  }
-  return 2
+  // ponytail: 总像素 = 宽*高*scale²，长简历单边不超限但总面积可能触顶
+  const fitsAt = (s: number): boolean =>
+    scrollWidth * s <= MAX_CANVAS_DIMENSION &&
+    scrollHeight * s <= MAX_CANVAS_DIMENSION &&
+    scrollWidth * scrollHeight * s * s <= MAX_CANVAS_PIXELS
+  if (fitsAt(2)) return 2
+  if (fitsAt(1)) return 1
+  // 超大内容：按总像素预算反推最大 scale，避免 canvas 崩溃
+  const maxByPixels = Math.sqrt(MAX_CANVAS_PIXELS / (scrollWidth * scrollHeight))
+  return Math.min(1, maxByPixels)
 }
