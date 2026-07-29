@@ -39,12 +39,13 @@
 - **一键优化** - AI 对整份简历所有模块进行系统性润色优化
 - **面试准备** - 根据简历 + JD 生成行为面试题、技术面试题和复习要点
 - **AI 智能导入** - 上传 PDF/Word/Markdown 文件，AI 解析为结构化 JSON，Zod Schema 校验，字段视图/JSON Diff 双视图预览
+- **AI 智能咨询** - 右下角悬浮聊天抽屉，多轮对话记忆 + 历史会话管理（VS Code 风格标签 + 下拉历史，软删除可恢复，上限 10 条），支持注入简历上下文、上传文件/图片（图片走多模态 image_url、文本文件提取内容注入），未配置 AI 时引导跳转设置
 - **评分徽章** - 三档评分色标（≥80 优秀/≥60 良好/<60 待改进），简历卡片与评估弹窗复用
 - **Token 用量追踪** - 实时显示累计输入/输出 token 用量，防抖持久化
 
 ### Dashboard
 
-- **两列布局** - 侧边导航 + 内容区，移动端自动折叠为抽屉
+- **两列布局** - 侧边导航 + 内容区，平板及以下自动折叠为抽屉
 - **首页展示** - Hero 主视觉 + 模板轮播、AI 功能演示、特性网格、行动号召
 - **模板市场** - 用户数据实时预览，每个模板展示自身主题色；无简历时默认展示
 - **AI 设置面板** - 多服务商配置管理，Token 用量置顶高亮
@@ -107,6 +108,7 @@ src/
 │   │   ├── AIConfigCard.vue        # AI 配置卡片
 │   │   ├── AIConfigModal.vue       # AI 配置弹窗
 │   │   ├── AIResultPreview.vue     # AI 生成结果预览（7 种操作 + 上下文预填）
+│   │   ├── ConsultDrawer.vue       # AI 智能咨询抽屉（多轮对话 + 历史会话 + 文件/图片附件）
 │   │   ├── JDScanModal.vue         # JD 扫描模态框
 │   │   ├── FullResumeOptimizeModal.vue # 一键优化模态框
 │   │   ├── InterviewPrepModal.vue  # 面试准备模态框
@@ -129,18 +131,22 @@ src/
 │   ├── fonts.ts           # 字体选项 + 字号派生逻辑
 │   └── sampleData.ts      # 示例简历数据
 ├── services/
-│   ├── aiService.ts       # AI SSE 流式调用 + 自动续写 + 缓冲区限制
+│   ├── aiService.ts       # AI SSE 流式调用 + 自动续写 + 缓冲区限制（ChatMessage 支持多模态 content）
 │   ├── aiPrompts.ts       # AI 操作 Prompt 模板（润色/简化/扩展/总结/帮写/翻译/定制 + JD扫描/一键优化/面试准备）
+│   ├── consultPrompts.ts  # AI 咨询 Prompt（系统提示 + 简历上下文模板 + 历史压缩摘要）
+│   ├── consultTokens.ts   # 咨询历史压缩辅助（token 估算 + 阈值判断 + 分段划分 + 格式化）
 │   ├── aiResumeImporter.ts # AI 智能导入（JSON 提取/修复/部分恢复、Zod 校验、HTML 归一化）
 │   └── resumeSerializer.ts # 简历序列化（Resume → 结构化纯文本，供 AI 使用）
 ├── stores/
 │   ├── resumeStore.ts     # Pinia 状态管理（shallowRef + dirty flag + 评估结果持久化）
 │   ├── aiConfigStore.ts   # AI 服务配置 + Token 用量追踪（防抖持久化）
+│   ├── consultStore.ts     # AI 咨询会话管理（多轮记忆 + 历史压缩 + 软删除 + 附件）
 │   ├── editorLayoutStore.ts # 编辑器布局状态 + localStorage 持久化
 │   └── settingsStore.ts   # 全局设置（目录模式、存储后端切换）
 ├── types/
 │   ├── resume.ts          # TypeScript 类型 + 默认常量（含 EvaluationResult）
-│   └── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口 + 全局级操作类型）
+│   ├── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口 + 全局级操作类型）
+│   └── consult.ts         # AI 咨询会话类型（ConsultSession/ConsultMessage/ConsultAttachment）
 ├── utils/
 │   ├── storage.ts         # IndexedDB 适配器（含 localStorage 迁移、Blob 照片存储、toPlain）
 │   ├── storageAdapter.ts  # 存储适配层（IndexedDB / 目录模式切换，复用 idb.toPlain）
@@ -279,6 +285,16 @@ pnpm preview
 - **数据校验** - 使用 Zod Schema 校验解析结果，自动修复常见格式问题
 - **预览确认** - 提供字段视图和 JSON Diff 双视图预览，可逐项检查确认后应用
 
+#### AI 智能咨询
+
+页面右下角的悬浮按钮打开 AI 咨询抽屉，可与 AI 进行多轮自由对话（不限于简历内容）：
+
+- **多轮对话** - 完整保留历史上下文，支持流式回复；历史超阈值自动压缩为摘要，避免超出上下文窗口
+- **历史会话** - VS Code 风格横向标签 + 顶部历史图标下拉列表（含标题/相对时间），最多保留 10 条；点 × 关闭有对话的会话可从历史列表恢复，空会话直接删除
+- **简历上下文** - 点「选择简历」勾选简历，随下一条提问一起注入，让 AI 针对简历内容作答
+- **文件/图片附件** - 标签栏左侧「+」上传图片（走多模态 image_url 原样传服务商）或文本文件（txt/md/docx/pdf 等，提取纯文本注入消息）
+- **配置引导** - 未激活任何 AI 服务商时，抽屉内显示提示并一键跳转 AI 设置面板
+
 #### 简历评估
 
 点击编辑器顶部「AI 评估」按钮，对整份简历进行全面分析：
@@ -409,6 +425,24 @@ Resume 数据 (resumeStore)
 - **评估持久化**：结果存储在 `Resume.lastEvaluation`（IndexedDB 自动兼容新字段），使用 `saveToStorageNow()` 立即写入
 - **Token 用量**：`aiConfigStore.totalTokens` 累加输入/输出/总计，5 秒防抖写入 IndexedDB `meta` store
 - **评分工具**：`evaluationScore.ts` 提供三档色值（绿/黄/红）和等级文案（优秀/良好/待改进），评估弹窗与简历卡片复用
+
+### AI 智能咨询架构
+
+咨询是独立路径，**绕过 `buildMessages`**，直接构造完整 messages 数组调用 `streamChat`：
+
+```
+用户提问（可选附带简历上下文 + 文件/图片附件）
+  → consultStore.sendMessage（构造 system + 历史 + 当轮 messages）
+    → consultPrompts（系统提示 + 简历上下文模板 + 历史压缩摘要）
+    → aiService.streamChat（SSE 流式 + 自动续写）
+      → 流式 Markdown 回写抽屉对话区
+```
+
+- **会话持久化**：`consultStore` 管理 `sessions`（shallowRef，IndexedDB `consultSessions` store，上限 10 条），assistant 消息立即落盘（不走防抖，防刷新丢失）；`commitSession` 生成新数组引用触发响应式
+- **软删除**：`ConsultSession.closed` 标记已从标签栏关闭但保留在历史列表，可点击恢复；空会话（无对话）关闭时真删除
+- **历史压缩**：`consultTokens.ts` 估算 token（多模态 content 按文本长度估算），超阈值调一次非流式 `streamChat` 把旧段压缩为 `history-summary` 摘要注入前置消息，原始消息归档备份
+- **多模态**：`ChatMessage.content` 为 `string | ContentPart[]`，带图片附件的 user 消息以 `[{type:'text'}, {type:'image_url'}]` 数组发送；文本文件提取纯文本注入消息文本；压缩格式化时图片占位为 `[图片]`
+- **配置引导**：未激活 AI 服务商时 `ConsultDrawer` 显示提示并跳转 `/dashboard?tab=ai`
 
 ## License
 
