@@ -43,7 +43,7 @@
     <!-- 隐私提示 -->
     <div v-if="!isStreaming" class="eval-privacy-notice">
       <Icon icon="mdi:shield-check-outline" :width="14" />
-      <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，不会发送给 AI，仅用于评估简历结构与内容质量</span>
+      <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，您隐藏的模块和字段也不会发送给 AI，仅用于评估简历结构与内容质量</span>
     </div>
 
     <!-- 总分展示 -->

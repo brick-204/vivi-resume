@@ -74,7 +74,13 @@
       <!-- 头像（始终在顶部，不参与拖拽） -->
       <div v-if="isFieldInOrder('photo')" class="field-row">
         <div class="field-row__label">
-          <span>头像</span>
+          <span class="field-row__label-text">
+            <span>头像</span>
+            <span class="ai-privacy-badge ai-privacy-badge--excluded" title="该字段不会发送给 AI 服务">
+              <Icon icon="mdi:shield-lock-outline" :width="12" :height="12" />
+              AI 隐私保护
+            </span>
+          </span>
           <div class="field-row__actions">
             <button class="field-toggle" :aria-label="basicInfo.hiddenFields?.photo ? '显示' : '隐藏'" @click="toggleFieldVisibility('photo')">
               <Icon :icon="basicInfo.hiddenFields?.photo ? EYE_OFF_ICON : EYE_ICON" :width="16" :height="16" />
@@ -112,7 +118,13 @@
         <div v-for="fieldKey in fixedFields" :key="fieldKey" class="field-item field-item--fixed">
           <div class="field-item__content">
             <div class="field-row__label">
-              <span>{{ getFieldLabel(fieldKey) }}</span>
+              <span class="field-row__label-text">
+                <span>{{ getFieldLabel(fieldKey) }}</span>
+                <span v-if="isAIProtectedField(fieldKey)" class="ai-privacy-badge" title="该字段发送给 AI 时会自动替换为占位符，不暴露真实值">
+                  <Icon icon="mdi:shield-check-outline" :width="12" :height="12" />
+                  AI 隐私保护
+                </span>
+              </span>
               <div class="field-row__actions">
                 <button class="field-toggle" :aria-label="isFieldHidden(fieldKey) ? '显示' : '隐藏'" @click="toggleFieldVisibility(fieldKey)">
                   <Icon :icon="isFieldHidden(fieldKey) ? EYE_OFF_ICON : EYE_ICON" :width="16" :height="16" />
@@ -153,7 +165,13 @@
             <div class="field-item__content">
               <div class="field-row__label">
                 <span v-if="isCustomField(element.key)" class="custom-field__label-text" contenteditable role="textbox" aria-label="字段标签" @keydown.enter.prevent @blur="onCustomLabelBlur(element.key, $event)">{{ getFieldLabel(element.key) }}</span>
-                <span v-else>{{ getFieldLabel(element.key) }}</span>
+                <span v-else class="field-row__label-text">
+                  <span>{{ getFieldLabel(element.key) }}</span>
+                  <span v-if="isAIProtectedField(element.key)" class="ai-privacy-badge" title="该字段发送给 AI 时会自动替换为占位符，不暴露真实值">
+                    <Icon icon="mdi:shield-check-outline" :width="12" :height="12" />
+                    AI 隐私保护
+                  </span>
+                </span>
                 <div class="field-row__actions">
                   <button class="field-display-mode" :title="getDisplayModeTitle(element.key)" @click="cycleDisplayMode(element.key)">
                     <Icon :icon="getDisplayModeIcon(element.key)" :width="16" :height="16" />
@@ -494,6 +512,13 @@ const cycleDisplayMode = (key: string) => {
 // 自定义字段辅助
 const isCustomField = (key: string): boolean => key.startsWith('custom_')
 
+// AI 隐私保护字段：发送给 AI 时会脱敏为占位符的字段
+// 与 resumeSerializer.ts 的 serializeBasicInfo 脱敏清单保持一致
+const AI_PROTECTED_FIELD_KEYS = new Set([
+  'name', 'email', 'phone', 'gender', 'birthday', 'age', 'wechat', 'qq', 'salaryRange',
+])
+const isAIProtectedField = (key: string): boolean => !isCustomField(key) && AI_PROTECTED_FIELD_KEYS.has(key)
+
 const getCustomId = (key: string): string => key.replace('custom_', '')
 
 const getCustomField = (key: string): CustomField | undefined => {
@@ -707,10 +732,40 @@ const removeCustomField = (id: string) => {
     color: $text-primary;
   }
 
+  &__label-text {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    min-width: 0;
+  }
+
   &__actions {
     display: flex;
     align-items: center;
     gap: 2px;
+  }
+}
+
+// AI 隐私保护徽章（标记发送给 AI 时会脱敏的字段）
+.ai-privacy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 5px;
+  border-radius: $radius-sm;
+  background: rgba($success-color, 0.12);
+  border: 1px solid rgba($success-color, 0.3);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: $success-color;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  // 头像等"完全不发送给 AI"的字段：比脱敏字段更深的底色，区分"隔离"语义
+  &--excluded {
+    background: rgba($success-color, 0.18);
+    border-color: rgba($success-color, 0.4);
   }
 }
 

@@ -22,7 +22,7 @@
       </div>
       <div class="optimize-setup__privacy">
         <Icon icon="mdi:shield-check-outline" :width="14" />
-        <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，不会发送给 AI，仅用于优化简历结构与内容质量</span>
+        <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，您隐藏的模块和字段也不会发送给 AI，仅用于优化简历结构与内容质量</span>
       </div>
       <div class="optimize-section-list">
         <div

@@ -16,7 +16,7 @@
     <!-- 隐私提示 -->
     <div v-if="!isStreaming && !hasResult" class="interview-privacy">
       <Icon icon="mdi:shield-check-outline" :width="14" />
-      <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，不会发送给 AI，仅用于生成面试题</span>
+      <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，您隐藏的模块和字段也不会发送给 AI，仅用于生成面试题</span>
     </div>
 
     <!-- JD 输入区 -->

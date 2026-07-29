@@ -542,11 +542,11 @@
   align-items: flex-start;
   gap: $spacing-xs;
   padding: $spacing-xs $spacing-md;
-  background: rgba($primary-color, 0.06);
-  border: 1px solid rgba($primary-color, 0.15);
+  background: rgba($success-color, 0.12);
+  border: 1px solid rgba($success-color, 0.3);
   border-radius: $radius-sm;
   font-size: $font-size-xs;
-  color: $text-secondary;
+  color: $success-color;
   margin-bottom: $spacing-xs;
   line-height: 1.5;
 }
