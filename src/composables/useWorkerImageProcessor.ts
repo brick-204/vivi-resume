@@ -20,6 +20,12 @@ import { nextRequestId } from '@/workers/types'
 // 单例 Worker — 图片处理全局共享一个 Worker 实例
 let _worker: Worker | null = null
 let _workerRefCount = 0
+// ponytail: 模块级 pending 请求表，用于超时 reject 与 Worker 崩溃时全局兜底。
+// Worker 单例 → pending 表也单例（composable 内会因每次调用而重复建表，故放模块级）
+interface PendingRequest { resolve: (v: string) => void; reject: (e: unknown) => void; timer: ReturnType<typeof setTimeout> }
+const _pending = new Map<number, PendingRequest>()
+/** Worker 单次请求超时（ms）。图片编码属 CPU 密集，给足余量 */
+const WORKER_TIMEOUT = 30000
 
 export interface UseWorkerImageProcessorOptions {
   /**
@@ -44,6 +50,16 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
           new URL('@/workers/imageProcessor.worker.ts', import.meta.url),
           { type: 'module' }
         )
+        // ponytail: Worker 崩溃/消息错误时 reject 所有 pending 请求，避免永久卡死
+        const rejectAll = (reason: string) => {
+          for (const [id, req] of _pending) {
+            clearTimeout(req.timer)
+            req.reject(new Error(reason))
+            _pending.delete(id)
+          }
+        }
+        _worker.onerror = () => rejectAll('[useWorkerImageProcessor] Worker 崩溃')
+        _worker.onmessageerror = () => rejectAll('[useWorkerImageProcessor] Worker 消息序列化失败')
       } catch {
         console.warn('[useWorkerImageProcessor] Worker 创建失败，回退到主线程执行')
         return null
@@ -159,6 +175,8 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
       const handleMessage = (e: MessageEvent) => {
         // 仅处理匹配当前请求 ID 的响应
         if (e.data.id !== id) return
+        const req = _pending.get(id)
+        if (req) { clearTimeout(req.timer); _pending.delete(id) }
         if (e.data.type === 'result') {
           resolve(e.data.dataUrl as string)
         } else {
@@ -168,6 +186,14 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
       }
 
       w.addEventListener('message', handleMessage)
+      // ponytail: 超时兜底 —— Worker 崩溃/消息丢失时 handleMessage 永不触发，
+      // 超时后 reject 并清理，避免调用方永久 pending。崩溃另有 onerror 全局兜底
+      const timer = setTimeout(() => {
+        w.removeEventListener('message', handleMessage)
+        _pending.delete(id)
+        reject(new Error('[useWorkerImageProcessor] 请求超时'))
+      }, WORKER_TIMEOUT)
+      _pending.set(id, { resolve, reject, timer })
       w.postMessage({ ...message, id }, transferables || [])
     })
   }

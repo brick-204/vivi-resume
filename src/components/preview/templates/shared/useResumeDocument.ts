@@ -295,7 +295,12 @@ export function useResumeDocument(getResume: () => Resume, templateId: string) {
   const renderHtml = (value: string | undefined): string => {
     if (!value) return ''
     const cached = renderCache.get(value)
-    if (cached !== undefined) return cached
+    if (cached !== undefined) {
+      // ponytail: 命中时 re-insert 到 Map 末尾，使淘汰策略从 FIFO 升为真 LRU
+      renderCache.delete(value)
+      renderCache.set(value, cached)
+      return cached
+    }
 
     const result = sanitizeHtml(normalizeContent(value))
 

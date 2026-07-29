@@ -60,7 +60,7 @@ export async function printViaIframe(options: PrintOptions): Promise<void> {
     }
 
     // 4. 注入样式
-    const allCSS = collectAllStyles()
+    const allCSS = await collectAllStyles()
     for (const css of allCSS) {
       const styleEl = iframeDoc.createElement('style')
       styleEl.textContent = css
@@ -102,7 +102,7 @@ export async function printViaIframe(options: PrintOptions): Promise<void> {
  * 开发模式：Vite 通过 <style> 标签注入
  * 生产模式：样式抽取为 <link> 引用的 .css 文件
  */
-function collectAllStyles(): string[] {
+async function collectAllStyles(): Promise<string[]> {
   const styles: string[] = []
   const isDev = import.meta.env.MODE === 'development'
 
@@ -115,30 +115,27 @@ function collectAllStyles(): string[] {
       if (style.textContent) styles.push(style.textContent)
     })
   } else {
-    // 生产模式：收集 <link> 样式表
-    document.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
-      const href = (link as HTMLLinkElement).href
-      if (!href) return
-      try {
-        const css = fetchCSSSync(href)
-        if (css) styles.push(css)
-      } catch {
-        console.warn(`[printViaIframe] 无法读取样式表: ${href}`)
-      }
-    })
+    // 生产模式：收集 <link> 样式表，并发拉取（替代同步 XHR，避免阻塞主线程）
+    const links = [...document.querySelectorAll('link[rel="stylesheet"]')]
+      .map((link) => (link as HTMLLinkElement).href)
+      .filter(Boolean)
+    const results = await Promise.all(
+      links.map(async (href) => {
+        try {
+          const res = await fetch(href)
+          return res.ok ? await res.text() : ''
+        } catch {
+          console.warn(`[printViaIframe] 无法读取样式表: ${href}`)
+          return ''
+        }
+      })
+    )
+    for (const css of results) {
+      if (css) styles.push(css)
+    }
   }
 
   return styles
-}
-
-/**
- * 同步获取 CSS 文件内容（仅生产模式使用）
- */
-function fetchCSSSync(url: string): string {
-  const xhr = new XMLHttpRequest()
-  xhr.open('GET', url, false)
-  xhr.send()
-  return xhr.status === 200 ? xhr.responseText : ''
 }
 
 /**
