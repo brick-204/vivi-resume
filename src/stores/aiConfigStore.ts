@@ -61,13 +61,13 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
         getActiveAIConfigId(),
       ])
       configs.value = allConfigs
-      // 恢复激活配置（如果还存在的话）
+      // 仅恢复已保存的激活配置；不再自动激活第一个
+      // ponytail: 旧逻辑在 savedActiveId 为 null（用户主动停用所有 AI）时仍强制激活第一个，
+      //           导致"停用 → 刷新 → 又自动启用"。激活态完全由用户控制，首配由 addConfig 自动激活
       if (savedActiveId && allConfigs.some(c => c.id === savedActiveId)) {
         activeConfigId.value = savedActiveId
-      } else if (allConfigs.length > 0) {
-        // 默认激活第一个
-        activeConfigId.value = allConfigs[0].id
-        await setActiveAIConfigId(allConfigs[0].id)
+      } else {
+        activeConfigId.value = null
       }
     } catch (e) {
       console.error('[aiConfigStore] 初始化失败:', e)
@@ -267,10 +267,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       configs.value = allConfigs
       if (savedActiveId && allConfigs.some(c => c.id === savedActiveId)) {
         activeConfigId.value = savedActiveId
-      } else if (allConfigs.length > 0) {
-        activeConfigId.value = allConfigs[0].id
-        await setActiveAIConfigId(allConfigs[0].id)
       } else {
+        // 不自动激活第一个（用户可能已主动停用所有）
         activeConfigId.value = null
       }
     } catch (e) {

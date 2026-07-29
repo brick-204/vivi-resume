@@ -13,7 +13,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef, onScopeDispose } from 'vue'
-import type { ChatMessage } from '@/services/aiService'
+import type { ChatMessage, ContentPart } from '@/services/aiService'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
@@ -24,7 +24,7 @@ import {
   formatHistoryForCompress,
 } from '@/services/consultTokens'
 import { generateId } from '@/types/resume'
-import type { ConsultMessage, ConsultSession } from '@/types/consult'
+import type { ConsultMessage, ConsultSession, ConsultAttachment } from '@/types/consult'
 import { MAX_CONSULT_SESSIONS } from '@/types/consult'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
@@ -43,6 +43,9 @@ export const useConsultStore = defineStore('consult', () => {
 
   /** 挂起的简历 id（用户在抽屉内选了但还没随提问发送），切换会话/关闭抽屉时清空 */
   const pendingResumeIds = ref<string[]>([])
+
+  /** 挂起的文件/图片附件（随下一轮提问一起发送），切换会话/关闭抽屉时清空 */
+  const pendingAttachments = ref<ConsultAttachment[]>([])
 
   /** 流式状态 */
   const isStreaming = ref(false)
@@ -156,6 +159,13 @@ export const useConsultStore = defineStore('consult', () => {
     if (isStreaming.value) return currentSessionId.value ?? ''
     // 清空挂起状态
     pendingResumeIds.value = []
+    pendingAttachments.value = []
+
+    // 若当前会话是空会话（仅 system，无对话），先移除它，避免累积空会话
+    const cur = currentSession.value
+    if (cur && !cur.messages.some(m => m.kind && m.kind !== 'history-summary' && m.kind !== 'compress-notice')) {
+      sessions.value = sessions.value.filter(s => s.id !== cur.id)
+    }
 
     const now = Date.now()
     const session: ConsultSession = {
@@ -175,21 +185,71 @@ export const useConsultStore = defineStore('consult', () => {
   const switchSession = (id: string) => {
     if (isStreaming.value) return
     pendingResumeIds.value = []
+    pendingAttachments.value = []
     currentSessionId.value = id
   }
 
-  /** 删除会话；流式中禁止删除当前会话 */
+ /**
+   * 关闭会话（点标签 ×）：
+   * - 有对话（messages 除 system 外有内容）：软删除——置 closed=true，保留在历史会话里可恢复
+   * - 空会话（仅 system）：真删除，不进历史
+   * 流式中禁止关闭当前会话
+   */
   const deleteSession = async (id: string) => {
+    if (isStreaming.value && id === currentSessionId.value) return
+    const session = sessions.value.find(s => s.id === id)
+    if (!session) return
+    const wasCurrent = currentSessionId.value === id
+    const hasConversation = session.messages.some(m => m.kind && m.kind !== 'history-summary' && m.kind !== 'compress-notice')
+
+    if (hasConversation) {
+      // 软删除：保留在历史列表，仅从标签栏移除；不改 updatedAt，保持原排序不影响上限淘汰
+      session.closed = true
+      commitSession(session)
+      persistSession(session)
+    } else {
+      // 空会话：真删除
+      cancelPendingPersist(id)
+      sessions.value = sessions.value.filter(s => s.id !== id)
+      await deleteConsultSessionFromStorage(id)
+    }
+
+    if (wasCurrent) {
+      // 切到下一个未关闭的会话
+      const next = sessions.value.find(s => !s.closed)
+      currentSessionId.value = next?.id ?? null
+    }
+    pendingResumeIds.value = []
+    pendingAttachments.value = []
+  }
+
+  /** 恢复已关闭的会话（从历史列表点回）：closed=false 并切换到它 */
+  const reopenSession = (id: string) => {
+    if (isStreaming.value) return
+    const session = sessions.value.find(s => s.id === id)
+    if (!session || !session.closed) return
+    session.closed = false
+    session.updatedAt = Date.now()
+    commitSession(session)
+    persistSession(session)
+    currentSessionId.value = id
+    pendingResumeIds.value = []
+    pendingAttachments.value = []
+  }
+
+  /** 彻底删除会话（从历史列表移除，不可恢复）；流式中禁止删除当前会话 */
+  const removeSession = async (id: string) => {
     if (isStreaming.value && id === currentSessionId.value) return
     const wasCurrent = currentSessionId.value === id
     cancelPendingPersist(id)
     sessions.value = sessions.value.filter(s => s.id !== id)
     await deleteConsultSessionFromStorage(id)
-
     if (wasCurrent) {
-      currentSessionId.value = sessions.value.length > 0 ? sessions.value[0].id : null
+      const next = sessions.value.find(s => !s.closed)
+      currentSessionId.value = next?.id ?? null
     }
     pendingResumeIds.value = []
+    pendingAttachments.value = []
   }
 
   /** 重命名会话；流式中禁止重命名（避免与流式写回竞争） */
@@ -210,6 +270,7 @@ export const useConsultStore = defineStore('consult', () => {
   /** 清空挂起简历（关闭抽屉时调用） */
   const clearPending = () => {
     pendingResumeIds.value = []
+    pendingAttachments.value = []
   }
 
   /** 切换某份简历的挂起状态 */
@@ -220,6 +281,16 @@ export const useConsultStore = defineStore('consult', () => {
     } else {
       pendingResumeIds.value = pendingResumeIds.value.filter(id => id !== resumeId)
     }
+  }
+
+  /** 添加挂起附件（随下一轮提问一起发送） */
+  const addPendingAttachment = (attachment: ConsultAttachment) => {
+    pendingAttachments.value = [...pendingAttachments.value, attachment]
+  }
+
+  /** 移除指定挂起附件 */
+  const removePendingAttachment = (name: string) => {
+    pendingAttachments.value = pendingAttachments.value.filter(a => a.name !== name)
   }
 
   // ========== 5 会话上限管理 ==========
@@ -262,6 +333,7 @@ export const useConsultStore = defineStore('consult', () => {
       if (resumes.length === 0) {
         naiveMessage.warning('所选简历已不存在，请重新选择')
         pendingResumeIds.value = []
+    pendingAttachments.value = []
         return
       }
 
@@ -327,16 +399,27 @@ export const useConsultStore = defineStore('consult', () => {
       return
     }
 
-    // 用户提问
+    // 用户提问：若挂起了附件，构造多模态 content（图片走 image_url，文本注入消息文本）
+    const parts: ContentPart[] = [{ type: 'text', text: trimmed }]
+    for (const a of pendingAttachments.value) {
+      if (a.kind === 'image') {
+        parts.push({ type: 'image_url', image_url: { url: a.dataUrl } })
+      } else {
+        parts.push({ type: 'text', text: `[文件: ${a.name}]\n${a.dataUrl}` })
+      }
+    }
+    const hasAttachments = pendingAttachments.value.length > 0
+    const userContent: string | ContentPart[] = hasAttachments ? parts : trimmed
     const userMsg: ConsultMessage = {
       role: 'user',
       kind: 'user-question',
-      content: trimmed,
+      content: userContent,
+      attachments: hasAttachments ? pendingAttachments.value : undefined,
       timestamp: Date.now(),
     }
     session.messages.push(userMsg)
     currentTurnMsgs.push(userMsg)
-    outgoing.push({ role: 'user', content: trimmed })
+    outgoing.push({ role: 'user', content: userContent })
 
     // 首条提问作为会话标题
     if (session.title === '新会话') {
@@ -364,6 +447,7 @@ export const useConsultStore = defineStore('consult', () => {
 
     // 清空挂起
     pendingResumeIds.value = []
+    pendingAttachments.value = []
 
     try {
       const result = await streamChat(
@@ -588,6 +672,7 @@ export const useConsultStore = defineStore('consult', () => {
         currentSessionId.value = sessions.value[0].id
       }
       pendingResumeIds.value = []
+    pendingAttachments.value = []
     } catch (e) {
       console.error('[consultStore] reloadFromStorage 失败:', e)
     }
@@ -599,6 +684,7 @@ export const useConsultStore = defineStore('consult', () => {
     currentSession,
     currentMessages,
     pendingResumeIds,
+    pendingAttachments,
     isStreaming,
     streamingText,
     ready,
@@ -607,9 +693,13 @@ export const useConsultStore = defineStore('consult', () => {
     createSession,
     switchSession,
     deleteSession,
+    reopenSession,
+    removeSession,
     renameSession,
     clearPending,
     togglePendingResume,
+    addPendingAttachment,
+    removePendingAttachment,
     reloadFromStorage,
   }
 })

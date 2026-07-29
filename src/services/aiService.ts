@@ -93,9 +93,15 @@ export function plainTextToHtml(text: string): string {
 
 // ========== SSE 流式调用 ==========
 
+/** 多模态 content 片段（OpenAI 兼容格式） */
+export type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
-  content: string
+  /** 纯文本用 string；多模态（图片）用 ContentPart[] 数组 */
+  content: string | ContentPart[]
 }
 
 /** streamChat 返回结果 */

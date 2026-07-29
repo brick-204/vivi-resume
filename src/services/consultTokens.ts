@@ -8,15 +8,22 @@
  */
 
 import type { ConsultMessage } from '@/types/consult'
+import type { ContentPart } from '@/services/aiService'
 
 /** 估算阈值（字符近似），约 8000 字符 */
 export const COMPRESS_THRESHOLD = 6000
 /** 触发压缩前最少需要的可压缩消息数（user-question + assistant-answer） */
 export const MIN_MESSAGES_BEFORE_COMPRESS = 6
 
+/** 把消息 content 统一为可估长度的字符串（多模态数组取文本片段拼接长度） */
+const contentLength = (content: string | ContentPart[]): number => {
+  if (typeof content === 'string') return content.length
+  return content.reduce((n, p) => n + (p.type === 'text' ? p.text.length : 0), 0)
+}
+
 /** 单条消息 token 估算：Σ ceil(content.length * 0.75) + 每条 4 */
-export const estimateTokens = (messages: { content: string }[]): number =>
-  messages.reduce((sum, m) => sum + Math.ceil(m.content.length * 0.75) + 4, 0)
+export const estimateTokens = (messages: { content: string | ContentPart[] }[]): number =>
+  messages.reduce((sum, m) => sum + Math.ceil(contentLength(m.content) * 0.75) + 4, 0)
 
 /**
  * 判断是否应触发压缩：
@@ -98,19 +105,25 @@ export const partitionCompressible = (messages: ConsultMessage[]): PartitionResu
  * - user-question 显示为"用户：xxx"
  * - assistant-answer 显示为"助手：xxx"
  */
+/** 把消息 content 统一为字符串（多模态数组取文本片段拼接，图片用占位） */
+const contentToText = (content: string | ContentPart[]): string => {
+  if (typeof content === 'string') return content
+  return content.map(p => p.type === 'text' ? p.text : '[图片]').join('\n')
+}
+
 export const formatHistoryForCompress = (
   toCompress: ConsultMessage[],
   oldSummary?: ConsultMessage,
 ): string => {
   const parts: string[] = []
   if (oldSummary) {
-    parts.push(`【之前的历史摘要】\n${oldSummary.content}`)
+    parts.push(`【之前的历史摘要】\n${contentToText(oldSummary.content)}`)
   }
   for (const m of toCompress) {
     if (m.kind === 'user-question') {
-      parts.push(`用户：${m.content}`)
+      parts.push(`用户：${contentToText(m.content)}`)
     } else if (m.kind === 'assistant-answer') {
-      parts.push(`助手：${m.content}`)
+      parts.push(`助手：${contentToText(m.content)}`)
     }
   }
   return parts.join('\n\n')

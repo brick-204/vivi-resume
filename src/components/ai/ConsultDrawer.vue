@@ -15,6 +15,62 @@
         <div class="consult-header">
           <Icon icon="mdi:comment-question-outline" :width="20" />
           <span>AI 咨询</span>
+          <n-popover v-model:show="historyPopoverShow" trigger="click" placement="bottom-end" :width="triggerWidth">
+            <template #trigger>
+              <button
+                class="consult-header__history"
+                type="button"
+                title="历史会话"
+                aria-label="历史会话"
+              >
+                <Icon icon="mdi:history" :width="18" />
+              </button>
+            </template>
+            <div class="consult-session-list">
+              <div class="consult-session-list__header">
+                历史会话
+                <span class="consult-session-list__limit">仅记录最新十条</span>
+              </div>
+              <div v-if="sessions.length === 0" class="consult-session-list__empty">
+                暂无历史会话
+              </div>
+              <div
+                v-for="s in sessions"
+                :key="s.id"
+                class="consult-session-list__item"
+                :class="{ 'is-active': s.id === currentSessionId, 'is-disabled': isStreaming, 'is-editing': editingId === s.id, 'is-closed': s.closed }"
+                @click="s.closed ? onReopenSession(s.id) : onPickHistory(s.id)"
+              >
+                <n-input
+                  v-if="editingId === s.id"
+                  v-model:value="editingTitle"
+                  size="tiny"
+                  :autofocus="true"
+                  class="consult-session-list__edit"
+                  @click.stop
+                  @keydown.enter.prevent="commitRename"
+                  @keydown.esc.prevent="cancelRename"
+                  @blur="commitRename"
+                />
+                <template v-else>
+                  <Icon
+                    :icon="s.closed ? 'mdi:comment-off-outline' : (s.id === currentSessionId ? 'mdi:comment-text-outline' : 'mdi:comment-text-multiple-outline')"
+                    :width="16"
+                    class="consult-session-list__icon"
+                  />
+                  <span class="consult-session-list__title" @dblclick.stop="startRename(s.id, s.title)">{{ s.title || '新会话' }}</span>
+                  <span v-if="s.closed" class="consult-session-list__closed">已关闭</span>
+                  <span class="consult-session-list__time">{{ relativeTime(s.updatedAt) }}</span>
+                  <Icon
+                    icon="mdi:close"
+                    :width="14"
+                    class="consult-session-list__del"
+                    @click.stop="s.closed ? onRemoveSession(s.id) : onDeleteSession(s.id)"
+                  />
+                </template>
+              </div>
+            </div>
+          </n-popover>
           <n-button
             size="tiny"
             quaternary
@@ -30,14 +86,15 @@
         </div>
       </template>
 
-      <!-- 会话列表（横向 chip） -->
-      <div v-if="sessions.length > 0" class="consult-sessions">
-        <div class="consult-sessions__list">
+      <!-- 会话标签（横向 tab，VS Code 风格） -->
+      <div v-if="openTabs.length > 0" class="consult-tabs">
+        <div class="consult-tabs__list">
           <div
-            v-for="s in sessions"
+            v-for="s in openTabs"
             :key="s.id"
-            class="consult-sessions__chip"
+            class="consult-tabs__tab"
             :class="{ 'is-active': s.id === currentSessionId, 'is-disabled': isStreaming, 'is-editing': editingId === s.id }"
+            :title="s.title || '新会话'"
             @click="onSwitchSession(s.id)"
           >
             <n-input
@@ -45,7 +102,7 @@
               v-model:value="editingTitle"
               size="tiny"
               :autofocus="true"
-              class="consult-sessions__edit"
+              class="consult-tabs__edit"
               @click.stop
               @keydown.enter.prevent="commitRename"
               @keydown.esc.prevent="cancelRename"
@@ -53,13 +110,13 @@
             />
             <span
               v-else
-              class="consult-sessions__title"
+              class="consult-tabs__title"
               @dblclick.stop="startRename(s.id, s.title)"
             >{{ s.title || '新会话' }}</span>
             <Icon
               icon="mdi:close"
               :width="14"
-              class="consult-sessions__del"
+              class="consult-tabs__del"
               @click.stop="onDeleteSession(s.id)"
             />
           </div>
@@ -69,7 +126,17 @@
       <!-- 对话区 -->
       <div ref="messagesRef" class="consult-messages">
         <template v-if="visibleMessages.length === 0 && !isStreaming">
-          <div class="consult-empty">
+          <div v-if="!hasActiveAIConfig" class="consult-empty consult-empty--noai">
+            <Icon icon="mdi:robot-confused-outline" :width="40" />
+            <p>尚未启用 AI 服务</p>
+            <p class="consult-empty__hint">
+              配置并启用一个 AI 服务商后即可开始对话
+            </p>
+            <n-button size="small" type="primary" @click="goToAISettings">
+              去配置 AI 服务
+            </n-button>
+          </div>
+          <div v-else class="consult-empty">
             <Icon icon="mdi:robot-outline" :width="40" />
             <p>问我任何关于简历或系统使用的问题</p>
             <p class="consult-empty__hint">
@@ -98,7 +165,7 @@
 
           <!-- AI 回复：左对齐 + Markdown 渲染 -->
           <div v-else-if="msg.kind === 'assistant-answer'" class="consult-bubble consult-bubble--ai">
-            <div v-html="renderMarkdown(msg.content)" />
+            <div v-html="renderMarkdown(typeof msg.content === 'string' ? msg.content : '')" />
           </div>
         </template>
 
@@ -114,6 +181,18 @@
 
       <!-- 简历选择条 -->
       <div class="consult-resume-bar">
+        <n-upload
+          :show-file-list="false"
+          :before-upload="onPickFile"
+          accept="image/*,.txt,.md,.markdown,.docx,.pdf,.json,.csv,.log,.xml,.html,.js,.ts,.py"
+          multiple
+        >
+          <n-button size="small" dashed title="上传文件/图片" aria-label="上传文件/图片">
+            <template #icon>
+              <Icon icon="mdi:plus" :width="16" />
+            </template>
+          </n-button>
+        </n-upload>
         <n-popover trigger="click" placement="top-start" :width="280">
           <template #trigger>
             <n-button size="small" dashed>
@@ -160,6 +239,16 @@
             {{ resumeTitle(id) }}
             <Icon icon="mdi:close" :width="12" @click="togglePendingResume(id)" />
           </span>
+          <span
+            v-for="a in pendingAttachments"
+            :key="a.name"
+            class="consult-resume-bar__chip consult-resume-bar__chip--file"
+            :title="a.name"
+          >
+            <Icon :icon="a.kind === 'image' ? 'mdi:image-outline' : 'mdi:file-document-outline'" :width="12" />
+            <span class="consult-resume-bar__filename">{{ a.name }}</span>
+            <Icon icon="mdi:close" :width="12" @click="removePendingAttachment(a.name)" />
+          </span>
         </div>
       </div>
 
@@ -196,31 +285,36 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import {
-  NDrawer, NDrawerContent, NButton, NInput, NPopover,
+  NDrawer, NDrawerContent, NButton, NInput, NPopover, NUpload,
 } from 'naive-ui'
+import type { ConsultMessage } from '@/types/consult'
 import { useConsultStore } from '@/stores/consultStore'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
+import { blobToBase64 } from '@/utils/storage'
+import { parseFile, getSupportedFileType } from '@/utils/fileParser'
 import { message as naiveMessage } from '@/plugins/naive-ui'
-import type { ConsultMessage } from '@/types/consult'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits<{ 'update:show': [v: boolean] }>()
 
 const consultStore = useConsultStore()
 const resumeStore = useResumeStore()
+const aiConfigStore = useAIConfigStore()
+const router = useRouter()
 
 // 响应式状态用 storeToRefs 解构（保持响应式），actions 直接解构
 const {
-  sessions, currentSessionId, currentMessages, pendingResumeIds,
+  sessions, currentSessionId, currentMessages, pendingResumeIds, pendingAttachments,
   isStreaming, streamingText,
 } = storeToRefs(consultStore)
 const {
-  sendMessage, abort, createSession, switchSession, deleteSession, renameSession, clearPending, togglePendingResume,
+  sendMessage, abort, createSession, switchSession, deleteSession, reopenSession, removeSession, renameSession, clearPending, togglePendingResume, addPendingAttachment, removePendingAttachment,
 } = consultStore
 
 // resumeStore 的属性访问直接用 store 实例（模板和 computed 里自动响应式）
@@ -233,12 +327,69 @@ const editingResumeId = computed(() =>
   route.name === 'editor' ? (route.params.id as string | undefined) ?? null : null,
 )
 
+/** 是否有已激活的 AI 服务商；无则在抽屉内提示并引导去配置 */
+const hasActiveAIConfig = computed(() => Boolean(aiConfigStore.activeConfig))
+
+const goToAISettings = () => {
+  emit('update:show', false)
+  router.push({ path: '/dashboard', query: { tab: 'ai' } })
+}
+
+/** 纯文本文件扩展名（parseFile 不支持的，用 file.text() fallback） */
+const TEXT_EXTS = ['.txt', '.json', '.csv', '.log', '.xml', '.html', '.js', '.ts', '.py']
+
+/** 上传文件：图片转 Base64 data URL 走多模态，文本提取内容注入消息文本 */
+const onPickFile = async ({ file }: { file: { file?: File; name: string } }) => {
+  const f = file.file
+  if (!f) return false
+  try {
+    if (f.type.startsWith('image/')) {
+      const dataUrl = await blobToBase64(f)
+      addPendingAttachment({ name: f.name, dataUrl, kind: 'image' })
+    } else {
+      let text: string
+      if (getSupportedFileType(f)) {
+        text = (await parseFile(f)).text
+      } else if (TEXT_EXTS.some(e => f.name.toLowerCase().endsWith(e)) || f.type.startsWith('text/')) {
+        text = await f.text()
+      } else {
+        naiveMessage.warning('不支持的文件格式（支持图片 / md / docx / pdf / txt 等）')
+        return false
+      }
+      text = text.slice(0, 20000)
+      if (!text) { naiveMessage.warning('文件内容为空'); return false }
+      addPendingAttachment({ name: f.name, dataUrl: text, kind: 'text' })
+    }
+  } catch {
+    naiveMessage.error('文件读取失败')
+  }
+  return false // 阻止 n-upload 自动上传到 url
+}
+
+/** 会话列表 popover 宽度与抽屉内容区对齐 */
+const triggerWidth = computed(() => Math.min(520, drawerWidth.value - 32))
+
+/** 相对时间：刚刚 / N分钟前 / N小时前 / N天前 */
+const relativeTime = (ts: number): string => {
+  const diff = Date.now() - ts
+  if (diff < 60_000) return '刚刚'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`
+  return `${Math.floor(diff / 86_400_000)}天前`
+}
+
 const inputText = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
 
 // 会话重命名编辑态
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
+
+// 历史会话下拉显隐
+const historyPopoverShow = ref(false)
+
+/** 标签栏可见的会话：过滤掉已关闭（软删除）的 */
+const openTabs = computed(() => sessions.value.filter(s => !s.closed))
 
 const drawerWidth = computed(() => Math.min(560, window.innerWidth - 40))
 
@@ -304,6 +455,26 @@ const onSwitchSession = (id: string) => {
   renderCache.clear()
 }
 
+// 历史会话下拉：选择后切换并自动关闭下拉
+const onPickHistory = (id: string) => {
+  onSwitchSession(id)
+  historyPopoverShow.value = false
+}
+
+// 历史会话下拉：恢复已关闭会话并切换、收起下拉
+const onReopenSession = (id: string) => {
+  reopenSession(id)
+  inputText.value = ''
+  renderCache.clear()
+  historyPopoverShow.value = false
+}
+
+// 历史会话下拉：彻底删除（已关闭会话的 ×）
+const onRemoveSession = async (id: string) => {
+  await removeSession(id)
+  renderCache.clear()
+}
+
 // ========== 会话重命名 ==========
 const startRename = (id: string, title: string) => {
   // 流式中禁止进入编辑态（chip 已 is-disabled，双击不会触发，此处显式守卫）
@@ -352,9 +523,9 @@ const onAbort = () => {
   abort()
 }
 
-// 抽屉打开时，若无会话且非流式中，则自动新建一个
+// 抽屉打开时，若无打开的会话（标签栏空）且非流式中，则自动新建一个
 watch(() => props.show, (v) => {
-  if (v && sessions.value.length === 0 && !isStreaming.value) {
+  if (v && openTabs.value.length === 0 && !isStreaming.value) {
     createSession()
   }
 })
@@ -369,31 +540,83 @@ watch(() => props.show, (v) => {
 .consult-header {
   display: flex; align-items: center; gap: 8px;
   font-weight: 600; font-size: 16px;
-  &__new { margin-left: auto; }
+  &__history {
+    margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border: none; background: transparent;
+    cursor: pointer; border-radius: 4px; color: var(--n-text-color-2, #555);
+    &:hover { background: var(--n-color-hover, rgba(0,0,0,0.08)); color: var(--n-text-color, #333); }
+  }
+  &__new { /* margin-left:auto 由 history 接管，此处不再需要 */ }
 }
 
-.consult-sessions {
-  display: flex; flex-direction: column; gap: 6px; padding: 8px 0;
+.consult-tabs {
+  // 标签栏底部隔离线
+  border-bottom: 1px solid var(--n-border-color, rgba(0,0,0,0.12));
+  display: flex; align-items: flex-end; gap: 2px;
   &__list {
-    display: flex; gap: 6px; overflow-x: auto;
-    min-height: 28px;
+    display: flex; gap: 2px; overflow-x: auto; flex: 1;
+    &::-webkit-scrollbar { height: 4px; }
   }
-  &__chip {
+  &__tab {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 4px 8px; border-radius: 12px; font-size: 12px;
-    background: var(--n-color-target, rgba(0,0,0,0.05)); cursor: pointer;
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
     white-space: nowrap; flex-shrink: 0;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: var(--n-color-target, rgba(0,0,0,0.04));
+    color: var(--n-text-color-2, #555);
+    margin-bottom: -1px;
     &:hover { background: var(--n-color-hover, rgba(0,0,0,0.08)); }
-    &.is-active { background: var(--primary-color, #18a058); color: #fff; }
+    &.is-active {
+      background: var(--n-color, #fff);
+      color: var(--n-text-color, #333);
+      border-color: var(--n-border-color, rgba(0,0,0,0.12));
+    }
     &.is-disabled { opacity: 0.5; pointer-events: none; }
-    &.is-editing { cursor: default; background: var(--n-color-hover, rgba(0,0,0,0.08)); }
+    &.is-editing { cursor: default; }
   }
-  &__title { max-width: 120px; overflow: hidden; text-overflow: ellipsis; user-select: none; }
-  &__edit { width: 120px; }
-  &__del { opacity: 0.6; &:hover { opacity: 1; } }
+  &__title { max-width: 140px; overflow: hidden; text-overflow: ellipsis; user-select: none; }
+  &__edit { width: 140px; }
+  &__del {
+    opacity: 0; transition: opacity 0.15s; flex-shrink: 0;
+    border-radius: 3px; padding: 1px;
+    &:hover { opacity: 1; background: var(--n-color-hover, rgba(0,0,0,0.1)); }
+  }
+  &__tab:hover &__del { opacity: 0.6; }
+}
+
+.consult-session-list {
+  max-height: 320px; overflow-y: auto;
+  &__header { font-size: 12px; font-weight: 600; color: var(--n-text-color-3, #999); padding: 4px 10px 6px; display: flex; align-items: center; justify-content: space-between; }
+  &__limit { font-size: 11px; font-weight: 400; opacity: 0.8; }
+  &__empty { font-size: 13px; color: var(--n-text-color-3, #999); padding: 16px 10px; text-align: center; }
+  &__item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 6px; cursor: pointer;
+    color: var(--n-text-color-2, #555); font-size: 13px;
+    &:hover { background: var(--n-color-hover, rgba(0,0,0,0.06)); }
+    &.is-active { color: var(--primary-color, #18a058); background: var(--primary-color-hover, rgba(24,160,88,0.08)); }
+    &.is-disabled { opacity: 0.5; pointer-events: none; }
+    &.is-editing { cursor: default; background: var(--n-color-hover, rgba(0,0,0,0.06)); }
+    &.is-closed { opacity: 0.7; }
+  }
+  &__icon { flex-shrink: 0; }
+  &__title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: none; }
+  &__time { font-size: 11px; opacity: 0.6; flex-shrink: 0; }
+  &__closed { font-size: 10px; padding: 1px 6px; border-radius: 8px; background: var(--n-color-target, rgba(0,0,0,0.08)); color: var(--n-text-color-3, #999); flex-shrink: 0; }
+  &__edit { width: 100%; }
+  &__del {
+    opacity: 0; transition: opacity 0.15s; flex-shrink: 0;
+    border-radius: 3px; padding: 1px;
+    &:hover { opacity: 1 !important; background: var(--n-color-hover, rgba(0,0,0,0.1)); }
+  }
+  &__item:hover &__del { opacity: 0.6; }
 }
 
 .consult-messages {
+  // 内容区背景与活动 tab 一致，实现"相通"
+  background: var(--n-color, transparent);
   flex: 1; overflow-y: auto; padding: 12px 0; display: flex; flex-direction: column; gap: 12px;
   min-height: 200px;
 }
@@ -402,6 +625,7 @@ watch(() => props.show, (v) => {
   margin: auto; text-align: center; color: var(--n-text-color-3, #999);
   p { margin: 8px 0 0; font-size: 14px; }
   &__hint { font-size: 12px; opacity: 0.7; }
+  &--noai .n-button { margin-top: 12px; }
 }
 
 .consult-ctx {
@@ -437,6 +661,9 @@ watch(() => props.show, (v) => {
 .consult-resume-bar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 8px 0; border-top: 1px solid var(--n-border-color, rgba(0,0,0,0.09));
+  // n-upload 内联，避免撑满导致 + 按钮换行到上方
+  :deep(.n-upload) { display: inline-flex !important; width: auto !important; }
+  :deep(.n-upload-trigger) { display: inline-flex !important; }
   &__count {
     margin-left: 4px; background: var(--primary-color, #18a058); color: #fff;
     border-radius: 8px; padding: 0 6px; font-size: 11px;
@@ -450,6 +677,8 @@ watch(() => props.show, (v) => {
     span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     :deep(svg) { cursor: pointer; flex-shrink: 0; }
   }
+  &__chip--file { max-width: 180px; }
+  &__filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
 .consult-resume-pop {

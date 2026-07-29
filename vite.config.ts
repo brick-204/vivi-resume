@@ -87,6 +87,9 @@ export default defineConfig({
       '/api/ai/minimax': sseProxy('https://api.minimax.chat', '/api/ai/minimax'),
       '/api/ai/baichuan': sseProxy('https://api.baichuan-ai.com', '/api/ai/baichuan'),
       '/api/ai/yi': sseProxy('https://api.lingyiwanwu.com', '/api/ai/yi'),
+      // 自定义服务代理 — 用于 dev 下调用不开放 CORS 的服务（如 ai2.e-xy.com）
+      // 使用方式：AI 设置面板选「自定义」服务商，endpoint 填 /api/ai/xy/v1
+      '/api/ai/xy': sseProxy('https://ai2.e-xy.com', '/api/ai/xy'),
     },
   },
 })
