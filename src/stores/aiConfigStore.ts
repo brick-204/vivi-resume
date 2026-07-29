@@ -184,8 +184,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     })
   }
 
-  /** 复制配置（API Key 需重新输入） */
-  const duplicateConfig = async (id: string) => {
+  /** 复制配置（含 API Key） */
+  const duplicateConfig = (id: string) => {
     if (isLocked.value) return undefined
 
     const source = configs.value.find(c => c.id === id)
@@ -196,12 +196,19 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       ...source,
       id: generateId(),
       name: `${source.name} (副本)`,
-      apiKey: '',
       createdAt: now,
       updatedAt: now,
     }
-    await saveAIConfig(duplicated)
+    // 先入内存让 UI 立即响应，持久化后台执行（与 deleteConfig 一致，避免文件系统/IDB 写入阻塞）
     configs.value.push(duplicated)
+
+    const persist = async () => {
+      await saveAIConfig(duplicated)
+    }
+    persist().catch(e => {
+      console.error('[aiConfigStore] duplicateConfig persist failed:', e)
+      naiveMessage.warning('复制未完全同步，请检查存储空间')
+    })
     return duplicated
   }
 

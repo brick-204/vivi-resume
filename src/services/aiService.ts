@@ -14,9 +14,13 @@ const isDev = import.meta.env.MODE === 'development'
 
 /**
  * 获取请求 URL
- * 确保 endpoint 路径以 /v1（或 /v4 智谱）结尾，然后拼接 /chat/completions
+ * - endpointComplete=true：完全信任用户输入，原样返回，不做任何补全
+ * - 否则：确保 endpoint 以 /v1（或 /v4 智谱）结尾，再拼接 /chat/completions
  */
 export function _getRequestUrl(config: AIServiceConfig): string {
+  if (config.endpointComplete) {
+    return config.endpoint
+  }
   let base = config.endpoint.replace(/\/+$/, '')
   // 仅当路径不以 /v1 或 /v4 结尾时自动补充 /v1
   // 精确匹配路径末尾，避免误判 URL 中间含 /v1/ 的情况

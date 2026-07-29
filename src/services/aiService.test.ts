@@ -51,6 +51,13 @@ describe('aiService', () => {
       const url = _getRequestUrl(makeConfig('https://open.bigmodel.cn/api/paas/v4/'))
       expect(url).toBe('https://open.bigmodel.cn/api/paas/v4/chat/completions')
     })
+
+    it('endpointComplete=true — uses endpoint as-is, no append at all', () => {
+      const config = makeConfig('https://api.example.com/llm/v1/chat/completions')
+      config.endpointComplete = true
+      const url = _getRequestUrl(config)
+      expect(url).toBe('https://api.example.com/llm/v1/chat/completions')
+    })
   })
 
   describe('htmlToPlainText', () => {

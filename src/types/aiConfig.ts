@@ -25,6 +25,12 @@ export interface AIServiceConfig {
   modelId: string
   apiKey: string
   endpoint: string
+  /**
+   * endpoint 是否为完整请求 URL。
+   * false（默认）= 系统检测并自动补全 /v1（或 /v4 智谱）后拼接 /chat/completions
+   * true = 完全信任用户输入，原样使用，不做任何补全
+   */
+  endpointComplete?: boolean
   createdAt: string
   updatedAt: string
 }

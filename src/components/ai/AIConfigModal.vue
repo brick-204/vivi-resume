@@ -86,6 +86,25 @@
             <Icon icon="mdi:alert-circle-outline" :width="14" />
             {{ endpointError }}
           </div>
+          <div class="endpoint-switch">
+            <n-switch v-model:value="formData.endpointComplete" size="small" />
+            <span class="endpoint-switch__label">完整 URL</span>
+            <n-popover trigger="hover" placement="top" :width="260">
+              <template #trigger>
+                <span class="hint-icon hint-icon--warning endpoint-switch__hint-icon">
+                  <Icon icon="mdi:alert-circle-outline" :width="14" />
+                </span>
+              </template>
+              <div class="hint-content">
+                <p v-if="formData.endpointComplete">
+                  <strong>开</strong>：完全信任输入的地址，系统不做任何补全。需填完整请求 URL，如 <code>https://api.example.com/v1/chat/completions</code>
+                </p>
+                <p v-else>
+                  <strong>关（默认）</strong>：系统自动补全 /v1（或 /v4 智谱）+ /chat/completions。只需填到域名或基础路径，如 <code>https://api.deepseek.com</code>
+                </p>
+              </div>
+            </n-popover>
+          </div>
         </template>
       </n-form-item>
     </n-form>
@@ -104,7 +123,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NPopover, type FormInst, type FormRules } from 'naive-ui'
+import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NPopover, NSwitch, type FormInst, type FormRules } from 'naive-ui'
 import type { AIServiceConfig, AIProvider } from '@/types/aiConfig'
 import { AI_PROVIDERS, getProviderInfo } from '@/types/aiConfig'
 import { getDevProxyEndpoint } from '@/services/aiService'
@@ -130,6 +149,7 @@ const formData = ref({
   modelId: '',
   apiKey: '',
   endpoint: '',
+  endpointComplete: false,
 })
 
 const providerOptions = AI_PROVIDERS.map(p => ({
@@ -149,11 +169,9 @@ function validateEndpoint(value: string): string {
   if (!value) return ''
   // 开发环境下允许 /api/ 开头的代理路径
   if (isDev && value.startsWith('/api/')) return ''
+  // 纯客户端请求，用户自管 API，仅做基本 URL 格式校验，不强制 https
   try {
-    const url = new URL(value)
-    if (url.protocol !== 'https:') {
-      return 'API 地址必须以 https:// 开头'
-    }
+    new URL(value)
     return ''
   } catch {
     return '请输入有效的 URL 格式'
@@ -190,6 +208,7 @@ watch(() => props.visible, (val) => {
         modelId: props.config.modelId,
         apiKey: props.config.apiKey,
         endpoint: props.config.endpoint,
+        endpointComplete: props.config.endpointComplete ?? false,
       }
     } else {
       // 新增模式：使用 DeepSeek 作为默认
@@ -200,6 +219,7 @@ watch(() => props.visible, (val) => {
         modelId: defaultProvider.defaultModel,
         apiKey: '',
         endpoint: defaultProvider.defaultEndpoint,
+        endpointComplete: false,
       }
     }
   }
@@ -213,6 +233,8 @@ const onProviderChange = (providerId: AIProvider) => {
     formData.value.endpoint = isDev
       ? getDevProxyEndpoint(providerId, info.defaultEndpoint)
       : info.defaultEndpoint
+    // 切换服务商填的是需系统补全的基础路径，与「完整 URL」模式互斥
+    formData.value.endpointComplete = false
   }
 }
 
@@ -256,6 +278,22 @@ const handleSave = async () => {
 .hint-content {
   font-size: $font-size-xs;
   line-height: 1.5;
+
+  p {
+    margin: 0 0 $spacing-xs;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  code {
+    padding: 1px 4px;
+    background: $bg-glass;
+    border-radius: $radius-sm;
+    font-size: $font-size-xs;
+    word-break: break-all;
+  }
 }
 
 .endpoint-error {
@@ -265,5 +303,20 @@ const handleSave = async () => {
   margin-top: 4px;
   font-size: $font-size-xs;
   color: $error-color;
+}
+
+.endpoint-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: $font-size-xs;
+  color: $text-secondary;
+
+  &__label {
+    font-weight: 500;
+    color: $text-primary;
+    white-space: nowrap;
+  }
 }
 </style>

@@ -196,11 +196,11 @@ const handleSave = async (data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'upda
   }
 }
 
-const handleCopy = async (id: string) => {
+const handleCopy = (id: string) => {
   try {
-    const duplicated = await aiConfigStore.duplicateConfig(id)
+    const duplicated = aiConfigStore.duplicateConfig(id)
     if (duplicated) {
-      naiveMessage.info('配置已复制，请输入 API Key')
+      naiveMessage.info('配置已复制')
       openEditModal(duplicated)
     }
   } catch (e) {

@@ -222,11 +222,11 @@ const maskApiKey = (key: string): string => {
   }
 
   &--deactivate {
-    color: $text-light;
+    color: $error-color;
 
     &:hover {
-      background: rgba($text-light, 0.15);
-      color: $text-secondary;
+      background: rgba($error-color, 0.18);
+      color: $error-color;
     }
   }
 
