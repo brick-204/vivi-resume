@@ -13,6 +13,7 @@ import type { ConsultSession } from '@/types/consult'
 import * as idb from './storage'
 import * as dir from './directoryStorage'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { DEFAULT_PET_ID } from '@/config/desktopPets'
 import { extractPhotos, injectPhotos, isPhotoRef, parsePhotoRef } from './photoFileRef'
 
 // ========== 工具函数 ==========
@@ -333,5 +334,27 @@ export async function setTrashBinRetentionDays(days: number): Promise<void> {
     })
   } else {
     await idb.setMeta('trashBinRetentionDays', days)
+  }
+}
+
+// ========== 桌宠偏好（meta.json / meta store） ==========
+
+/** 读取桌宠偏好 id */
+export async function getDesktopPetId(): Promise<string> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.desktopPetId as string) ?? DEFAULT_PET_ID
+  }
+  return (await idb.getMeta<string>('desktopPetId')) ?? DEFAULT_PET_ID
+}
+
+/** 写入桌宠偏好 id */
+export async function setDesktopPetId(petId: string): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.desktopPetId = petId
+    })
+  } else {
+    await idb.setMeta('desktopPetId', petId)
   }
 }

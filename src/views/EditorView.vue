@@ -131,6 +131,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
+import { usePetStore } from '@/stores/petStore'
 import { downloadJSON } from '@/utils/export'
 // ponytail: 导出工具动态导入 — docx/modern-screenshot 等重库移出 EditorView 静态依赖图，
 // 让路由组件加载更快、编辑器骨架屏尽早显示；导出按钮点击时才拉取对应 chunk
@@ -156,6 +157,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
+const petStore = usePetStore()
 const layoutStore = useEditorLayoutStore()
 const previewRef = ref<InstanceType<typeof ResumePreview>>()
 const sectionEditorRef = ref<InstanceType<typeof SectionEditor>>()
@@ -228,6 +230,7 @@ const exportJSON = () => {
   const json = store.exportToJSON()
   if (json) {
     downloadJSON(json, store.currentResume?.title || 'resume')
+    petStore.sayCategory('export')
   }
 }
 
@@ -251,6 +254,7 @@ const exportPDF = async () => {
     margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
     filename: store.currentResume?.title || 'resume',
   })
+  petStore.sayCategory('export')
 }
 
 const exportImage = async () => {
@@ -267,6 +271,7 @@ const exportImage = async () => {
       store.currentResume?.title || 'resume',
       store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
     )
+    petStore.sayCategory('export')
   } catch (e) {
     console.error('[exportImage] 导出图片失败:', e)
     naiveMessage.error('导出图片失败，请重试')
@@ -282,6 +287,7 @@ const exportDOCX = async () => {
     await exportDocx(store.currentResume, store.currentResume.title || 'resume')
     naiveMessage.success('DOCX 导出成功')
     announceToScreenReader('导出成功')
+    petStore.sayCategory('export')
   } catch (e) {
     console.error('[exportDOCX] 导出 DOCX 失败:', e)
     naiveMessage.error('导出 DOCX 失败，请重试')
@@ -305,6 +311,7 @@ onMounted(async () => {
     return
   }
   isReady.value = true
+  petStore.sayCategory('enterEditor')
   // 下一帧再渲染预览区，避免与挂载帧的长任务叠加（INP 优化）
   requestAnimationFrame(() => { previewReady.value = true })
 })

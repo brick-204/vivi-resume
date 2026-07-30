@@ -131,6 +131,32 @@
       </div>
     </div>
 
+    <!-- 桌宠设置 -->
+    <div class="settings-section">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:cat" :width="20" />
+        桌宠设置
+      </h3>
+      <p class="settings-section__desc">
+        选择陪伴你的桌宠形象
+      </p>
+      <div class="settings-section__row">
+        <span class="settings-section__label">当前桌宠</span>
+        <NRadioGroup
+          :value="settingsStore.currentPetId"
+          @update:value="handlePetChange"
+        >
+          <NRadio
+            v-for="pet in desktopPets"
+            :key="pet.id"
+            :value="pet.id"
+          >
+            {{ pet.name }}
+          </NRadio>
+        </NRadioGroup>
+      </div>
+    </div>
+
     <!-- 解绑确认弹窗 -->
     <n-modal
       :show="showUnbindConfirm"
@@ -163,14 +189,20 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect, NCheckbox } from 'naive-ui'
+import { NModal, NSelect, NCheckbox, NRadioGroup, NRadio } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
+import { DESKTOP_PETS } from '@/config/desktopPets'
 
 const settingsStore = useSettingsStore()
 const resumeStore = useResumeStore()
+const desktopPets = DESKTOP_PETS
 const showUnbindConfirm = ref(false)
 const copyToBrowser = ref(false)
+
+const handlePetChange = (petId: string) => {
+  settingsStore.updateDesktopPetId(petId)
+}
 
 // 回收站保留天数选项
 const retentionOptions = [

@@ -17,6 +17,8 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId } from '@/utils/storageAdapter'
+import { DEFAULT_PET_ID } from '@/config/desktopPets'
 import {
   isFileSystemAccessSupported,
   pickDirectory,
@@ -45,6 +47,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const directoryName = ref('')
   const isSyncing = ref(false)
   const permissionStatus = ref<PermissionState>('prompt')
+
+  // 桌宠偏好
+  const currentPetId = ref(DEFAULT_PET_ID)
 
   // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
@@ -79,6 +84,12 @@ export const useSettingsStore = defineStore('settings', () => {
     } catch (e) {
       console.error('[settingsStore] 初始化失败:', e)
     } finally {
+      // 桌宠偏好：两种存储模式都走 adapter 分发读取
+      try {
+        currentPetId.value = await getDesktopPetId()
+      } catch (e) {
+        console.error('[settingsStore] 读取桌宠偏好失败:', e)
+      }
       _readyResolve()
     }
   }
@@ -134,6 +145,7 @@ export const useSettingsStore = defineStore('settings', () => {
       // 目录现有选中态（重新绑定时应保留，而非用陈旧的 IndexedDB 值覆盖）
       let dirCurrentId: string | null = null
       let dirActiveAIConfigId: string | null = null
+      let dirDesktopPetId: string | null = null
       try {
         const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
         if (dirMeta) {
@@ -142,6 +154,7 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.trashBinRetentionDays === 'number') dirTrashBinRetentionDays = dirMeta.trashBinRetentionDays
           if (typeof dirMeta.currentId === 'string') dirCurrentId = dirMeta.currentId
           if (typeof dirMeta.activeAIConfigId === 'string') dirActiveAIConfigId = dirMeta.activeAIConfigId
+          if (typeof dirMeta.desktopPetId === 'string') dirDesktopPetId = dirMeta.desktopPetId
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
 
@@ -324,6 +337,7 @@ export const useSettingsStore = defineStore('settings', () => {
         trash: mergedTrash,
         trashRetentionDays: trashRetentionDays ?? dirTrashRetentionDays,
         trashBinRetentionDays: trashBinRetentionDays ?? dirTrashBinRetentionDays,
+        desktopPetId: dirDesktopPetId ?? currentPetId.value,
       }
 
       updateProgress('正在序列化数据...', 20)
@@ -404,6 +418,9 @@ export const useSettingsStore = defineStore('settings', () => {
       // 12. 通知 stores 重新加载
       await notifyStoresReload()
 
+      // 13. 同步桌宠偏好到内存（目录值优先时需覆盖内存旧值）
+      currentPetId.value = dirDesktopPetId ?? currentPetId.value
+
       naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
     } catch (e) {
       console.error('[settingsStore] 绑定目录失败:', e)
@@ -453,6 +470,9 @@ export const useSettingsStore = defineStore('settings', () => {
         if (metaJson?.activeAIConfigId) {
           await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
         }
+        if (typeof metaJson?.desktopPetId === 'string') {
+          await idb.setMeta('desktopPetId', metaJson.desktopPetId)
+        }
       }
 
       updateProgress('正在清理目录模式...', 80)
@@ -497,6 +517,8 @@ export const useSettingsStore = defineStore('settings', () => {
       if (perm === 'granted') {
         isDirectoryMode.value = true
         await notifyStoresReload()
+        // 权限恢复后重读桌宠偏好（目录内容可能在权限丢失期间被外部改动）
+        currentPetId.value = await getDesktopPetId()
         naiveMessage.success('已重新获取目录权限')
       } else {
         naiveMessage.warning('未能获取目录权限')
@@ -504,6 +526,12 @@ export const useSettingsStore = defineStore('settings', () => {
     } catch {
       naiveMessage.error('重新授权失败')
     }
+  }
+
+  // ========== 更新桌宠偏好 ==========
+  const updateDesktopPetId = async (petId: string) => {
+    currentPetId.value = petId
+    await setDesktopPetId(petId)
   }
 
   // ========== 手动重新同步 ==========
@@ -550,6 +578,10 @@ export const useSettingsStore = defineStore('settings', () => {
       }
       if (metaJson?.activeAIConfigId) {
         await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
+      }
+      if (typeof metaJson?.desktopPetId === 'string') {
+        await idb.setMeta('desktopPetId', metaJson.desktopPetId)
+        currentPetId.value = metaJson.desktopPetId
       }
 
       updateProgress('正在刷新数据...', 80)
@@ -609,5 +641,7 @@ export const useSettingsStore = defineStore('settings', () => {
     unbindDirectory,
     reauthorize,
     resyncDirectory,
+    currentPetId,
+    updateDesktopPetId,
   }
 })
