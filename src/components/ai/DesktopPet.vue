@@ -15,11 +15,30 @@
         {{ petStore.currentQuote }}
       </div>
     </transition>
+    <!-- ponytail: action 列随方向镜像：靠右→桌宠左上外围，靠左→右上外围 -->
+    <transition name="pet-actions">
+      <div
+        v-if="actionsOpen"
+        class="desktop-pet__actions"
+        :class="{ 'is-left': placement === 'left' }"
+      >
+        <button
+          v-for="a in actions"
+          :key="a.key"
+          class="desktop-pet__action"
+          type="button"
+          :title="a.label"
+          :aria-label="a.label"
+          @click.stop="onAction(a)"
+        >
+          <Icon :icon="a.icon" :width="20" />
+        </button>
+      </div>
+    </transition>
     <button
       class="desktop-pet"
       :class="{ 'is-dragging': dragging }"
-      :aria-label="'AI 咨询'"
-      title="AI 咨询"
+      aria-label="v仔菜单"
       @mousedown="onDown"
       @mouseup="onUp"
       @touchstart="onDown"
@@ -32,10 +51,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { Icon } from '@iconify/vue'
 import lottie from 'lottie-web'
 import { usePetStore } from '@/stores/petStore'
-import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
+import { getDesktopPetById, DEFAULT_PET_ID, isLikelyLottie } from '@/config/desktopPets'
 
 const props = defineProps<{
   placement: 'left' | 'right'
@@ -50,6 +70,36 @@ const emit = defineEmits<{
 }>()
 
 const petStore = usePetStore()
+
+// ========== 桌宠 action 列（单击弹出，留扩展位） ==========
+const actionsOpen = ref(false)
+
+/** action 列：v-for 渲染，后续加项往数组里加即可 */
+const actions = [
+  { key: 'consult', icon: 'mdi:comment-question-outline', label: 'AI 咨询', run: () => emit('open') },
+] as const
+
+const onAction = (a: (typeof actions)[number]) => {
+  actionsOpen.value = false
+  a.run()
+}
+
+/** 点桌宠外的空白处收起 action 列 */
+const onDocClick = (e: MouseEvent) => {
+  const wrap = document.querySelector('.desktop-pet-wrap')
+  if (wrap && !wrap.contains(e.target as Node)) {
+    actionsOpen.value = false
+  }
+}
+watch(actionsOpen, (open) => {
+  if (open) {
+    // ponytail: capture 阶段判定，避免被按钮 stopPropagation 干扰
+    nextTick(() => document.addEventListener('click', onDocClick, true))
+  } else {
+    document.removeEventListener('click', onDocClick, true)
+  }
+})
+onBeforeUnmount(() => document.removeEventListener('click', onDocClick, true))
 
 // 抽屉开→暂停说话 + 暂停 Lottie 省电；关→恢复。fire-and-forget，不影响业务
 watch(
@@ -68,13 +118,22 @@ let anim: ReturnType<typeof lottie.loadAnimation> | null = null
 const loadAnim = (petId: string) => {
   if (!containerRef.value) return
   anim?.destroy()
-  anim = lottie.loadAnimation({
-    container: containerRef.value,
-    renderer: 'svg',
-    loop: true,
-    autoplay: true,
-    animationData: getDesktopPetById(petId).lottie,
-  })
+  anim = null
+  // ponytail: 自定义 lottie 可能畸形导致 loadAnimation 抛错，前置校验 + try/catch。
+  // 失败回退默认桌宠，保证 AI 咨询入口（action 列）始终可用，不因坏数据卡死。
+  let data = getDesktopPetById(petId).lottie
+  if (!isLikelyLottie(data)) data = getDesktopPetById(DEFAULT_PET_ID).lottie
+  try {
+    anim = lottie.loadAnimation({
+      container: containerRef.value,
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      animationData: data,
+    })
+  } catch (e) {
+    console.error('[DesktopPet] lottie 加载失败:', e)
+  }
 }
 
 onMounted(() => {
@@ -131,6 +190,7 @@ const enterDragging = () => {
     clearTimeout(pressTimer)
     pressTimer = null
   }
+  actionsOpen.value = false // 拖拽中收起 action 列
   dragging.value = true
   pos.value = { left: pointerX - HALF, top: pointerY - HALF }
 }
@@ -183,8 +243,8 @@ const pointerUp = () => {
     dragging.value = false
     pos.value = null
   } else {
-    // 短按：打开抽屉
-    emit('open')
+    // 短按：toggle action 列（不直接开抽屉）
+    actionsOpen.value = !actionsOpen.value
   }
 }
 
@@ -293,6 +353,51 @@ onBeforeUnmount(() => {
   background: var(--bg-secondary, #2a2a2e);
   color: var(--text-primary, #eee);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* action 列：absolute 相对 wrap，桌宠正上方；靠右→右缘对齐桌宠右缘(列向左展开=左上)，靠左镜像 */
+.desktop-pet__actions {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1;
+}
+.desktop-pet__actions.is-left {
+  right: auto;
+  left: 0;
+}
+.desktop-pet__action {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary, #2a2a2e);
+  color: var(--text-primary, #eee);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s, background 0.15s, color 0.15s;
+  &:hover {
+    transform: scale(1.1);
+    background: var(--primary-color, #4f6df5);
+    color: #fff;
+  }
+}
+
+.pet-actions-enter-active,
+.pet-actions-leave-active {
+  transition: opacity 0.18s, transform 0.18s;
+}
+.pet-actions-enter-from,
+.pet-actions-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.92);
 }
 
 .pet-bubble-enter-active,
