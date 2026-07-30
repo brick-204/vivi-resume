@@ -11,13 +11,15 @@ import { toRaw } from 'vue'
 import type { Resume, BasicInfo } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import type { ConsultSession } from '@/types/consult'
+import type { CustomDesktopPet } from '@/config/desktopPets'
 
 const DB_NAME = 'vivi-resume-db'
-const DB_VERSION = 5
+const DB_VERSION = 6
 const RESUMES_STORE = 'resumes'
 const META_STORE = 'meta'
 const AI_CONFIGS_STORE = 'aiConfigs'
 const CONSULT_SESSIONS_STORE = 'consultSessions'
+const DESKTOP_PETS_STORE = 'desktopPets'
 
 // localStorage 旧 key（用于迁移检测）
 const LEGACY_LIST_KEY = 'vivi-resume-list'
@@ -57,6 +59,10 @@ async function getDB(): Promise<IDBPDatabase> {
       // v5: 新增 AI 咨询会话 store
       if (oldVersion < 5 && !db.objectStoreNames.contains(CONSULT_SESSIONS_STORE)) {
         db.createObjectStore(CONSULT_SESSIONS_STORE, { keyPath: 'id' })
+      }
+      // v6: 新增自定义桌宠 store
+      if (oldVersion < 6 && !db.objectStoreNames.contains(DESKTOP_PETS_STORE)) {
+        db.createObjectStore(DESKTOP_PETS_STORE, { keyPath: 'id' })
       }
     },
   })
@@ -341,4 +347,25 @@ export async function clearResumesStore(): Promise<void> {
 export async function clearAIConfigsStore(): Promise<void> {
   const db = await getDB()
   await db.clear(AI_CONFIGS_STORE)
+}
+
+// ========== 自定义桌宠 CRUD ==========
+
+/** 获取所有自定义桌宠 */
+export async function getAllDesktopPets(): Promise<CustomDesktopPet[]> {
+  const db = await getDB()
+  return db.getAll(DESKTOP_PETS_STORE) as Promise<CustomDesktopPet[]>
+}
+
+/** 保存单个自定义桌宠（新增或更新） */
+export async function saveDesktopPet(pet: CustomDesktopPet): Promise<void> {
+  const db = await getDB()
+  const plain = toPlain(pet)
+  await db.put(DESKTOP_PETS_STORE, plain)
+}
+
+/** 删除自定义桌宠 */
+export async function deleteDesktopPet(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete(DESKTOP_PETS_STORE, id)
 }

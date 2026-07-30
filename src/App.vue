@@ -7,8 +7,9 @@
       <RouteSkeletonOverlay :visible="routeLoading" :name="skeletonName" />
       <div id="aria-live-status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
 
-      <!-- AI 咨询桌宠 + 抽屉：抽屉打开时隐藏桌宠 -->
+      <!-- AI 咨询桌宠 + 抽屉：抽屉打开时隐藏桌宠；petReady 等桌宠偏好加载完再挂载，避免启动闪烁 -->
       <DesktopPet
+        v-if="petReady"
         v-show="!consultVisible"
         v-model:placement="consultPlacement"
         :drawer-open="consultVisible"
@@ -37,6 +38,11 @@ import DesktopPet from '@/components/ai/DesktopPet.vue'
 
 const { resolvedTheme } = useTheme()
 const settingsStore = useSettingsStore()
+
+// ponytail: 等 settingsStore ready（currentPetId/customPets 已从存储读入）再挂载桌宠，
+//           避免启动瞬间用默认桌宠渲染、ready 后再切换造成的闪烁
+const petReady = ref(false)
+settingsStore.ready.then(() => { petReady.value = true })
 
 const naiveTheme = computed(() => getNaiveTheme(resolvedTheme.value))
 const naiveThemeOverrides = computed(() => getNaiveThemeOverrides(resolvedTheme.value))

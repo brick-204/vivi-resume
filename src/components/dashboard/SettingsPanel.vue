@@ -138,24 +138,83 @@
         桌宠设置
       </h3>
       <p class="settings-section__desc">
-        选择陪伴你的桌宠形象
+        选择陪伴你的桌宠形象，或上传 lottie.json 添加自定义桌宠。
       </p>
-      <div class="settings-section__row">
-        <span class="settings-section__label">当前桌宠</span>
-        <NRadioGroup
-          :value="settingsStore.currentPetId"
-          @update:value="handlePetChange"
+      <div class="pet-options">
+        <button
+          v-for="pet in allPets"
+          :key="pet.id"
+          type="button"
+          class="pet-option"
+          :class="{ 'is-active': settingsStore.currentPetId === pet.id }"
+          @click="handlePetChange(pet.id)"
         >
-          <NRadio
-            v-for="pet in desktopPets"
-            :key="pet.id"
-            :value="pet.id"
+          <PetPreview :pet-id="pet.id" />
+          <span class="pet-option__name">{{ pet.name }}</span>
+          <Icon
+            v-if="settingsStore.currentPetId === pet.id"
+            icon="mdi:check-circle"
+            class="pet-option__check"
+            :width="18"
+          />
+          <button
+            v-if="isCustomPet(pet.id)"
+            type="button"
+            class="pet-option__delete"
+            title="删除"
+            @click.stop="handleRemovePet(pet.id)"
           >
-            {{ pet.name }}
-          </NRadio>
-        </NRadioGroup>
+            <Icon icon="mdi:close" :width="14" />
+          </button>
+        </button>
       </div>
+      <button class="action-btn action-btn--ghost pet-add-btn" @click="openAddPetModal">
+        <Icon icon="mdi:plus" :width="18" />
+        添加自定义桌宠
+      </button>
     </div>
+
+    <!-- 添加自定义桌宠弹窗 -->
+    <n-modal
+      :show="showAddPetModal"
+      preset="card"
+      title="添加自定义桌宠"
+      style="max-width: 460px"
+      :auto-focus="false"
+      @update:show="v => { if (!v) showAddPetModal = false }"
+    >
+      <div class="add-pet-form">
+        <div class="add-pet-form__field">
+          <label class="add-pet-form__label">lottie JSON 文件</label>
+          <input
+            type="file"
+            accept=".json,application/json"
+            class="add-pet-form__file"
+            @change="onPetFileChange"
+          />
+          <p v-if="newPetFile" class="add-pet-form__hint">
+            已选择：{{ newPetFile.name }}
+          </p>
+        </div>
+        <div class="add-pet-form__field">
+          <label class="add-pet-form__label">桌宠名字</label>
+          <NInput v-model:value="newPetName" placeholder="给桌宠起个名字" />
+        </div>
+        <div class="add-pet-form__actions">
+          <button
+            class="action-btn action-btn--primary"
+            :disabled="addingPet"
+            @click="confirmAddPet"
+          >
+            <Icon icon="mdi:check" :width="16" />
+            确认添加
+          </button>
+          <button class="action-btn action-btn--ghost" @click="showAddPetModal = false">
+            取消
+          </button>
+        </div>
+      </div>
+    </n-modal>
 
     <!-- 解绑确认弹窗 -->
     <n-modal
@@ -189,19 +248,99 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect, NCheckbox, NRadioGroup, NRadio } from 'naive-ui'
+import { NModal, NSelect, NCheckbox, NInput } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
-import { DESKTOP_PETS } from '@/config/desktopPets'
+import { DESKTOP_PETS, isLikelyLottie } from '@/config/desktopPets'
+import { message as naiveMessage } from '@/plugins/naive-ui'
+import PetPreview from '@/components/ai/PetPreview.vue'
 
 const settingsStore = useSettingsStore()
 const resumeStore = useResumeStore()
-const desktopPets = DESKTOP_PETS
+// 内置 + 自定义 合并列表（响应式，customPets 由 store 提供）
+const allPets = computed(() => [...DESKTOP_PETS, ...settingsStore.customPets])
 const showUnbindConfirm = ref(false)
 const copyToBrowser = ref(false)
 
 const handlePetChange = (petId: string) => {
   settingsStore.updateDesktopPetId(petId)
+}
+
+const isCustomPet = (id: string) => id.startsWith('custom-')
+
+// 添加自定义桌宠 modal 状态
+const showAddPetModal = ref(false)
+const newPetName = ref('')
+const newPetFile = ref<File | null>(null)
+const newPetLottie = ref<unknown>(null)
+const addingPet = ref(false)
+
+const openAddPetModal = () => {
+  newPetName.value = ''
+  newPetFile.value = null
+  newPetLottie.value = null
+  showAddPetModal.value = true
+}
+
+const onPetFileChange = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  newPetFile.value = file
+  // 默认名字用文件名（去扩展名）
+  if (!newPetName.value) {
+    newPetName.value = file.name.replace(/\.json$/i, '')
+  }
+  try {
+    const text = await file.text()
+    const parsed = JSON.parse(text)
+    // ponytail: lottie-web 对非 lottie 结构会抛运行时异常，前置校验避免存入坏数据后组件崩溃无法自救
+    if (!isLikelyLottie(parsed)) {
+      naiveMessage.error('这不是有效的 lottie 动画文件（缺少 layers 字段）')
+      newPetLottie.value = null
+      return
+    }
+    newPetLottie.value = parsed
+  } catch {
+    naiveMessage.error('lottie JSON 文件解析失败，请检查文件格式')
+    newPetLottie.value = null
+  }
+}
+
+const confirmAddPet = async () => {
+  if (!newPetLottie.value) {
+    naiveMessage.warning('请选择有效的 lottie JSON 文件')
+    return
+  }
+  if (!newPetName.value.trim()) {
+    naiveMessage.warning('请输入桌宠名字')
+    return
+  }
+  addingPet.value = true
+  try {
+    const id = await settingsStore.addCustomPet(newPetName.value.trim(), newPetLottie.value)
+    await settingsStore.updateDesktopPetId(id)
+    naiveMessage.success('已添加自定义桌宠')
+    showAddPetModal.value = false
+    newPetName.value = ''
+    newPetFile.value = null
+    newPetLottie.value = null
+  } catch (err) {
+    console.error('[SettingsPanel] 添加自定义桌宠失败:', err)
+    naiveMessage.error('添加失败，请重试')
+  } finally {
+    addingPet.value = false
+  }
+}
+
+const handleRemovePet = async (id: string) => {
+  try {
+    await settingsStore.removeCustomPet(id)
+    naiveMessage.success('已删除自定义桌宠')
+  } catch (err) {
+    console.error('[SettingsPanel] 删除自定义桌宠失败:', err)
+    naiveMessage.error('删除失败')
+  }
 }
 
 // 回收站保留天数选项
@@ -453,6 +592,114 @@ const handleResync = () => {
       background: var(--bg-glass-active);
       border-color: var(--border-hover);
     }
+  }
+}
+
+// 桌宠选项卡片
+.pet-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+}
+
+.pet-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-md $spacing-lg;
+  background: var(--bg-glass-hover);
+  border: 2px solid var(--border-glass);
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all $transition-base;
+  font-family: $font-family;
+
+  &:hover {
+    border-color: var(--border-hover);
+    transform: translateY(-2px);
+  }
+
+  &.is-active {
+    border-color: $primary-color;
+    background: rgba($primary-color, 0.08);
+  }
+
+  &__name {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    color: $primary-color;
+  }
+
+  &__delete {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: rgba($error-color, 0.15);
+    color: $error-color;
+    cursor: pointer;
+    transition: all $transition-base;
+
+    &:hover {
+      background: $error-color;
+      color: #fff;
+    }
+  }
+}
+
+.pet-add-btn {
+  margin-top: $spacing-md;
+}
+
+// 添加自定义桌宠表单
+.add-pet-form {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  &__label {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  &__file {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+  }
+
+  &__hint {
+    margin: 0;
+    font-size: $font-size-xs;
+    color: $text-secondary;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    justify-content: flex-end;
+    margin-top: $spacing-sm;
   }
 }
 </style>

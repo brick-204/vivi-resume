@@ -17,8 +17,8 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId } from '@/utils/storageAdapter'
-import { DEFAULT_PET_ID } from '@/config/desktopPets'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet } from '@/utils/storageAdapter'
+import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import {
   isFileSystemAccessSupported,
   pickDirectory,
@@ -50,6 +50,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 桌宠偏好
   const currentPetId = ref(DEFAULT_PET_ID)
+  const customPets = ref<CustomDesktopPet[]>([])
 
   // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
@@ -89,6 +90,12 @@ export const useSettingsStore = defineStore('settings', () => {
         currentPetId.value = await getDesktopPetId()
       } catch (e) {
         console.error('[settingsStore] 读取桌宠偏好失败:', e)
+      }
+      try {
+        customPets.value = await getAllDesktopPets()
+        setCustomPetsCache(customPets.value)
+      } catch (e) {
+        console.error('[settingsStore] 读取自定义桌宠失败:', e)
       }
       _readyResolve()
     }
@@ -361,6 +368,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await ensureDir(handle, 'resumes')
       await ensureDir(handle, 'ai-configs')
       await ensureDir(handle, 'photos')
+      await ensureDir(handle, 'desktop-pets')
 
       // 写入简历文件（content 已是格式化 JSON 字符串，直接传给 writeJsonFile）
       // 同时提取照片为独立文件
@@ -396,6 +404,17 @@ export const useSettingsStore = defineStore('settings', () => {
         await writeJsonFile(handle, `ai-configs/${file.filename}`, file.content)
       }
 
+      // 写入自定义桌宠文件（从 IndexedDB 迁移到目录）
+      // ponytail: 目录已有同 id 的自定义桌宠优先保留（跨设备目录共享场景），
+      //           仅把 IndexedDB 独有的写入目录，避免静默覆盖目录版。与 desktopPetId 的目录优先策略一致。
+      const dirCustomPets = await readAllJsonFiles<CustomDesktopPet>(handle, 'desktop-pets')
+      const dirCustomPetIds = new Set(dirCustomPets.map(p => p.id))
+      const idbCustomPets = await idb.getAllDesktopPets()
+      for (const pet of idbCustomPets) {
+        if (dirCustomPetIds.has(pet.id)) continue
+        await writeJsonFile(handle, `desktop-pets/${pet.id}.json`, idb.toPlain(pet))
+      }
+
       // 写入 meta.json（metaContent 已是 JSON 字符串）
       await writeJsonFile(handle, 'meta.json', result.metaContent)
 
@@ -420,6 +439,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 13. 同步桌宠偏好到内存（目录值优先时需覆盖内存旧值）
       currentPetId.value = dirDesktopPetId ?? currentPetId.value
+      customPets.value = await adapter.getAllDesktopPets()
+      setCustomPetsCache(customPets.value)
 
       naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
     } catch (e) {
@@ -473,6 +494,11 @@ export const useSettingsStore = defineStore('settings', () => {
         if (typeof metaJson?.desktopPetId === 'string') {
           await idb.setMeta('desktopPetId', metaJson.desktopPetId)
         }
+        // 自定义桌宠：从目录读取并写入 IndexedDB
+        const dirCustomPets = await adapter.getAllDesktopPets()
+        for (const pet of dirCustomPets) {
+          await idb.saveDesktopPet(pet)
+        }
       }
 
       updateProgress('正在清理目录模式...', 80)
@@ -519,6 +545,8 @@ export const useSettingsStore = defineStore('settings', () => {
         await notifyStoresReload()
         // 权限恢复后重读桌宠偏好（目录内容可能在权限丢失期间被外部改动）
         currentPetId.value = await getDesktopPetId()
+        customPets.value = await adapter.getAllDesktopPets()
+        setCustomPetsCache(customPets.value)
         naiveMessage.success('已重新获取目录权限')
       } else {
         naiveMessage.warning('未能获取目录权限')
@@ -532,6 +560,29 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateDesktopPetId = async (petId: string) => {
     currentPetId.value = petId
     await setDesktopPetId(petId)
+  }
+
+  // ========== 自定义桌宠管理 ==========
+  const addCustomPet = async (name: string, lottie: unknown): Promise<string> => {
+    // ponytail: 用 crypto.randomUUID 保证全局唯一，避免与内置 id 冲突
+    const id = `custom-${crypto.randomUUID()}`
+    const pet: CustomDesktopPet = { id, name, lottie }
+    await saveDesktopPet(pet)
+    customPets.value = [...customPets.value, pet]
+    setCustomPetsCache(customPets.value)
+    return id
+  }
+
+  const removeCustomPet = async (id: string): Promise<void> => {
+    // ponytail: 防御内置 id 误传（内置桌宠不在 customPets 里，删了无意义却会触发多余回退）
+    if (!id.startsWith('custom-')) return
+    await deleteDesktopPet(id)
+    customPets.value = customPets.value.filter(p => p.id !== id)
+    setCustomPetsCache(customPets.value)
+    // 删除的是当前选中的桌宠 → 回退默认
+    if (currentPetId.value === id) {
+      await updateDesktopPetId(DEFAULT_PET_ID)
+    }
   }
 
   // ========== 手动重新同步 ==========
@@ -583,6 +634,10 @@ export const useSettingsStore = defineStore('settings', () => {
         await idb.setMeta('desktopPetId', metaJson.desktopPetId)
         currentPetId.value = metaJson.desktopPetId
       }
+
+      // 自定义桌宠：从目录读取并刷新内存（目录数据为权威）
+      customPets.value = await adapter.getAllDesktopPets()
+      setCustomPetsCache(customPets.value)
 
       updateProgress('正在刷新数据...', 80)
 
@@ -643,5 +698,8 @@ export const useSettingsStore = defineStore('settings', () => {
     resyncDirectory,
     currentPetId,
     updateDesktopPetId,
+    customPets,
+    addCustomPet,
+    removeCustomPet,
   }
 })

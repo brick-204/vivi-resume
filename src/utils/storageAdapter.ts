@@ -14,6 +14,7 @@ import * as idb from './storage'
 import * as dir from './directoryStorage'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { DEFAULT_PET_ID } from '@/config/desktopPets'
+import type { CustomDesktopPet } from '@/config/desktopPets'
 import { extractPhotos, injectPhotos, isPhotoRef, parsePhotoRef } from './photoFileRef'
 
 // ========== 工具函数 ==========
@@ -356,5 +357,39 @@ export async function setDesktopPetId(petId: string): Promise<void> {
     })
   } else {
     await idb.setMeta('desktopPetId', petId)
+  }
+}
+
+// ========== 自定义桌宠（pets/ 子目录 | desktopPets store） ==========
+
+/** 读取所有自定义桌宠 */
+export async function getAllDesktopPets(): Promise<CustomDesktopPet[]> {
+  if (isDirectoryMode()) {
+    // 目录模式：desktop-pets/{id}.json 每个文件是完整 {id, name, lottie}
+    return await dir.readAllJsonFiles<CustomDesktopPet>(getHandle(), 'desktop-pets')
+  }
+  return await idb.getAllDesktopPets()
+}
+
+/** 保存（新增/更新）自定义桌宠 */
+export async function saveDesktopPet(pet: CustomDesktopPet): Promise<void> {
+  const plain = idb.toPlain(pet)
+  if (isDirectoryMode()) {
+    await dir.ensureDir(getHandle(), 'desktop-pets')
+    await dir.writeJsonFile(getHandle(), `desktop-pets/${pet.id}.json`, plain)
+  } else {
+    await idb.saveDesktopPet(plain)
+  }
+}
+
+/** 删除自定义桌宠 */
+export async function deleteDesktopPet(id: string): Promise<void> {
+  if (isDirectoryMode()) {
+    try {
+      const petsDir = await getHandle().getDirectoryHandle('desktop-pets')
+      await dir.deleteFile(petsDir, `${id}.json`)
+    } catch { /* 目录或文件不存在，忽略 */ }
+  } else {
+    await idb.deleteDesktopPet(id)
   }
 }
