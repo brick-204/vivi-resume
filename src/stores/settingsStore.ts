@@ -563,10 +563,18 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   // ========== 自定义桌宠管理 ==========
-  const addCustomPet = async (name: string, lottie: unknown): Promise<string> => {
+  const addCustomPet = async (
+    name: string,
+    data: { type?: 'lottie' | 'img'; lottie?: unknown; src?: string },
+  ): Promise<string> => {
     // ponytail: 用 crypto.randomUUID 保证全局唯一，避免与内置 id 冲突
     const id = `custom-${crypto.randomUUID()}`
-    const pet: CustomDesktopPet = { id, name, lottie }
+    // data 经 ref 包裹后 lottie 对象是 reactive proxy，toPlain(toRaw) 只剥外层，
+    // 嵌套的 lottie 仍带 proxy → structuredClone 失败。JSON 深拷贝彻底脱代理。
+    // ponytail: 假设 lottie 为纯 JSON 数据（无 Date/undefined），JSON 往返无损；
+    //           根因是 toPlain 不递归剥 proxy，此处局部修复，未改 toPlain 以控影响面。
+    const plainData = JSON.parse(JSON.stringify(data)) as typeof data
+    const pet: CustomDesktopPet = { id, name, ...plainData }
     await saveDesktopPet(pet)
     customPets.value = [...customPets.value, pet]
     setCustomPetsCache(customPets.value)

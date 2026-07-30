@@ -8,15 +8,15 @@ import idleData from '@/assets/lottie/pet-idle.json'
 export interface DesktopPetConfig {
   id: string
   name: string
-  lottie: unknown
+  lottie?: unknown
+  /** 桌宠类型：lottie（JSON / .lottie 解析后）/ img（GIF/APNG/WebP/PNG/SVG）。缺省按 lottie 处理 */
+  type?: 'lottie' | 'img'
+  /** img 类型的 data URL（type=img 时有） */
+  src?: string
 }
 
 /** 用户自定义桌宠（与 DesktopPetConfig 同构，单独命名区分"用户自定义"语义） */
-export interface CustomDesktopPet {
-  id: string
-  name: string
-  lottie: unknown
-}
+export interface CustomDesktopPet extends DesktopPetConfig {}
 
 export const DESKTOP_PETS: DesktopPetConfig[] = [
   { id: 'v-za', name: 'v仔', lottie: idleData },

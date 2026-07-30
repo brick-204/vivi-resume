@@ -185,13 +185,16 @@
     >
       <div class="add-pet-form">
         <div class="add-pet-form__field">
-          <label class="add-pet-form__label">lottie JSON 文件</label>
+          <label class="add-pet-form__label">桌宠素材文件</label>
           <input
             type="file"
-            accept=".json,application/json"
+            accept=".json,application/json,.lottie,image/gif,image/apng,image/webp,image/png,image/svg+xml,image/avif"
             class="add-pet-form__file"
             @change="onPetFileChange"
           />
+          <p class="add-pet-form__support">
+            支持 Lottie JSON / .lottie / GIF·APNG·WebP·PNG·SVG
+          </p>
           <p v-if="newPetFile" class="add-pet-form__hint">
             已选择：{{ newPetFile.name }}
           </p>
@@ -251,7 +254,8 @@ import { Icon } from '@iconify/vue'
 import { NModal, NSelect, NCheckbox, NInput } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
-import { DESKTOP_PETS, isLikelyLottie } from '@/config/desktopPets'
+import { DESKTOP_PETS } from '@/config/desktopPets'
+import { parsePetFile, type ParsedPet } from '@/utils/petUpload'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
@@ -272,13 +276,13 @@ const isCustomPet = (id: string) => id.startsWith('custom-')
 const showAddPetModal = ref(false)
 const newPetName = ref('')
 const newPetFile = ref<File | null>(null)
-const newPetLottie = ref<unknown>(null)
+const newPetParsed = ref<ParsedPet | null>(null)
 const addingPet = ref(false)
 
 const openAddPetModal = () => {
   newPetName.value = ''
   newPetFile.value = null
-  newPetLottie.value = null
+  newPetParsed.value = null
   showAddPetModal.value = true
 }
 
@@ -289,27 +293,19 @@ const onPetFileChange = async (e: Event) => {
   newPetFile.value = file
   // 默认名字用文件名（去扩展名）
   if (!newPetName.value) {
-    newPetName.value = file.name.replace(/\.json$/i, '')
+    newPetName.value = file.name.replace(/\.(json|lottie|gif|apng|webp|png|svg|avif)$/i, '')
   }
   try {
-    const text = await file.text()
-    const parsed = JSON.parse(text)
-    // ponytail: lottie-web 对非 lottie 结构会抛运行时异常，前置校验避免存入坏数据后组件崩溃无法自救
-    if (!isLikelyLottie(parsed)) {
-      naiveMessage.error('这不是有效的 lottie 动画文件（缺少 layers 字段）')
-      newPetLottie.value = null
-      return
-    }
-    newPetLottie.value = parsed
-  } catch {
-    naiveMessage.error('lottie JSON 文件解析失败，请检查文件格式')
-    newPetLottie.value = null
+    newPetParsed.value = await parsePetFile(file)
+  } catch (err) {
+    naiveMessage.error((err as Error).message || '文件解析失败')
+    newPetParsed.value = null
   }
 }
 
 const confirmAddPet = async () => {
-  if (!newPetLottie.value) {
-    naiveMessage.warning('请选择有效的 lottie JSON 文件')
+  if (!newPetParsed.value) {
+    naiveMessage.warning('请选择有效的桌宠素材文件')
     return
   }
   if (!newPetName.value.trim()) {
@@ -318,13 +314,13 @@ const confirmAddPet = async () => {
   }
   addingPet.value = true
   try {
-    const id = await settingsStore.addCustomPet(newPetName.value.trim(), newPetLottie.value)
+    const id = await settingsStore.addCustomPet(newPetName.value.trim(), newPetParsed.value)
     await settingsStore.updateDesktopPetId(id)
     naiveMessage.success('已添加自定义桌宠')
     showAddPetModal.value = false
     newPetName.value = ''
     newPetFile.value = null
-    newPetLottie.value = null
+    newPetParsed.value = null
   } catch (err) {
     console.error('[SettingsPanel] 添加自定义桌宠失败:', err)
     naiveMessage.error('添加失败，请重试')
@@ -687,6 +683,12 @@ const handleResync = () => {
   &__file {
     font-size: $font-size-sm;
     color: $text-secondary;
+  }
+
+  &__support {
+    margin: 0;
+    font-size: $font-size-xs;
+    color: $text-light;
   }
 
   &__hint {

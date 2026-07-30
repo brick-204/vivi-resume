@@ -45,7 +45,8 @@
       @touchend="onUp"
       @mouseenter="onHover"
     >
-      <div ref="containerRef" class="desktop-pet__anim" />
+      <img v-if="isImg" :src="imgSrc" class="desktop-pet__img" alt="" draggable="false" />
+      <div v-else ref="containerRef" class="desktop-pet__anim" />
     </button>
   </div>
 </template>
@@ -53,9 +54,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
-import lottie from 'lottie-web'
 import { usePetStore } from '@/stores/petStore'
-import { getDesktopPetById, DEFAULT_PET_ID, isLikelyLottie } from '@/config/desktopPets'
+import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
+import { usePetRenderer } from '@/composables/usePetRenderer'
 
 const props = defineProps<{
   placement: 'left' | 'right'
@@ -106,34 +107,36 @@ watch(
   () => props.drawerOpen,
   (open) => {
     petStore.setPaused(Boolean(open))
-    if (open) anim?.pause()
-    else anim?.play()
+    if (open) pauseLottie()
+    else playLottie()
   },
 )
 
-// ========== Lottie ==========
-const containerRef = ref<HTMLElement | null>(null)
-let anim: ReturnType<typeof lottie.loadAnimation> | null = null
+// ========== 桌宠渲染（img / lottie 分发，失败回退默认桌宠） ==========
+const {
+  containerRef,
+  petData,
+  isImg,
+  imgSrc,
+  mountLottie,
+  pauseLottie,
+  playLottie,
+  destroyLottie,
+} = usePetRenderer()
 
 const loadAnim = (petId: string) => {
-  if (!containerRef.value) return
-  anim?.destroy()
-  anim = null
-  // ponytail: 自定义 lottie 可能畸形导致 loadAnimation 抛错，前置校验 + try/catch。
-  // 失败回退默认桌宠，保证 AI 咨询入口（action 列）始终可用，不因坏数据卡死。
-  let data = getDesktopPetById(petId).lottie
-  if (!isLikelyLottie(data)) data = getDesktopPetById(DEFAULT_PET_ID).lottie
-  try {
-    anim = lottie.loadAnimation({
-      container: containerRef.value,
-      renderer: 'svg',
-      loop: true,
-      autoplay: true,
-      animationData: data,
-    })
-  } catch (e) {
-    console.error('[DesktopPet] lottie 加载失败:', e)
-  }
+  destroyLottie()
+  petData.value = getDesktopPetById(petId)
+  // img 类型直接渲染 <img>，无需挂载 lottie
+  if (isImg.value) return
+  // lottie 类型：容器 ready 后挂载；数据畸形回退默认桌宠，保证 action 列始终可用
+  requestAnimationFrame(() => {
+    if (!containerRef.value) return
+    if (!mountLottie(containerRef.value)) {
+      petData.value = getDesktopPetById(DEFAULT_PET_ID)
+      mountLottie(containerRef.value)
+    }
+  })
 }
 
 onMounted(() => {
@@ -274,8 +277,6 @@ const onUp = (e: MouseEvent | TouchEvent) => {
 
 onBeforeUnmount(() => {
   cleanupDrag() // 拖拽中途卸载也要移除 document 监听，避免泄漏
-  anim?.destroy()
-  anim = null
   petStore.stop()
 })
 </script>
@@ -326,6 +327,13 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 100%;
   pointer-events: none; /* 不挡按钮点击/拖拽 */
+}
+.desktop-pet__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
 }
 
 /* 气泡 */
