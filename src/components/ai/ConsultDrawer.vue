@@ -1,8 +1,10 @@
 <template>
   <n-drawer
-    :show="show"
-    :width="drawerWidth"
-    placement="right"
+    :show="drawerShow"
+    :width="pinned ? pinnedWidth : drawerWidth"
+    :show-mask="!pinned"
+    :mask-closable="!pinned"
+    :placement="placement"
     :auto-focus="false"
     @update:show="handleShowChange"
   >
@@ -11,6 +13,35 @@
         <div class="consult-header">
           <Icon icon="mdi:comment-question-outline" :width="20" />
           <span>AI 咨询</span>
+          <button
+            class="consult-header__pin"
+            :class="{ 'is-active': pinned }"
+            type="button"
+            :title="pinned ? '取消常驻' : '常驻侧栏'"
+            :aria-label="pinned ? '取消常驻' : '常驻侧栏'"
+            @click="togglePin"
+          >
+            <Icon
+              :icon="pinned ? 'mdi:pin' : 'mdi:pin-outline'"
+              :width="18"
+            />
+          </button>
+          <button
+            class="consult-header__placement"
+            type="button"
+            :title="placement === 'right' ? '切换到左侧' : '切换到右侧'"
+            :aria-label="placement === 'right' ? '切换到左侧' : '切换到右侧'"
+            @click="togglePlacement"
+          >
+            <Icon
+              :icon="
+                placement === 'right'
+                  ? 'mdi:format-horizontal-align-left'
+                  : 'mdi:format-horizontal-align-right'
+              "
+              :width="18"
+            />
+          </button>
           <n-popover
             v-model:show="historyPopoverShow"
             trigger="click"
@@ -376,6 +407,21 @@
       </div>
     </n-drawer-content>
   </n-drawer>
+
+  <!-- 常驻态左边缘拖拽调宽条：teleport 到 body，fixed 定位脱离抽屉滚动区 -->
+  <teleport to="body">
+    <div
+      v-if="pinned && bodyVisible"
+      class="consult-pin-resize"
+      :style="
+        placement === 'right'
+          ? { right: pinnedWidth - 3 + 'px' }
+          : { left: pinnedWidth - 3 + 'px' }
+      "
+      title="拖拽调节宽度"
+      @mousedown="onPinDragStart"
+    ></div>
+  </teleport>
 </template>
 
 <script setup lang="ts">
@@ -401,8 +447,24 @@ import { blobToBase64 } from "@/utils/storage";
 import { parseFile, getSupportedFileType } from "@/utils/fileParser";
 import { message as naiveMessage } from "@/plugins/naive-ui";
 
-const props = defineProps<{ show: boolean }>();
-const emit = defineEmits<{ "update:show": [v: boolean] }>();
+const props = defineProps<{
+  show: boolean;
+  /** 抽屉方向：靠左/靠右，所有态都生效，默认右 */
+  placement?: "left" | "right";
+}>();
+const emit = defineEmits<{
+  "update:show": [v: boolean];
+  "update:placement": [v: "left" | "right"];
+}>();
+
+/** 抽屉方向，双向绑父组件；localStorage 由 App.vue 统一写 */
+const placement = computed<"left" | "right">({
+  get: () => props.placement ?? "right",
+  set: (v) => emit("update:placement", v),
+});
+const togglePlacement = () => {
+  placement.value = placement.value === "right" ? "left" : "right";
+};
 
 const consultStore = useConsultStore();
 const resumeStore = useResumeStore();
@@ -534,6 +596,82 @@ const openTabs = computed(() => sessions.value.filter((s) => !s.closed));
 
 const drawerWidth = computed(() => Math.min(560, window.innerWidth - 40));
 
+// ========== 常驻态（📌 侧栏模式） ==========
+// pinned: 抽屉浮于内容之上、无遮罩、不拦截外侧点击，可边操作编辑器边用 AI 咨询
+const MIN_PIN_WIDTH = 560;
+const pinned = ref(localStorage.getItem("consult-pinned") === "1");
+// 常驻宽度，最小 560，受屏幕宽约束；首次取已存值否则回退 drawerWidth
+const pinnedWidth = ref(
+  Math.min(
+    window.innerWidth - 40,
+    Math.max(
+      MIN_PIN_WIDTH,
+      Number(localStorage.getItem("consult-pin-width")) || drawerWidth.value,
+    ),
+  ),
+);
+// 抽屉主体是否展开（常驻态下关闭=收起主体但保持 pinned，下次点 FAB 直接侧栏展开）
+const bodyVisible = ref(false);
+
+/** n-drawer 实际 show：常驻态跟 bodyVisible，非常驻态跟 props.show */
+const drawerShow = computed(() =>
+  pinned.value ? bodyVisible.value : props.show,
+);
+
+const togglePin = () => {
+  pinned.value = !pinned.value;
+  localStorage.setItem("consult-pinned", pinned.value ? "1" : "0");
+  if (pinned.value) {
+    // 进入常驻：展开主体
+    bodyVisible.value = true;
+    emit("update:show", true);
+  }
+  // 退出常驻：bodyVisible 不再驱动 drawerShow，回到 props.show 控制
+};
+
+// 常驻态拖拽调宽（左边缘往左拖变宽，方向与编辑器列拖拽相反，故自写不复用 ResizeHandle）
+let pinDragStartX = 0;
+let pinDragStartWidth = 0;
+let pinDragRaf: number | null = null;
+let pinDragPending: number | null = null;
+const onPinDragStart = (e: MouseEvent) => {
+  e.preventDefault();
+  pinDragStartX = e.clientX;
+  pinDragStartWidth = pinnedWidth.value;
+  document.body.style.cursor = "col-resize";
+  document.addEventListener("mousemove", onPinDragMove);
+  document.addEventListener("mouseup", onPinDragEnd);
+};
+const onPinDragMove = (e: MouseEvent) => {
+  // 靠右抽屉左边缘：往左拖(delta<0)变宽 → start - delta；靠左抽屉右边缘：往右拖(delta>0)变宽 → start + delta
+  const delta = e.clientX - pinDragStartX;
+  const next = placement.value === "right"
+    ? pinDragStartWidth - delta
+    : pinDragStartWidth + delta;
+  pinDragPending = Math.min(
+    window.innerWidth - 40,
+    Math.max(MIN_PIN_WIDTH, next),
+  );
+  if (pinDragRaf === null) {
+    pinDragRaf = requestAnimationFrame(() => {
+      pinDragRaf = null;
+      if (pinDragPending !== null) pinnedWidth.value = pinDragPending;
+    });
+  }
+};
+const onPinDragEnd = () => {
+  if (pinDragRaf !== null) {
+    cancelAnimationFrame(pinDragRaf);
+    pinDragRaf = null;
+  }
+  if (pinDragPending !== null) pinnedWidth.value = pinDragPending;
+  pinDragPending = null;
+  document.body.style.cursor = "";
+  localStorage.setItem("consult-pin-width", String(pinnedWidth.value));
+  document.removeEventListener("mousemove", onPinDragMove);
+  document.removeEventListener("mouseup", onPinDragEnd);
+};
+
 /** UI 可见消息（过滤掉 system 与 history-summary；保留 compress-notice 作为提示 chip） */
 const visibleMessages = computed<ConsultMessage[]>(() =>
   currentMessages.value.filter((m) => m.kind && m.kind !== "history-summary"),
@@ -578,6 +716,10 @@ watch(streamingText, scrollToBottom);
 // ========== 事件 ==========
 const handleShowChange = (v: boolean) => {
   if (!v) clearPending();
+  if (pinned.value) {
+    // 常驻态：关闭=收起主体，但保持 pinned；同步给父组件以显隐 FAB
+    bodyVisible.value = v;
+  }
   emit("update:show", v);
 };
 
@@ -667,9 +809,11 @@ const onAbort = () => {
 };
 
 // 抽屉打开时，若无打开的会话（标签栏空）且非流式中，则自动新建一个
+// 常驻态下 props.show 变化也经此同步 bodyVisible（点 FAB 展开/收起主体）
 watch(
   () => props.show,
   (v) => {
+    if (pinned.value) bodyVisible.value = v;
     if (v && openTabs.value.length === 0 && !isStreaming.value) {
       createSession();
     }
@@ -709,6 +853,41 @@ watch(
   gap: 8px;
   font-weight: 600;
   font-size: 16px;
+  &__pin {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--n-text-color-3, #999);
+    &:hover {
+      background: var(--n-color-hover, rgba(0, 0, 0, 0.08));
+      color: var(--n-text-color-2, #555);
+    }
+    &.is-active {
+      color: var(--primary-color, #18a058);
+    }
+  }
+  &__placement {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    color: var(--n-text-color-3, #999);
+    &:hover {
+      background: var(--n-color-hover, rgba(0, 0, 0, 0.08));
+      color: var(--n-text-color-2, #555);
+    }
+  }
   &__history {
     margin-left: auto;
     display: inline-flex;
@@ -1146,5 +1325,23 @@ watch(
   gap: 8px;
   padding: 8px 16px 0;
   border-top: 1px solid var(--n-border-color, rgba(0, 0, 0, 0.09));
+}
+</style>
+
+<!-- 拖拽条 teleport 到 body，scoped 带不上 data 属性，用 :global -->
+<style lang="scss">
+.consult-pin-resize {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2001; // 高于 n-drawer 默认层
+  &:hover {
+    background: rgba($primary-color, 0.4);
+  }
+  &:active {
+    background: $primary-color;
+  }
 }
 </style>
