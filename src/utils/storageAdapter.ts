@@ -385,6 +385,46 @@ export async function setPetAIChatEnabled(enabled: boolean): Promise<void> {
   }
 }
 
+/** 读取 idle/rest 也走 AI 子开关（默认 false） */
+export async function getIdleAiEnabled(): Promise<boolean> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.idleAiEnabled as boolean) ?? false
+  }
+  return (await idb.getMeta<boolean>('idleAiEnabled')) ?? false
+}
+
+/** 写入 idle/rest 也走 AI 子开关 */
+export async function setIdleAiEnabled(enabled: boolean): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.idleAiEnabled = enabled
+    })
+  } else {
+    await idb.setMeta('idleAiEnabled', enabled)
+  }
+}
+
+/** 读取空闲冒泡间隔分钟数（默认 1，下限 1） */
+export async function getIdleIntervalMinutes(): Promise<number> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.idleIntervalMinutes as number) ?? 1
+  }
+  return (await idb.getMeta<number>('idleIntervalMinutes')) ?? 1
+}
+
+/** 写入空闲冒泡间隔分钟数 */
+export async function setIdleIntervalMinutes(minutes: number): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.idleIntervalMinutes = minutes
+    })
+  } else {
+    await idb.setMeta('idleIntervalMinutes', minutes)
+  }
+}
+
 /** 读取休息提醒间隔分钟数（默认 25，下限 10） */
 export async function getRestReminderInterval(): Promise<number> {
   if (isDirectoryMode()) {

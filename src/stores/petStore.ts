@@ -13,7 +13,7 @@ import { pickQuote, pickIdleQuote, getTimePeriod, type QuoteCategory, type TimeP
 import { generatePetQuote } from '@/services/petAiQuote'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
-const IDLE_INTERVAL = 45_000 // 定时随机冒泡间隔
+const IDLE_INTERVAL = 60_000 // 定时随机冒泡间隔（默认 1 分钟，可注入覆盖）
 const SAY_TTL = 5000 // 单句话显示时长（静态话术）
 const AI_SAY_MS_PER_CHAR = 120 // AI 话术每字阅读时长
 const AI_SAY_BASE_MS = 2000 // AI 话术基础时长
@@ -63,6 +63,10 @@ export const usePetStore = defineStore('pet', () => {
   let petAIChatEnabled = false
   let generating = false
   let genToken = 0
+  // idle/rest 也走 AI 子开关（依赖 petAIChatEnabled，settingsStore 注入）
+  let idleAiEnabled = false
+  // 空闲冒泡间隔毫秒（settingsStore 注入，覆盖默认 IDLE_INTERVAL）
+  let idleIntervalMs = IDLE_INTERVAL
 
   const clearTtl = () => {
     if (ttlTimer) {
@@ -83,19 +87,19 @@ export const usePetStore = defineStore('pet', () => {
   }
 
   /** 按话术分类说一句（随机取一条），name 替换占位符 {name}。
-   *  静态场景（idle/rest/aiError）直接走 pickQuote；
-   *  AI 场景开关开且未在生成中时调大模型现编，失败回退静态。 */
+   *  aiError 永远静态（AI 不可用时）；其余场景开关开且未生成中时调 AI，失败回退静态。
+   *  idle 的静态回退用 pickIdleQuote（过滤简历话术），其余用 pickQuote。 */
   const sayCategory = async (category: QuoteCategory, name?: string) => {
     // 每次调用递增 token：后续若有 AI 结果延迟回来，对比 token 即知是否已被新调用取代
     const myToken = ++genToken
-    // 静态场景：idle 控成本、rest 保 20-20-20 护眼指令、aiError 时 AI 不可用
-    if (category === 'idle' || category === 'rest' || category === 'aiError') {
+    // aiError 永远静态（AI 不可用时本就不该走 AI）
+    if (category === 'aiError') {
       say(pickQuote(category, name))
       return
     }
     // AI 场景：开关关 或 正在生成中 → 静态回退
     if (!petAIChatEnabled || generating) {
-      say(pickQuote(category, name))
+      say(fallbackText(category, name))
       return
     }
     generating = true
@@ -112,10 +116,16 @@ export const usePetStore = defineStore('pet', () => {
       // 期间有新调用取代 → 不再回退静态（避免覆盖当前气泡）
       if (myToken !== genToken) return
       // 无配置/超时/失败 → 静态回退，气泡不空
-      say(pickQuote(category, name))
+      say(fallbackText(category, name))
     } finally {
       generating = false
     }
+  }
+
+  /** 取某分类的静态回退文本：idle 用 pickIdleQuote（过滤简历话术），其余用 pickQuote */
+  const fallbackText = (category: QuoteCategory, name?: string) => {
+    if (category === 'idle') return pickIdleQuote(inEditor.value, name)
+    return pickQuote(category, name)
   }
 
   /** 立即闭嘴 */
@@ -155,9 +165,13 @@ export const usePetStore = defineStore('pet', () => {
         return
       }
       lastGreetPeriod = period
-      // idle 冒泡：非编辑器过滤简历相关话术
-      say(pickIdleQuote(inEditor.value, petName.value))
-    }, IDLE_INTERVAL)
+      // idle 冒泡：子开关开且主开关开 → 走 AI 现编；否则静态（pickIdleQuote 过滤简历话术）
+      if (idleAiEnabled && petAIChatEnabled) {
+        void sayCategory('idle', petName.value)
+      } else {
+        say(pickIdleQuote(inEditor.value, petName.value))
+      }
+    }, idleIntervalMs)
   }
 
   // ----- 连续用眼计时：活动感知，页面可见且有活动才累计 -----
@@ -196,13 +210,17 @@ export const usePetStore = defineStore('pet', () => {
     window.removeEventListener('focus', onVisibilityChange)
   }
 
-  /** 触发休息提醒：抽屉打开时桌宠隐藏气泡看不见，改用 naiveMessage 顶替 */
+  /** 触发休息提醒：子开关开且主开关开 → 走 AI（强调 20-20-20 护眼指令）；否则静态。
+   *  抽屉打开时桌宠隐藏，气泡看不见 → AI 异步生成不适合顶替消息，仍用 naiveMessage 静态顶替 */
   const triggerRest = () => {
-    const text = pickQuote('rest', petName.value)
     if (paused.value) {
-      naiveMessage.info(text)
+      naiveMessage.info(pickQuote('rest', petName.value))
+      return
+    }
+    if (idleAiEnabled && petAIChatEnabled) {
+      void sayCategory('rest', petName.value)
     } else {
-      say(text)
+      say(pickQuote('rest', petName.value))
     }
   }
 
@@ -280,6 +298,21 @@ export const usePetStore = defineStore('pet', () => {
     petAIChatEnabled = v
   }
 
+  /** 注入 idle/rest 也走 AI 子开关（settingsStore 调用） */
+  const setIdleAiEnabled = (v: boolean) => {
+    idleAiEnabled = v
+  }
+
+  /** 注入空闲冒泡间隔（毫秒），改间隔需重启 idleTimer 生效 */
+  const setIdleIntervalMs = (ms: number) => {
+    idleIntervalMs = Math.max(1000, ms)
+    // 已在跑则重启（用新间隔）；paused 中不启动，恢复时 startIdle 自然用新值
+    if (idleTimer && !paused.value) {
+      stopIdle()
+      startIdle()
+    }
+  }
+
   /** 说当前时段的招呼（进页面/切桌宠时调用），并记录时段供跨段检测。
    *  走 sayCategory('greet')：开关开时由 AI 现编，否则静态时段招呼 */
   const sayTimeGreet = () => {
@@ -302,6 +335,8 @@ export const usePetStore = defineStore('pet', () => {
     setRestIntervalMs,
     setInEditor,
     setAIChatEnabled,
+    setIdleAiEnabled,
+    setIdleIntervalMs,
     sayTimeGreet,
   }
 })

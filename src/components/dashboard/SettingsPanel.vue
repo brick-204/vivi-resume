@@ -198,6 +198,30 @@
         添加自定义桌宠
       </button>
 
+      <!-- 空闲冒泡（桌宠设置子分区） -->
+      <div class="settings-subsection">
+        <h4 class="settings-subsection__title">
+          <Icon icon="mdi:clock-outline" :width="18" />
+          空闲冒泡
+        </h4>
+        <p class="settings-subsection__desc">
+          桌宠空闲时会按设定间隔自动说一句话刷存在感。
+        </p>
+        <div class="settings-section__row">
+          <span class="settings-section__label">冒泡间隔</span>
+          <NInputNumber
+            v-model:value="idleInterval"
+            :min="1"
+            :max="60"
+            :step="1"
+            size="small"
+            style="width: 140px"
+          >
+            <template #suffix>分钟</template>
+          </NInputNumber>
+        </div>
+      </div>
+
       <!-- 休息提醒（桌宠设置子分区） -->
       <div class="settings-subsection">
         <h4 class="settings-subsection__title">
@@ -234,12 +258,19 @@
           AI 动态话术
         </h4>
         <p class="settings-subsection__desc">
-          开启后，桌宠在保存、导出、进入编辑器、被悬停、点击、拖拽等时刻会由 AI 现编一句话，更生动（需先配置 AI 服务商）。空闲自动冒泡和休息提醒仍用预设话术。<strong>注意：每次触发都会消耗 AI token，请根据你的用量酌情开启。</strong>
+          开启后，桌宠在保存、导出、进入编辑器、被悬停、点击、拖拽等时刻会由 AI 现编一句话，更生动（需先配置 AI 服务商）。空闲自动冒泡和休息提醒默认仍用预设话术，可在下方子开关开启。<strong>注意：每次触发都会消耗 AI token，请根据你的用量酌情开启。</strong>
         </p>
         <div class="settings-section__row">
           <span class="settings-section__label">开启 AI 动态话术</span>
           <NSwitch v-model:value="petAIChatEnabled" />
         </div>
+        <div class="settings-section__row" :class="{ 'is-disabled': !petAIChatEnabled }">
+          <span class="settings-section__label">空闲/休息提醒也用 AI</span>
+          <NSwitch v-model:value="idleAiEnabled" :disabled="!petAIChatEnabled" />
+        </div>
+        <p class="settings-subsection__desc settings-subsection__desc--hint">
+          开启后空闲自动冒泡和休息提醒也由 AI 现编（更烧 token）。
+        </p>
       </div>
     </div>
 
@@ -416,6 +447,21 @@ const restInterval = computed({
 const petAIChatEnabled = computed({
   get: () => settingsStore.petAIChatEnabled,
   set: (val: boolean) => { settingsStore.updatePetAIChatEnabled(val) },
+})
+
+// idle/rest 也走 AI 子开关（依赖主开关，主关时 UI disabled）
+const idleAiEnabled = computed({
+  get: () => settingsStore.idleAiEnabled,
+  set: (val: boolean) => { settingsStore.updateIdleAiEnabled(val) },
+})
+
+// 空闲冒泡间隔（分钟）
+const idleInterval = computed({
+  get: () => settingsStore.idleIntervalMinutes,
+  set: (val: number | null) => {
+    if (val == null) return
+    settingsStore.updateIdleIntervalMinutes(val)
+  },
 })
 
 const isCustomPet = (id: string) => id.startsWith('custom-')
@@ -750,6 +796,13 @@ const handleResync = () => {
     color: $text-secondary;
     line-height: 1.6;
     margin: 0 0 $spacing-md;
+
+    // 子开关下方的小提示（更小更淡，紧贴上方行）
+    &--hint {
+      font-size: $font-size-xs;
+      opacity: 0.85;
+      margin: $spacing-sm 0 0;
+    }
   }
 }
 

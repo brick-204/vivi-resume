@@ -17,7 +17,7 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled } from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import {
   isFileSystemAccessSupported,
@@ -59,6 +59,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const restReminderInterval = ref(25)
   // 桌宠 AI 动态话术：默认关（需用户主动开启 + 配置 AI 服务商）
   const petAIChatEnabled = ref(false)
+  // idle/rest 也走 AI 子开关：依赖主开关，默认关
+  const idleAiEnabled = ref(false)
+  // 空闲冒泡间隔（分钟），默认 1，下限 1 上限 60
+  const idleIntervalMinutes = ref(1)
 
   // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
@@ -111,6 +115,12 @@ export const useSettingsStore = defineStore('settings', () => {
         console.error('[settingsStore] 读取桌宠 AI 话术开关失败:', e)
       }
       try {
+        idleAiEnabled.value = await getIdleAiEnabled()
+        idleIntervalMinutes.value = await getIdleIntervalMinutes()
+      } catch (e) {
+        console.error('[settingsStore] 读取 idle AI 开关/间隔失败:', e)
+      }
+      try {
         customPets.value = await getAllDesktopPets()
         setCustomPetsCache(customPets.value)
       } catch (e) {
@@ -131,6 +141,8 @@ export const useSettingsStore = defineStore('settings', () => {
         petStore.setRestEnabled(restReminderEnabled.value)
         petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
         petStore.setAIChatEnabled(petAIChatEnabled.value)
+        petStore.setIdleAiEnabled(idleAiEnabled.value)
+        petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
       } catch { /* petStore 未初始化，忽略 */ }
       _readyResolve()
     }
@@ -669,6 +681,23 @@ export const useSettingsStore = defineStore('settings', () => {
     setPetAIChatEnabled(enabled).catch(e => console.error('[settingsStore] 桌宠 AI 话术开关写盘失败:', e))
   }
 
+  /** 切换 idle/rest 也走 AI 子开关：注入 petStore + 持久化（fire-and-forget） */
+  const updateIdleAiEnabled = async (enabled: boolean) => {
+    idleAiEnabled.value = enabled
+    const { usePetStore } = await import('@/stores/petStore')
+    usePetStore().setIdleAiEnabled(enabled)
+    setIdleAiEnabled(enabled).catch(e => console.error('[settingsStore] idle AI 开关写盘失败:', e))
+  }
+
+  /** 修改空闲冒泡间隔（分钟）：注入 petStore（重启定时器）+ 持久化；下限 1 上限 60 */
+  const updateIdleIntervalMinutes = async (minutes: number) => {
+    const clamped = Math.min(60, Math.max(1, minutes))
+    idleIntervalMinutes.value = clamped
+    const { usePetStore } = await import('@/stores/petStore')
+    usePetStore().setIdleIntervalMs(clamped * 60 * 1000)
+    setIdleIntervalMinutes(clamped).catch(e => console.error('[settingsStore] idle 间隔写盘失败:', e))
+  }
+
   // ========== 自定义桌宠管理 ==========
   const addCustomPet = async (
     name: string,
@@ -921,6 +950,10 @@ export const useSettingsStore = defineStore('settings', () => {
     updateRestReminderInterval,
     petAIChatEnabled,
     updatePetAIChatEnabled,
+    idleAiEnabled,
+    updateIdleAiEnabled,
+    idleIntervalMinutes,
+    updateIdleIntervalMinutes,
     customPets,
     addCustomPet,
     removeCustomPet,

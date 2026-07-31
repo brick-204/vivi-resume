@@ -32,11 +32,15 @@ const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
   click: '用户单击了你，点开了你的菜单',
   dragStart: '用户正在拖拽你移动位置',
   dragEnd: '用户刚拖拽完你，你吸附到了屏幕边角的新位置',
+  rainy: '用户刚开启了雨夜窗景特效，窗外下起雨了',
   greet: '向用户打招呼',
+  idle: '用户什么都没做，随机说一句闲话或卖萌',
+  rest: '用户连续用眼已到设定时长，提醒休息。必须包含"望 6 米外歇 20 秒"的 20-20-20 护眼指令，简短活泼',
   restOn: '用户刚开启了休息提醒功能',
   restOff: '用户刚关闭了休息提醒功能',
   // 注：aiChatOn/aiChatOff 故意不映射——开关反馈走静态 pickQuote + say（settingsStore.updatePetAIChatEnabled），
   // 不走 sayCategory/AI（开关切换需即时反馈，不等 AI）。若误调 sayCategory('aiChatOn') 会抛 UNSUPPORTED_CATEGORY。
+  // 注：aiError 同样不映射——它在 sayCategory 静态分支直接 pickQuote（AI 不可用时本就不该走 AI）。
 }
 
 /**

@@ -58,6 +58,7 @@ import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
+import { showRainyNightEffect } from '@/services/rainyNightEffect'
 
 const props = defineProps<{
   placement: 'left' | 'right'
@@ -82,6 +83,10 @@ const actionsOpen = ref(false)
 /** action 列：v-for 渲染，后续加项往数组里加即可 */
 const actions = [
   { key: 'consult', icon: 'mdi:comment-question-outline', label: 'AI 咨询', run: () => emit('open') },
+  { key: 'rainy', icon: 'mdi:weather-pouring', label: '雨夜', run: () => {
+    showRainyNightEffect()
+    petStore.sayCategory('rainy')
+  } },
 ] as const
 
 const onAction = (a: (typeof actions)[number]) => {
