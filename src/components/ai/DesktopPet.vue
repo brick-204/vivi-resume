@@ -58,7 +58,7 @@ import { usePetStore } from '@/stores/petStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
-import { showRainyNightEffect } from '@/services/rainyNightEffect'
+import { triggerRandomEasterEgg } from '@/services/easterEggRegistry'
 
 const props = defineProps<{
   placement: 'left' | 'right'
@@ -83,9 +83,9 @@ const actionsOpen = ref(false)
 /** action 列：v-for 渲染，后续加项往数组里加即可 */
 const actions = [
   { key: 'consult', icon: 'mdi:comment-question-outline', label: 'AI 咨询', run: () => emit('open') },
-  { key: 'rainy', icon: 'mdi:weather-pouring', label: '雨夜', run: () => {
-    showRainyNightEffect()
-    petStore.sayCategory('rainy')
+  { key: 'surprise', icon: 'mdi:dice-multiple', label: '洗洗屏幕', run: () => {
+    const egg = triggerRandomEasterEgg()
+    if (egg) petStore.sayCategory(egg.quoteCategory)
   } },
 ] as const
 
@@ -133,11 +133,16 @@ const {
   destroyLottie,
 } = usePetRenderer()
 
+// ponytail: petName 由 petData 派生同步——无论正常切换还是畸形回退，petData 变即同步名字，
+//   消除"渲染的桌宠"与"话术用的名字"两条路径脱节（曾出现回退默认桌宠后 petName 仍是旧名）。
+watch(petData, (d) => {
+  petStore.petName = d?.name
+}, { immediate: true })
+
 const loadAnim = (petId: string) => {
   destroyLottie()
   petData.value = getDesktopPetById(petId)
-  // 同步当前桌宠名字，供定时 idle 冒泡替换 {name}
-  petStore.petName = petData.value?.name
+  // petName 由上方 watch(petData) 自动同步，无需在此手动赋值
   // img 类型直接渲染 <img>，无需挂载 lottie
   if (isImg.value) return
   // lottie 类型：容器 ready 后挂载；数据畸形回退默认桌宠，保证 action 列始终可用

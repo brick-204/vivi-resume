@@ -11,10 +11,35 @@ export function parseEnvBool(v: unknown, fallback = false): boolean {
 }
 
 /**
- * 雨夜彩蛋快捷键总开关。
- * 默认开启（所有环境可用）；设 VITE_ENABLE_RAINY_NIGHT_EASTER_EGG=false 可关闭。
+ * 小雨彩蛋快捷键总开关。
+ * 显式设置优先（VITE_ENABLE_RAINY_NIGHT_EASTER_EGG=true/false）；
+ * 未设置时：开发和生产环境均默认开启。
  */
 export function isRainShortcutEnabled(): boolean {
   const env = import.meta.env.VITE_ENABLE_RAINY_NIGHT_EASTER_EGG
-  return env == null ? true : parseEnvBool(env, true)
+  if (env != null) return parseEnvBool(env, true)
+  // 未显式设置：默认全开（桌宠入口不走此开关，始终可用）
+  return true
+}
+
+/**
+ * 下雪彩蛋快捷键总开关。
+ * 显式设置优先（VITE_ENABLE_SNOW_EASTER_EGG=true/false）；
+ * 未设置时：开发和生产环境均默认开启。
+ */
+export function isSnowShortcutEnabled(): boolean {
+  const env = import.meta.env.VITE_ENABLE_SNOW_EASTER_EGG
+  if (env != null) return parseEnvBool(env, true)
+  return true
+}
+
+/**
+ * offer 彩蛋快捷键总开关。
+ * 显式设置优先（VITE_ENABLE_OFFER_EASTER_EGG=true/false）；
+ * 未设置时：开发和生产环境均默认开启。
+ */
+export function isOfferShortcutEnabled(): boolean {
+  const env = import.meta.env.VITE_ENABLE_OFFER_EASTER_EGG
+  if (env != null) return parseEnvBool(env, true)
+  return true
 }

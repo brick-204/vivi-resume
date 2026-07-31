@@ -52,6 +52,16 @@
         </n-dropdown>
       </template>
 
+      <button
+        class="app-header__theme-btn"
+        :aria-pressed="soundEnabled"
+        :aria-label="soundEnabled ? '关闭彩蛋音效' : '开启彩蛋音效'"
+        :title="soundEnabled ? '彩蛋音效：开' : '彩蛋音效：关'"
+        @click="toggleSound"
+      >
+        <Icon :icon="soundEnabled ? 'mdi:volume-high' : 'mdi:volume-mute'" :width="18" />
+      </button>
+
       <n-dropdown :options="themeOptions" placement="bottom-end" @select="onThemeSelect" @update:show="v => themeOpen = v">
         <button class="app-header__theme-btn" aria-haspopup="true" :aria-expanded="themeOpen" aria-label="切换主题">
           <Icon :icon="themeIcon" :width="18" />
@@ -74,6 +84,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { getTemplate } from '@/config/templates'
 import { useTheme } from '@/composables/useTheme'
 import type { ThemeMode } from '@/composables/useTheme'
+import { useEasterEggSound } from '@/composables/useEasterEggSound'
 
 defineProps<{
   /** 是否显示编辑模式中间区域（简历名称输入框 + 模板标签） */
@@ -97,6 +108,7 @@ const emit = defineEmits<{
 
 const store = useResumeStore()
 const { mode, resolvedTheme, setMode } = useTheme()
+const { soundEnabled, toggleSound } = useEasterEggSound()
 
 // ponytail: 稳定常量直接内联，无需 config 层
 const githubUrl = 'https://github.com/brick-204/vivi-resume'

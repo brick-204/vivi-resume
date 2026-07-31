@@ -30,3 +30,9 @@
   user-select: none;
   pointer-events: none;
 }
+
+// 彩蛋音效弹窗：按钮组底部居中（Naive UI dialog 默认右对齐）
+// ponytail: discrete API 挂在 body，必须用全局非 scoped 选择器
+.easter-egg-sound-dialog .n-dialog-action {
+  justify-content: center;
+}

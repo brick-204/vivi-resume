@@ -33,6 +33,8 @@ const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
   dragStart: '用户正在拖拽你移动位置',
   dragEnd: '用户刚拖拽完你，你吸附到了屏幕边角的新位置',
   rainy: '用户刚开启了雨夜窗景特效，窗外下起雨了',
+  snowy: '用户刚开启了下雪彩蛋，窗外飘起雪花了',
+  offer: '用户刚开启了天上掉 offer 彩蛋，满屏 offer 从天而降，祝贺求职顺利',
   greet: '向用户打招呼',
   idle: '用户什么都没做，随机说一句闲话或卖萌',
   rest: '用户连续用眼已到设定时长，提醒休息。必须包含"望 6 米外歇 20 秒"的 20-20-20 护眼指令，简短活泼',
