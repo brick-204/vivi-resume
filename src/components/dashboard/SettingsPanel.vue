@@ -91,43 +91,54 @@
       </div>
     </div>
 
-    <!-- 回收站设置 -->
+    <!-- 回收设置（回收站 + 回收箱） -->
     <div class="settings-section">
       <h3 class="settings-section__title">
         <Icon icon="mdi:delete-clock-outline" :width="20" />
-        回收站设置
+        回收设置
       </h3>
       <p class="settings-section__desc">
-        删除的简历会移到回收站，在设定天数后自动清理。
+        删除的内容会暂存并在设定天数后自动清理，期间可恢复。
       </p>
-      <div class="settings-section__row">
-        <span class="settings-section__label">保留天数</span>
-        <NSelect
-          v-model:value="retentionDays"
-          :options="retentionOptions"
-          size="small"
-          style="width: 100px"
-        />
-      </div>
-    </div>
 
-    <!-- 回收箱设置 -->
-    <div class="settings-section">
-      <h3 class="settings-section__title">
-        <Icon icon="mdi:delete-restore" :width="20" />
-        回收箱设置
-      </h3>
-      <p class="settings-section__desc">
-        编辑时删除的模块和卡片会暂存在回收箱，在设定天数后自动清理。
-      </p>
-      <div class="settings-section__row">
-        <span class="settings-section__label">保留天数</span>
-        <NSelect
-          v-model:value="trashBinDays"
-          :options="retentionOptions"
-          size="small"
-          style="width: 100px"
-        />
+      <!-- 回收站（简历级） -->
+      <div class="settings-subsection">
+        <h4 class="settings-subsection__title">
+          <Icon icon="mdi:delete-clock-outline" :width="18" />
+          回收站
+        </h4>
+        <p class="settings-subsection__desc">
+          删除的简历会移到回收站，在设定天数后自动清理。
+        </p>
+        <div class="settings-section__row">
+          <span class="settings-section__label">保留天数</span>
+          <NSelect
+            v-model:value="retentionDays"
+            :options="retentionOptions"
+            size="small"
+            style="width: 100px"
+          />
+        </div>
+      </div>
+
+      <!-- 回收箱（模块/卡片级） -->
+      <div class="settings-subsection">
+        <h4 class="settings-subsection__title">
+          <Icon icon="mdi:delete-restore" :width="18" />
+          回收箱
+        </h4>
+        <p class="settings-subsection__desc">
+          编辑时删除的模块和卡片会暂存在回收箱，在设定天数后自动清理。
+        </p>
+        <div class="settings-section__row">
+          <span class="settings-section__label">保留天数</span>
+          <NSelect
+            v-model:value="trashBinDays"
+            :options="retentionOptions"
+            size="small"
+            style="width: 100px"
+          />
+        </div>
       </div>
     </div>
 
@@ -160,11 +171,25 @@
           <button
             v-if="isCustomPet(pet.id)"
             type="button"
+            class="pet-option__rename"
+            title="改名"
+            @click.stop="openRenamePet(pet.id, pet.name)"
+          >
+            <Icon icon="mdi:pencil-outline" :width="14" />
+          </button>
+          <button
+            v-if="isCustomPet(pet.id)"
+            type="button"
             class="pet-option__delete"
-            title="删除"
+            :title="removingPetId === pet.id ? '删除中…' : '删除'"
+            :disabled="removingPetId === pet.id"
             @click.stop="handleRemovePet(pet.id)"
           >
-            <Icon icon="mdi:close" :width="14" />
+            <Icon
+              :icon="removingPetId === pet.id ? 'mdi:loading' : 'mdi:close'"
+              :width="14"
+              :class="{ 'is-spin': removingPetId === pet.id }"
+            />
           </button>
         </button>
       </div>
@@ -172,6 +197,50 @@
         <Icon icon="mdi:plus" :width="18" />
         添加自定义桌宠
       </button>
+
+      <!-- 休息提醒（桌宠设置子分区） -->
+      <div class="settings-subsection">
+        <h4 class="settings-subsection__title">
+          <Icon icon="mdi:eye-check-outline" :width="18" />
+          休息提醒
+        </h4>
+        <p class="settings-subsection__desc">
+          连续用眼达到设定时长后，桌宠会提醒你望 6 米外歇 20 秒（20-20-20 护眼法则）。仅在使用本页面时计时。
+        </p>
+        <div class="settings-section__row">
+          <span class="settings-section__label">开启提醒</span>
+          <NSwitch v-model:value="restEnabled" />
+        </div>
+        <div class="settings-section__row" :class="{ 'is-disabled': !restEnabled }">
+          <span class="settings-section__label">提醒间隔</span>
+          <NInputNumber
+            v-model:value="restInterval"
+            :min="10"
+            :max="1000"
+            :step="5"
+            :disabled="!restEnabled"
+            size="small"
+            style="width: 140px"
+          >
+            <template #suffix>分钟</template>
+          </NInputNumber>
+        </div>
+      </div>
+
+      <!-- AI 动态话术（桌宠设置子分区） -->
+      <div class="settings-subsection">
+        <h4 class="settings-subsection__title">
+          <Icon icon="mdi:robot-excited-outline" :width="18" />
+          AI 动态话术
+        </h4>
+        <p class="settings-subsection__desc">
+          开启后，桌宠在保存、导出、进入编辑器、被悬停、点击、拖拽等时刻会由 AI 现编一句话，更生动（需先配置 AI 服务商）。空闲自动冒泡和休息提醒仍用预设话术。<strong>注意：每次触发都会消耗 AI token，请根据你的用量酌情开启。</strong>
+        </p>
+        <div class="settings-section__row">
+          <span class="settings-section__label">开启 AI 动态话术</span>
+          <NSwitch v-model:value="petAIChatEnabled" />
+        </div>
+      </div>
     </div>
 
     <!-- 添加自定义桌宠弹窗 -->
@@ -209,10 +278,70 @@
             :disabled="addingPet"
             @click="confirmAddPet"
           >
-            <Icon icon="mdi:check" :width="16" />
-            确认添加
+            <Icon
+              :icon="addingPet ? 'mdi:loading' : 'mdi:check'"
+              :width="16"
+              :class="{ 'is-spin': addingPet }"
+            />
+            {{ addingPet ? '添加中…' : '确认添加' }}
           </button>
           <button class="action-btn action-btn--ghost" @click="showAddPetModal = false">
+            取消
+          </button>
+        </div>
+      </div>
+    </n-modal>
+
+    <!-- 删除桌宠确认弹窗 -->
+    <n-modal
+      :show="showRemovePetConfirm"
+      preset="dialog"
+      title="确认删除桌宠"
+      :auto-focus="false"
+      :content="'删除后「' + pendingRemovePetName + '」将移至回收站，可在回收站恢复。'"
+      @update:show="v => { if (!v) showRemovePetConfirm = false }"
+    >
+      <template #action>
+        <div class="unbind-actions">
+          <button class="action-btn action-btn--primary" @click="confirmRemovePet">
+            <Icon icon="mdi:trash-can-outline" :width="16" />
+            移至回收站
+          </button>
+          <button class="action-btn action-btn--ghost" @click="showRemovePetConfirm = false">
+            取消
+          </button>
+        </div>
+      </template>
+    </n-modal>
+
+    <!-- 改名桌宠弹窗 -->
+    <n-modal
+      :show="showRenamePetModal"
+      preset="card"
+      title="给桌宠改名"
+      style="max-width: 380px"
+      :auto-focus="false"
+      @update:show="v => { if (!v) showRenamePetModal = false }"
+    >
+      <div class="add-pet-form">
+        <div class="add-pet-form__field">
+          <label class="add-pet-form__label">桌宠名字</label>
+          <NInput v-model:value="renamePetName" placeholder="输入新名字" @keydown.enter="confirmRenamePet" />
+        </div>
+        <div class="add-pet-form__actions">
+          <button
+            class="action-btn action-btn--primary"
+            :disabled="renamingPet"
+            @click="confirmRenamePet"
+          >
+            <Icon
+              :icon="renamingPet ? 'mdi:loading' : 'mdi:check'"
+              :width="16"
+              :class="{ 'is-spin': renamingPet }"
+            />
+            {{ renamingPet ? '保存中…' : '保存' }}
+          </button>
+          <button class="action-btn action-btn--ghost" @click="showRenamePetModal = false">
             取消
           </button>
         </div>
@@ -249,9 +378,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect, NCheckbox, NInput } from 'naive-ui'
+import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import { DESKTOP_PETS } from '@/config/desktopPets'
@@ -269,6 +398,25 @@ const copyToBrowser = ref(false)
 const handlePetChange = (petId: string) => {
   settingsStore.updateDesktopPetId(petId)
 }
+
+// 休息提醒开关与间隔（setter 内同步 petStore + 持久化 + 开关说话反馈）
+const restEnabled = computed({
+  get: () => settingsStore.restReminderEnabled,
+  set: (val: boolean) => { settingsStore.updateRestReminderEnabled(val) },
+})
+const restInterval = computed({
+  get: () => settingsStore.restReminderInterval,
+  set: (val: number | null) => {
+    if (val == null) return
+    settingsStore.updateRestReminderInterval(val)
+  },
+})
+
+// 桌宠 AI 动态话术开关（setter 内注入 petStore + 持久化）
+const petAIChatEnabled = computed({
+  get: () => settingsStore.petAIChatEnabled,
+  set: (val: boolean) => { settingsStore.updatePetAIChatEnabled(val) },
+})
 
 const isCustomPet = (id: string) => id.startsWith('custom-')
 
@@ -313,6 +461,8 @@ const confirmAddPet = async () => {
     return
   }
   addingPet.value = true
+  // ponytail: 让出一帧让浏览器先画 spin，避免 await 阻塞主线程期间 INP 飙高（持久化+列表重渲染）
+  await nextTick()
   try {
     const id = await settingsStore.addCustomPet(newPetName.value.trim(), newPetParsed.value)
     await settingsStore.updateDesktopPetId(id)
@@ -329,13 +479,70 @@ const confirmAddPet = async () => {
   }
 }
 
-const handleRemovePet = async (id: string) => {
+const handleRemovePet = (id: string) => {
+  const pet = allPets.value.find(p => p.id === id)
+  const name = pet?.name || '该桌宠'
+  showRemovePetConfirm.value = true
+  pendingRemovePetId.value = id
+  pendingRemovePetName.value = name
+}
+
+const confirmRemovePet = async () => {
+  const id = pendingRemovePetId.value
+  showRemovePetConfirm.value = false
+  pendingRemovePetId.value = ''
+  if (!id) return
+  removingPetId.value = id
+  // ponytail: 让出一帧先画 spin，再执行持久化+列表重渲染
+  await nextTick()
   try {
     await settingsStore.removeCustomPet(id)
-    naiveMessage.success('已删除自定义桌宠')
+    naiveMessage.success('已移至回收站，可随时恢复')
   } catch (err) {
     console.error('[SettingsPanel] 删除自定义桌宠失败:', err)
     naiveMessage.error('删除失败')
+  } finally {
+    removingPetId.value = null
+  }
+}
+
+// 删除确认状态
+const showRemovePetConfirm = ref(false)
+const pendingRemovePetId = ref('')
+const pendingRemovePetName = ref('')
+// 正在删除的桌宠 id（按钮 spin 反馈）
+const removingPetId = ref<string | null>(null)
+
+// 改名 modal 状态
+const showRenamePetModal = ref(false)
+const renamePetId = ref('')
+const renamePetName = ref('')
+const renamingPet = ref(false)
+
+const openRenamePet = (id: string, name: string) => {
+  renamePetId.value = id
+  renamePetName.value = name
+  showRenamePetModal.value = true
+}
+
+const confirmRenamePet = async () => {
+  const id = renamePetId.value
+  const name = renamePetName.value.trim()
+  if (!name) {
+    naiveMessage.warning('请输入桌宠名字')
+    return
+  }
+  renamingPet.value = true
+  await nextTick()
+  try {
+    await settingsStore.renameCustomPet(id, name)
+    showRenamePetModal.value = false
+    naiveMessage.success('已改名')
+  } catch (err) {
+    console.error('[SettingsPanel] 改名失败:', err)
+    naiveMessage.error('改名失败，请重试')
+  } finally {
+    renamingPet.value = false
   }
 }
 
@@ -504,11 +711,45 @@ const handleResync = () => {
     display: flex;
     align-items: center;
     gap: $spacing-md;
+
+    // 相邻 row 之间拉开间距（如休息提醒的"开启提醒"与"提醒间隔"）
+    & + & {
+      margin-top: $spacing-md;
+    }
+
+    &.is-disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
   }
 
   &__label {
     font-size: $font-size-sm;
     color: $text-secondary;
+  }
+}
+
+// 桌宠设置内的子分区（休息提醒 / AI 动态话术）
+.settings-subsection {
+  margin-top: $spacing-lg;
+  padding-top: $spacing-lg;
+  border-top: 1px solid $border-glass;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-md;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0 0 $spacing-sm;
+  }
+
+  &__desc {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    line-height: 1.6;
+    margin: 0 0 $spacing-md;
   }
 }
 
@@ -635,6 +876,28 @@ const handleResync = () => {
     color: $primary-color;
   }
 
+  &__rename {
+    position: absolute;
+    top: 6px;
+    left: 30px;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: rgba($primary-color, 0.15);
+    color: $primary-color;
+    cursor: pointer;
+    transition: all $transition-base;
+
+    &:hover {
+      background: $primary-color;
+      color: #fff;
+    }
+  }
+
   &__delete {
     position: absolute;
     top: 6px;
@@ -655,6 +918,22 @@ const handleResync = () => {
       background: $error-color;
       color: #fff;
     }
+
+    &:disabled {
+      cursor: progress;
+      opacity: 0.7;
+    }
+  }
+}
+
+// 加载旋转图标（添加/删除等异步操作反馈）
+.is-spin {
+  animation: pet-spin 0.8s linear infinite;
+}
+
+@keyframes pet-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

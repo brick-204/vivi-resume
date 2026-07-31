@@ -14,12 +14,13 @@ import type { ConsultSession } from '@/types/consult'
 import type { CustomDesktopPet } from '@/config/desktopPets'
 
 const DB_NAME = 'vivi-resume-db'
-const DB_VERSION = 6
+const DB_VERSION = 7
 const RESUMES_STORE = 'resumes'
 const META_STORE = 'meta'
 const AI_CONFIGS_STORE = 'aiConfigs'
 const CONSULT_SESSIONS_STORE = 'consultSessions'
 const DESKTOP_PETS_STORE = 'desktopPets'
+const TRASH_PETS_STORE = 'trashPets'
 
 // localStorage 旧 key（用于迁移检测）
 const LEGACY_LIST_KEY = 'vivi-resume-list'
@@ -63,6 +64,10 @@ async function getDB(): Promise<IDBPDatabase> {
       // v6: 新增自定义桌宠 store
       if (oldVersion < 6 && !db.objectStoreNames.contains(DESKTOP_PETS_STORE)) {
         db.createObjectStore(DESKTOP_PETS_STORE, { keyPath: 'id' })
+      }
+      // v7: 新增桌宠回收站 store（每条独立存储，替代 meta.trashPets 数组）
+      if (oldVersion < 7 && !db.objectStoreNames.contains(TRASH_PETS_STORE)) {
+        db.createObjectStore(TRASH_PETS_STORE, { keyPath: 'id' })
       }
     },
   })
@@ -368,4 +373,31 @@ export async function saveDesktopPet(pet: CustomDesktopPet): Promise<void> {
 export async function deleteDesktopPet(id: string): Promise<void> {
   const db = await getDB()
   await db.delete(DESKTOP_PETS_STORE, id)
+}
+
+// ========== 桌宠回收站 CRUD（每条独立存储，替代旧 meta.trashPets 数组） ==========
+
+/** 获取所有桌宠回收站条目 */
+export async function getAllTrashPets(): Promise<CustomDesktopPet[]> {
+  const db = await getDB()
+  return db.getAll(TRASH_PETS_STORE) as Promise<CustomDesktopPet[]>
+}
+
+/** 保存单个桌宠回收站条目（新增或更新）。调用方须先脱代理（JSON 往返）再传入 */
+export async function saveTrashPet(pet: CustomDesktopPet): Promise<void> {
+  const db = await getDB()
+  const plain = toPlain(pet)
+  await db.put(TRASH_PETS_STORE, plain)
+}
+
+/** 删除单个桌宠回收站条目 */
+export async function deleteTrashPet(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete(TRASH_PETS_STORE, id)
+}
+
+/** 清空桌宠回收站 store（emptyTrashPets / resync 用） */
+export async function clearTrashPetsStore(): Promise<void> {
+  const db = await getDB()
+  await db.clear(TRASH_PETS_STORE)
 }

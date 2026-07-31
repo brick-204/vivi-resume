@@ -55,6 +55,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { usePetStore } from '@/stores/petStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
 
@@ -71,6 +72,9 @@ const emit = defineEmits<{
 }>()
 
 const petStore = usePetStore()
+const settingsStore = useSettingsStore()
+// ponytail: 防止 settingsStore.ready 的异步回调在组件卸载后仍触发 greet
+let unmounted = false
 
 // ========== 桌宠 action 列（单击弹出，留扩展位） ==========
 const actionsOpen = ref(false)
@@ -127,6 +131,8 @@ const {
 const loadAnim = (petId: string) => {
   destroyLottie()
   petData.value = getDesktopPetById(petId)
+  // 同步当前桌宠名字，供定时 idle 冒泡替换 {name}
+  petStore.petName = petData.value?.name
   // img 类型直接渲染 <img>，无需挂载 lottie
   if (isImg.value) return
   // lottie 类型：容器 ready 后挂载；数据畸形回退默认桌宠，保证 action 列始终可用
@@ -141,10 +147,14 @@ const loadAnim = (petId: string) => {
 
 onMounted(() => {
   loadAnim(props.petId ?? DEFAULT_PET_ID)
-  // 启动定时随机冒泡 + 进页面招呼
+  // 启动定时随机冒泡 + 进页面时段招呼
   if (!props.drawerOpen) {
     petStore.start()
-    petStore.sayCategory('greet')
+    // ponytail: 等 settingsStore ready 后再 greet，确保 AI 开关已注入；
+    //   否则已开启 AI 的用户刷新页面后首次招呼恒为静态（开关默认 false 未被覆盖）
+    void settingsStore.ready.then(() => {
+      if (!unmounted) petStore.sayTimeGreet()
+    })
   }
 })
 
@@ -152,7 +162,7 @@ onMounted(() => {
 watch(() => props.petId, (id) => {
   if (!id) return
   loadAnim(id)
-  if (!props.drawerOpen) petStore.sayCategory('greet')
+  if (!props.drawerOpen) petStore.sayTimeGreet()
 })
 
 // ponytail: 悬停节流，避免边缘抖动高频触发 + 覆盖 export 等业务反馈气泡
@@ -196,6 +206,8 @@ const enterDragging = () => {
   actionsOpen.value = false // 拖拽中收起 action 列
   dragging.value = true
   pos.value = { left: pointerX - HALF, top: pointerY - HALF }
+  // ponytail: 进入拖拽说一句（开关开则 AI 现编，否则静态）
+  petStore.sayCategory('dragStart')
 }
 
 const pointerMove = (e: MouseEvent | TouchEvent) => {
@@ -245,9 +257,13 @@ const pointerUp = () => {
     emit('update:placement', pointerX < window.innerWidth / 2 ? 'left' : 'right')
     dragging.value = false
     pos.value = null
+    // ponytail: 拖拽松手吸附后说一句（开关开则 AI 现编，否则静态）
+    petStore.sayCategory('dragEnd')
   } else {
-    // 短按：toggle action 列（不直接开抽屉）
-    actionsOpen.value = !actionsOpen.value
+    // 短按：toggle action 列（不直接开抽屉）；从关→开时说一句
+    const willOpen = !actionsOpen.value
+    actionsOpen.value = willOpen
+    if (willOpen) petStore.sayCategory('click')
   }
 }
 
@@ -276,6 +292,7 @@ const onUp = (e: MouseEvent | TouchEvent) => {
 }
 
 onBeforeUnmount(() => {
+  unmounted = true
   cleanupDrag() // 拖拽中途卸载也要移除 document 监听，避免泄漏
   petStore.stop()
 })

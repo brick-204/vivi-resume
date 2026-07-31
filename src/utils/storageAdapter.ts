@@ -275,6 +275,11 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
   return idb.setMeta(key, value)
 }
 
+/** 删除 meta 数据 */
+export async function deleteMeta(key: string): Promise<void> {
+  return idb.deleteMeta(key)
+}
+
 // ========== 回收站（meta.json / meta store） ==========
 
 /** 读取回收站简历列表 */
@@ -340,6 +345,66 @@ export async function setTrashBinRetentionDays(days: number): Promise<void> {
 
 // ========== 桌宠偏好（meta.json / meta store） ==========
 
+/** 读取休息提醒开关（默认 true） */
+export async function getRestReminderEnabled(): Promise<boolean> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.restReminderEnabled as boolean) ?? true
+  }
+  return (await idb.getMeta<boolean>('restReminderEnabled')) ?? true
+}
+
+/** 写入休息提醒开关 */
+export async function setRestReminderEnabled(enabled: boolean): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.restReminderEnabled = enabled
+    })
+  } else {
+    await idb.setMeta('restReminderEnabled', enabled)
+  }
+}
+
+/** 读取桌宠 AI 动态话术开关（默认 false） */
+export async function getPetAIChatEnabled(): Promise<boolean> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.petAIChatEnabled as boolean) ?? false
+  }
+  return (await idb.getMeta<boolean>('petAIChatEnabled')) ?? false
+}
+
+/** 写入桌宠 AI 动态话术开关 */
+export async function setPetAIChatEnabled(enabled: boolean): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.petAIChatEnabled = enabled
+    })
+  } else {
+    await idb.setMeta('petAIChatEnabled', enabled)
+  }
+}
+
+/** 读取休息提醒间隔分钟数（默认 25，下限 10） */
+export async function getRestReminderInterval(): Promise<number> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.restReminderInterval as number) ?? 25
+  }
+  return (await idb.getMeta<number>('restReminderInterval')) ?? 25
+}
+
+/** 写入休息提醒间隔分钟数 */
+export async function setRestReminderInterval(minutes: number): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.restReminderInterval = minutes
+    })
+  } else {
+    await idb.setMeta('restReminderInterval', minutes)
+  }
+}
+
 /** 读取桌宠偏好 id */
 export async function getDesktopPetId(): Promise<string> {
   if (isDirectoryMode()) {
@@ -391,5 +456,78 @@ export async function deleteDesktopPet(id: string): Promise<void> {
     } catch { /* 目录或文件不存在，忽略 */ }
   } else {
     await idb.deleteDesktopPet(id)
+  }
+}
+
+// ========== 桌宠回收站（trash-pets/ 子目录 | trashPets store，每条独立存储） ==========
+
+/** 读取所有桌宠回收站条目 */
+export async function getAllTrashPets(): Promise<CustomDesktopPet[]> {
+  if (isDirectoryMode()) {
+    return await dir.readAllJsonFiles<CustomDesktopPet>(getHandle(), 'trash-pets')
+  }
+  return await idb.getAllTrashPets()
+}
+
+/** 保存（新增/更新）单条桌宠回收站条目。调用方须先脱代理（JSON 往返）再传入 */
+export async function saveTrashPet(pet: CustomDesktopPet): Promise<void> {
+  if (isDirectoryMode()) {
+    await dir.ensureDir(getHandle(), 'trash-pets')
+    await dir.writeJsonFile(getHandle(), `trash-pets/${pet.id}.json`, pet)
+  } else {
+    await idb.saveTrashPet(pet)
+  }
+}
+
+/** 删除单条桌宠回收站条目 */
+export async function deleteTrashPet(id: string): Promise<void> {
+  if (isDirectoryMode()) {
+    try {
+      const trashDir = await getHandle().getDirectoryHandle('trash-pets')
+      await dir.deleteFile(trashDir, `${id}.json`)
+    } catch { /* 目录或文件不存在，忽略 */ }
+  } else {
+    await idb.deleteTrashPet(id)
+  }
+}
+
+/** 清空桌宠回收站（emptyTrashPets 用） */
+export async function clearAllTrashPets(): Promise<void> {
+  if (isDirectoryMode()) {
+    try {
+      const trashDir = await getHandle().getDirectoryHandle('trash-pets')
+      // ponytail: lib.dom 的 FileSystemDirectoryHandle 无 values() 类型，断言补上（与 directoryStorage.ts 一致）
+      const iterable = trashDir as unknown as { values(): AsyncIterableIterator<FileSystemHandle> }
+      for await (const entry of iterable.values()) {
+        if (entry.kind === 'file') {
+          try { await trashDir.removeEntry(entry.name) } catch { /* 忽略单个文件删除失败 */ }
+        }
+      }
+    } catch { /* 目录不存在，忽略 */ }
+  } else {
+    await idb.clearTrashPetsStore()
+  }
+}
+
+// ========== 旧 meta.trashPets 数组迁移辅助（迁移后清除 meta 字段） ==========
+
+/** 读取旧 meta.trashPets 数组（迁移用）。非数组或不存在返回 undefined */
+export async function getLegacyTrashPetsArray(): Promise<CustomDesktopPet[] | undefined> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return Array.isArray(meta?.trashPets) ? meta.trashPets as CustomDesktopPet[] : undefined
+  }
+  const arr = await idb.getMeta<CustomDesktopPet[]>('trashPets')
+  return Array.isArray(arr) ? arr : undefined
+}
+
+/** 清除旧 meta.trashPets 字段（迁移成功后调用） */
+export async function clearLegacyTrashPetsMeta(): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      delete meta.trashPets
+    })
+  } else {
+    await idb.deleteMeta('trashPets')
   }
 }

@@ -11,10 +11,14 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { getDesktopPetById } from '@/config/desktopPets'
+import { getDesktopPetById, type DesktopPetConfig } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
 
-const props = defineProps<{ petId: string }>()
+const props = defineProps<{
+  petId: string
+  /** 直接传入桌宠数据（回收站中的桌宠已不在缓存，需直传）；缺省则按 petId 查缓存 */
+  pet?: DesktopPetConfig
+}>()
 
 const failed = ref(false)
 const { containerRef, petData, isImg, imgSrc, mountLottie, destroyLottie } = usePetRenderer()
@@ -22,14 +26,15 @@ const { containerRef, petData, isImg, imgSrc, mountLottie, destroyLottie } = use
 const load = () => {
   destroyLottie()
   failed.value = false
-  petData.value = getDesktopPetById(props.petId)
+  // ponytail: 优先用直传数据（回收站桌宠已移出缓存），否则按 id 查内置+缓存
+  petData.value = props.pet ?? getDesktopPetById(props.petId)
 
   // img 类型直接渲染 <img>，无需挂载 lottie
   if (isImg.value) return
 
-  // lottie 类型：等容器渲染后挂载
+  // lottie 类型：等容器渲染后挂载（静态预览，只渲染首帧，避免列表 N 个动画同跑卡顿）
   requestAnimationFrame(() => {
-    if (containerRef.value && !mountLottie(containerRef.value)) {
+    if (containerRef.value && !mountLottie(containerRef.value, { autoplay: false })) {
       failed.value = true
     }
   })

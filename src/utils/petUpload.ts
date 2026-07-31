@@ -96,14 +96,19 @@ async function parseLottieZip(file: File): Promise<unknown> {
     throw new Error('.lottie 解压后体积过大，请使用更小的素材')
   }
 
-  // 找动画 JSON 入口：优先 manifest 指定，否则用 animation.json
+  // 找动画 JSON 入口，兼容多版 dotlottie 规范：
+  // - 旧版：manifest.animations[0].path 直接指向文件
+  // - 新版(@dotlottie/dotlottie-js@1.7+)：manifest.animations[0] 只有 id，文件在 animations/{id}.json
+  // - 无 manifest：回退 animation.json
   let animPath = 'animation.json'
   const manifestFile = files['manifest.json']
   if (manifestFile) {
     try {
       const manifest = JSON.parse(strFromU8(manifestFile))
-      // .lottie manifest: { animations: [{ id, path }] } 或 { assets: [...] }
-      const ref = manifest?.animations?.[0]?.path ?? manifest?.assets?.[0]?.path
+      const anim0 = manifest?.animations?.[0]
+      const ref = anim0?.path
+        ?? (typeof anim0?.id === 'string' ? `animations/${anim0.id}.json` : null)
+        ?? manifest?.assets?.[0]?.path
       if (typeof ref === 'string') animPath = ref.replace(/^\.?\//, '')
     } catch {
       // manifest 损坏，回退 animation.json

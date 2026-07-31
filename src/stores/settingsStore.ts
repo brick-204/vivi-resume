@@ -17,7 +17,7 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet } from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import {
   isFileSystemAccessSupported,
@@ -38,6 +38,7 @@ import { extractPhotos} from '@/utils/photoFileRef'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { message as naiveMessage, dialog as naiveDialog } from '@/plugins/naive-ui'
 import { h } from 'vue'
+import { pickQuote } from '@/data/petQuotes'
 import MergeConflictModal from '@/components/dashboard/MergeConflictModal.vue'
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -51,6 +52,13 @@ export const useSettingsStore = defineStore('settings', () => {
   // 桌宠偏好
   const currentPetId = ref(DEFAULT_PET_ID)
   const customPets = ref<CustomDesktopPet[]>([])
+  // 桌宠回收站（复用简历回收站保留天数，到期自动清理）
+  const trashPets = ref<CustomDesktopPet[]>([])
+  // 休息提醒：默认开，默认 25 分钟，下限 10
+  const restReminderEnabled = ref(true)
+  const restReminderInterval = ref(25)
+  // 桌宠 AI 动态话术：默认关（需用户主动开启 + 配置 AI 服务商）
+  const petAIChatEnabled = ref(false)
 
   // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
@@ -92,11 +100,38 @@ export const useSettingsStore = defineStore('settings', () => {
         console.error('[settingsStore] 读取桌宠偏好失败:', e)
       }
       try {
+        restReminderEnabled.value = await getRestReminderEnabled()
+        restReminderInterval.value = await getRestReminderInterval()
+      } catch (e) {
+        console.error('[settingsStore] 读取休息提醒设置失败:', e)
+      }
+      try {
+        petAIChatEnabled.value = await getPetAIChatEnabled()
+      } catch (e) {
+        console.error('[settingsStore] 读取桌宠 AI 话术开关失败:', e)
+      }
+      try {
         customPets.value = await getAllDesktopPets()
         setCustomPetsCache(customPets.value)
       } catch (e) {
         console.error('[settingsStore] 读取自定义桌宠失败:', e)
       }
+      try {
+        // 一次性迁移：旧 meta.trashPets 数组 → 每条独立存储（幂等，迁移过则跳过）
+        await migrateTrashPets()
+        trashPets.value = await getAllTrashPets()
+        await cleanupTrashPets()
+      } catch (e) {
+        console.error('[settingsStore] 读取桌宠回收站失败:', e)
+      }
+      // 休息提醒配置注入 petStore（桌宠组件可能已 start 用默认值，这里覆盖为用户配置）
+      try {
+        const { usePetStore } = await import('@/stores/petStore')
+        const petStore = usePetStore()
+        petStore.setRestEnabled(restReminderEnabled.value)
+        petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
+        petStore.setAIChatEnabled(petAIChatEnabled.value)
+      } catch { /* petStore 未初始化，忽略 */ }
       _readyResolve()
     }
   }
@@ -137,10 +172,11 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getActiveAIConfigId(),
       ])
       // IndexedDB 的回收站设置（meta store），需一并迁移到目录 meta.json
-      const [idbTrash, trashRetentionDays, trashBinRetentionDays] = await Promise.all([
+      const [idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets] = await Promise.all([
         idb.getMeta<Resume[]>('trash'),
         idb.getMeta<number>('trashRetentionDays'),
         idb.getMeta<number>('trashBinRetentionDays'),
+        idb.getAllTrashPets(),
       ])
 
       // 5. 读取目录现有数据（用于冲突检测与合并）
@@ -149,6 +185,7 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirTrash: Resume[] = []
       let dirTrashRetentionDays = trashRetentionDays ?? 30
       let dirTrashBinRetentionDays = trashBinRetentionDays ?? 7
+      let dirTrashPets: CustomDesktopPet[] = []
       // 目录现有选中态（重新绑定时应保留，而非用陈旧的 IndexedDB 值覆盖）
       let dirCurrentId: string | null = null
       let dirActiveAIConfigId: string | null = null
@@ -164,6 +201,10 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.desktopPetId === 'string') dirDesktopPetId = dirMeta.desktopPetId
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
+      // 桌宠回收站：从 trash-pets/ 子目录读取（每条独立存储，不再走 meta.json）
+      try {
+        dirTrashPets = await readAllJsonFiles<CustomDesktopPet>(handle, 'trash-pets')
+      } catch { /* 目录不存在，用空数组 */ }
 
       // 6. 冲突检测 + 合并
       updateProgress('正在合并数据...', 10)
@@ -338,6 +379,9 @@ export const useSettingsStore = defineStore('settings', () => {
       const resolvedActiveId = mappedActiveId && mergedAiConfigs.some(c => c.id === mappedActiveId)
         ? mappedActiveId
         : (dirAiConfigs[0]?.id ?? mergedAiConfigs[0]?.id ?? '')
+      // 桌宠回收站合并：按 id 去重，目录已有保留，IndexedDB 独有追加（与 customPets 迁移策略一致）
+      // 写入阶段仅把 IndexedDB 独有的写入目录 trash-pets/，目录已有的不重写
+      const dirTrashPetIds = new Set(dirTrashPets.map(p => p.id))
       const mergedMeta = {
         currentId: resolvedCurrentId,
         activeAIConfigId: resolvedActiveId,
@@ -415,6 +459,14 @@ export const useSettingsStore = defineStore('settings', () => {
         await writeJsonFile(handle, `desktop-pets/${pet.id}.json`, idb.toPlain(pet))
       }
 
+      // 写入桌宠回收站文件（从 IndexedDB 迁移到目录，每条独立存储）
+      // ponytail: 同 customPets 策略，目录已有的不重写，仅写 IndexedDB 独有的
+      await ensureDir(handle, 'trash-pets')
+      for (const pet of (idbTrashPets ?? [])) {
+        if (dirTrashPetIds.has(pet.id)) continue
+        await writeJsonFile(handle, `trash-pets/${pet.id}.json`, idb.toPlain(pet))
+      }
+
       // 写入 meta.json（metaContent 已是 JSON 字符串）
       await writeJsonFile(handle, 'meta.json', result.metaContent)
 
@@ -431,6 +483,7 @@ export const useSettingsStore = defineStore('settings', () => {
       // 10. 清除 IndexedDB 业务数据（保留 meta store）
       await clearResumesStore()
       await clearAIConfigsStore()
+      await idb.clearTrashPetsStore()
 
       updateProgress('同步完成！', 100)
 
@@ -441,6 +494,8 @@ export const useSettingsStore = defineStore('settings', () => {
       currentPetId.value = dirDesktopPetId ?? currentPetId.value
       customPets.value = await adapter.getAllDesktopPets()
       setCustomPetsCache(customPets.value)
+      trashPets.value = await getAllTrashPets()
+      await cleanupTrashPets()
 
       naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
     } catch (e) {
@@ -499,6 +554,11 @@ export const useSettingsStore = defineStore('settings', () => {
         for (const pet of dirCustomPets) {
           await idb.saveDesktopPet(pet)
         }
+        // 桌宠回收站：从目录 trash-pets/ 读取并逐条写入 IndexedDB（每条独立存储）
+        const dirTrashPets = await adapter.getAllTrashPets()
+        for (const pet of dirTrashPets) {
+          await idb.saveTrashPet(pet)
+        }
       }
 
       updateProgress('正在清理目录模式...', 80)
@@ -517,6 +577,12 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 5. 通知 stores 重新加载
       await notifyStoresReload()
+
+      // 6. 刷新桌宠偏好到内存（已切回 IndexedDB）
+      customPets.value = await adapter.getAllDesktopPets()
+      setCustomPetsCache(customPets.value)
+      trashPets.value = await getAllTrashPets()
+      await cleanupTrashPets()
 
       if (copyToBrowser) {
         naiveMessage.success('已解绑目录，数据已复制到浏览器存储')
@@ -547,6 +613,8 @@ export const useSettingsStore = defineStore('settings', () => {
         currentPetId.value = await getDesktopPetId()
         customPets.value = await adapter.getAllDesktopPets()
         setCustomPetsCache(customPets.value)
+        trashPets.value = await getAllTrashPets()
+        await cleanupTrashPets()
         naiveMessage.success('已重新获取目录权限')
       } else {
         naiveMessage.warning('未能获取目录权限')
@@ -562,13 +630,53 @@ export const useSettingsStore = defineStore('settings', () => {
     await setDesktopPetId(petId)
   }
 
+  // ========== 休息提醒设置 ==========
+  /** 切换休息提醒开关：同步 petStore 计时 + 持久化 + 桌宠说话反馈 */
+  const updateRestReminderEnabled = async (enabled: boolean) => {
+    restReminderEnabled.value = enabled
+    const { usePetStore } = await import('@/stores/petStore')
+    const petStore = usePetStore()
+    petStore.setRestEnabled(enabled)
+    // 抽屉打开时桌宠隐藏，气泡看不见 → 改用 naiveMessage 顶替（静态文本，与 triggerRest 同策略）；
+    // 桌宠可见时走 sayCategory：开关开则 AI 现编 restOn/restOff，否则静态
+    if (petStore.paused) {
+      naiveMessage.info(pickQuote(enabled ? 'restOn' : 'restOff', petStore.petName))
+    } else {
+      void petStore.sayCategory(enabled ? 'restOn' : 'restOff', petStore.petName)
+    }
+    await setRestReminderEnabled(enabled)
+  }
+
+  /** 修改休息提醒间隔（分钟）：同步 petStore + 持久化 */
+  const updateRestReminderInterval = async (minutes: number) => {
+    restReminderInterval.value = minutes
+    const { usePetStore } = await import('@/stores/petStore')
+    usePetStore().setRestIntervalMs(minutes * 60 * 1000)
+    await setRestReminderInterval(minutes)
+  }
+
+  /** 切换桌宠 AI 动态话术开关：注入 petStore + 持久化 + 桌宠静态反馈（fire-and-forget）
+   *  开关反馈本身用静态话术（不等 AI，即时反馈）；后续业务动作才走 AI 动态 */
+  const updatePetAIChatEnabled = async (enabled: boolean) => {
+    petAIChatEnabled.value = enabled
+    const { usePetStore } = await import('@/stores/petStore')
+    const petStore = usePetStore()
+    petStore.setAIChatEnabled(enabled)
+    // 抽屉打开时桌宠隐藏，气泡看不见 → 改用 naiveMessage 顶替（与 restOn/restOff 同策略）
+    const text = pickQuote(enabled ? 'aiChatOn' : 'aiChatOff', petStore.petName)
+    if (petStore.paused) naiveMessage.info(text)
+    else petStore.say(text)
+    setPetAIChatEnabled(enabled).catch(e => console.error('[settingsStore] 桌宠 AI 话术开关写盘失败:', e))
+  }
+
   // ========== 自定义桌宠管理 ==========
   const addCustomPet = async (
     name: string,
     data: { type?: 'lottie' | 'img'; lottie?: unknown; src?: string },
   ): Promise<string> => {
-    // ponytail: 用 crypto.randomUUID 保证全局唯一，避免与内置 id 冲突
-    const id = `custom-${crypto.randomUUID()}`
+    // ponytail: 复用 generateId（已处理非安全上下文 crypto.randomUUID 缺失的降级），
+    //           避免裸调 crypto.randomUUID 在 file:// 等环境返回 undefined 导致 id 重复
+    const id = `custom-${generateId()}`
     // data 经 ref 包裹后 lottie 对象是 reactive proxy，toPlain(toRaw) 只剥外层，
     // 嵌套的 lottie 仍带 proxy → structuredClone 失败。JSON 深拷贝彻底脱代理。
     // ponytail: 假设 lottie 为纯 JSON 数据（无 Date/undefined），JSON 往返无损；
@@ -584,13 +692,106 @@ export const useSettingsStore = defineStore('settings', () => {
   const removeCustomPet = async (id: string): Promise<void> => {
     // ponytail: 防御内置 id 误传（内置桌宠不在 customPets 里，删了无意义却会触发多余回退）
     if (!id.startsWith('custom-')) return
-    await deleteDesktopPet(id)
+    const pet = customPets.value.find(p => p.id === id)
+    if (!pet) return
+    // 软删：移到桌宠回收站（复用简历回收站保留天数，到期自动清理），不物理删除
+    const trashed: CustomDesktopPet = { ...pet, deletedAt: new Date().toISOString() }
+    // ponytail: 脱代理后单条写入回收站（toPlain 不递归剥 proxy，JSON 往返彻底脱代理，与 addCustomPet 同根因）
+    const plainTrashed = JSON.parse(JSON.stringify(trashed)) as CustomDesktopPet
+    // ponytail: 先更新内存（INP 友好，对齐 resumeStore.restoreResume），持久化 fire-and-forget。
+    //           同一 pet 的写盘竞态见根目录 TECH_NOTES.md（不加队列，接受理论竞态）。
+    trashPets.value = [...trashPets.value, plainTrashed]
     customPets.value = customPets.value.filter(p => p.id !== id)
     setCustomPetsCache(customPets.value)
-    // 删除的是当前选中的桌宠 → 回退默认
+    // 删除的是当前选中的桌宠 → 同步回退内存，写盘 fire-and-forget（避免 message 滞后）
     if (currentPetId.value === id) {
-      await updateDesktopPetId(DEFAULT_PET_ID)
+      currentPetId.value = DEFAULT_PET_ID
+      setDesktopPetId(DEFAULT_PET_ID).catch(e => console.error('[settingsStore] 回退默认桌宠写盘失败:', e))
     }
+    // 后台持久化：先写回收站再删源数据，写盘失败仅 console.error 不回滚（与简历同策略）
+    saveTrashPet(plainTrashed)
+      .then(() => deleteDesktopPet(id))
+      .catch(e => console.error('[settingsStore] removeCustomPet 持久化失败:', e))
+  }
+
+  // ========== 重命名自定义桌宠 ==========
+  const renameCustomPet = async (id: string, newName: string): Promise<void> => {
+    // ponytail: 内置桌宠不在 customPets 里，改名无意义
+    if (!id.startsWith('custom-')) return
+    const name = newName.trim()
+    if (!name) return
+    const pet = customPets.value.find(p => p.id === id)
+    if (!pet || pet.name === name) return
+    // ponytail: 先更新内存 + 缓存（INP 友好），持久化 fire-and-forget（与 removeCustomPet 同策略）
+    const renamed: CustomDesktopPet = { ...pet, name }
+    customPets.value = customPets.value.map(p => (p.id === id ? renamed : p))
+    setCustomPetsCache(customPets.value)
+    // 改的是当前选中桌宠 → 同步 petStore.petName，让 idle/rest 话术 {name} 用新名
+    if (currentPetId.value === id) {
+      const { usePetStore } = await import('@/stores/petStore')
+      usePetStore().petName = name
+    }
+    saveDesktopPet(renamed).catch(e => console.error('[settingsStore] renameCustomPet 持久化失败:', e))
+  }
+
+  /** 从回收站恢复桌宠（移回 customPets，去掉 deletedAt） */
+  const restorePet = async (id: string): Promise<void> => {
+    const pet = trashPets.value.find(p => p.id === id)
+    if (!pet) return
+    const { deletedAt: _deletedAt, ...rest } = pet
+    void _deletedAt
+    // ponytail: restored.lottie 仍是 reactive proxy，saveDesktopPet 内部 toPlain 会抛 DataCloneError；
+    //           JSON 往返彻底脱代理（与 addCustomPet 同根因），再持久化
+    const restored: CustomDesktopPet = JSON.parse(JSON.stringify(rest))
+    // ponytail: 先更新内存（INP 友好），持久化 fire-and-forget。先写 customPets 再删回收站，写盘顺序见 TECH_NOTES.md。
+    customPets.value = [...customPets.value, restored]
+    setCustomPetsCache(customPets.value)
+    trashPets.value = trashPets.value.filter(p => p.id !== id)
+    saveDesktopPet(restored)
+      .then(() => deleteTrashPet(id))
+      .catch(e => console.error('[settingsStore] restorePet 持久化失败:', e))
+  }
+
+  /** 彻底删除回收站中的桌宠（不可恢复） */
+  const purgePet = async (id: string): Promise<void> => {
+    trashPets.value = trashPets.value.filter(p => p.id !== id)
+    deleteTrashPet(id).catch(e => console.error('[settingsStore] purgePet 持久化失败:', e))
+  }
+
+  /** 清空桌宠回收站 */
+  const emptyTrashPets = async (): Promise<void> => {
+    trashPets.value = []
+    clearAllTrashPets().catch(e => console.error('[settingsStore] emptyTrashPets 持久化失败:', e))
+  }
+
+  /** 自动清理过期桌宠回收站（复用简历回收站保留天数） */
+  const cleanupTrashPets = async (): Promise<void> => {
+    if (trashPets.value.length === 0) return
+    const days = await getTrashRetentionDays()
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
+    const expired = trashPets.value.filter(p => {
+      const deletedAt = p.deletedAt ? new Date(p.deletedAt).getTime() : Date.now()
+      return deletedAt <= cutoff
+    })
+    if (expired.length === 0) return
+    await Promise.all(expired.map(p => deleteTrashPet(p.id)))
+    const expiredIds = new Set(expired.map(p => p.id))
+    trashPets.value = trashPets.value.filter(p => !expiredIds.has(p.id))
+  }
+
+  /**
+   * 一次性迁移：旧 meta.trashPets 数组 → 每条独立存储。
+   * 幂等：旧 meta 字段不存在或非数组时跳过；迁移成功后清除 meta 字段，再次调用直接 return。
+   * 中途失败时 meta 字段未清，下次启动重跑，put 是 upsert 不会重复。
+   */
+  const migrateTrashPets = async (): Promise<void> => {
+    const legacy = await getLegacyTrashPetsArray()
+    if (legacy === undefined) return
+    // 空数组也需清除 meta 字段，保证幂等
+    for (const pet of legacy) {
+      await saveTrashPet(pet)
+    }
+    await clearLegacyTrashPetsMeta()
   }
 
   // ========== 手动重新同步 ==========
@@ -646,6 +847,14 @@ export const useSettingsStore = defineStore('settings', () => {
       // 自定义桌宠：从目录读取并刷新内存（目录数据为权威）
       customPets.value = await adapter.getAllDesktopPets()
       setCustomPetsCache(customPets.value)
+      // 桌宠回收站：从目录 trash-pets/ 读取，以目录为权威刷新 IndexedDB（先清空再写，避免目录已删条目残留）
+      const dirTrashPets = await adapter.getAllTrashPets()
+      await idb.clearTrashPetsStore()
+      for (const pet of dirTrashPets) {
+        await idb.saveTrashPet(pet)
+      }
+      trashPets.value = await getAllTrashPets()
+      await cleanupTrashPets()
 
       updateProgress('正在刷新数据...', 80)
 
@@ -706,8 +915,20 @@ export const useSettingsStore = defineStore('settings', () => {
     resyncDirectory,
     currentPetId,
     updateDesktopPetId,
+    restReminderEnabled,
+    restReminderInterval,
+    updateRestReminderEnabled,
+    updateRestReminderInterval,
+    petAIChatEnabled,
+    updatePetAIChatEnabled,
     customPets,
     addCustomPet,
     removeCustomPet,
+    renameCustomPet,
+    trashPets,
+    restorePet,
+    purgePet,
+    emptyTrashPets,
+    cleanupTrashPets,
   }
 })

@@ -1,0 +1,112 @@
+/**
+ * 桌宠 AI 动态话术生成器
+ *
+ * 复用 aiService.streamChat（SSE 流式）+ aiConfigStore（激活配置），
+ * 根据场景上下文让大模型现编一句简短中文话术。
+ *
+ * 无配置 / 调用失败 / 超时统一抛错，由 petStore.sayCategory 回退静态话术。
+ * 超时 8s（一句话无需久等，超时即回退，不让气泡空着）。
+ */
+import { streamChat, type ChatMessage } from '@/services/aiService'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
+import type { QuoteCategory, TimePeriod } from '@/data/petQuotes'
+
+const TIMEOUT_MS = 8_000
+const MAX_TOKENS = 60 // 一句话足够，控成本
+
+export interface PetQuoteContext {
+  /** 桌宠名字（注入 system prompt 的人设） */
+  name?: string
+  /** 是否在编辑器内（enterEditor 场景上下文） */
+  inEditor?: boolean
+  /** 当前时段（greet 场景上下文） */
+  period?: TimePeriod
+}
+
+/** 场景语义描述，注入 user prompt */
+const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
+  save: '用户刚保存简历成功',
+  export: '用户刚导出简历（PDF/图片/JSON）成功',
+  enterEditor: '用户刚进入简历编辑器准备开始编辑',
+  hover: '用户把鼠标悬停在你身上',
+  click: '用户单击了你，点开了你的菜单',
+  dragStart: '用户正在拖拽你移动位置',
+  dragEnd: '用户刚拖拽完你，你吸附到了屏幕边角的新位置',
+  greet: '向用户打招呼',
+  restOn: '用户刚开启了休息提醒功能',
+  restOff: '用户刚关闭了休息提醒功能',
+  // 注：aiChatOn/aiChatOff 故意不映射——开关反馈走静态 pickQuote + say（settingsStore.updatePetAIChatEnabled），
+  // 不走 sayCategory/AI（开关切换需即时反馈，不等 AI）。若误调 sayCategory('aiChatOn') 会抛 UNSUPPORTED_CATEGORY。
+}
+
+/**
+ * 生成一句桌宠话术。失败/超时/无配置均抛错，由调用方回退静态。
+ * 返回 trim 后的非空文本。
+ */
+export async function generatePetQuote(
+  category: QuoteCategory,
+  context: PetQuoteContext = {},
+): Promise<string> {
+  const aiConfigStore = useAIConfigStore()
+  const config = aiConfigStore.activeConfig
+  // ponytail: 无激活配置或无 apiKey → 抛错回退，不在此处提示用户（静默回退静态话术）
+  if (!config || !config.apiKey) {
+    throw new Error('NO_CONFIG')
+  }
+
+  const name = context.name || 'v仔'
+  const semantics = CATEGORY_SEMANTICS[category]
+  if (!semantics) {
+    // 未配置语义的场景不该走到这里（petStore 已过滤静态场景），兜底抛错
+    throw new Error(`UNSUPPORTED_CATEGORY:${category}`)
+  }
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: `你是桌宠「${name}」，陪伴用户写简历。根据场景用一句简短活泼的中文说话，不超过20字。直接说话内容，不要解释、不要引号、不要emoji堆砌。语气可爱亲切。`,
+    },
+    {
+      role: 'user',
+      content: buildUserPrompt(category, semantics, context),
+    },
+  ]
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const result = await streamChat(config, messages, () => {}, {
+      signal: controller.signal,
+      maxTokens: MAX_TOKENS,
+    })
+    const text = (result.finalText || '').trim()
+    if (!text) throw new Error('EMPTY_RESPONSE')
+    return text
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** 拼接 user prompt：场景语义 + 上下文（时段/编辑器） */
+function buildUserPrompt(category: QuoteCategory, semantics: string, context: PetQuoteContext): string {
+  const parts: string[] = [`场景：${semantics}。`]
+  if (category === 'greet' && context.period) {
+    parts.push(`当前时段：${periodLabel(context.period)}。`)
+  }
+  if (category === 'enterEditor' && context.inEditor) {
+    parts.push('用户正在简历编辑器内。')
+  }
+  parts.push('请说一句话。')
+  return parts.join('')
+}
+
+function periodLabel(period: TimePeriod): string {
+  const labels: Record<TimePeriod, string> = {
+    morning: '早晨',
+    noon: '中午',
+    afternoon: '下午',
+    evening: '晚上',
+    lateNight: '深夜',
+  }
+  return labels[period]
+}

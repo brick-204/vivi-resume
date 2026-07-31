@@ -16,7 +16,10 @@ export interface DesktopPetConfig {
 }
 
 /** 用户自定义桌宠（与 DesktopPetConfig 同构，单独命名区分"用户自定义"语义） */
-export interface CustomDesktopPet extends DesktopPetConfig {}
+export interface CustomDesktopPet extends DesktopPetConfig {
+  /** 进入回收站的时间戳（仅回收站项有）；复用简历回收站保留天数到期自动清理 */
+  deletedAt?: string
+}
 
 export const DESKTOP_PETS: DesktopPetConfig[] = [
   { id: 'v-za', name: 'v仔', lottie: idleData },

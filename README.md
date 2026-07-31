@@ -39,9 +39,17 @@
 - **一键优化** - AI 对整份简历所有模块进行系统性润色优化
 - **面试准备** - 根据简历 + JD 生成行为面试题、技术面试题和复习要点
 - **AI 智能导入** - 上传 PDF/Word/Markdown 文件，AI 解析为结构化 JSON，Zod Schema 校验，字段视图/JSON Diff 双视图预览
-- **AI 智能咨询** - 右下角悬浮聊天抽屉，多轮对话记忆 + 历史会话管理（VS Code 风格标签 + 下拉历史，软删除可恢复，上限 10 条），支持注入简历上下文、上传文件/图片（图片走多模态 image_url、文本文件提取内容注入），未配置 AI 时引导跳转设置
+- **AI 智能咨询** - 右下角悬浮聊天抽屉，多轮对话记忆 + 历史会话管理（VS Code 风格标签 + 下拉历史，软删除可恢复，上限 10 条），支持注入简历上下文、上传文件/图片（图片走多模态 image_url、文本文件提取内容注入），未配置 AI 时引导跳转设置；支持📌常驻侧栏（无遮罩边编辑边问）、左右方向切换、拖拽调宽
 - **评分徽章** - 三档评分色标（≥80 优秀/≥60 良好/<60 待改进），简历卡片与评估弹窗复用
 - **Token 用量追踪** - 实时显示累计输入/输出 token 用量，防抖持久化
+
+### 桌面宠物
+
+- **Lottie 桌宠 v仔** - 屏幕角落悬浮的 Lottie 动画桌宠，替代原咨询 FAB，陪伴整个编辑过程
+- **随机说话** - 定时（45s）随机冒泡一句；保存/导出/AI 报错/进编辑器等业务节点触发即时反馈（气泡 5s 自动消失，抽屉打开时暂停）
+- **交互** - 单击弹出 action 列（AI 咨询入口等），长按拖拽吸附到屏幕左/右边缘
+- **自定义桌宠** - 设置面板上传自定义桌宠，支持三种素材：Lottie JSON、.lottie zip 包（fflate 解压 + 图片资源内联）、图片（GIF/APNG/WebP/PNG/SVG/AVIF）；持久化到 IndexedDB，与内置桌宠合并展示
+- **桌宠回收站** - 删除的自定义桌宠进入回收站，复用简历回收站的保留期到期自动清理机制
 
 ### Dashboard
 
@@ -71,6 +79,7 @@
 | Markdown | marked（解析）+ turndown（反转） |
 | 存储 | IndexedDB (idb 8.0)，支持目录模式同步 |
 | 安全 | isomorphic-dompurify |
+| 桌宠动画 | lottie-web（Lottie 渲染）+ fflate（.lottie zip 解压） |
 | PDF | iframe 打印方案 |
 
 ## 项目结构
@@ -108,7 +117,9 @@ src/
 │   │   ├── AIConfigCard.vue        # AI 配置卡片
 │   │   ├── AIConfigModal.vue       # AI 配置弹窗
 │   │   ├── AIResultPreview.vue     # AI 生成结果预览（7 种操作 + 上下文预填）
-│   │   ├── ConsultDrawer.vue       # AI 智能咨询抽屉（多轮对话 + 历史会话 + 文件/图片附件）
+│   │   ├── ConsultDrawer.vue       # AI 智能咨询抽屉（多轮对话 + 历史会话 + 文件/图片附件 + 常驻侧栏）
+│   │   ├── DesktopPet.vue          # Lottie 桌宠（悬浮 + 拖拽吸附 + action 列 + 说话气泡）
+│   │   ├── PetPreview.vue          # 桌宠预览（设置面板内实时预览选中/上传桌宠）
 │   │   ├── JDScanModal.vue         # JD 扫描模态框
 │   │   ├── FullResumeOptimizeModal.vue # 一键优化模态框
 │   │   ├── InterviewPrepModal.vue  # 面试准备模态框
@@ -125,9 +136,11 @@ src/
 │   ├── usePageBreaks.ts          # 分页计算
 │   ├── useResumeSearch.ts        # 全文搜索 + 缓存
 │   ├── useAriaLive.ts            # 无障碍实时播报
-│   └── useInView.ts             # 视口可见性观察
+│   ├── useInView.ts             # 视口可见性观察
+│   └── usePetRenderer.ts        # 桌宠渲染（lottie-web 加载/销毁 + img 切换 + 加载防御）
 ├── config/
 │   ├── templates.ts       # 8 种模板配置（样式、字体默认值、头部模式）
+│   ├── desktopPets.ts     # 桌宠配置（内置 v仔 + 自定义桌宠内存缓存 + lottie 校验）
 │   ├── fonts.ts           # 字体选项 + 字号派生逻辑
 │   └── sampleData.ts      # 示例简历数据
 ├── services/
@@ -141,8 +154,9 @@ src/
 │   ├── resumeStore.ts     # Pinia 状态管理（shallowRef + dirty flag + 评估结果持久化）
 │   ├── aiConfigStore.ts   # AI 服务配置 + Token 用量追踪（防抖持久化）
 │   ├── consultStore.ts     # AI 咨询会话管理（多轮记忆 + 历史压缩 + 软删除 + 附件）
+│   ├── petStore.ts         # 桌宠状态（说话气泡 + 定时冒泡 + 暂停控制）
 │   ├── editorLayoutStore.ts # 编辑器布局状态 + localStorage 持久化
-│   └── settingsStore.ts   # 全局设置（目录模式、存储后端切换）
+│   └── settingsStore.ts   # 全局设置（目录模式、存储后端切换、桌宠选择）
 ├── types/
 │   ├── resume.ts          # TypeScript 类型 + 默认常量（含 EvaluationResult）
 │   ├── aiConfig.ts        # AI 服务配置类型（服务商、操作、配置接口 + 全局级操作类型）
@@ -160,7 +174,11 @@ src/
 │   ├── templateApply.ts   # 模板应用逻辑
 │   ├── exportImage.ts     # PNG 图片导出（modern-screenshot）
 │   ├── export.ts          # JSON 导出
-│   └── print.ts           # iframe 打印方案
+│   ├── print.ts           # iframe 打印方案
+│   ├── petUpload.ts       # 自定义桌宠上传解析（.json / .lottie zip / 图片 三路分流）
+│   └── fileParser.ts      # 文件解析（PDF/DOCX/Markdown 文本提取，供 AI 导入与咨询附件复用）
+├── data/
+│   └── petQuotes.ts       # 桌宠话术库（分类 + 随机抽取 + {name} 占位替换）
 ├── plugins/
 │   └── naive-ui.ts        # Naive UI 主题覆盖 + Provider 注册 + createDiscreteApi
 ├── workers/
@@ -294,6 +312,15 @@ pnpm preview
 - **简历上下文** - 点「选择简历」勾选简历，随下一条提问一起注入，让 AI 针对简历内容作答
 - **文件/图片附件** - 标签栏左侧「+」上传图片（走多模态 image_url 原样传服务商）或文本文件（txt/md/docx/pdf 等，提取纯文本注入消息）
 - **配置引导** - 未激活任何 AI 服务商时，抽屉内显示提示并一键跳转 AI 设置面板
+
+#### 桌面宠物
+
+屏幕角落悬浮的 Lottie 桌宠（默认 v仔），陪伴整个编辑过程：
+
+- **随机说话** - 每隔约 45 秒随机冒泡一句；保存简历、导出文件、AI 报错、进入编辑器等节点会即时说话反馈，气泡 5 秒自动消失
+- **交互** - 单击桌宠弹出 action 列（如「AI 咨询」入口）；长按可拖拽，松手自动吸附到屏幕左/右边缘
+- **自定义桌宠** - 在设置面板「桌面宠物」中选择内置桌宠或上传自定义素材，支持三种格式：Lottie JSON、.lottie zip 包、图片（GIF/APNG/WebP/PNG/SVG/AVIF）；上传后持久化保存，随时切换
+- **回收站** - 删除的自定义桌宠进入回收站，到期自动清理
 
 #### 简历评估
 
@@ -443,6 +470,23 @@ Resume 数据 (resumeStore)
 - **历史压缩**：`consultTokens.ts` 估算 token（多模态 content 按文本长度估算），超阈值调一次非流式 `streamChat` 把旧段压缩为 `history-summary` 摘要注入前置消息，原始消息归档备份
 - **多模态**：`ChatMessage.content` 为 `string | ContentPart[]`，带图片附件的 user 消息以 `[{type:'text'}, {type:'image_url'}]` 数组发送；文本文件提取纯文本注入消息文本；压缩格式化时图片占位为 `[图片]`
 - **配置引导**：未激活 AI 服务商时 `ConsultDrawer` 显示提示并跳转 `/dashboard?tab=ai`
+
+### 桌面宠物架构
+
+桌宠是独立 UI 模块，悬浮于全局，与 AI 咨询抽屉联动（桌宠单击 action 列触发 `open` 事件打开咨询）：
+
+```
+DesktopPet.vue（悬浮 + 拖拽吸附 + action 列）
+  → usePetRenderer（lottie-web 加载/销毁，img 直接 <img>，加载失败防御）
+  → petStore（说话状态汇聚：currentQuote + 定时冒泡 + 暂停）
+    → petQuotes.ts（分类话术 + 随机抽取）
+  → desktopPets.ts（内置 v仔 + 自定义桌宠内存缓存合并）
+```
+
+- **渲染**：`usePetRenderer` 按 `type` 分流——lottie 用 lottie-web `loadAnimation`，img 用 `<img src>`；切换桌宠时销毁旧实例，加载异常降级不崩
+- **说话**：`petStore` 是状态汇聚点，各业务点（保存/导出/AI 报错/进编辑器）调 `say()`；定时 45s 随机冒泡，单句 5s 自动消失；抽屉打开时 `setPaused(true)` 暂停
+- **自定义上传**：`petUpload.ts` 三路分流——.json 直接 Lottie 对象、.lottie 用 fflate 解压 + 图片资源内联为 data URL、图片转 data URL；通过 `storageAdapter` 持久化到 IndexedDB，store 启动时 `setCustomPetsCache` 注入内存缓存
+- **回收站复用**：自定义桌宠删除后带 `deletedAt` 进入回收站，复用简历回收站的保留期到期清理逻辑
 
 ## License
 

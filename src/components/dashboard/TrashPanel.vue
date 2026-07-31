@@ -5,11 +5,11 @@
       <h2 class="trash-panel__title">
         <Icon icon="mdi:delete-outline" :width="24" />
         回收站
-        <span v-if="trashCount > 0" class="trash-panel__count">{{ trashCount }}</span>
+        <span v-if="totalCount > 0" class="trash-panel__count">{{ totalCount }}</span>
       </h2>
       <div class="trash-panel__actions">
         <button
-          v-if="trashCount > 0"
+          v-if="totalCount > 0"
           class="empty-trash-btn"
           @click="handleEmptyTrash"
         >
@@ -20,55 +20,168 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-if="trashCount === 0" class="trash-panel__empty">
+    <div v-if="totalCount === 0" class="trash-panel__empty">
       <div class="empty__icon">
         <Icon icon="mdi:delete-off-outline" :width="64" />
       </div>
       <p class="empty__text">回收站是空的</p>
-      <p class="empty__hint">删除的简历会在这里保留 {{ store.trashRetentionDays }} 天</p>
+      <p class="empty__hint">删除的简历和桌宠会在这里保留 {{ store.trashRetentionDays }} 天</p>
     </div>
 
     <!-- 回收站列表 -->
     <div v-else class="trash-panel__list">
-      <div
-        v-for="resume in trashWithRemainingDays"
-        :key="resume.id"
-        class="trash-item"
-      >
-        <div class="trash-item__info">
-          <h3 class="trash-item__title">{{ resume.title }}</h3>
-          <p class="trash-item__meta">
-            删除于 {{ formatDate(resume.deletedAt) }}
-            <span class="trash-item__remaining">剩余 {{ resume.remainingDays }} 天</span>
-          </p>
+      <!-- 简历分区 -->
+      <div v-if="trashCount > 0" class="trash-section">
+        <h3 class="trash-section__title">
+          <Icon icon="mdi:file-document-outline" :width="18" />
+          简历（{{ trashCount }}）
+        </h3>
+        <div
+          v-for="resume in trashWithRemainingDays"
+          :key="resume.id"
+          class="trash-item"
+        >
+          <div class="trash-item__info">
+            <h3 class="trash-item__title">{{ resume.title }}</h3>
+            <p class="trash-item__meta">
+              删除于 {{ formatDate(resume.deletedAt) }}
+              <span class="trash-item__remaining">剩余 {{ resume.remainingDays }} 天</span>
+            </p>
+          </div>
+          <div class="trash-item__actions">
+            <button class="trash-item__btn trash-item__btn--restore" @click="handleRestore(resume.id)">
+              <Icon icon="mdi:restore" :width="18" />
+              恢复
+            </button>
+            <button class="trash-item__btn trash-item__btn--delete" @click="handlePermanentDelete(resume.id)">
+              <Icon icon="mdi:delete-forever" :width="18" />
+              永久删除
+            </button>
+          </div>
         </div>
-        <div class="trash-item__actions">
-          <button class="trash-item__btn trash-item__btn--restore" @click="handleRestore(resume.id)">
-            <Icon icon="mdi:restore" :width="18" />
-            恢复
-          </button>
-          <button class="trash-item__btn trash-item__btn--delete" @click="handlePermanentDelete(resume.id)">
-            <Icon icon="mdi:delete-forever" :width="18" />
-            永久删除
-          </button>
+      </div>
+
+      <!-- 桌宠分区 -->
+      <div v-if="petCount > 0" class="trash-section">
+        <h3 class="trash-section__title">
+          <Icon icon="mdi:cat" :width="18" />
+          桌宠（{{ petCount }}）
+        </h3>
+        <div
+          v-for="pet in trashPetsWithRemainingDays"
+          :key="pet.id"
+          class="trash-item trash-item--pet"
+        >
+          <div class="trash-item__info trash-item__info--pet">
+            <PetPreview :pet-id="pet.id" :pet="pet" />
+            <div class="trash-item__meta-wrap">
+              <h3 class="trash-item__title">{{ pet.name }}</h3>
+              <p class="trash-item__meta">
+                删除于 {{ formatDate(pet.deletedAt) }}
+                <span class="trash-item__remaining">剩余 {{ pet.remainingDays }} 天</span>
+              </p>
+            </div>
+          </div>
+          <div class="trash-item__actions">
+            <button class="trash-item__btn trash-item__btn--restore" @click="handleRestorePet(pet.id)">
+              <Icon icon="mdi:restore" :width="18" />
+              恢复
+            </button>
+            <button class="trash-item__btn trash-item__btn--delete" @click="handlePermanentDeletePet(pet.id)">
+              <Icon icon="mdi:delete-forever" :width="18" />
+              永久删除
+            </button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- 恢复桌宠弹窗 -->
+    <n-modal
+      :show="showRestorePetModal"
+      preset="dialog"
+      title="恢复桌宠"
+      :auto-focus="false"
+      :content="`确定要恢复「${restorePetTarget?.name || '这个桌宠'}」吗？`"
+      @update:show="v => { if (!v) { showRestorePetModal = false; restoringPetId = null } }"
+    >
+      <template #action>
+        <div class="trash-modal-actions">
+          <button class="trash-modal-btn trash-modal-btn--primary" :disabled="actionPending" @click="confirmRestorePet">
+            <Icon :icon="actionPending ? 'mdi:loading' : 'mdi:restore'" :width="16" :class="{ 'is-spin-trash': actionPending }" />
+            恢复
+          </button>
+          <button class="trash-modal-btn trash-modal-btn--ghost" :disabled="actionPending" @click="showRestorePetModal = false; restoringPetId = null">
+            取消
+          </button>
+        </div>
+      </template>
+    </n-modal>
+
+    <!-- 永久删除桌宠弹窗 -->
+    <n-modal
+      :show="showPurgePetModal"
+      preset="dialog"
+      title="永久删除"
+      :auto-focus="false"
+      :content="`确定要永久删除「${purgePetTarget?.name || '这个桌宠'}」吗？此操作不可撤销。`"
+      @update:show="v => { if (!v) { showPurgePetModal = false; purgingPetId = null } }"
+    >
+      <template #action>
+        <div class="trash-modal-actions">
+          <button class="trash-modal-btn trash-modal-btn--danger" :disabled="actionPending" @click="confirmPurgePet">
+            <Icon :icon="actionPending ? 'mdi:loading' : 'mdi:delete-forever'" :width="16" :class="{ 'is-spin-trash': actionPending }" />
+            删除
+          </button>
+          <button class="trash-modal-btn trash-modal-btn--ghost" :disabled="actionPending" @click="showPurgePetModal = false; purgingPetId = null">
+            取消
+          </button>
+        </div>
+      </template>
+    </n-modal>
+
+    <!-- 清空回收站弹窗 -->
+    <n-modal
+      :show="showEmptyTrashModal"
+      preset="dialog"
+      title="清空回收站"
+      :auto-focus="false"
+      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历和 ${petCount} 个桌宠，此操作不可撤销。`"
+      @update:show="v => { if (!v) showEmptyTrashModal = false }"
+    >
+      <template #action>
+        <div class="trash-modal-actions">
+          <button class="trash-modal-btn trash-modal-btn--danger" :disabled="actionPending" @click="confirmEmptyTrash">
+            <Icon :icon="actionPending ? 'mdi:loading' : 'mdi:delete-forever'" :width="16" :class="{ 'is-spin-trash': actionPending }" />
+            清空
+          </button>
+          <button class="trash-modal-btn trash-modal-btn--ghost" :disabled="actionPending" @click="showEmptyTrashModal = false">
+            取消
+          </button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import { NModal } from 'naive-ui'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { dialog } from '@/plugins/naive-ui'
+import PetPreview from '@/components/ai/PetPreview.vue'
 
 const store = useResumeStore()
+const settingsStore = useSettingsStore()
 
 // ponytail: naive-ui 主题 overrides 不作用于 prop，dialog 按钮居中需逐个传 actionStyle
 const CENTER_ACTION = 'justify-content: center !important;'
 
 const trashCount = computed(() => store.trash.length)
+const petCount = computed(() => settingsStore.trashPets.length)
+const totalCount = computed(() => trashCount.value + petCount.value)
 
 // 计算剩余天数
 const trashWithRemainingDays = computed(() => {
@@ -78,6 +191,16 @@ const trashWithRemainingDays = computed(() => {
     const remainingMs = cutoff - deletedAt
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
     return { ...resume, remainingDays }
+  })
+})
+
+const trashPetsWithRemainingDays = computed(() => {
+  return settingsStore.trashPets.map(pet => {
+    const deletedAt = pet.deletedAt ? new Date(pet.deletedAt).getTime() : Date.now()
+    const cutoff = Date.now() + store.trashRetentionDays * 24 * 60 * 60 * 1000
+    const remainingMs = cutoff - deletedAt
+    const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
+    return { ...pet, remainingDays }
   })
 })
 
@@ -124,18 +247,74 @@ const handlePermanentDelete = (id: string) => {
   })
 }
 
-// 清空回收站
+// ========== 桌宠弹窗状态（自定义 spin 按钮，主线程阻塞期 spin 由合成线程驱动仍可转） ==========
+const showRestorePetModal = ref(false)
+const restoringPetId = ref<string | null>(null)
+const restorePetTarget = computed(() => settingsStore.trashPets.find(p => p.id === restoringPetId.value))
+
+const showPurgePetModal = ref(false)
+const purgingPetId = ref<string | null>(null)
+const purgePetTarget = computed(() => settingsStore.trashPets.find(p => p.id === purgingPetId.value))
+
+const showEmptyTrashModal = ref(false)
+// ponytail: 操作进行中显示 spin；store 先更新内存再 fire-and-forget，await 极短但仍留出 spin 反馈
+const actionPending = ref(false)
+
+// 恢复桌宠
+const handleRestorePet = (id: string) => {
+  restoringPetId.value = id
+  showRestorePetModal.value = true
+}
+const confirmRestorePet = async () => {
+  const id = restoringPetId.value
+  if (!id || actionPending.value) return
+  actionPending.value = true
+  try {
+    await settingsStore.restorePet(id)
+  } catch (e) {
+    console.error('[TrashPanel] restorePet:', e)
+  } finally {
+    showRestorePetModal.value = false
+    restoringPetId.value = null
+    actionPending.value = false
+  }
+}
+
+// 永久删除桌宠
+const handlePermanentDeletePet = (id: string) => {
+  purgingPetId.value = id
+  showPurgePetModal.value = true
+}
+const confirmPurgePet = async () => {
+  const id = purgingPetId.value
+  if (!id || actionPending.value) return
+  actionPending.value = true
+  try {
+    await settingsStore.purgePet(id)
+  } catch (e) {
+    console.error('[TrashPanel] purgePet:', e)
+  } finally {
+    showPurgePetModal.value = false
+    purgingPetId.value = null
+    actionPending.value = false
+  }
+}
+
+// 清空回收站（简历 + 桌宠）
 const handleEmptyTrash = () => {
-  dialog.warning({
-    title: '清空回收站',
-    content: `确定要清空回收站吗？这将永久删除 ${trashCount.value} 个简历，此操作不可撤销。`,
-    positiveText: '清空',
-    negativeText: '取消',
-    actionStyle: CENTER_ACTION,
-    onPositiveClick: () => {
-      store.emptyTrash().catch(e => console.error('[TrashPanel] emptyTrash:', e))
-    },
-  })
+  showEmptyTrashModal.value = true
+}
+const confirmEmptyTrash = async () => {
+  if (actionPending.value) return
+  actionPending.value = true
+  try {
+    await Promise.all([store.emptyTrash(), settingsStore.emptyTrashPets()])
+  } catch (e) {
+    console.error('[TrashPanel] emptyTrash:', e)
+  } finally {
+    showEmptyTrashModal.value = false
+    actionPending.value = false
+  }
 }
 </script>
 
@@ -213,8 +392,26 @@ const handleEmptyTrash = () => {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: $spacing-sm;
+    gap: $spacing-lg;
     padding: $spacing-sm;
+  }
+}
+
+// 回收站分区
+.trash-section {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    color: $text-secondary;
+    margin: 0;
+    padding: 0 $spacing-sm;
   }
 }
 
@@ -257,6 +454,17 @@ const handleEmptyTrash = () => {
   }
 
   &__info {
+    flex: 1;
+    min-width: 0;
+
+    &--pet {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+    }
+  }
+
+  &__meta-wrap {
     flex: 1;
     min-width: 0;
   }
@@ -324,6 +532,64 @@ const handleEmptyTrash = () => {
         background: rgba($error-color, 0.1);
       }
     }
+  }
+}
+
+// 弹窗自定义 action 按钮（对齐 SettingsPanel action-btn 风格，spin 由 CSS 合成线程驱动）
+.trash-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: $spacing-sm;
+  width: 100%;
+  padding-top: $spacing-md;
+}
+
+.trash-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-base;
+  border: 1px solid transparent;
+  font-family: $font-family;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &--primary {
+    background: $primary-color;
+    color: #fff;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  &--danger {
+    background: rgba($error-color, 0.12);
+    color: $error-color;
+    border-color: rgba($error-color, 0.25);
+  }
+
+  &--ghost {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+    border-color: var(--border-glass);
+  }
+}
+
+.is-spin-trash {
+  animation: trash-spin 0.8s linear infinite;
+}
+
+@keyframes trash-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 </style>

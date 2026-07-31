@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, onMounted, defineAsyncComponent } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -311,9 +311,14 @@ onMounted(async () => {
     return
   }
   isReady.value = true
+  petStore.setInEditor(true)
   petStore.sayCategory('enterEditor')
   // 下一帧再渲染预览区，避免与挂载帧的长任务叠加（INP 优化）
   requestAnimationFrame(() => { previewReady.value = true })
+})
+
+onBeforeUnmount(() => {
+  petStore.setInEditor(false)
 })
 </script>
 

@@ -26,18 +26,27 @@ export function usePetRenderer() {
    * 挂载 lottie 动画到 container。
    * 调用方：img 类型直接渲染 <img> 不调此方法；lottie 类型在容器 ready 后调用。
    * 数据畸形（非 lottie）返回 false，调用方自行回退。
+   * @param opts.autoplay 是否自动播放循环动画；缺省 true。预览场景传 false 只渲染首帧（省 CPU，避免列表 N 个动画同跑）
    */
-  const mountLottie = (container: HTMLElement): boolean => {
+  const mountLottie = (
+    container: HTMLElement,
+    opts: { autoplay?: boolean } = {},
+  ): boolean => {
+    const autoplay = opts.autoplay ?? true
     let data = petData.value.lottie
     if (!isLikelyLottie(data)) return false
     try {
       anim = lottie.loadAnimation({
         container,
         renderer: 'svg',
-        loop: true,
-        autoplay: true,
+        loop: autoplay,
+        autoplay,
         animationData: data,
       })
+      // ponytail: 静态预览模式——autoplay:false 时 lottie 仍会渲染首帧，显式 goToStop 确保停在首帧不进入渲染循环
+      if (!autoplay) {
+        anim.goToAndStop(0, true)
+      }
       return true
     } catch (e) {
       console.error('[usePetRenderer] lottie 加载失败:', e)
