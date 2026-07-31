@@ -4,6 +4,7 @@ import router from './router'
 import App from './App.vue'
 import './assets/styles/main.scss'
 import './generated/icon-bundle'
+import { setupRainyNightEasterEggShortcut } from '@/services/rainyNightEffect'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -11,6 +12,9 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+// 雨夜窗景彩蛋快捷键（R→A→I→N）：所有环境启用，env=false 可关
+setupRainyNightEasterEggShortcut()
 
 // Cloudflare Web Analytics：仅生产模式加载，token 从 .env 读取（不进版本库）
 const cfToken = import.meta.env.VITE_CF_TOKEN
