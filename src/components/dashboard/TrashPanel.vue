@@ -25,7 +25,7 @@
         <Icon icon="mdi:delete-off-outline" :width="64" />
       </div>
       <p class="empty__text">回收站是空的</p>
-      <p class="empty__hint">删除的简历和桌宠会在这里保留 {{ store.trashRetentionDays }} 天</p>
+      <p class="empty__hint">删除的简历、面试记录和桌宠会在这里保留 {{ store.trashRetentionDays }} 天</p>
     </div>
 
     <!-- 回收站列表 -->
@@ -94,6 +94,37 @@
           </div>
         </div>
       </div>
+
+      <!-- 面试分区 -->
+      <div v-if="interviewCount > 0" class="trash-section">
+        <h3 class="trash-section__title">
+          <Icon icon="mdi:briefcase-outline" :width="18" />
+          面试（{{ interviewCount }}）
+        </h3>
+        <div
+          v-for="interview in trashInterviewsWithRemainingDays"
+          :key="interview.id"
+          class="trash-item"
+        >
+          <div class="trash-item__info">
+            <h3 class="trash-item__title">{{ interview.company || '未填写公司' }}</h3>
+            <p class="trash-item__meta">
+              删除于 {{ formatDate(interview.deletedAt) }}
+              <span class="trash-item__remaining">剩余 {{ interview.remainingDays }} 天</span>
+            </p>
+          </div>
+          <div class="trash-item__actions">
+            <button class="trash-item__btn trash-item__btn--restore" @click="handleRestoreInterview(interview.id)">
+              <Icon icon="mdi:restore" :width="18" />
+              恢复
+            </button>
+            <button class="trash-item__btn trash-item__btn--delete" @click="handlePermanentDeleteInterview(interview.id)">
+              <Icon icon="mdi:delete-forever" :width="18" />
+              永久删除
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 恢复桌宠弹窗 -->
@@ -146,7 +177,7 @@
       preset="dialog"
       title="清空回收站"
       :auto-focus="false"
-      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历和 ${petCount} 个桌宠，此操作不可撤销。`"
+      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历、${interviewCount} 个面试记录和 ${petCount} 个桌宠，此操作不可撤销。`"
       @update:show="v => { if (!v) showEmptyTrashModal = false }"
     >
       <template #action>
@@ -170,18 +201,23 @@ import { Icon } from '@iconify/vue'
 import { NModal } from 'naive-ui'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useSettingsStore } from '@/stores/settingsStore'
-import { dialog } from '@/plugins/naive-ui'
+import { useInterviewStore } from '@/stores/interviewStore'
+import { dialog, message } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
 const store = useResumeStore()
 const settingsStore = useSettingsStore()
+const interviewStore = useInterviewStore()
 
-// ponytail: naive-ui 主题 overrides 不作用于 prop，dialog 按钮居中需逐个传 actionStyle
-const CENTER_ACTION = 'justify-content: center !important;'
+// ponytail: dialog 按钮顺序：操作(positive)靠左、取消(negative)靠右，整体居中
+// naive UI 默认 DOM 顺序 [negative, positive]，row-reverse 反转视觉 + center 居中 + gap 补间距
+// （naive UI 用 margin-right 控间距，row-reverse 下失效，故显式 gap）
+const REVERSE_ACTION = 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;'
 
 const trashCount = computed(() => store.trash.length)
 const petCount = computed(() => settingsStore.trashPets.length)
-const totalCount = computed(() => trashCount.value + petCount.value)
+const interviewCount = computed(() => interviewStore.trash.length)
+const totalCount = computed(() => trashCount.value + petCount.value + interviewCount.value)
 
 // 计算剩余天数
 const trashWithRemainingDays = computed(() => {
@@ -201,6 +237,17 @@ const trashPetsWithRemainingDays = computed(() => {
     const remainingMs = cutoff - deletedAt
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
     return { ...pet, remainingDays }
+  })
+})
+
+// 面试回收站剩余天数（复用简历保留天数配置）
+const trashInterviewsWithRemainingDays = computed(() => {
+  return interviewStore.trash.map(interview => {
+    const deletedAt = interview.deletedAt ? new Date(interview.deletedAt).getTime() : Date.now()
+    const cutoff = Date.now() + store.trashRetentionDays * 24 * 60 * 60 * 1000
+    const remainingMs = cutoff - deletedAt
+    const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
+    return { ...interview, remainingDays }
   })
 })
 
@@ -224,7 +271,7 @@ const handleRestore = (id: string) => {
     content: '确定要恢复这个简历吗？',
     positiveText: '恢复',
     negativeText: '取消',
-    actionStyle: CENTER_ACTION,
+    actionStyle: REVERSE_ACTION,
     // ponytail: 不 await 持久化——store 已同步更新响应式状态，弹窗立即关闭，写盘后台进行
     onPositiveClick: () => {
       store.restoreResume(id).catch(e => console.error('[TrashPanel] restoreResume:', e))
@@ -240,9 +287,39 @@ const handlePermanentDelete = (id: string) => {
     content: `确定要永久删除「${resume?.title || '这个简历'}」吗？此操作不可撤销。`,
     positiveText: '删除',
     negativeText: '取消',
-    actionStyle: CENTER_ACTION,
+    actionStyle: REVERSE_ACTION,
     onPositiveClick: () => {
       store.permanentDeleteResume(id).catch(e => console.error('[TrashPanel] permanentDeleteResume:', e))
+    },
+  })
+}
+
+// 恢复面试
+const handleRestoreInterview = (id: string) => {
+  const interview = interviewStore.trash.find(i => i.id === id)
+  dialog.success({
+    title: '恢复面试记录',
+    content: `确定要恢复「${interview?.company || '未填写公司'}」吗？`,
+    positiveText: '恢复',
+    negativeText: '取消',
+    actionStyle: REVERSE_ACTION,
+    onPositiveClick: () => {
+      interviewStore.restoreInterview(id).catch(e => console.error('[TrashPanel] restoreInterview:', e))
+    },
+  })
+}
+
+// 永久删除面试
+const handlePermanentDeleteInterview = (id: string) => {
+  const interview = interviewStore.trash.find(i => i.id === id)
+  dialog.warning({
+    title: '永久删除',
+    content: `确定要永久删除「${interview?.company || '这个面试记录'}」吗？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    actionStyle: REVERSE_ACTION,
+    onPositiveClick: () => {
+      interviewStore.permanentDeleteInterview(id).catch(e => console.error('[TrashPanel] permanentDeleteInterview:', e))
     },
   })
 }
@@ -308,9 +385,11 @@ const confirmEmptyTrash = async () => {
   if (actionPending.value) return
   actionPending.value = true
   try {
-    await Promise.all([store.emptyTrash(), settingsStore.emptyTrashPets()])
+    await Promise.all([store.emptyTrash(), settingsStore.emptyTrashPets(), interviewStore.emptyTrash()])
   } catch (e) {
     console.error('[TrashPanel] emptyTrash:', e)
+    // 三路并发写盘，部分失败会留下跨 store 不一致——提示用户重试，避免误以为已全部清空
+    message.error('部分回收站清空失败，请重试')
   } finally {
     showEmptyTrashModal.value = false
     actionPending.value = false

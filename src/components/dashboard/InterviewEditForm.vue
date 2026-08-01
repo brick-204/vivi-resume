@@ -1,19 +1,5 @@
 <template>
-  <n-modal
-    :show="visible"
-    preset="card"
-    :style="{ maxWidth: '720px', width: '90vw', height: 'calc(100vh - 200px)' }"
-    :content-style="contentStyle"
-    :mask-closable="false"
-    @update:show="(v: boolean) => { if (!v) handleClose() }"
-  >
-    <template #header>
-      <div class="form-header">
-        <Icon icon="mdi:briefcase-outline" :width="20" />
-        <span>{{ isEdit ? '编辑面试' : '新建面试' }}</span>
-      </div>
-    </template>
-
+  <div class="interview-edit-form">
     <!-- 公司信息区 -->
     <div class="form-section">
       <div class="form-section__title form-section__title--collapsible" @click="companyCollapsed = !companyCollapsed">
@@ -165,43 +151,24 @@
         />
       </div>
     </div>
-
-    <template #footer>
-      <div class="form-footer">
-        <n-button @click="handleClose">取消</n-button>
-        <n-button type="primary" @click="handleSave">
-          <template #icon>
-            <Icon icon="mdi:check" :width="16" />
-          </template>
-          保存
-        </n-button>
-      </div>
-    </template>
-  </n-modal>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NInput, NSelect, NButton } from 'naive-ui'
+import { NInput, NSelect, NButton } from 'naive-ui'
 import type { SelectOption } from 'naive-ui'
-import type {
-  Interview,
-  InterviewStatus,
-} from '@/types/interview'
-import { createEmptyInterview, createEmptyRound } from '@/types/interview'
+import type { Interview, InterviewStatus } from '@/types/interview'
+import { createEmptyRound } from '@/types/interview'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import InterviewRoundEditor from './InterviewRoundEditor.vue'
 
-const props = defineProps<{
-  visible: boolean
-  interviewId: string | null
-}>()
+const props = defineProps<{ interview: Interview }>()
 
 const emit = defineEmits<{
-  close: []
   saved: []
 }>()
 
@@ -209,9 +176,7 @@ const interviewStore = useInterviewStore()
 const resumeStore = useResumeStore()
 
 // ponytail: 本地可变副本，避免每次输入触发 store 防抖；保存时一次性写回
-const form = ref<Interview>(createEmptyInterview())
-
-const isEdit = computed(() => props.interviewId !== null)
+const form = ref<Interview>(JSON.parse(JSON.stringify(props.interview)) as Interview)
 
 // 公司信息折叠态（默认展开）；折叠时标题栏显示一行摘要
 const companyCollapsed = ref(false)
@@ -223,14 +188,6 @@ const companySummary = computed(() => {
   ].filter(Boolean)
   return parts.join(' · ')
 })
-
-// ponytail: 复用 FullResumeOptimizeModal 的内部滚动模式——
-// modal 固定高度，body flex+overflow 滚动，card preset 的 footer 天然钉底不滚动
-const contentStyle: Record<string, string> = {
-  flex: '1',
-  minHeight: '0',
-  overflowY: 'auto',
-}
 
 const statusOptions: SelectOption[] = [
   { label: '准备中', value: 'drafting' },
@@ -250,7 +207,6 @@ const channelOptions: SelectOption[] = [
   { label: '内推', value: '内推' },
   { label: '官网', value: '官网' },
   { label: '猎头', value: '猎头' },
-  { label: '其他', value: '其他' },
 ]
 
 const resumeOptions = computed(() =>
@@ -258,21 +214,6 @@ const resumeOptions = computed(() =>
     label: r.title || '未命名简历',
     value: r.id,
   })),
-)
-
-// 打开时初始化本地 form
-watch(
-  () => props.visible,
-  (val) => {
-    if (!val) return
-    if (props.interviewId) {
-      const found = interviewStore.interviews.find(i => i.id === props.interviewId)
-      // 脱 proxy + 深拷贝
-      form.value = found ? (JSON.parse(JSON.stringify(found)) as Interview) : createEmptyInterview()
-    } else {
-      form.value = createEmptyInterview()
-    }
-  },
 )
 
 function onFieldUpdate<K extends keyof Interview>(key: K, value: Interview[K]) {
@@ -294,34 +235,21 @@ function onRoundRemove(index: number) {
   form.value = { ...form.value, rounds }
 }
 
-function handleSave() {
+// 暴露给父组件（InterviewDetail edit header 的保存按钮）触发
+function save() {
   if (!form.value.company.trim()) {
     naiveMessage.warning('请填写公司名称')
-    return
+    return false
   }
-  if (props.interviewId) {
-    interviewStore.updateInterview(form.value)
-  } else {
-    interviewStore.createInterview(form.value)
-  }
+  interviewStore.updateInterview(form.value)
   emit('saved')
-  emit('close')
+  return true
 }
 
-function handleClose() {
-  emit('close')
-}
+defineExpose({ save })
 </script>
 
 <style lang="scss" scoped>
-.form-header {
-  display: flex;
-  align-items: center;
-  gap: $spacing-sm;
-  font-weight: 600;
-  @include gradient-text;
-}
-
 .form-section {
   display: flex;
   flex-direction: column;
@@ -416,12 +344,6 @@ function handleClose() {
 .form-rounds {
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
-}
-
-.form-footer {
-  display: flex;
-  justify-content: flex-end;
   gap: $spacing-sm;
 }
 </style>

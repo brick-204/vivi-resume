@@ -1,5 +1,18 @@
 <template>
-  <div class="interview-card" @click="$emit('edit')">
+  <div
+    class="interview-card"
+    :class="{ 'interview-card--selected': selected, 'interview-card--selectable': selectable }"
+    @click="selectable ? $emit('toggle-select') : $emit('view')"
+  >
+    <!-- 多选 checkbox -->
+    <div v-if="selectable" class="interview-card__checkbox" @click.stop="$emit('toggle-select')">
+      <Icon
+        :icon="selected ? 'mdi:checkbox-marked-circle' : 'mdi:checkbox-blank-circle-outline'"
+        :width="22"
+        :class="{ 'interview-card__checkbox-icon--checked': selected }"
+      />
+    </div>
+
     <!-- 状态徽章 -->
     <span class="interview-card__status" :style="{ background: statusStyle.bg, color: statusStyle.color }">
       {{ statusLabel }}
@@ -37,13 +50,13 @@
       </div>
     </div>
 
-    <!-- 操作按钮（hover 显示） -->
-    <div class="interview-card__actions">
-      <button class="interview-card__btn interview-card__btn--edit" title="编辑" @click.stop="$emit('edit')">
-        <Icon icon="mdi:pencil-outline" :width="16" />
-      </button>
+    <!-- 操作按钮（hover 显示；多选模式下隐藏） -->
+    <div v-if="!selectable" class="interview-card__actions">
       <button class="interview-card__btn interview-card__btn--ai" title="AI 助手" @click.stop="$emit('ai')">
         <Icon icon="mdi:robot-outline" :width="16" />
+      </button>
+      <button class="interview-card__btn interview-card__btn--copy" title="复制" @click.stop="$emit('copy')">
+        <Icon icon="mdi:content-copy" :width="16" />
       </button>
       <button class="interview-card__btn interview-card__btn--delete" title="删除" @click.stop="$emit('delete')">
         <Icon icon="mdi:trash-can-outline" :width="16" />
@@ -54,16 +67,22 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Interview, InterviewStatus, RoundType, RoundStatus } from '@/types/interview'
+import type { Interview, InterviewStatus, RoundStatus } from '@/types/interview'
 import { useResumeStore } from '@/stores/resumeStore'
 import { Icon } from '@iconify/vue'
 
-const props = defineProps<{ interview: Interview }>()
+const props = defineProps<{
+  interview: Interview
+  selectable?: boolean
+  selected?: boolean
+}>()
 
 defineEmits<{
-  edit: []
+  view: []
+  copy: []
   delete: []
   ai: []
+  'toggle-select': []
 }>()
 
 // ponytail: 内建中文映射，不引入新工具文件
@@ -85,14 +104,6 @@ const STATUS_STYLE: Record<InterviewStatus, { bg: string; color: string }> = {
   closed: { bg: 'rgba(120, 120, 120, 0.15)', color: '#999' },
 }
 
-const ROUND_TYPE_LABEL: Record<RoundType, string> = {
-  first: '一面',
-  second: '二面',
-  hr: 'HR面',
-  final: '终面',
-  other: '其他',
-}
-
 const ROUND_STATUS_LABEL: Record<RoundStatus, string> = {
   pending: '待面',
   done: '已面',
@@ -108,7 +119,7 @@ const latestRoundText = computed(() => {
   const rounds = props.interview.rounds
   if (rounds.length === 0) return ''
   const last = rounds[rounds.length - 1]
-  const type = ROUND_TYPE_LABEL[last.roundType]
+  const type = last.roundType
   const status = ROUND_STATUS_LABEL[last.status]
   const date = last.scheduledAt ? shortDate(last.scheduledAt) : ''
   return `${type} ${status}${date ? ' · ' + date : ''}`
@@ -162,6 +173,32 @@ const relativeTime = (iso: string): string => {
     }
   }
 
+  &--selectable {
+    &:hover {
+      border-color: $primary-color;
+    }
+  }
+
+  &--selected {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 1px $primary-color;
+  }
+
+  &__checkbox {
+    position: absolute;
+    top: $spacing-sm;
+    left: $spacing-sm;
+    z-index: 2;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: $text-light;
+
+    &-icon--checked {
+      color: $primary-color;
+    }
+  }
+
   &__status {
     position: absolute;
     top: $spacing-sm;
@@ -194,6 +231,10 @@ const relativeTime = (iso: string): string => {
     text-overflow: ellipsis;
     white-space: nowrap;
     padding-right: 60px; // 给状态徽章留位
+
+    .interview-card--selectable & {
+      padding-left: 28px; // 给左上 checkbox 留位
+    }
   }
 
   &__position {
@@ -250,19 +291,19 @@ const relativeTime = (iso: string): string => {
     cursor: pointer;
     transition: background 0.15s ease, transform 0.15s ease;
 
-    &--edit {
-      background: $primary-color;
-      color: #fff;
-
-      &:hover { background: $primary-light; }
-      &:active { transform: scale(0.95); }
-    }
-
     &--ai {
       background: rgba($secondary-color, 0.8);
       color: #fff;
 
       &:hover { background: rgba($secondary-light, 1); }
+      &:active { transform: scale(0.95); }
+    }
+
+    &--copy {
+      background: rgba($primary-color, 0.8);
+      color: #fff;
+
+      &:hover { background: rgba($primary-light, 1); }
       &:active { transform: scale(0.95); }
     }
 

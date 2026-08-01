@@ -6,21 +6,35 @@
 import { generateId } from '@/types/resume'
 
 export type InterviewStatus = 'drafting' | 'submitted' | 'interviewing' | 'offer' | 'rejected' | 'closed'
-export type RoundType = 'first' | 'second' | 'hr' | 'final' | 'other'
 export type RoundStatus = 'pending' | 'done' | 'passed' | 'failed'
 export type InterviewSegment = 'upcoming' | 'ongoing' | 'ended'
 export type InterviewFormat = 'onsite' | 'video' | 'phone'
 
+/** AI 结果缓存（三个功能各自缓存最新一次，随面试持久化） */
+export interface MockInterviewResult {
+  text: string
+  generatedAt: string
+}
+export interface InterviewReviewResult {
+  text: string
+  generatedAt: string
+}
+export interface InterviewJdScanResult {
+  score: number | null
+  text: string
+  scannedAt: string
+}
+
 export interface InterviewRound {
   id: string
-  roundType: RoundType
+  roundType: string            // 轮次类型，预设可选项 + 用户自定义（如「三面」「加面」）
   scheduledAt: string | null   // ISO，待面可空
   status: RoundStatus
   format: InterviewFormat | null
   interviewer: string          // 面试官姓名职务
+  meetingLink: string          // 面试链接（腾讯会议 / Zoom / Meet 等）
   questions: string            // 面试问题（多行文本）
   answers: string              // 回答记录（多行文本）
-  result: string
   notes: string
   createdAt: string
   updatedAt: string
@@ -40,6 +54,12 @@ export interface Interview {
   contactInfo: string
   interviewLocation: string
   rounds: InterviewRound[]
+  // AI 结果缓存（可选，各功能最新一次）
+  lastMockInterview?: MockInterviewResult
+  lastReview?: InterviewReviewResult
+  lastJdScan?: InterviewJdScanResult
+  // 软删除标记：移入回收站时写入，恢复时置 undefined（与 Resume.deletedAt 同名同义）
+  deletedAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -67,14 +87,14 @@ export function createEmptyRound(): InterviewRound {
   const now = new Date().toISOString()
   return {
     id: generateId(),
-    roundType: 'first',
+    roundType: '一面',
     scheduledAt: null,
     status: 'pending',
     format: null,
     interviewer: '',
+    meetingLink: '',
     questions: '',
     answers: '',
-    result: '',
     notes: '',
     createdAt: now,
     updatedAt: now,

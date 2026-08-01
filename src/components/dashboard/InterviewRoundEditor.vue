@@ -28,8 +28,11 @@
         <n-select
           :value="round.roundType"
           :options="roundTypeOptions"
+          filterable
+          tag
           size="small"
-          @update:value="(v: string | null) => onFieldUpdate('roundType', v as RoundType)"
+          placeholder="选择或输入"
+          @update:value="(v: string | null) => onFieldUpdate('roundType', v ?? '')"
         />
       </div>
 
@@ -76,12 +79,12 @@
       </div>
 
       <div class="round-editor__field">
-        <label>结果</label>
+        <label>面试链接</label>
         <n-input
-          :value="round.result"
+          :value="round.meetingLink"
           size="small"
-          placeholder="如：通过 / 待定"
-          @update:value="onFieldUpdate('result', $event)"
+          placeholder="腾讯会议 / Zoom / Meet 链接"
+          @update:value="onFieldUpdate('meetingLink', $event)"
         />
       </div>
     </div>
@@ -126,7 +129,7 @@
 import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { NSelect, NDatePicker, NInput, NButton } from 'naive-ui'
-import type { InterviewRound, RoundType, RoundStatus, InterviewFormat } from '@/types/interview'
+import type { InterviewRound, RoundStatus, InterviewFormat } from '@/types/interview'
 
 const props = defineProps<{
   round: InterviewRound
@@ -138,12 +141,11 @@ const emit = defineEmits<{
   remove: []
 }>()
 
-const roundTypeOptions: { label: string; value: RoundType }[] = [
-  { label: '一面', value: 'first' },
-  { label: '二面', value: 'second' },
-  { label: 'HR 面', value: 'hr' },
-  { label: '终面', value: 'final' },
-  { label: '其他', value: 'other' },
+const roundTypeOptions = [
+  { label: '一面', value: '一面' },
+  { label: '二面', value: '二面' },
+  { label: 'HR面', value: 'HR面' },
+  { label: '终面', value: '终面' },
 ]
 
 const roundStatusOptions: { label: string; value: RoundStatus }[] = [
@@ -159,9 +161,7 @@ const formatOptions: { label: string; value: InterviewFormat }[] = [
   { label: '电话', value: 'phone' },
 ]
 
-const roundTypeLabel = computed(() => {
-  return roundTypeOptions.find(o => o.value === props.round.roundType)?.label ?? '其他'
-})
+const roundTypeLabel = computed(() => props.round.roundType || '未命名轮次')
 
 // 每轮折叠态（默认展开）；折叠时 header 显示一行摘要
 const collapsed = ref(false)
@@ -197,11 +197,11 @@ function onScheduledAtUpdate(ts: number | null) {
 .round-editor {
   border: 1px solid $border-glass;
   border-radius: $radius-md;
-  padding: $spacing-md;
+  padding: $spacing-lg $spacing-md;
   background: $bg-glass;
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: $spacing-md;
 
   &__header {
     display: flex;
@@ -253,7 +253,7 @@ function onScheduledAtUpdate(ts: number | null) {
   &__grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: $spacing-sm;
+    gap: $spacing-md;
 
     @include tablet {
       grid-template-columns: 1fr;
@@ -263,7 +263,7 @@ function onScheduledAtUpdate(ts: number | null) {
   &__field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 
     &--full {
       grid-column: 1 / -1;

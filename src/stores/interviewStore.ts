@@ -8,15 +8,20 @@
  */
 
 import { defineStore } from 'pinia'
-import { computed, shallowRef, onScopeDispose } from 'vue'
+import { computed, shallowRef, ref, onScopeDispose } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import {
   getAllInterviews,
   saveInterview,
   deleteInterview as deleteInterviewFromStorage,
+  getInterviewTrash,
+  saveInterviewTrash,
+  getTrashRetentionDays,
 } from '@/utils/storageAdapter'
-import type { Interview, InterviewRound } from '@/types/interview'
+import type { Interview, InterviewRound, MockInterviewResult, InterviewReviewResult, InterviewJdScanResult } from '@/types/interview'
 import { inferInterviewSegment, createEmptyInterview, createEmptyRound } from '@/types/interview'
+import { generateId } from '@/types/resume'
+import { message as naiveMessage } from '@/plugins/naive-ui'
 
 /**
  * 深度脱 Vue Proxy：toPlain(toRaw) 只剥外层，嵌套 rounds 元素仍是 Proxy，
@@ -26,9 +31,34 @@ import { inferInterviewSegment, createEmptyInterview, createEmptyRound } from '@
 const toPlainDeep = (interview: Interview): Interview =>
   JSON.parse(JSON.stringify(interview))
 
+/**
+ * 旧数据兼容：早期 rounds 无 meetingLink 字段，读取后补空串；
+ * roundType 曾是英文枚举（first/second/hr/final/other），改为自由字符串后需映射为中文，否则 UI 显示英文原值。
+ * ponytail: 不做版本号迁移，只对新字段做读取时归一化（与 resumeStore 风格不同但更轻）
+ */
+const ROUND_TYPE_MIGRATION: Record<string, string> = {
+  first: '一面',
+  second: '二面',
+  hr: 'HR面',
+  final: '终面',
+  other: '其他',
+}
+const normalizeInterview = (i: Interview): Interview => ({
+  ...i,
+  rounds: i.rounds.map(r => ({
+    ...r,
+    meetingLink: r.meetingLink ?? '',
+    roundType: ROUND_TYPE_MIGRATION[r.roundType] ?? r.roundType,
+  })),
+})
+
 export const useInterviewStore = defineStore('interview', () => {
   // 按 updatedAt 降序排列的面试记录列表
   const interviews = shallowRef<Interview[]>([])
+
+  // 回收站：与 resumeStore.trash 同构，独立数组 + deletedAt 软删除
+  const trash = shallowRef<Interview[]>([])
+  const trashRetentionDays = ref(30)
 
   // ========== 初始化就绪 Promise ==========
 
@@ -99,10 +129,18 @@ export const useInterviewStore = defineStore('interview', () => {
     await settingsStore.ready
 
     try {
-      const all = await getAllInterviews()
+      const [all, trashData, retentionDays] = await Promise.all([
+        getAllInterviews(),
+        getInterviewTrash(),
+        getTrashRetentionDays(),
+      ])
       // 按 updatedAt 降序（ISO 字符串 localeCompare 降序）
       all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      interviews.value = all
+      interviews.value = all.map(normalizeInterview)
+      trash.value = trashData.map(normalizeInterview)
+      trashRetentionDays.value = retentionDays
+      // 自动清理过期面试记录（与 resumeStore.cleanupTrash 同策略）
+      await cleanupTrash()
     } catch (e) {
       console.error('[interviewStore] 初始化失败:', e)
     } finally {
@@ -146,11 +184,125 @@ export const useInterviewStore = defineStore('interview', () => {
     persistInterview(next)
   }
 
-  /** 删除面试记录：取消 pending 定时器 + 从列表移除 + 删除存储 */
-  const deleteInterview = async (id: string) => {
+  /**
+   * 移入回收站（软删除）：取消 pending 定时器 + 从主列表移除 + 打 deletedAt + 推进 trash + 双写持久化。
+   * 主列表落盘（删除源文件）与回收站 meta 落盘并行。
+   */
+  const trashInterview = async (id: string) => {
+    const interview = interviews.value.find(i => i.id === id)
+    if (!interview) return
+    cancelPendingPersist(id)
+    const now = new Date().toISOString()
+    const deleted: Interview = { ...toPlainDeep(interview), deletedAt: now }
+    interviews.value = interviews.value.filter(i => i.id !== id)
+    trash.value = [...trash.value, deleted]
+    try {
+      await Promise.all([
+        deleteInterviewFromStorage(id),
+        saveInterviewTrash(trash.value),
+      ])
+    } catch (e) {
+      console.error('[interviewStore] trashInterview persist failed:', e)
+      naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
+    }
+  }
+
+  /**
+   * 物理删除（不进回收站）：仅用于「新建未填的空记录」清理。
+   * 用户主动删除已有记录请走 trashInterview（软删除进回收站）。
+   */
+  const purgeInterview = async (id: string) => {
     cancelPendingPersist(id)
     interviews.value = interviews.value.filter(i => i.id !== id)
-    await deleteInterviewFromStorage(id)
+    try {
+      await deleteInterviewFromStorage(id)
+    } catch (e) {
+      console.error('[interviewStore] purgeInterview persist failed:', e)
+      naiveMessage.warning('删除未完全同步，请检查存储空间')
+    }
+  }
+
+  /** 批量移入回收站 */
+  const trashInterviews = async (ids: string[]) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    const now = new Date().toISOString()
+    const deleted = interviews.value
+      .filter(i => idSet.has(i.id))
+      .map(i => ({ ...toPlainDeep(i), deletedAt: now }))
+    if (deleted.length === 0) return
+    ids.forEach(cancelPendingPersist)
+    interviews.value = interviews.value.filter(i => !idSet.has(i.id))
+    trash.value = [...trash.value, ...deleted]
+    try {
+      await Promise.all([
+        Promise.all(ids.map(id => deleteInterviewFromStorage(id))),
+        saveInterviewTrash(trash.value),
+      ])
+    } catch (e) {
+      console.error('[interviewStore] trashInterviews persist failed:', e)
+      naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
+    }
+  }
+
+  /** 从回收站恢复：移除 deletedAt + 回到主列表 + 重新落盘源文件 */
+  const restoreInterview = async (id: string) => {
+    const interview = trash.value.find(i => i.id === id)
+    if (!interview) return
+    const restored: Interview = { ...interview, deletedAt: undefined }
+    trash.value = trash.value.filter(i => i.id !== id)
+    interviews.value = [restored, ...interviews.value]
+    await Promise.all([
+      saveInterview(toPlainDeep(restored)),
+      saveInterviewTrash(trash.value),
+    ])
+  }
+
+  /** 永久删除（仅从回收站 meta 移除；源文件在 trashInterview 时已物理删除） */
+  const permanentDeleteInterview = async (id: string) => {
+    trash.value = trash.value.filter(i => i.id !== id)
+    await saveInterviewTrash(trash.value)
+  }
+
+  /** 清空面试回收站 */
+  const emptyTrash = async () => {
+    trash.value = []
+    await saveInterviewTrash([])
+  }
+
+  /** 自动清理过期面试记录（复用简历保留天数配置） */
+  const cleanupTrash = async () => {
+    const cutoff = Date.now() - trashRetentionDays.value * 24 * 60 * 60 * 1000
+    const valid = trash.value.filter(i => {
+      const deletedAt = i.deletedAt ? new Date(i.deletedAt).getTime() : Date.now()
+      return deletedAt > cutoff
+    })
+    if (valid.length !== trash.value.length) {
+      trash.value = valid
+      await saveInterviewTrash(valid)
+    }
+  }
+
+  /**
+   * 复制面试记录：深拷贝 → 新 id（主记录 + 每个 round 都重新生成，避免冲突）→
+   * 公司名加「(副本)」→ unshift + 立即落盘。与 resumeStore.copyResume 同策略。
+   */
+  const duplicateInterview = (id: string): string => {
+    const source = interviews.value.find(i => i.id === id)
+    if (!source) return ''
+    const now = new Date().toISOString()
+    const copy: Interview = toPlainDeep(source)
+    copy.id = generateId()
+    copy.company = source.company ? `${source.company} (副本)` : '(副本)'
+    copy.rounds = copy.rounds.map(r => ({ ...r, id: generateId(), createdAt: now, updatedAt: now }))
+    copy.createdAt = now
+    copy.updatedAt = now
+    delete copy.deletedAt
+    interviews.value = [copy, ...interviews.value]
+    saveInterview(toPlainDeep(copy)).catch(e => {
+      console.error('[interviewStore] duplicateInterview persist failed:', e)
+    })
+    return copy.id
   }
 
   /** 新增一轮空白面试轮次（两层不可变：新 rounds 数组 + 新 interview 对象） */
@@ -182,6 +334,30 @@ export const useInterviewStore = defineStore('interview', () => {
     const now = new Date().toISOString()
     const newRounds = interview.rounds.filter(r => r.id !== roundId)
     const next = commitInterview({ ...interview, rounds: newRounds, updatedAt: now })
+    persistInterview(next)
+  }
+
+  // ========== AI 结果缓存（三个功能各存最新一次，立即落盘） ==========
+  // ponytail: 不走防抖——AI 结果是关键数据，与 resumeStore.saveJdScanResult 同策略立即写
+
+  const saveMockInterviewResult = (interviewId: string, result: MockInterviewResult) => {
+    const interview = interviews.value.find(i => i.id === interviewId)
+    if (!interview) return
+    const next = commitInterview({ ...interview, lastMockInterview: result })
+    persistInterview(next)
+  }
+
+  const saveReviewResult = (interviewId: string, result: InterviewReviewResult) => {
+    const interview = interviews.value.find(i => i.id === interviewId)
+    if (!interview) return
+    const next = commitInterview({ ...interview, lastReview: result })
+    persistInterview(next)
+  }
+
+  const saveJdScanResult = (interviewId: string, result: InterviewJdScanResult) => {
+    const interview = interviews.value.find(i => i.id === interviewId)
+    if (!interview) return
+    const next = commitInterview({ ...interview, lastJdScan: result })
     persistInterview(next)
   }
 
@@ -217,9 +393,16 @@ export const useInterviewStore = defineStore('interview', () => {
     _saveTimer.clear()
 
     try {
-      const all = await getAllInterviews()
+      const [all, trashData, retentionDays] = await Promise.all([
+        getAllInterviews(),
+        getInterviewTrash(),
+        getTrashRetentionDays(),
+      ])
       all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      interviews.value = all
+      interviews.value = all.map(normalizeInterview)
+      trash.value = trashData.map(normalizeInterview)
+      trashRetentionDays.value = retentionDays
+      await cleanupTrash()
     } catch (e) {
       console.error('[interviewStore] reloadFromStorage 失败:', e)
     }
@@ -227,16 +410,28 @@ export const useInterviewStore = defineStore('interview', () => {
 
   return {
     interviews,
+    trash,
+    trashRetentionDays,
     ready,
     upcomingInterviews,
     ongoingInterviews,
     endedInterviews,
     createInterview,
     updateInterview,
-    deleteInterview,
+    trashInterview,
+    trashInterviews,
+    restoreInterview,
+    permanentDeleteInterview,
+    purgeInterview,
+    emptyTrash,
+    cleanupTrash,
+    duplicateInterview,
     addRound,
     updateRound,
     removeRound,
+    saveMockInterviewResult,
+    saveReviewResult,
+    saveJdScanResult,
     reloadFromStorage,
   }
 })
