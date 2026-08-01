@@ -77,11 +77,11 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     dotBorderActive: '2px solid #0071e1',
   },
   Dialog: {
-    actionStyle: 'justify-content: center !important;',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
   },
   Popconfirm: {
     borderRadius: '18px',
-    actionStyle: 'justify-content: center !important;',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
     maxWidth: '360px',
   },
   ColorPicker: {
@@ -154,7 +154,7 @@ export const lightThemeOverrides: GlobalThemeOverrides = {
     borderRadius: '18px',
   },
   Dialog: {
-    actionStyle: 'justify-content: center !important;',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
   },
   Switch: {
     borderRadius: '11px',
@@ -174,7 +174,7 @@ export const lightThemeOverrides: GlobalThemeOverrides = {
   },
   Popconfirm: {
     borderRadius: '18px',
-    actionStyle: 'justify-content: center !important;',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
     maxWidth: '360px',
   },
   ColorPicker: {

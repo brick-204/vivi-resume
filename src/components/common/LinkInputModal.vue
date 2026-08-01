@@ -111,6 +111,7 @@ const handleRemove = () => {
 
   &__right {
     display: flex;
+    flex-direction: row-reverse;
     gap: $spacing-xs;
     margin-left: auto;
   }

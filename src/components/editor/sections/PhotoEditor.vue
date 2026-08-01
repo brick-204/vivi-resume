@@ -110,17 +110,17 @@
     </div>
 
     <template #footer>
-      <n-space justify="end">
+      <div class="photo-footer">
         <n-button size="small" @click="$emit('close')">取消</n-button>
         <n-button type="primary" size="small" @click="handleConfirm">确认</n-button>
-      </n-space>
+      </div>
     </template>
   </n-modal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onBeforeUnmount, useId } from 'vue'
-import { NModal, NButton, NSlider, NSpace } from 'naive-ui'
+import { NModal, NButton, NSlider } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { useWorkerImageProcessor } from '@/composables/useWorkerImageProcessor'
 
@@ -440,5 +440,13 @@ watch(() => props.visible, (v) => {
     color: $text-light;
     font-size: $font-size-xs;
   }
+}
+
+// ponytail: DOM [取消, 确认] → row-reverse 反转为「确认左、取消右」+ center 整体居中
+.photo-footer {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: center;
+  gap: $spacing-sm;
 }
 </style>

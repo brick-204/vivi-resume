@@ -165,7 +165,7 @@
         @keydown.esc="cancelRename"
       />
       <template #footer>
-        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <div style="display: flex; flex-direction: row-reverse; justify-content: center; gap: 12px;">
           <n-button size="small" @click="cancelRename">取消</n-button>
           <n-button size="small" type="primary" @click="confirmRename">确定</n-button>
         </div>
@@ -242,7 +242,7 @@ const onBatchDelete = () => {
     content: `确定要删除选中的 ${ids.length} 份简历吗？如需找回可前往回收站`,
     positiveText: '删除',
     negativeText: '取消',
-    actionStyle: 'justify-content: center',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
     onPositiveClick: () => {
       store.trashResumes(ids)
       exitSelectionMode()
@@ -292,7 +292,7 @@ const onDeleteResume = (id: string) => {
     content: '确定要删除这个简历吗？如需找回可前往回收站',
     positiveText: '删除',
     negativeText: '取消',
-    actionStyle: 'justify-content: center',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
     onPositiveClick: () => {
       // 不用 async — 避免 Naive UI 等待 Promise resolve 才关闭弹窗
       // deleteResume 内部 await saveToStorageNow() 是持久化写入，
