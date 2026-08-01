@@ -1,6 +1,6 @@
 <template>
   <a href="#main-content" class="skip-to-content">跳到主要内容</a>
-  <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides" :locale="zhCN">
+  <n-config-provider :theme="naiveTheme" :theme-overrides="naiveThemeOverrides" :locale="zhCN" :date-locale="dateZhCN">
     <n-message-provider>
       <router-view />
       <!-- ponytail: 路由级骨架覆盖层 — 切换路由时立即显示目标页骨架，不顿在原页面 -->
@@ -27,7 +27,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue'
 import { NConfigProvider, NMessageProvider } from 'naive-ui'
-import { zhCN } from 'naive-ui'
+import { zhCN, dateZhCN } from 'naive-ui'
 import { getNaiveTheme, getNaiveThemeOverrides } from '@/plugins/naive-ui'
 import { useTheme } from '@/composables/useTheme'
 import { useSettingsStore } from '@/stores/settingsStore'

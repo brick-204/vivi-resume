@@ -5,6 +5,7 @@
 import { showLightRainEffect } from '@/services/rainyNightEffect'
 import { showSnowEffect } from '@/services/snowEffect'
 import { showOfferEffect } from '@/services/offerEffect'
+import { showEnvelopeEffect } from '@/services/envelopeEffect'
 import { registerEasterEgg } from '@/services/easterEggRegistry'
 
 registerEasterEgg({
@@ -23,4 +24,15 @@ registerEasterEgg({
   id: 'offer',
   trigger: () => showOfferEffect(),
   quoteCategory: 'offer',
+  // showOfferEffect 内部已调 sayCategory（与快捷键 onMatch 路径一致），防止重复
+  internalSay: true,
+})
+
+registerEasterEgg({
+  id: 'envelope',
+  trigger: () => showEnvelopeEffect(),
+  // 信封话术带 firstname/company 变量，由 showEnvelopeEffect 内部调 sayCategory，
+  // internalSay=true 防止桌宠随机触发后再重复 sayCategory（无变量）
+  quoteCategory: 'envelope',
+  internalSay: true,
 })

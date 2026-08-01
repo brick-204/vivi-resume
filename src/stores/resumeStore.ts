@@ -1146,6 +1146,20 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
+  // 重命名简历（列表内改名，立即持久化，不走防抖）
+  const renameResume = (id: string, title: string) => {
+    const idx = resumeList.value.findIndex(r => r.id === id)
+    if (idx === -1) return
+    const newList = [...resumeList.value]
+    newList[idx] = { ...newList[idx], title, updatedAt: new Date().toISOString() }
+    resumeList.value = newList
+    if (currentResume.value?.id === id) {
+      currentResume.value.title = title
+    }
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null }
+    saveToStorageNow()
+  }
+
   // ========== AI 评估结果 ==========
 
   /** 保存评估结果到当前简历（立即持久化，不走防抖） */
@@ -1288,6 +1302,7 @@ export const useResumeStore = defineStore('resume', () => {
     permanentDeleteSection,
     cleanupDeletedData,
     copyResume,
+    renameResume,
     exportToJSON,
     importFromJSON,
     importFromAIResult,

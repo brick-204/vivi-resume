@@ -9,7 +9,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { pickQuote, pickIdleQuote, getTimePeriod, type QuoteCategory, type TimePeriod } from '@/data/petQuotes'
+import { pickQuote, pickIdleQuote, getTimePeriod, type QuoteCategory, type QuoteVars, type TimePeriod } from '@/data/petQuotes'
 import { generatePetQuote } from '@/services/petAiQuote'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
@@ -86,26 +86,29 @@ export const usePetStore = defineStore('pet', () => {
     }, durationMs ?? SAY_TTL)
   }
 
-  /** 按话术分类说一句（随机取一条），name 替换占位符 {name}。
+  /** 按话术分类说一句（随机取一条），vars 替换占位符 {name}/{firstname}/{company}。
+   *  第二参兼容 string（当 name）与 QuoteVars 对象（信封彩蛋传 firstname/company）。
    *  aiError 永远静态（AI 不可用时）；其余场景开关开且未生成中时调 AI，失败回退静态。
    *  idle 的静态回退用 pickIdleQuote（过滤简历话术），其余用 pickQuote。 */
-  const sayCategory = async (category: QuoteCategory, name?: string) => {
+  const sayCategory = async (category: QuoteCategory, vars?: string | QuoteVars) => {
     // 每次调用递增 token：后续若有 AI 结果延迟回来，对比 token 即知是否已被新调用取代
     const myToken = ++genToken
+    // ponytail: AI 路径只用 name；从 vars 取出 name（string 直接用，对象取 .name）
+    const nameStr = typeof vars === 'string' ? vars : vars?.name
     // aiError 永远静态（AI 不可用时本就不该走 AI）
     if (category === 'aiError') {
-      say(pickQuote(category, name))
+      say(pickQuote(category, vars))
       return
     }
     // AI 场景：开关关 或 正在生成中 → 静态回退
     if (!petAIChatEnabled || generating) {
-      say(fallbackText(category, name))
+      say(fallbackText(category, vars))
       return
     }
     generating = true
     try {
       const text = await generatePetQuote(category, {
-        name: name ?? petName.value,
+        name: nameStr ?? petName.value,
         inEditor: inEditor.value,
         period: getTimePeriod(new Date().getHours()),
       })
@@ -116,16 +119,16 @@ export const usePetStore = defineStore('pet', () => {
       // 期间有新调用取代 → 不再回退静态（避免覆盖当前气泡）
       if (myToken !== genToken) return
       // 无配置/超时/失败 → 静态回退，气泡不空
-      say(fallbackText(category, name))
+      say(fallbackText(category, vars))
     } finally {
       generating = false
     }
   }
 
   /** 取某分类的静态回退文本：idle 用 pickIdleQuote（过滤简历话术），其余用 pickQuote */
-  const fallbackText = (category: QuoteCategory, name?: string) => {
-    if (category === 'idle') return pickIdleQuote(inEditor.value, name)
-    return pickQuote(category, name)
+  const fallbackText = (category: QuoteCategory, vars?: string | QuoteVars) => {
+    if (category === 'idle') return pickIdleQuote(inEditor.value, vars)
+    return pickQuote(category, vars)
   }
 
   /** 立即闭嘴 */

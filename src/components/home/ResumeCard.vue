@@ -37,8 +37,8 @@
       </div>
     </div>
     <div v-if="!selectable" class="resume-card__actions">
-      <button class="resume-card__btn resume-card__btn--edit" title="编辑" @click.stop="$emit('edit')">
-        <Icon icon="mdi:pencil-outline" :width="16" />
+      <button class="resume-card__btn resume-card__btn--rename" title="重命名" @click.stop="$emit('rename')">
+        <Icon icon="mdi:rename-outline" :width="16" />
       </button>
       <button class="resume-card__btn resume-card__btn--copy" :disabled="isCopying" title="复制" @click.stop="onCopy">
         <Icon :icon="isCopying ? 'mdi:loading' : 'mdi:content-copy'" :width="16" :class="{ 'spin': isCopying }" />
@@ -64,6 +64,7 @@ const props = defineProps<{ resume: Resume; selectable?: boolean; selected?: boo
 
 const emit = defineEmits<{
   edit: []
+  rename: []
   copy: []
   delete: []
   'toggle-select': []
@@ -312,15 +313,15 @@ onMounted(() => {
     cursor: pointer;
     transition: background 0.15s ease, transform 0.15s ease;
 
-    &--edit {
-      background: $primary-color;
+    &--rename {
+      background: rgba($secondary-color, 0.8);
       color: #ffffff;
 
-      &:hover:not(:disabled) {
-        background: $primary-light;
+      &:hover {
+        background: rgba($secondary-light, 1);
       }
 
-      &:active:not(:disabled) {
+      &:active {
         transform: scale(0.95);
       }
     }

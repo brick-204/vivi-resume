@@ -55,7 +55,6 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { usePetStore } from '@/stores/petStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
 import { triggerRandomEasterEgg } from '@/services/easterEggRegistry'
@@ -73,9 +72,6 @@ const emit = defineEmits<{
 }>()
 
 const petStore = usePetStore()
-const settingsStore = useSettingsStore()
-// ponytail: 防止 settingsStore.ready 的异步回调在组件卸载后仍触发 greet
-let unmounted = false
 
 // ========== 桌宠 action 列（单击弹出，留扩展位） ==========
 const actionsOpen = ref(false)
@@ -85,7 +81,8 @@ const actions = [
   { key: 'consult', icon: 'mdi:comment-question-outline', label: 'AI 咨询', run: () => emit('open') },
   { key: 'surprise', icon: 'mdi:dice-multiple', label: '洗洗屏幕', run: () => {
     const egg = triggerRandomEasterEgg()
-    if (egg) petStore.sayCategory(egg.quoteCategory)
+    // internalSay 的彩蛋（如信封）trigger 内部已带变量说话，不重复 sayCategory
+    if (egg && !egg.internalSay) petStore.sayCategory(egg.quoteCategory)
   } },
 ] as const
 
@@ -157,14 +154,9 @@ const loadAnim = (petId: string) => {
 
 onMounted(() => {
   loadAnim(props.petId ?? DEFAULT_PET_ID)
-  // 启动定时随机冒泡 + 进页面时段招呼
+  // 启动定时随机冒泡；进页面时段招呼已交给各 view 的 onMounted（enterHome/enterEditor/切 tab）
   if (!props.drawerOpen) {
     petStore.start()
-    // ponytail: 等 settingsStore ready 后再 greet，确保 AI 开关已注入；
-    //   否则已开启 AI 的用户刷新页面后首次招呼恒为静态（开关默认 false 未被覆盖）
-    void settingsStore.ready.then(() => {
-      if (!unmounted) petStore.sayTimeGreet()
-    })
   }
 })
 
@@ -302,7 +294,6 @@ const onUp = (e: MouseEvent | TouchEvent) => {
 }
 
 onBeforeUnmount(() => {
-  unmounted = true
   cleanupDrag() // 拖拽中途卸载也要移除 document 监听，避免泄漏
   petStore.stop()
 })

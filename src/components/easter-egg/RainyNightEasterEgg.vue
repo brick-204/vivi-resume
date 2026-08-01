@@ -243,8 +243,8 @@ const updateTimeline = (now: number) => {
     // 双通道：雨势先降（emission 先停），容器透明度后降
     emissionMultiplier = 1 - smoothstep(p, 0, 0.65)
     globalOpacity = 1 - smoothstep(p, 0.2, 1)
-    // 雨后彩虹+太阳：雨势降到一半后渐显，随 globalOpacity 淡出
-    afterglowAlpha = smoothstep(p, 0.4, 0.75) - smoothstep(p, 0.85, 1)
+    // 雨后彩虹+太阳：雨势降到一半左右渐显，独立于容器淡出，挂到最末才隐去
+    afterglowAlpha = smoothstep(p, 0.25, 0.55) - smoothstep(p, 0.92, 1)
   } else {
     globalOpacity = 0
     emissionMultiplier = 0
@@ -622,7 +622,7 @@ const drawFlash = () => {
 
 const drawRainbow = () => {
   if (!ctx || afterglowAlpha <= 0.001) return
-  const alpha = afterglowAlpha * globalOpacity
+  const alpha = afterglowAlpha
   if (alpha <= 0.001) return
 
   // 太阳：右上角暖黄圆 + 光晕

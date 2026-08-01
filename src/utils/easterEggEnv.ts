@@ -43,3 +43,14 @@ export function isOfferShortcutEnabled(): boolean {
   if (env != null) return parseEnvBool(env, true)
   return true
 }
+
+/**
+ * 信封 offer 彩蛋快捷键总开关（H→I→R→E）。
+ * 显式设置优先（VITE_ENABLE_ENVELOPE_EASTER_EGG=true/false）；
+ * 未设置时：开发和生产环境均默认开启。
+ */
+export function isEnvelopeShortcutEnabled(): boolean {
+  const env = import.meta.env.VITE_ENABLE_ENVELOPE_EASTER_EGG
+  if (env != null) return parseEnvBool(env, true)
+  return true
+}

@@ -27,7 +27,10 @@ import { ref, onMounted, watch, defineAsyncComponent, defineComponent, h, type C
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { useInterviewStore } from '@/stores/interviewStore'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { usePetStore } from '@/stores/petStore'
+import type { QuoteCategory } from '@/data/petQuotes'
 import AppHeader from '@/components/common/AppHeader.vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton.vue'
@@ -36,7 +39,7 @@ import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
 // ponytail: 面板懒加载，首屏只加载当前 tab 对应面板，切换时按需加载
 // defineAsyncComponent 的 loadingComponent 在组件首次加载时显示
 // ponytail: 每个面板用不同 variant 的骨架屏，与实际布局匹配
-const skeletonFor = (variant: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings') =>
+const skeletonFor = (variant: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings' | 'interviews') =>
   defineComponent({ render: () => h(DashboardSkeleton, { variant }) })
 
 const ResumeListPanel = defineAsyncComponent({
@@ -47,6 +50,11 @@ const ResumeListPanel = defineAsyncComponent({
 const TemplateMarketPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/TemplateMarketPanel.vue'),
   loadingComponent: skeletonFor('templates'),
+  delay: 0,
+})
+const InterviewPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/InterviewPanel.vue'),
+  loadingComponent: skeletonFor('interviews'),
   delay: 0,
 })
 const AISettingsPanel = defineAsyncComponent({
@@ -69,6 +77,7 @@ const SettingsPanel = defineAsyncComponent({
 const panelMap: Record<string, Component> = {
   resumes: ResumeListPanel,
   templates: TemplateMarketPanel,
+  interviews: InterviewPanel,
   ai: AISettingsPanel,
   trash: TrashPanel,
   settings: SettingsPanel,
@@ -76,15 +85,27 @@ const panelMap: Record<string, Component> = {
 
 const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
+const interviewStore = useInterviewStore()
 const settingsStore = useSettingsStore()
+const petStore = usePetStore()
 const route = useRoute()
 const router = useRouter()
 
-const activeTab = ref<'resumes' | 'templates' | 'ai' | 'trash' | 'settings'>('resumes')
+const activeTab = ref<'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings'>('resumes')
 const storesReady = ref(false)
 
+// ponytail: tab → 桌宠话术分类映射；进 dashboard/切 tab 都说当前 tab 话术（不单独设 enterDashboard）
+const tabQuoteCategory: Record<typeof activeTab.value, QuoteCategory> = {
+  resumes: 'enterResumes',
+  templates: 'enterTemplates',
+  interviews: 'enterInterviews',
+  ai: 'enterAi',
+  trash: 'enterTrash',
+  settings: 'enterSettings',
+}
+
 // ponytail: URL ↔ activeTab 双向同步，isRouteChange 防循环
-const validTabs = ['resumes', 'templates', 'ai', 'trash', 'settings'] as const
+const validTabs = ['resumes', 'templates', 'interviews', 'ai', 'trash', 'settings'] as const
 let isRouteChange = false
 
 // URL → activeTab（处理 router.push 从子组件来的导航）
@@ -103,18 +124,34 @@ watch(activeTab, (tab) => {
   }
 })
 
+// ponytail: 切 tab 说对应话术；首进由 onMounted 末尾统一说一次，这里跳过避免撞车
+// lastSaidTab 记录上次说过的 tab，相同则跳过——避免 onMounted 内 activeTab 改动触发 watch 后重复说同一句
+let tabQuoteMounted = false
+let lastSaidTab: typeof activeTab.value | null = null
+watch(activeTab, (tab) => {
+  if (!tabQuoteMounted) return
+  if (lastSaidTab === tab) return
+  lastSaidTab = tab
+  petStore.sayCategory(tabQuoteCategory[tab])
+})
+
 // ponytail: store 并行初始化，缩短首屏等待
 onMounted(async () => {
   await Promise.all([
     settingsStore.ready,
     store.ready,
     aiConfigStore.ready,
+    interviewStore.ready,
   ])
   storesReady.value = true
   // 无简历且无 query tab 时默认显示模版市场
   if (!route.query.tab && store.resumeCount === 0) {
     activeTab.value = 'templates' // watch 会自动 replace URL
   }
+  // ponytail: 进 dashboard 说当前 tab 话术（首进）；之后切 tab 走上方 watch
+  petStore.sayCategory(tabQuoteCategory[activeTab.value])
+  lastSaidTab = activeTab.value
+  tabQuoteMounted = true
 })
 </script>
 

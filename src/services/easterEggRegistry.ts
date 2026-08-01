@@ -12,6 +12,11 @@ export interface EasterEgg {
   trigger: () => void
   /** 触发后桌宠说的话术分类（雨夜 'rainy'，未来下雪 'snowy' 等） */
   quoteCategory: QuoteCategory
+  /**
+   * trigger 内部已自行调用 sayCategory（如信封需传 firstname/company 变量）。
+   * 为 true 时，桌宠随机触发后不再重复 sayCategory。
+   */
+  internalSay?: boolean
 }
 
 const registry: EasterEgg[] = []

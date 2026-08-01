@@ -2,10 +2,10 @@
  * 桌宠话术库
  *
  * 按场景分类，pickQuote(category) 随机取一条。
- * 操作触发场景（save/export/aiError/enterEditor）由各业务点调用 say()；
+ * 操作触发场景（save/export/aiError/enterEditor/enterHome/切 tab）由各业务点调用 sayCategory()；
  * idle/greet/hover 由桌宠组件自身触发。
  *
- * greet 按系统时段分流（早晨/中午/下午/晚上/深夜），getTimeGreet() 返回当前时段招呼。
+ * greet 静态回退为 4 条通用招呼（不分时段）；时段信息仅注入 AI 话术的 period 上下文。
  * idle 中简历相关条目仅在编辑器内说（pickIdleQuote(inEditor) 过滤）。
  */
 
@@ -13,7 +13,7 @@
 type IdleQuote = { text: string; resume?: boolean }
 
 const quotes = {
-  /** 进页面/切路由时的招呼 —— 按 grep 时段分流，见 timeGreets */
+  /** 进页面/切路由/跨时段的招呼 —— 静态回退按时段分流（greetByPeriod），通用条目兜底 */
   greet: [
     '{name}来啦！今天改点啥？',
     '嗨，{name}又见面啦～',
@@ -60,12 +60,16 @@ const quotes = {
     '下雨啦，听听雨声放松下',
     '雨天适合发呆，{name}陪你',
     '滴答滴答…好惬意的雨夜',
+    '窗外淅淅沥沥，正好适合改简历',
+    '下雨天，{name}想窝着不动',
   ],
   /** 开启下雪彩蛋时 */
   snowy: [
     '下雪啦，雪花好漂亮～',
     '白茫茫一片，{name}想堆雪人',
     '雪花飘啊飘，安静又温柔',
+    '下雪天窝家里改简历，美滋滋',
+    '雪好厚呀，{name}踩一脚就是一个印',
   ],
   /** 开启天上掉 offer 彩蛋时 */
   offer: [
@@ -73,6 +77,16 @@ const quotes = {
     '这么多 offer，{name}都看花眼了',
     '恭喜恭喜！offer 雨露均沾～',
     '接offer接到手软，真不错',
+    '天上掉 offer 啦，张开袋子接！',
+  ],
+  /** 开启信封 offer 彩蛋时（翻盖露信纸）。含 {firstname}/{company} 变量话术 */
+  envelope: [
+    '老{firstname}，你要 offer 不要',
+    '{firstname}，你的{company} offer 来啦',
+    '叮咚！一封来自{company}的信，快拆',
+    '来信啦来信啦，{name}帮你念',
+    '拆开看看？说不定是好消息哦',
+    '这封信鼓鼓的，像装了份 offer',
   ],
   /** 简历保存成功 */
   save: [
@@ -98,6 +112,49 @@ const quotes = {
     '编辑模式启动～',
     '让我看看这份简历',
   ],
+  /** 进入首页 */
+  enterHome: [
+    '{name}在这儿！先逛逛看看？',
+    '欢迎回来，要不要开始改简历啦？',
+    '首页转一圈，{name}陪你看看',
+  ],
+  /** 进入简历列表 tab */
+  enterResumes: [
+    '挑一份简历开整吧～',
+    '{name}帮你管着简历呢，选哪个？',
+    '简历都在这啦，想改哪份？',
+  ],
+  /** 进入模板市场 tab */
+  enterTemplates: [
+    '换个模板换个心情～',
+    '看看新模板，{name}也想要新衣服',
+    '模板挑花眼啦，{name}帮你参谋参谋',
+  ],
+  /** 进入 AI 设置 tab */
+  enterAi: [
+    '配好 AI，{name}才能帮你干活呀',
+    '先把 AI 调教好，后面省心多啦',
+    'AI 设置来啦，填完就能用咯',
+  ],
+  /** 进入回收站 tab */
+  enterTrash: [
+    '来回收站逛逛？别删错啦',
+    '删掉的简历都在这，{name}帮你看着',
+    '回收站里翻翻，有没有误删的',
+  ],
+  /** 进入我的面试 tab */
+  enterInterviews: [
+    '面试记录都在这啦，{name}帮你盯着进度',
+    '哪几家有戏？{name}陪你捋一捋',
+    '别紧张，准备充分就稳了～{name}给你打气',
+    '即将面试的别忘了看时间地点哦，{name}提醒你一句',
+  ],
+  /** 进入设置 tab */
+  enterSettings: [
+    '设置面板开啦，调调更顺手',
+    '{name}的设置都在这，随便改',
+    '来调设置啦？{name}听你的',
+  ],
   /** 连续用眼 25 分钟休息提醒（融合 20-20-20：望 6 米外 20 秒） */
   rest: [
     '看了 25 分钟啦，望 6 米外歇 20 秒～',
@@ -109,21 +166,25 @@ const quotes = {
   restOn: [
     '休息提醒开好啦，{name}会盯着你用眼时间的',
     '收到！{name}到点就叫你休息',
+    '好嘞，用眼太久{name}可要念叨你咯',
   ],
   /** 休息提醒关闭 */
   restOff: [
     '休息提醒关啦，记得自己按时歇眼睛哦',
     '好叭，{name}不催了，但眼睛累了自己要停',
+    '关啦，那{name}相信你会自觉歇眼的',
   ],
   /** AI 动态话术开启（AI 失败时回退） */
   aiChatOn: [
     '好嘞，{name}以后说话更花哨咯',
     'AI 话术开啦，看我花式整活',
+    '开启花式模式，{name}嘴皮子要溜起来啦',
   ],
   /** AI 动态话术关闭（AI 失败时回退） */
   aiChatOff: [
     '好吧，那{name}说回老台词啦',
     '关啦，{name}还是原来的配方',
+    '收到，{name}回归经典款台词',
   ],
 } as const
 
@@ -132,31 +193,6 @@ export type QuoteCategory = keyof typeof quotes
 // ========== 时段招呼 ==========
 /** 时段：早晨 05-10 / 中午 11-13 / 下午 14-17 / 晚上 18-22 / 深夜 23-04 */
 export type TimePeriod = 'morning' | 'noon' | 'afternoon' | 'evening' | 'lateNight'
-
-const timeGreets: Record<TimePeriod, string[]> = {
-  morning: [
-    '早安！新的一天，简历搞起来～',
-    '早上好呀，今天元气满满',
-    '早～趁清醒先把简历改了',
-  ],
-  noon: [
-    '中午啦，吃完饭再来改简历吧',
-    '午安，歇会儿再继续～',
-  ],
-  afternoon: [
-    '下午好，进度怎么样啦？',
-    '喝杯水继续，{name}陪着你',
-  ],
-  evening: [
-    '晚上好，今晚要冲一波简历吗？',
-    '夜里改简历，记得别熬太晚',
-  ],
-  lateNight: [
-    '夜深了…还在肝简历？早点歇吧',
-    '这么晚了，{name}心疼你的发际线',
-    '深夜修简历，明早起来看会更清醒',
-  ],
-}
 
 /** 按当前小时返回时段 */
 export const getTimePeriod = (hour: number): TimePeriod => {
@@ -167,41 +203,100 @@ export const getTimePeriod = (hour: number): TimePeriod => {
   return 'lateNight'
 }
 
-/** 取当前时段的一条招呼（随机）；name 替换 {name} */
-export const getTimeGreet = (name?: string): string => {
-  const period = getTimePeriod(new Date().getHours())
-  const list = timeGreets[period]
-  const raw = list[Math.floor(Math.random() * list.length)]
-  return raw.split('{name}').join(name || 'v仔')
+/**
+ * greet 静态回退按时段分流的招呼池（关 AI 开关 / 无配置 / AI 失败时用）。
+ * AI 路径的时段感由 petAiQuote 的 period 上下文注入，与此互补。
+ * quotes.greet 的通用条目作为时段池缺失时的最终兜底。
+ */
+const greetByPeriod: Record<TimePeriod, string[]> = {
+  morning: [
+    '早安！新的一天，简历搞起来～',
+    '早上好呀，今天元气满满',
+    '早～趁清醒先把简历改了',
+  ],
+  noon: [
+    '中午啦，吃完饭再来改简历吧',
+    '午安，歇会儿再继续～',
+    '午饭后犯困？{name}陪你撑一会儿',
+  ],
+  afternoon: [
+    '下午好，进度怎么样啦？',
+    '喝杯水继续，{name}陪着你',
+    '下午茶时间到，{name}也想喝一口',
+  ],
+  evening: [
+    '晚上好，今晚要冲一波简历吗？',
+    '夜里改简历，记得别熬太晚',
+    '晚上效率高，{name}也精神着呢',
+  ],
+  lateNight: [
+    '夜深了…还在肝简历？早点歇吧',
+    '这么晚了，{name}心疼你的发际线',
+    '深夜修简历，明早起来看会更清醒',
+  ],
 }
 
-const fillName = (raw: string, name?: string) => raw.split('{name}').join(name || 'v仔')
+/** 话术变量：name 桌宠名 / firstname 用户名首字 / company 公司名。全可选。 */
+export interface QuoteVars {
+  name?: string
+  firstname?: string
+  company?: string
+}
+
+/**
+ * 变量插值：替换 {name} / {firstname} / {company}。
+ * - {name} 缺省回退 "v仔"
+ * - {firstname} 有值才替换；无值时把前缀"老{firstname}，"整段移除（如"老{firstname}，你要 offer 不要"→"你要 offer 不要"）
+ * - {company} 无值时替换为空串
+ */
+const fillVars = (raw: string, vars?: string | QuoteVars): string => {
+  const v: QuoteVars = typeof vars === 'string' ? { name: vars } : (vars ?? {})
+  let out = raw.split('{name}').join(v.name || 'v仔')
+  out = out.split('{company}').join(v.company || '')
+  if (v.firstname) {
+    out = out.split('{firstname}').join(v.firstname)
+  } else {
+    // ponytail: firstname 无值时整段移除"老{firstname}，"前缀（中英文逗号均覆盖）
+    out = out.replace(/老\{firstname\}[，,]\s*/g, '').split('{firstname}').join('')
+  }
+  return out
+}
+export { fillVars as fillVarsTester }
 
 /**
  * 随机取某分类的一条话术；分类为空则回退到 idle。
  * name 用于替换占位符 {name}（当前桌宠名字）；缺省回退"v仔"。
+ * 第二参兼容旧用法（传 string 当 name）与对象（传 { name, firstname, company }）。
+ * greet 按当前时段从 greetByPeriod 取（静态分时段招呼）；时段池为空才回退通用条目。
  * 注意：idle 分类请用 pickIdleQuote（支持简历话术过滤），此处 idle 取全量。
  */
-export const pickQuote = (category: QuoteCategory, name?: string): string => {
+export const pickQuote = (category: QuoteCategory, vars?: string | QuoteVars): string => {
+  // greet 静态回退分时段：早晨说早晨话、深夜说深夜话
+  if (category === 'greet') {
+    const periodList = greetByPeriod[getTimePeriod(new Date().getHours())]
+    const list = periodList.length ? periodList : (quotes.greet as readonly string[])
+    const raw = list[Math.floor(Math.random() * list.length)]
+    return fillVars(raw, vars)
+  }
   const list = quotes[category] ?? quotes.idle
   // idle 是 IdleQuote[]，其余分类是 string[]
   if (category === 'idle') {
     const raw = (list as IdleQuote[])[Math.floor(Math.random() * list.length)]
-    return fillName(raw.text, name)
+    return fillVars(raw.text, vars)
   }
   const raw = (list as readonly string[])[Math.floor(Math.random() * list.length)]
-  return fillName(raw, name)
+  return fillVars(raw, vars)
 }
 
 /**
  * 取一条 idle 话术；inEditor=false 时过滤掉简历相关条目（resume:true）。
  * 过滤后若为空（极端情况）回退到第一条非简历条目。
  */
-export const pickIdleQuote = (inEditor: boolean, name?: string): string => {
+export const pickIdleQuote = (inEditor: boolean, vars?: string | QuoteVars): string => {
   const filtered = inEditor
     ? quotes.idle
     : quotes.idle.filter(q => !q.resume)
   const list = filtered.length ? filtered : quotes.idle.filter(q => !q.resume)
   const raw = list[Math.floor(Math.random() * list.length)]
-  return fillName(raw.text, name)
+  return fillVars(raw.text, vars)
 }

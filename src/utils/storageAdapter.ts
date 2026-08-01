@@ -10,6 +10,7 @@
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import type { ConsultSession } from '@/types/consult'
+import type { Interview } from '@/types/interview'
 import * as idb from './storage'
 import * as dir from './directoryStorage'
 import { useSettingsStore } from '@/stores/settingsStore'
@@ -255,6 +256,33 @@ export async function deleteConsultSession(id: string): Promise<void> {
     await dir.deleteFile(sessionsDir, `${id}.json`)
   } else {
     return idb.deleteConsultSession(id)
+  }
+}
+
+// ========== 「我的面试」记录操作 ==========
+
+export async function getAllInterviews(): Promise<Interview[]> {
+  if (isDirectoryMode()) {
+    return dir.readAllJsonFiles<Interview>(getHandle(), 'interviews')
+  }
+  return idb.getAllInterviews()
+}
+
+export async function saveInterview(interview: Interview): Promise<void> {
+  if (isDirectoryMode()) {
+    const sessionsDir = await dir.ensureDir(getHandle(), 'interviews')
+    await dir.writeJsonFile(sessionsDir, `${interview.id}.json`, idb.toPlain(interview))
+  } else {
+    return idb.saveInterview(interview)
+  }
+}
+
+export async function deleteInterview(id: string): Promise<void> {
+  if (isDirectoryMode()) {
+    const sessionsDir = await dir.ensureDir(getHandle(), 'interviews')
+    await dir.deleteFile(sessionsDir, `${id}.json`)
+  } else {
+    return idb.deleteInterview(id)
   }
 }
 

@@ -23,15 +23,22 @@ import {
   clamp,
   smoothstep,
   computeMaxOffers,
+  generateOfferContent,
+  OFFER_COMPANIES,
 } from '@/services/offerEffect'
 
 const props = defineProps<{
-  options: Required<OfferEffectOptions>
+  options: Omit<OfferEffectOptions, 'companies'> & { companies?: string[] }
   token: number
 }>()
 const emit = defineEmits<{ finished: [] }>()
 
 const safe = computed(() => clampOfferOptions(props.options))
+// 本次彩蛋公司列表快照：props 注入优先，否则回落默认 8 家
+const companies = computed<string[]>(() => {
+  const c = (props.options.companies ?? safe.value.companies)
+  return c && c.length > 0 ? c : OFFER_COMPANIES
+})
 const layerStyle = computed(() => ({
   zIndex: String(safe.value.zIndex),
   opacity: 'var(--offer-opacity, 0)',
@@ -62,7 +69,10 @@ const applyOpacity = (o: number) => {
 }
 
 // ========== Canvas 状态 ==========
-// offer 粒子：信封 或 纸张（写着 Offer）
+// offer 粒子：信纸（写着 公司 + Offer）
+// sprite 内部纸张占 PAPER_W×PAPER_H（相对 size），绘制与贴图共用此比例避免变形
+const PAPER_W = 0.92
+const PAPER_H = 0.82
 interface OfferItem {
   x: number
   y: number
@@ -77,7 +87,10 @@ interface OfferItem {
   swayAmp: number
   life: number
   layer: 'far' | 'mid' | 'near'
-  kind: 'envelope' | 'paper'
+  content: { company: string; label: string }
+  // 翻面：flipPhase 推进，draw 用 Math.cos(flipPhase) 的符号切正反
+  flipPhase: number
+  flipSpeed: number
 }
 interface OfferWind {
   current: number
@@ -101,17 +114,28 @@ let reducedMotion = false
 
 const wind: OfferWind = { current: 0, target: 0, changeAt: 0 }
 
-// 积雪式堆积：offer 掉地上堆成山
+// 积雪式堆积：offer 掉地上堆成山 —— 离屏 stamp canvas，触地即盖印，自然成堆
 let accumulation: Float32Array = new Float32Array(1)
 const ACCUM_BUCKET = 12
 let accumulationBuckets = 1
 const MAX_ACCUM_RATIO = 0.4
+// 离屏堆积画布：触地粒子 stamp 到此，drawAccumulation 一次性贴图
+let accumCanvas: HTMLCanvasElement | null = null
+let accumCtx: CanvasRenderingContext2D | null = null
 
-// 三层配置：占比 / 大小 / 速度 / 透明度。offer 比雪花大、稍快
+// B：sprite 预渲染缓存。按 company → size 档位索引。
+// 每家公司每档位预渲染一张完整信纸（含印章文字），运行时零文字绘制。
+const SPRITE_SIZE_BUCKETS = [40, 50, 62, 76, 92, 108] as const
+// company -> size -> sprite
+let spriteCache: Map<string, Map<number, HTMLCanvasElement>> | null = null
+// sprite 是否可用（jsdom/极端环境预渲染失败则 false，draw 跳过该粒子）
+let spriteReady = false
+
+// 三层配置：占比 / 大小 / 速度 / 透明度。仅信纸，放大让印章字看清
 const LAYERS = {
-  far: { ratio: 0.50, size: [10, 16], spd: [40, 80], opa: [0.5, 0.7] },
-  mid: { ratio: 0.33, size: [16, 24], spd: [80, 140], opa: [0.65, 0.85] },
-  near: { ratio: 0.17, size: [24, 36], spd: [130, 200], opa: [0.8, 1.0] },
+  far: { ratio: 0.50, size: [40, 56], spd: [40, 80], opa: [0.5, 0.7] },
+  mid: { ratio: 0.33, size: [56, 76], spd: [80, 140], opa: [0.65, 0.85] },
+  near: { ratio: 0.17, size: [76, 108], spd: [130, 200], opa: [0.8, 1.0] },
 } as const
 type LayerKey = keyof typeof LAYERS
 
@@ -193,19 +217,22 @@ const spawnItem = () => {
   f.size = rand(L.size[0], L.size[1])
   f.speed = rand(L.spd[0], L.spd[1]) * speedMul
   f.opacity = rand(L.opa[0], L.opa[1])
-  f.drift = rand(-3, 3)
-  f.spin = rand(0, Math.PI * 2)
-  f.spinSpeed = reducedMotion ? 0 : rand(-1.5, 1.5)
-  f.swayPhase = rand(0, Math.PI * 2)
-  f.swayFreq = rand(0.5, 1.4)
-  f.swayAmp = rand(10, 30)
   f.life = 0
   f.layer = key
-  f.kind = Math.random() < 0.5 ? 'envelope' : 'paper'
+  f.content = generateOfferContent(Math.random(), companies.value)
+  // 信纸轻而飘：大漂移、大摇摆、会翻面
+  f.drift = rand(-4, 4)
+  f.spin = rand(0, Math.PI * 2)
+  f.spinSpeed = reducedMotion ? 0 : rand(-2.0, 2.0)
+  f.swayPhase = rand(0, Math.PI * 2)
+  f.swayFreq = rand(0.6, 1.5)
+  f.swayAmp = rand(14, 34)
+  f.flipPhase = rand(0, Math.PI * 2)
+  f.flipSpeed = reducedMotion ? 0 : rand(1.2, 2.6)
   activeCount++
 }
 
-// 触底沉积到 offer 山
+// 触底沉积到 offer 山：更新高度数组 + stamp 到离屏 canvas
 const recycleIfNeeded = (i: number) => {
   const f = pool[i]
   if (f.x < -f.size * 2 || f.x > cssW + f.size * 2) {
@@ -218,6 +245,8 @@ const recycleIfNeeded = (i: number) => {
   const bucket = clamp(Math.floor(f.x / ACCUM_BUCKET), 0, accumulationBuckets - 1)
   const groundY = cssH - accumulation[bucket]
   if (f.y + f.size * 0.5 >= groundY) {
+    // stamp 到离屏堆积画布：以当前姿态盖印，自然形成不规则纸堆
+    stampToAccum(f, groundY)
     const deposit = f.size * 0.5
     accumulation[bucket] = Math.min(accumulation[bucket] + deposit, cssH * MAX_ACCUM_RATIO)
     if (bucket > 0) {
@@ -235,11 +264,39 @@ const recycleIfNeeded = (i: number) => {
   return false
 }
 
+/** 把触地粒子以当前姿态盖印到离屏堆积画布 */
+const stampToAccum = (f: OfferItem, groundY: number) => {
+  if (!accumCtx || !spriteReady) return
+  const s = quantizeSize(f.size)
+  const sprite = spriteCache?.get(f.content.company)?.get(s)
+  if (!sprite) return
+  accumCtx.save()
+  accumCtx.globalAlpha = 0.92 * f.opacity
+  accumCtx.translate(f.x, groundY - f.size * 0.3)
+  accumCtx.rotate(f.spin)
+  // ponytail: 堆积体不画文字细节，只贴 sprite 轮廓，避免远看糊成一团
+  accumCtx.drawImage(sprite, -s * PAPER_W / 2, -s * PAPER_H / 2, s * PAPER_W, s * PAPER_H)
+  accumCtx.restore()
+}
+
+/** 把连续 size 量化到最近的 sprite 档位，复用有限张 sprite */
+const quantizeSize = (size: number): number => {
+  let best: number = SPRITE_SIZE_BUCKETS[0]
+  let bestDiff = Infinity
+  for (const b of SPRITE_SIZE_BUCKETS) {
+    const d = Math.abs(b - size)
+    if (d < bestDiff) { bestDiff = d; best = b }
+  }
+  return best
+}
+
 // ========== Canvas 初始化 ==========
 const setupCanvas = () => {
   const canvas = canvasRef.value
   if (!canvas) return
-  const targetDpr = Math.min(window.devicePixelRatio || 1, 2)
+  // ponytail: cap dpr 到 1.5。offer 是短暂彩蛋特效，非阅读内容，
+  // 2K/4K 屏 dpr=2 时 canvas 像素翻倍导致掉帧，1.5 视觉差异极小
+  const targetDpr = Math.min(window.devicePixelRatio || 1, 1.5)
   dpr = isMobile() ? Math.min(targetDpr, 1.5) : targetDpr
   cssW = window.innerWidth
   cssH = window.innerHeight
@@ -263,7 +320,9 @@ const buildParticles = () => {
   pool = Array.from({ length: maxOffers }, () => ({
     x: 0, y: 0, size: 12, speed: 60, opacity: 0.6, drift: 0,
     spin: 0, spinSpeed: 0, swayPhase: 0, swayFreq: 1, swayAmp: 15, life: 0,
-    layer: 'far' as LayerKey, kind: 'envelope' as 'envelope' | 'paper',
+    layer: 'far' as LayerKey,
+    content: { company: '', label: 'Offer' },
+    flipPhase: 0, flipSpeed: 0,
   }))
   activeCount = 0
   spawnAccumulator = maxOffers * 0.5
@@ -275,9 +334,133 @@ const buildParticles = () => {
   wind.changeAt = 0
   accumulationBuckets = Math.max(1, Math.ceil(cssW / ACCUM_BUCKET))
   accumulation = new Float32Array(accumulationBuckets)
+  // 离屏堆积画布：与主 canvas 同尺寸，触地粒子 stamp 到此
+  accumCanvas = document.createElement('canvas')
+  accumCanvas.width = Math.round(cssW * dpr)
+  accumCanvas.height = Math.round(cssH * dpr)
+  accumCtx = accumCanvas.getContext('2d')
+  if (accumCtx) {
+    accumCtx.setTransform(1, 0, 0, 1, 0, 0)
+    accumCtx.scale(dpr, dpr)
+  }
 }
 
 // ========== 更新与绘制 ==========
+
+// B：sprite 预渲染 —— 离屏 canvas 画精致信纸，主循环只 drawImage
+// 失败（jsdom/无 gradient 支持）则 spriteReady=false，draw 跳过该粒子
+
+/** 画空白信纸底（预渲染进 sprite）：米白渐变 + 折痕 + 打印行 + 边框。不含印章文字 */
+const paintPaperBase = (c: CanvasRenderingContext2D, s: number) => {
+  const w = s * PAPER_W
+  const h = s * PAPER_H
+  // 纸张主体（米白渐变）
+  const g = c.createLinearGradient(0, -h / 2, 0, h / 2)
+  g.addColorStop(0, '#fffdf6')
+  g.addColorStop(1, '#f7f1e0')
+  c.fillStyle = g
+  c.fillRect(-w / 2, -h / 2, w, h)
+  // 横向折痕
+  c.strokeStyle = 'rgba(210,198,170,0.6)'
+  c.lineWidth = Math.max(0.4, s * 0.022)
+  c.beginPath()
+  c.moveTo(-w / 2, 0)
+  c.lineTo(w / 2, 0)
+  c.stroke()
+  // 顶部打印行（模拟公司名行，灰色短横线）
+  c.strokeStyle = 'rgba(150,140,120,0.45)'
+  c.lineWidth = Math.max(0.4, s * 0.02)
+  const lineY = -h * 0.28
+  for (let i = 0; i < 3; i++) {
+    const ly = lineY + i * s * 0.07
+    const lw = (w * 0.7) * (1 - i * 0.18)
+    c.beginPath()
+    c.moveTo(-lw / 2, ly)
+    c.lineTo(lw / 2, ly)
+    c.stroke()
+  }
+  // 边框
+  c.strokeStyle = 'rgba(180,168,145,0.8)'
+  c.lineWidth = Math.max(0.5, s * 0.04)
+  c.strokeRect(-w / 2, -h / 2, w, h)
+}
+
+/** 画红色印章 + 公司名 + Offer（draw 时动态调用，每片纸文字不同） */
+const paintStamp = (c: CanvasRenderingContext2D, s: number, content: { company: string; label: string }) => {
+  const w = s * PAPER_W
+  const h = s * PAPER_H
+  c.save()
+  c.translate(0, h * 0.18)
+  c.rotate(-0.08)
+  const stampW = w * 0.72
+  const stampH = s * 0.34
+  c.fillStyle = 'rgba(200,50,50,0.88)'
+  c.strokeStyle = 'rgba(200,50,50,0.95)'
+  c.lineWidth = Math.max(0.5, s * 0.025)
+  const r = Math.max(1, s * 0.04)
+  // 圆角矩形
+  c.beginPath()
+  c.moveTo(-stampW / 2 + r, -stampH / 2)
+  c.lineTo(stampW / 2 - r, -stampH / 2)
+  c.quadraticCurveTo(stampW / 2, -stampH / 2, stampW / 2, -stampH / 2 + r)
+  c.lineTo(stampW / 2, stampH / 2 - r)
+  c.quadraticCurveTo(stampW / 2, stampH / 2, stampW / 2 - r, stampH / 2)
+  c.lineTo(-stampW / 2 + r, stampH / 2)
+  c.quadraticCurveTo(-stampW / 2, stampH / 2, -stampW / 2, stampH / 2 - r)
+  c.lineTo(-stampW / 2, -stampH / 2 + r)
+  c.quadraticCurveTo(-stampW / 2, -stampH / 2, -stampW / 2 + r, -stampH / 2)
+  c.closePath()
+  c.fill()
+  c.stroke()
+  // 印章文字：公司名（上）+ Offer（下），字号按宽度限制
+  const companyFont = Math.max(5, Math.min(s * 0.16, stampW / Math.max(content.company.length, 2) * 0.9))
+  c.fillStyle = 'rgba(255,250,245,0.96)'
+  c.font = `bold ${companyFont}px sans-serif`
+  c.textAlign = 'center'
+  c.textBaseline = 'middle'
+  c.fillText(content.company, 0, -stampH * 0.16)
+  const labelFont = Math.max(6, s * 0.19)
+  c.font = `bold ${labelFont}px sans-serif`
+  c.fillText(content.label, 0, stampH * 0.22)
+  c.restore()
+}
+
+/** 为给定 size + company 预渲染一张完整信纸 sprite（空白底 + 印章文字） */
+const renderSprite = (size: number, company: string): HTMLCanvasElement | null => {
+  const scale = 2 // 高清预渲染
+  const cv = document.createElement('canvas')
+  cv.width = Math.ceil(size * scale)
+  cv.height = Math.ceil(size * scale)
+  const c = cv.getContext('2d')
+  if (!c) return null
+  c.scale(scale, scale)
+  c.translate(size / 2, size / 2)
+  try {
+    paintPaperBase(c, size)
+    paintStamp(c, size, { company, label: 'Offer' })
+  } catch {
+    return null
+  }
+  return cv
+}
+
+/** 预渲染所有公司 × 档位 sprite，填满缓存。失败则 spriteReady 保持 false */
+const buildSprites = () => {
+  spriteCache = new Map()
+  let ok = true
+  for (const company of companies.value) {
+    const sizeMap = new Map<number, HTMLCanvasElement>()
+    for (const s of SPRITE_SIZE_BUCKETS) {
+      const p = renderSprite(s, company)
+      if (!p) { ok = false; break }
+      sizeMap.set(s, p)
+    }
+    if (!ok) break
+    spriteCache.set(company, sizeMap)
+  }
+  spriteReady = ok
+}
+
 const updateWind = (now: number, deltaSeconds: number) => {
   if (reducedMotion) {
     wind.current = safe.value.wind
@@ -303,105 +486,25 @@ const updateItems = (deltaSeconds: number) => {
     f.y += f.speed * deltaSeconds
     f.x += (windDrift + f.drift + Math.sin(f.life * f.swayFreq + f.swayPhase) * f.swayAmp) * deltaSeconds
     f.spin += f.spinSpeed * deltaSeconds
+    // 翻面推进：flipPhase 在 draw 时用 Math.cos 的符号切正反
+    if (f.flipSpeed > 0) f.flipPhase += f.flipSpeed * deltaSeconds
     f.life += deltaSeconds
     if (recycleIfNeeded(i)) i--
   }
 }
 
-/** 画信封：金色矩形 + 三角盖 + 封口线 */
-const drawEnvelope = (s: number) => {
-  if (!ctx) return
-  const w = s
-  const h = s * 0.68
-  // 信封主体
-  ctx.fillStyle = 'rgba(255,198,88,1)'
-  ctx.fillRect(-w / 2, -h / 2, w, h)
-  // 信封盖三角（上半部分）
-  ctx.fillStyle = 'rgba(240,180,60,1)'
-  ctx.beginPath()
-  ctx.moveTo(-w / 2, -h / 2)
-  ctx.lineTo(0, h * 0.1)
-  ctx.lineTo(w / 2, -h / 2)
-  ctx.closePath()
-  ctx.fill()
-  // 封口线（下半部分）
-  ctx.strokeStyle = 'rgba(180,130,30,0.5)'
-  ctx.lineWidth = Math.max(0.5, s * 0.04)
-  ctx.beginPath()
-  ctx.moveTo(-w / 2, -h / 2)
-  ctx.lineTo(0, h * 0.1)
-  ctx.lineTo(w / 2, -h / 2)
-  ctx.stroke()
-  // 边框
-  ctx.strokeStyle = 'rgba(160,115,25,0.7)'
-  ctx.lineWidth = Math.max(0.5, s * 0.05)
-  ctx.strokeRect(-w / 2, -h / 2, w, h)
-}
-
-/** 画信纸（信封纸）：米白纸 + 折痕线 + "Offer" 红色印章 */
-const drawPaper = (s: number) => {
-  if (!ctx) return
-  const w = s * 0.92
-  const h = s * 0.82
-  // 纸张主体（米白）
-  ctx.fillStyle = 'rgba(255,251,240,1)'
-  ctx.fillRect(-w / 2, -h / 2, w, h)
-  // 横向折痕（信纸对折痕迹）
-  ctx.strokeStyle = 'rgba(220,210,190,0.7)'
-  ctx.lineWidth = Math.max(0.4, s * 0.022)
-  ctx.beginPath()
-  ctx.moveTo(-w / 2, 0)
-  ctx.lineTo(w / 2, 0)
-  ctx.stroke()
-  // 边框
-  ctx.strokeStyle = 'rgba(190,180,160,0.85)'
-  ctx.lineWidth = Math.max(0.5, s * 0.04)
-  ctx.strokeRect(-w / 2, -h / 2, w, h)
-  // "Offer" 印章（红色，居中，字号按宽度限制不超出）
-  const fontSize = Math.min(s * 0.2, w * 0.22)
-  ctx.fillStyle = 'rgba(205,55,55,0.95)'
-  ctx.font = `bold ${fontSize}px sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('Offer', 0, h * 0.22)
-}
-
-/** 画堆积的 offer 山：从底部往上分层堆叠信封/纸张，紧密排列成真实纸堆 */
+/** 画堆积的 offer 山：直接贴离屏 stamp canvas（触地粒子已盖印） */
 const drawAccumulation = () => {
-  if (!ctx) return
+  if (!ctx || !accumCanvas) return
   let has = false
   for (let i = 0; i < accumulationBuckets; i++) {
     if (accumulation[i] > 0.5) { has = true; break }
   }
   if (!has) return
-
   ctx.save()
   ctx.globalAlpha = globalOpacity
-  // 每个堆积桶画一个信封/纸张，从底部往上紧密堆叠
-  // ponytail: 用 bucket 索引做确定性伪随机，位置稳定不闪烁
-  const itemSize = ACCUM_BUCKET * 1.4 // 略宽于桶，让相邻项重叠形成堆叠感
-  for (let i = 0; i < accumulationBuckets; i++) {
-    const h = accumulation[i]
-    if (h < 2) continue
-    // 该桶堆积了几层（每层约 itemSize 高）
-    const layers = Math.ceil(h / (itemSize * 0.7))
-    for (let layer = 0; layer < layers; layer++) {
-      // 确定性伪随机（ponytail: Math.abs 防 seed 取模负数，当前参数恒正，防御未来变化）
-      const seed = (i * 73 + layer * 131 + 49297)
-      const rng = ((Math.abs(seed) % 233280) / 233280)
-      const rng2 = (((Math.abs(seed) * 7 + 11) % 233280) / 233280)
-      const x = i * ACCUM_BUCKET + ACCUM_BUCKET / 2 + (rng - 0.5) * 4
-      const y = cssH - layer * itemSize * 0.6 - itemSize * 0.4
-      const kind = rng2 < 0.5 ? 'envelope' : 'paper'
-      const rot = (rng - 0.5) * 0.3
-      ctx.save()
-      ctx.translate(x, y)
-      ctx.rotate(rot)
-      if (kind === 'envelope') drawEnvelope(itemSize)
-      else drawPaper(itemSize)
-      ctx.restore()
-    }
-  }
+  // 一次性贴整张离屏堆积画布（css 坐标系，accumCtx 已 scale dpr）
+  ctx.drawImage(accumCanvas, 0, 0, cssW, cssH)
   ctx.restore()
 }
 
@@ -413,28 +516,49 @@ const draw = (now: number) => {
   // 1. offer 山（底层）
   drawAccumulation()
 
-  const globalAlpha = globalOpacity
+  const gAlpha = globalOpacity
   for (let i = 0; i < activeCount; i++) {
     const f = pool[i]
     const opacityFactor = reducedMotion ? 1 : 0.92 + Math.sin(now * 0.002 + f.life) * 0.08
-    const alpha = clamp(f.opacity * opacityFactor * globalAlpha, 0, 1)
+    const alpha = clamp(f.opacity * opacityFactor * gAlpha, 0, 1)
     if (alpha <= 0.01) continue
 
     ctx.save()
     ctx.globalAlpha = alpha
     ctx.translate(f.x, f.y)
     if (!reducedMotion) ctx.rotate(f.spin)
-    if (f.layer === 'near') {
-      ctx.shadowBlur = 4
-      ctx.shadowColor = 'rgba(255,220,150,0.6)'
-    } else if (ctx.shadowBlur !== 0) {
-      ctx.shadowBlur = 0
+    // ponytail: 景深不用 ctx.filter blur（每帧高斯模糊 N 粒子，性能崩盘），
+    // 靠 far 层已有的小 size + 低 opa 体现纵深感，零运行时模糊开销
+
+    if (spriteReady && spriteCache) {
+      // B：sprite 贴图 + 翻面（scaleX = |cos|，过零切正反）
+      // ponytail: far 层粒子小且半透明，翻面不可见，直接当静态贴图省计算
+      const s = quantizeSize(f.size)
+      const sprite = spriteCache.get(f.content.company)?.get(s)
+      if (sprite) {
+        const px = -s * PAPER_W / 2
+        const py = -s * PAPER_H / 2
+        const pw = s * PAPER_W
+        const ph = s * PAPER_H
+        if (f.flipSpeed > 0 && !reducedMotion && f.layer !== 'far') {
+          const sx = Math.cos(f.flipPhase)
+          ctx.scale(Math.abs(sx) < 0.05 ? 0.05 : Math.abs(sx), 1)
+          ctx.drawImage(sprite, px, py, pw, ph)
+          // 反面盖一层半透明灰模拟纸背，省掉第二张 sprite
+          if (sx < 0) {
+            ctx.fillStyle = 'rgba(120,110,90,0.3)'
+            ctx.fillRect(px, py, pw, ph)
+          }
+        } else {
+          ctx.drawImage(sprite, px, py, pw, ph)
+        }
+        ctx.restore()
+        continue
+      }
     }
-    if (f.kind === 'envelope') drawEnvelope(f.size)
-    else drawPaper(f.size)
+    // sprite 不可用（极端环境预渲染失败）则跳过该粒子
     ctx.restore()
   }
-  if (ctx.shadowBlur !== 0) ctx.shadowBlur = 0
 }
 
 const loop = (now: number) => {
@@ -515,6 +639,7 @@ onMounted(() => {
   prevTime = startTime
   applyOpacity(0)
   setupCanvas()
+  buildSprites()
   startTimers()
   rafId = requestAnimationFrame(loop)
   window.addEventListener('resize', onResize)

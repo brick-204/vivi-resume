@@ -14,6 +14,7 @@ import {
   deleteMeta,
   clearResumesStore,
   clearAIConfigsStore,
+  clearInterviewsStore,
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
@@ -33,6 +34,7 @@ import {
 import { generateId } from '@/types/resume'
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
+import type { Interview } from '@/types/interview'
 import { getProviderInfo } from '@/types/aiConfig'
 import { extractPhotos} from '@/utils/photoFileRef'
 import { useSyncLock } from '@/composables/useSyncLock'
@@ -177,11 +179,12 @@ export const useSettingsStore = defineStore('settings', () => {
       acquireLock('正在准备同步数据...')
 
       // 4. 从 IndexedDB 读取全部业务数据（直接用 storage.ts，不走 adapter）
-      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId] = await Promise.all([
+      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId, idbInterviews] = await Promise.all([
         idb.getAllResumes(),
         idb.getAllAIConfigs(),
         idb.getCurrentId(),
         idb.getActiveAIConfigId(),
+        idb.getAllInterviews(),
       ])
       // IndexedDB 的回收站设置（meta store），需一并迁移到目录 meta.json
       const [idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets] = await Promise.all([
@@ -425,6 +428,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await ensureDir(handle, 'ai-configs')
       await ensureDir(handle, 'photos')
       await ensureDir(handle, 'desktop-pets')
+      await ensureDir(handle, 'interviews')
 
       // 写入简历文件（content 已是格式化 JSON 字符串，直接传给 writeJsonFile）
       // 同时提取照片为独立文件
@@ -479,6 +483,15 @@ export const useSettingsStore = defineStore('settings', () => {
         await writeJsonFile(handle, `trash-pets/${pet.id}.json`, idb.toPlain(pet))
       }
 
+      // 写入面试记录文件（从 IndexedDB 迁移到目录）
+      // ponytail: 同 customPets 策略，目录已有的不重写，仅写 IndexedDB 独有的
+      const dirInterviews = await readAllJsonFiles<Interview>(handle, 'interviews')
+      const dirInterviewIds = new Set(dirInterviews.map(i => i.id))
+      for (const iv of idbInterviews) {
+        if (dirInterviewIds.has(iv.id)) continue
+        await writeJsonFile(handle, `interviews/${iv.id}.json`, idb.toPlain(iv))
+      }
+
       // 写入 meta.json（metaContent 已是 JSON 字符串）
       await writeJsonFile(handle, 'meta.json', result.metaContent)
 
@@ -496,6 +509,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await clearResumesStore()
       await clearAIConfigsStore()
       await idb.clearTrashPetsStore()
+      await clearInterviewsStore()
 
       updateProgress('同步完成！', 100)
 
@@ -570,6 +584,12 @@ export const useSettingsStore = defineStore('settings', () => {
         const dirTrashPets = await adapter.getAllTrashPets()
         for (const pet of dirTrashPets) {
           await idb.saveTrashPet(pet)
+        }
+        // 面试记录：从目录 interviews/ 读取，以目录为权威刷新 IndexedDB（先清空再写，避免目录已删条目残留）
+        const dirInterviews = await adapter.getAllInterviews()
+        await clearInterviewsStore()
+        for (const iv of dirInterviews) {
+          await idb.saveInterview(iv)
         }
       }
 
@@ -884,6 +904,12 @@ export const useSettingsStore = defineStore('settings', () => {
       }
       trashPets.value = await getAllTrashPets()
       await cleanupTrashPets()
+      // 面试记录：从目录 interviews/ 读取，以目录为权威刷新 IndexedDB（先清空再写，避免目录已删条目残留）
+      const dirInterviews = await adapter.getAllInterviews()
+      await clearInterviewsStore()
+      for (const iv of dirInterviews) {
+        await idb.saveInterview(iv)
+      }
 
       updateProgress('正在刷新数据...', 80)
 
@@ -911,16 +937,19 @@ export const useSettingsStore = defineStore('settings', () => {
     const { useResumeStore } = await import('@/stores/resumeStore')
     const { useAIConfigStore } = await import('@/stores/aiConfigStore')
     const { useConsultStore } = await import('@/stores/consultStore')
+    const { useInterviewStore } = await import('@/stores/interviewStore')
 
     const resumeStore = useResumeStore()
     const aiConfigStore = useAIConfigStore()
     const consultStore = useConsultStore()
+    const interviewStore = useInterviewStore()
 
     // 各 store 独立 reload，一个失败不影响另一个
     await Promise.allSettled([
       resumeStore.reloadFromStorage?.(),
       aiConfigStore.reloadFromStorage?.(),
       consultStore.reloadFromStorage?.(),
+      interviewStore.reloadFromStorage?.(),
     ])
   }
 

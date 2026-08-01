@@ -90,6 +90,7 @@
         :selectable="selectionMode"
         :selected="selectedIds.has(resume.id)"
         @edit="openResume(resume.id)"
+        @rename="onRenameResume(resume.id)"
         @copy="onCopyResume(resume.id)"
         @delete="onDeleteResume(resume.id)"
         @toggle-select="toggleSelect(resume.id)"
@@ -145,11 +146,36 @@
         </div>
       </template>
     </n-modal>
+
+    <!-- 重命名弹窗 -->
+    <n-modal
+      :show="renamingId !== null"
+      preset="card"
+      :style="{ maxWidth: '420px', width: '90vw' }"
+      :mask-closable="true"
+      title="重命名简历"
+      @update:show="(v: boolean) => { if (!v) cancelRename() }"
+    >
+      <n-input
+        ref="renameInputRef"
+        v-model:value="renamingTitle"
+        placeholder="请输入简历名称"
+        maxlength="50"
+        @keydown.enter="confirmRename"
+        @keydown.esc="cancelRename"
+      />
+      <template #footer>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <n-button size="small" @click="cancelRename">取消</n-button>
+          <n-button size="small" type="primary" @click="confirmRename">确定</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import type { ImportResult } from '@/stores/resumeStore'
@@ -283,6 +309,40 @@ const onCopyResume = async (id: string) => {
     console.error('复制简历失败:', e)
     naiveMessage.error('复制失败，请重试')
   }
+}
+
+// ========== 重命名 ==========
+const renamingId = ref<string | null>(null)
+const renamingTitle = ref('')
+const renameInputRef = ref<InstanceType<typeof NInput> | null>(null)
+
+const onRenameResume = (id: string) => {
+  const resume = store.getResume(id)
+  if (!resume) return
+  renamingId.value = id
+  renamingTitle.value = resume.title || ''
+  // 打开后聚焦并全选，方便整体覆盖
+  nextTick(() => {
+    renameInputRef.value?.focus()
+    renameInputRef.value?.select()
+  })
+}
+
+const confirmRename = () => {
+  if (renamingId.value === null) return
+  const title = renamingTitle.value.trim()
+  if (!title) {
+    naiveMessage.warning('简历名称不能为空')
+    return
+  }
+  store.renameResume(renamingId.value, title)
+  renamingId.value = null
+  renamingTitle.value = ''
+}
+
+const cancelRename = () => {
+  renamingId.value = null
+  renamingTitle.value = ''
 }
 
 const handleImportFile = async (file: File) => {

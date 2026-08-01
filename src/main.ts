@@ -7,6 +7,7 @@ import './generated/icon-bundle'
 import { setupRainyNightEasterEggShortcut } from '@/services/rainyNightEffect'
 import { setupSnowEasterEggShortcut } from '@/services/snowEffect'
 import { setupOfferEasterEggShortcut } from '@/services/offerEffect'
+import { setupEnvelopeEasterEggShortcut } from '@/services/envelopeEffect'
 // ponytail: 纯副作用 import——模块顶层注册内置彩蛋（雨夜/下雪/offer），不导出任何东西
 import '@/services/builtinEasterEggs'
 
@@ -23,6 +24,8 @@ setupRainyNightEasterEggShortcut()
 setupSnowEasterEggShortcut()
 // offer 彩蛋快捷键（O→F→F→E→R）：开发和生产环境均默认开启（env 可覆盖）
 setupOfferEasterEggShortcut()
+// 信封 offer 彩蛋快捷键（H→I→R→E）：开发和生产环境均默认开启（env 可覆盖）
+setupEnvelopeEasterEggShortcut()
 
 // Cloudflare Web Analytics：仅生产模式加载，token 从 .env 读取（不进版本库）
 const cfToken = import.meta.env.VITE_CF_TOKEN

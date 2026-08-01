@@ -3,6 +3,9 @@ import {
   computeMaxOffers,
   smoothstep,
   clampOfferOptions,
+  generateOfferContent,
+  collectOfferCompanies,
+  OFFER_COMPANIES,
   showOfferEffect,
   hideOfferEffect,
   isOfferEffectActive,
@@ -10,6 +13,8 @@ import {
   active,
 } from '@/services/offerEffect'
 import { isOfferShortcutEnabled } from '@/utils/easterEggEnv'
+import { createEmptyInterview, createEmptyRound } from '@/types/interview'
+import type { Interview, InterviewStatus } from '@/types/interview'
 
 // ========== jsdom 环境补丁 ==========
 function installMatchMedia(reducedMotion = false) {
@@ -33,6 +38,7 @@ function installCanvasStub() {
     'createLinearGradient', 'createRadialGradient', 'fillRect', 'clearRect',
     'beginPath', 'moveTo', 'lineTo', 'closePath', 'arc', 'stroke', 'fill', 'save', 'restore',
     'setTransform', 'scale', 'translate', 'rotate', 'strokeRect', 'fillText',
+    'drawImage', 'quadraticCurveTo',
   ]
   for (const m of methods) stub[m] = vi.fn()
   const gradStub = { addColorStop: vi.fn() }
@@ -85,8 +91,103 @@ describe('computeMaxOffers', () => {
     expect(reduced).toBeGreaterThan(0)
   })
 
-  it('大屏幕有上限 500', () => {
-    expect(computeMaxOffers(3840, 2160, 1.0, false, false)).toBeLessThanOrEqual(500)
+  it('大屏幕有上限 280', () => {
+    expect(computeMaxOffers(3840, 2160, 1.0, false, false)).toBeLessThanOrEqual(280)
+  })
+})
+
+describe('generateOfferContent', () => {
+  it('相同 seed 产出相同内容', () => {
+    expect(generateOfferContent(0.3)).toEqual(generateOfferContent(0.3))
+  })
+
+  it('label 恒为 Offer，company 非空', () => {
+    const c = generateOfferContent(0.5)
+    expect(c.label).toBe('Offer')
+    expect(c.company.length).toBeGreaterThan(0)
+  })
+
+  it('不同 seed 可能产出不同公司', () => {
+    const companies = new Set<string>()
+    for (let i = 0; i < 30; i++) companies.add(generateOfferContent(i / 30).company)
+    expect(companies.size).toBeGreaterThan(1)
+  })
+
+  it('传入自定义公司列表时从中取', () => {
+    const c = generateOfferContent(0.0, ['自定义公司A', '自定义公司B'])
+    expect(['自定义公司A', '自定义公司B']).toContain(c.company)
+  })
+
+  it('空列表回落默认公司', () => {
+    const c = generateOfferContent(0.5, [])
+    expect(OFFER_COMPANIES).toContain(c.company)
+  })
+})
+
+// ========== collectOfferCompanies（口径 X） ==========
+/** 造一条面试记录：覆盖关键字段，rounds 为空（无轮次则 upcoming） */
+function makeInterview(company: string, status: InterviewStatus, overrides: Partial<Interview> = {}): Interview {
+  return { ...createEmptyInterview(), company, status, ...overrides }
+}
+
+describe('collectOfferCompanies', () => {
+  it('无面试记录时回落默认 8 家', () => {
+    expect(collectOfferCompanies([])).toEqual(OFFER_COMPANIES)
+  })
+
+  it('upcoming/ongoing 公司被收录（与默认合并去重）', () => {
+    const list = [
+      makeInterview('小红书', 'drafting'),       // upcoming
+      makeInterview('网易', 'interviewing'),     // ongoing
+    ]
+    const result = collectOfferCompanies(list)
+    expect(result).toContain('小红书')
+    expect(result).toContain('网易')
+    // 默认 8 家仍在
+    for (const c of OFFER_COMPANIES) expect(result).toContain(c)
+    // 去重：默认与面试无交集，总数 = 8 + 2
+    expect(result).toHaveLength(OFFER_COMPANIES.length + 2)
+  })
+
+  it('offer 状态公司被保留（拿到 offer 应景）', () => {
+    const list = [makeInterview('拿了Offer的公司', 'offer')]
+    expect(collectOfferCompanies(list)).toContain('拿了Offer的公司')
+  })
+
+  it('rejected/closed 状态公司被排除', () => {
+    const list = [
+      makeInterview('被拒公司', 'rejected'),
+      makeInterview('关闭公司', 'closed'),
+    ]
+    const result = collectOfferCompanies(list)
+    expect(result).not.toContain('被拒公司')
+    expect(result).not.toContain('关闭公司')
+  })
+
+  it('有 failed 轮但状态为面试中的公司仍被收录（纯按 status 分区）', () => {
+    const list = [makeInterview('挂了的公司', 'interviewing', {
+      rounds: [{ ...createEmptyRound(), status: 'failed' }],
+    })]
+    expect(collectOfferCompanies(list)).toContain('挂了的公司')
+  })
+
+  it('trim + 去空 + 去超长(>12字)', () => {
+    const longName = '这是一个超过十二个字的公司名称呀'.slice(0, 13)
+    const list = [
+      makeInterview('  拼多多  ', 'drafting'),  // trim 后收录
+      makeInterview('', 'drafting'),             // 空丢弃
+      makeInterview('   ', 'drafting'),          // 空白丢弃
+      makeInterview(longName, 'drafting'),       // 超长丢弃
+    ]
+    const result = collectOfferCompanies(list)
+    expect(result).toContain('拼多多')
+    expect(result).not.toContain(longName)
+  })
+
+  it('与默认重名的面试公司去重', () => {
+    const list = [makeInterview('腾讯', 'drafting')]
+    const result = collectOfferCompanies(list)
+    expect(result.filter(c => c === '腾讯')).toHaveLength(1)
   })
 })
 
@@ -94,7 +195,7 @@ describe('clampOfferOptions', () => {
   it('默认值符合 offer 语义', () => {
     const o = clampOfferOptions({})
     expect(o.duration).toBe(18000)
-    expect(o.intensity).toBe(0.7)
+    expect(o.intensity).toBe(0.55)
     expect(o.opacity).toBe(0.12)
     expect(o.wind).toBe(0.06)
     expect(o.fadeInDuration).toBe(800)
@@ -187,7 +288,7 @@ interface Exposed {
   requestLeave: () => void
   getActiveCount: () => number
   getEmissionMultiplier: () => number
-  getItem: (i: number) => { x: number; y: number; speed: number; kind: string } | null
+  getItem: (i: number) => { x: number; y: number; speed: number; flipPhase: number } | null
   getPhase: () => string
 }
 
@@ -226,21 +327,19 @@ describe('组件帧推进', () => {
     installRafSpy()
   })
 
-  it('生成 offer 粒子（含信封和纸张两种）', async () => {
+  it('生成 offer 粒子（信纸）', async () => {
     const { exposed, unmount } = mountComponent({ duration: 8000, fadeInDuration: 200, fadeOutDuration: 1500 })
     await nextTick()
     driveFrames(30, 16)
     expect(exposed.getActiveCount()).toBeGreaterThan(0)
-    // 取若干粒子，应包含 envelope 和 paper 两种
-    let hasEnvelope = false
-    let hasPaper = false
+    // 取若干粒子，均为信纸（含翻面相位）
+    let hasFlip = false
     for (let i = 0; i < exposed.getActiveCount(); i++) {
       const it = exposed.getItem(i)
       if (!it) continue
-      if (it.kind === 'envelope') hasEnvelope = true
-      if (it.kind === 'paper') hasPaper = true
+      if (typeof it.flipPhase === 'number') hasFlip = true
     }
-    expect(hasEnvelope || hasPaper).toBe(true)
+    expect(hasFlip).toBe(true)
     unmount()
   })
 

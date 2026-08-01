@@ -109,6 +109,11 @@ export interface EffectServiceConfig {
   hasSound?: boolean
   /** 序列触发时是否额外调用 show（默认 true） */
   triggerOnMatch?: boolean
+  /**
+   * 序列匹配时的自定义触发钩子。提供则替代默认的 show()+sayCategory()。
+   * 用于需要在触发前算上下文（如信封彩蛋算收件人/公司名）的场景。
+   */
+  onMatch?: () => void
 }
 
 export interface EffectService {
@@ -197,10 +202,15 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
     if (!enabled()) return () => {}
 
     const matcher = createKeySequenceMatcher(sequence, () => {
-      if (triggerOnMatch) show()
-      // 快捷键触发也让桌宠说一句对应话术（pinia 此时已初始化，事件回调内取 store 安全）
-      if (quoteCategory) {
-        try { usePetStore().sayCategory(quoteCategory as any) } catch { /* pinia 未就绪，静默 */ }
+      if (config.onMatch) {
+        // 自定义触发：service 自己负责 show + 话术（如信封需先算收件人/公司名）
+        config.onMatch()
+      } else {
+        if (triggerOnMatch) show()
+        // 快捷键触发也让桌宠说一句对应话术（pinia 此时已初始化，事件回调内取 store 安全）
+        if (quoteCategory) {
+          try { usePetStore().sayCategory(quoteCategory as any) } catch { /* pinia 未就绪，静默 */ }
+        }
       }
     }, seqTimeout)
 

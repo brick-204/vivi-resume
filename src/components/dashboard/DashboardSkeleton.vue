@@ -149,13 +149,39 @@
         </div>
       </div>
     </template>
+
+    <!-- ========== interviews: header + 三段分区卡片列表 ========== -->
+    <template v-else-if="variant === 'interviews'">
+      <div class="dashboard-skeleton__header">
+        <div class="dashboard-skeleton__title-wrap">
+          <div class="sk-bar sk-bar--lg" style="width: 120px; height: 28px;" />
+        </div>
+        <div class="dashboard-skeleton__actions">
+          <div class="sk-pill sk-pill--accent" style="width: 120px; height: 34px;" />
+        </div>
+      </div>
+      <div v-for="i in 3" :key="i" class="dashboard-skeleton__section">
+        <div class="dashboard-skeleton__section-title">
+          <div class="sk-square" style="width: 20px; height: 20px;" />
+          <div class="sk-bar" style="width: 100px; height: 16px;" />
+        </div>
+        <div class="dashboard-skeleton__list">
+          <div v-for="j in (i === 1 ? 3 : 2)" :key="j" class="dashboard-skeleton__list-item">
+            <div class="dashboard-skeleton__list-item-info">
+              <div class="sk-bar" style="width: 55%; height: 16px;" />
+              <div class="sk-bar" style="width: 40%; height: 12px; margin-top: 4px;" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-// ponytail: variant prop 区分 5 种面板布局，默认 resumes
+// ponytail: variant prop 区分 6 种面板布局，默认 resumes
 withDefaults(defineProps<{
-  variant?: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings'
+  variant?: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings' | 'interviews'
 }>(), {
   variant: 'resumes'
 })

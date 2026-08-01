@@ -22,6 +22,15 @@
       </button>
       <button
         class="sidebar-nav__item"
+        :class="{ 'sidebar-nav__item--active': activeTab === 'interviews' }"
+        :aria-current="activeTab === 'interviews' ? 'page' : undefined"
+        @click="$emit('update:activeTab', 'interviews')"
+      >
+        <Icon icon="mdi:briefcase-outline" :width="20" />
+        <span class="sidebar-nav__item-label">我的面试</span>
+      </button>
+      <button
+        class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'ai' }"
         :aria-current="activeTab === 'ai' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'ai')"
@@ -73,11 +82,11 @@ import { Icon } from '@iconify/vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 const props = defineProps<{
-  activeTab: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings'
+  activeTab: 'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings'
 }>()
 
 defineEmits<{
-  'update:activeTab': [value: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings']
+  'update:activeTab': [value: 'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings']
 }>()
 
 const settingsStore = useSettingsStore()
