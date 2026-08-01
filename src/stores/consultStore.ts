@@ -450,6 +450,7 @@ export const useConsultStore = defineStore('consult', () => {
     pendingAttachments.value = []
 
     try {
+      const t0 = performance.now()
       const result = await streamChat(
         config,
         fullMessages,
@@ -459,7 +460,12 @@ export const useConsultStore = defineStore('consult', () => {
         },
         {
           signal: abortController.signal,
-          onUsage: (u) => aiConfigStore.addUsage(u),
+          onUsage: (u) => aiConfigStore.recordUsage(config.id, {
+            ...u,
+            durationMs: performance.now() - t0,
+            feature: 'consult',
+            modelId: config.modelId,
+          }),
           maxTokens: 2048,
         },
       )
@@ -549,6 +555,7 @@ export const useConsultStore = defineStore('consult', () => {
     const { systemMsg, toCompress, toRetain, oldSummary } = partitionCompressible(session.messages)
     if (toCompress.length === 0) return { ok: false }
 
+    const aiConfigStore = useAIConfigStore()
     const historyText = formatHistoryForCompress(toCompress, oldSummary)
     const compressMessages: ChatMessage[] = [
       {
@@ -558,11 +565,21 @@ export const useConsultStore = defineStore('consult', () => {
     ]
 
     try {
+      const t0 = performance.now()
       const result = await streamChat(
         config,
         compressMessages,
         () => {}, // 非流式：忽略 chunk
-        { signal, maxTokens: 800 },
+        {
+          signal,
+          maxTokens: 800,
+          onUsage: (u) => aiConfigStore.recordUsage(config.id, {
+            ...u,
+            durationMs: performance.now() - t0,
+            feature: 'consult',
+            modelId: config.modelId,
+          }),
+        },
       )
       const summary = result.finalText.trim()
       if (!summary) return { ok: false }

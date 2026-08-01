@@ -394,6 +394,7 @@ const startGenerate = async () => {
   }, 1000)
 
   try {
+    const t0 = performance.now()
     const result = await performAIOperation(
       props.config,
       selectedOperation.value,
@@ -408,7 +409,12 @@ const startGenerate = async () => {
           isConnected.value = true
         },
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(props.config!.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'resume',
+            modelId: props.config!.modelId,
+          })
         },
       },
     )
@@ -492,6 +498,7 @@ const refineGenerate = async () => {
   }, 1000)
 
   try {
+    const t0 = performance.now()
     const result = await streamChat(
       props.config,
       messages,
@@ -508,7 +515,12 @@ const refineGenerate = async () => {
       {
         signal: abortController.signal,
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(props.config!.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'resume',
+            modelId: props.config!.modelId,
+          })
         },
         maxTokens: 4096,
       },
@@ -794,6 +806,7 @@ const handleRetry = () => {
 
 .preview-footer {
   display: flex;
+  flex-direction: row-reverse;
   justify-content: center;
   gap: $spacing-sm;
   padding-top: $spacing-md;

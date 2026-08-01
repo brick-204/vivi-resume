@@ -286,6 +286,27 @@ export async function deleteInterview(id: string): Promise<void> {
   }
 }
 
+/** 读取面试回收站列表（meta.json / meta store，与简历回收站同存储模式） */
+export async function getInterviewTrash(): Promise<Interview[]> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.interviewTrash as Interview[]) ?? []
+  }
+  return (await idb.getMeta<Interview[]>('interviewTrash')) ?? []
+}
+
+/** 写入面试回收站列表 */
+export async function saveInterviewTrash(trash: Interview[]): Promise<void> {
+  const plain = idb.toPlain(trash)
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.interviewTrash = plain
+    })
+  } else {
+    await idb.setMeta('interviewTrash', plain)
+  }
+}
+
 // ========== 转发 IndexedDB 专用方法（目录模式不需要） ==========
 
 /** localStorage 迁移（仅 IndexedDB 模式需要） */
@@ -306,6 +327,29 @@ export async function setMeta(key: string, value: unknown): Promise<void> {
 /** 删除 meta 数据 */
 export async function deleteMeta(key: string): Promise<void> {
   return idb.deleteMeta(key)
+}
+
+// ========== AI 用量（meta.json / meta store，跟随目录/IndexedDB 策略）==========
+
+/** 读取 AI 用量数据 */
+export async function getAIUsage<T = unknown>(): Promise<T | undefined> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return meta?.aiUsageByConfig as T | undefined
+  }
+  return idb.getMeta<T>('aiUsageByConfig')
+}
+
+/** 写入 AI 用量数据 */
+export async function setAIUsage(value: unknown): Promise<void> {
+  const plain = idb.toPlain(value)
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.aiUsageByConfig = plain
+    })
+  } else {
+    await idb.setMeta('aiUsageByConfig', plain)
+  }
 }
 
 // ========== 回收站（meta.json / meta store） ==========

@@ -226,6 +226,7 @@ const handleStartPrep = async () => {
   const messages = buildMessages('interview', resumeText, jdText.value.trim() || undefined)
 
   try {
+    const t0 = performance.now()
     const result = await streamChat(
       props.config,
       messages,
@@ -236,7 +237,12 @@ const handleStartPrep = async () => {
       {
         signal: abortController.signal,
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(props.config!.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'interview',
+            modelId: props.config!.modelId,
+          })
         },
         maxTokens: 4096,
       },

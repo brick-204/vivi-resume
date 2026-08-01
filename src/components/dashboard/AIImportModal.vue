@@ -526,6 +526,7 @@ async function startAIParsing() {
   }, 1000)
 
   try {
+    const t0 = performance.now()
     const result = await streamChat(
       config,
       buildMessages('importResume', fileText.value),
@@ -538,7 +539,12 @@ async function startAIParsing() {
       {
         signal: abortController.signal,
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(config.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'resume',
+            modelId: config.modelId,
+          })
         },
         maxTokens: 8192,
         continuationPrompt: JSON_CONTINUATION_PROMPT,
@@ -919,6 +925,7 @@ function goToAISettings() {
 
 .ai-import-footer {
   display: flex;
+  flex-direction: row-reverse;
   justify-content: center;
   gap: $spacing-sm;
   padding-top: $spacing-md;

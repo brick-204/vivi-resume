@@ -293,6 +293,7 @@ const startEvaluation = async () => {
   }, 1000)
 
   try {
+    const t0 = performance.now()
     const result = await streamChat(
       config,
       [
@@ -310,7 +311,12 @@ const startEvaluation = async () => {
       {
         signal: abortController.signal,
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(config.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'resume',
+            modelId: config.modelId,
+          })
         },
         maxTokens: 4096, // 配合自动续写，单次 4096 足长输出截断后自动续写
       },
@@ -558,7 +564,7 @@ const handleClose = () => {
 
 .eval-footer {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   gap: $spacing-sm;
   padding-top: $spacing-md;
 }

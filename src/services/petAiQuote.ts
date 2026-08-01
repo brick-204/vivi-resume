@@ -86,10 +86,17 @@ export async function generatePetQuote(
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const t0 = performance.now()
   try {
     const result = await streamChat(config, messages, () => {}, {
       signal: controller.signal,
       maxTokens: MAX_TOKENS,
+      onUsage: (u) => aiConfigStore.recordUsage(config.id, {
+        ...u,
+        durationMs: performance.now() - t0,
+        feature: 'pet',
+        modelId: config.modelId,
+      }),
     })
     const text = (result.finalText || '').trim()
     if (!text) throw new Error('EMPTY_RESPONSE')

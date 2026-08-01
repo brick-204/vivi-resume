@@ -1,103 +1,105 @@
 <template>
   <div class="ai-settings-panel">
-    <!-- 头部 -->
-    <div class="panel__header">
-      <h2 class="panel__title">
-        <Icon icon="mdi:robot-outline" :width="24" />
-        AI 服务
-        <span v-if="aiConfigStore.hasConfigs" class="panel__count">{{ aiConfigStore.configs.length }}</span>
-      </h2>
-      <div class="panel__actions">
+    <!-- 流量详情页视图 -->
+    <UsageDetailPanel
+      v-if="detailConfigId"
+      :config-id="detailConfigId"
+      @back="detailConfigId = null"
+    />
+
+    <!-- 主页视图 -->
+    <template v-else>
+      <!-- 头部 -->
+      <div class="panel__header">
+        <h2 class="panel__title">
+          <Icon icon="mdi:robot-outline" :width="24" />
+          AI 服务
+          <span v-if="aiConfigStore.hasConfigs" class="panel__count">{{ aiConfigStore.configs.length }}</span>
+        </h2>
+        <div class="panel__actions">
+          <button
+            v-if="aiConfigStore.hasConfigs"
+            class="action-btn action-btn--secondary"
+            title="全部流量统计"
+            @click="openUsageDetail(ALL_CONFIG_ID)"
+          >
+            <Icon icon="mdi:chart-bar" :width="18" />
+            全部流量
+          </button>
+          <button class="action-btn action-btn--primary" @click="openAddModal">
+            <Icon icon="mdi:plus" :width="18" />
+            添加 AI 服务
+          </button>
+          <button
+            v-if="aiConfigStore.hasConfigs && !selectionMode"
+            class="action-btn action-btn--secondary"
+            @click="enterSelectionMode"
+          >
+            <Icon icon="mdi:checkbox-multiple-blank-outline" :width="18" />
+            批量管理
+          </button>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="!aiConfigStore.hasConfigs" class="panel__empty">
+        <Icon icon="mdi:robot-confused-outline" :width="64" />
+        <p class="panel__empty-title">还没有配置 AI 服务</p>
+        <p class="panel__empty-hint">配置后可在编辑器中使用 AI 润色、简化、扩展、总结等功能</p>
         <button class="action-btn action-btn--primary" @click="openAddModal">
           <Icon icon="mdi:plus" :width="18" />
           添加 AI 服务
         </button>
-        <button
-          v-if="aiConfigStore.hasConfigs && !selectionMode"
-          class="action-btn action-btn--secondary"
-          @click="enterSelectionMode"
-        >
-          <Icon icon="mdi:checkbox-multiple-blank-outline" :width="18" />
-          批量管理
+      </div>
+
+      <!-- 选择态工具栏 -->
+      <div v-if="selectionMode" class="panel__select-toolbar">
+        <button class="select-toolbar__btn" @click="toggleSelectAll">
+          <Icon :icon="allSelected ? 'mdi:checkbox-multiple-outline' : 'mdi:checkbox-multiple-blank-outline'" :width="18" />
+          {{ allSelected ? '取消全选' : '全选' }}
         </button>
+        <span class="select-toolbar__count">已选 {{ selectedIds.size }} 项</span>
+        <div class="select-toolbar__spacer"></div>
+        <button class="select-toolbar__btn select-toolbar__btn--danger" :disabled="selectedIds.size === 0" @click="onBatchDelete">
+          <Icon icon="mdi:trash-can-outline" :width="18" />
+          删除选中
+        </button>
+        <button class="select-toolbar__btn" @click="exitSelectionMode">取消</button>
       </div>
-    </div>
 
-    <!-- Token 用量（置顶高亮） -->
-    <div v-if="aiConfigStore.totalTokens.total > 0" class="panel__usage">
-      <div class="panel__usage-icon">
-        <Icon icon="mdi:chart-bar" :width="20" />
+      <!-- 配置列表 -->
+      <div v-if="aiConfigStore.hasConfigs" class="panel__list">
+        <AIConfigCard
+          v-for="config in aiConfigStore.configs"
+          :key="config.id"
+          :config="config"
+          :is-active="config.id === aiConfigStore.activeConfigId"
+          :selectable="selectionMode"
+          :selected="selectedIds.has(config.id)"
+          @edit="openEditModal(config)"
+          @copy="handleCopy(config.id)"
+          @delete="handleDelete(config.id)"
+          @set-active="aiConfigStore.setActiveConfig(config.id)"
+          @deactivate="handleDeactivate"
+          @toggle-select="toggleSelect(config.id)"
+          @usage="openUsageDetail(config.id)"
+        />
       </div>
-      <div class="panel__usage-body">
-        <div class="panel__usage-total">
-          {{ aiConfigStore.totalTokens.total.toLocaleString() }}
-          <span class="panel__usage-unit">tokens</span>
-        </div>
-        <div class="panel__usage-detail">
-          <span>输入 <strong>{{ aiConfigStore.totalTokens.prompt.toLocaleString() }}</strong></span>
-          <span class="panel__usage-sep">·</span>
-          <span>输出 <strong>{{ aiConfigStore.totalTokens.completion.toLocaleString() }}</strong></span>
-        </div>
+
+      <!-- 安全提示 -->
+      <div class="panel__security-notice">
+        <Icon icon="mdi:information-outline" :width="14" />
+        <span>API Key 存储于本地浏览器或本地目录，未加密。请勿在不信任的设备上保存密钥。</span>
       </div>
-    </div>
+    </template>
 
-    <!-- 空状态 -->
-    <div v-if="!aiConfigStore.hasConfigs" class="panel__empty">
-      <Icon icon="mdi:robot-confused-outline" :width="64" />
-      <p class="panel__empty-title">还没有配置 AI 服务</p>
-      <p class="panel__empty-hint">配置后可在编辑器中使用 AI 润色、简化、扩展、总结等功能</p>
-      <button class="action-btn action-btn--primary" @click="openAddModal">
-        <Icon icon="mdi:plus" :width="18" />
-        添加 AI 服务
-      </button>
-    </div>
-
-    <!-- 选择态工具栏 -->
-    <div v-if="selectionMode" class="panel__select-toolbar">
-      <button class="select-toolbar__btn" @click="toggleSelectAll">
-        <Icon :icon="allSelected ? 'mdi:checkbox-multiple-outline' : 'mdi:checkbox-multiple-blank-outline'" :width="18" />
-        {{ allSelected ? '取消全选' : '全选' }}
-      </button>
-      <span class="select-toolbar__count">已选 {{ selectedIds.size }} 项</span>
-      <div class="select-toolbar__spacer"></div>
-      <button class="select-toolbar__btn select-toolbar__btn--danger" :disabled="selectedIds.size === 0" @click="onBatchDelete">
-        <Icon icon="mdi:trash-can-outline" :width="18" />
-        删除选中
-      </button>
-      <button class="select-toolbar__btn" @click="exitSelectionMode">取消</button>
-    </div>
-
-    <!-- 配置列表 -->
-    <div v-if="aiConfigStore.hasConfigs" class="panel__list">
-      <AIConfigCard
-        v-for="config in aiConfigStore.configs"
-        :key="config.id"
-        :config="config"
-        :is-active="config.id === aiConfigStore.activeConfigId"
-        :selectable="selectionMode"
-        :selected="selectedIds.has(config.id)"
-        @edit="openEditModal(config)"
-        @copy="handleCopy(config.id)"
-        @delete="handleDelete(config.id)"
-        @set-active="aiConfigStore.setActiveConfig(config.id)"
-        @deactivate="handleDeactivate"
-        @toggle-select="toggleSelect(config.id)"
-      />
-    </div>
-
-    <!-- 添加/编辑弹窗 -->
+    <!-- 添加/编辑弹窗（两视图共用） -->
     <AIConfigModal
       :visible="showModal"
       :config="editingConfig"
       @close="closeModal"
       @save="handleSave"
     />
-
-    <!-- 安全提示 -->
-    <div class="panel__security-notice">
-      <Icon icon="mdi:information-outline" :width="14" />
-      <span>API Key 存储于本地浏览器或本地目录，未加密。请勿在不信任的设备上保存密钥。</span>
-    </div>
   </div>
 </template>
 
@@ -109,11 +111,21 @@ import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import AIConfigCard from '@/components/ai/AIConfigCard.vue'
 import AIConfigModal from '@/components/ai/AIConfigModal.vue'
+import UsageDetailPanel from '@/components/dashboard/UsageDetailPanel.vue'
 
 const aiConfigStore = useAIConfigStore()
 
+// 全局流量详情的特殊 configId（聚合所有配置）
+const ALL_CONFIG_ID = '__all__'
+
 const showModal = ref(false)
 const editingConfig = ref<AIServiceConfig | null>(null)
+
+// 流量详情页视图：null=主页，有值=该配置详情
+const detailConfigId = ref<string | null>(null)
+const openUsageDetail = (id: string) => {
+  detailConfigId.value = id
+}
 
 // 批量选择
 const selectionMode = ref(false)
@@ -157,7 +169,7 @@ const onBatchDelete = () => {
     content: `确定要删除选中的 ${ids.length} 个 AI 服务配置吗？`,
     positiveText: '删除',
     negativeText: '取消',
-    actionStyle: 'justify-content: center',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
     onPositiveClick: () => {
       aiConfigStore.deleteConfigs(ids)
       exitSelectionMode()
@@ -396,63 +408,4 @@ const handleDeactivate = async () => {
   color: $text-light;
 }
 
-.panel__usage {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-  margin-bottom: $spacing-lg;
-  padding: $spacing-md $spacing-lg;
-  background: $bg-glass;
-  border: 1px solid $border-glass;
-  border-radius: $radius-lg;
-}
-
-.panel__usage-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: $radius-md;
-  background: rgba($primary-color, 0.1);
-  color: $primary-color;
-  flex-shrink: 0;
-}
-
-.panel__usage-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.panel__usage-total {
-  font-size: $font-size-lg;
-  font-weight: 700;
-  color: $text-primary;
-  line-height: 1.2;
-}
-
-.panel__usage-unit {
-  font-size: $font-size-xs;
-  font-weight: 500;
-  color: $primary-light;
-  margin-left: 4px;
-}
-
-.panel__usage-detail {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: $font-size-xs;
-  color: $text-secondary;
-
-  strong {
-    color: $text-primary;
-    font-weight: 600;
-  }
-}
-
-.panel__usage-sep {
-  color: $text-light;
-}
 </style>

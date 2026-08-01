@@ -317,6 +317,7 @@ const handleStart = async () => {
   }, 1000)
 
   try {
+    const t0 = performance.now()
     const result = await streamChat(
       config,
       buildMessages('optimizeFull', serializedText, customInstruction.value.trim() || undefined),
@@ -331,7 +332,12 @@ const handleStart = async () => {
       {
         signal: abortController.signal,
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(config.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'resume',
+            modelId: config.modelId,
+          })
         },
         maxTokens: 4096,
       },
@@ -650,6 +656,7 @@ const handleClose = () => {
 
 .optimize-footer {
   display: flex;
+  flex-direction: row-reverse;
   justify-content: center;
   gap: $spacing-sm;
   padding-top: $spacing-md;

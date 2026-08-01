@@ -4,7 +4,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { generateId } from '@/types/resume'
 import { useSyncLock } from '@/composables/useSyncLock'
@@ -17,13 +17,117 @@ import {
   setActiveAIConfigId,
   getMeta,
   setMeta,
+  getAIUsage,
+  setAIUsage,
 } from '@/utils/storageAdapter'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
-export interface TokenUsage {
+// ponytail: 用量按「配置 × 日期 × 功能」分桶存储，能算今日/总计/按功能拆分/平均响应时间
+export type UsageFeature = 'consult' | 'resume' | 'interview' | 'pet'
+
+/** 单次 AI 调用的用量记录（调用点计时后传入） */
+export interface UsageRecord {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  durationMs: number
+  feature: UsageFeature
+  modelId: string            // 用于饼图按模型聚合
+}
+
+/** 某配置在某功能上、一个日期桶内的聚合 */
+export interface FeatureStat {
+  count: number
   prompt: number
   completion: number
   total: number
+  totalDurationMs: number
+}
+
+/** 一个日期桶：4 个功能的日统计 */
+export interface DailyBucket {
+  consult: FeatureStat
+  resume: FeatureStat
+  interview: FeatureStat
+  pet: FeatureStat
+}
+
+/** 模型在某日的聚合（饼图用，带 configId 维度以支持单配置筛选） */
+export interface ModelDailyStat {
+  count: number
+  total: number
+}
+
+/** 整个用量存储 */
+export interface UsageStore {
+  /** configId → 日期 → 每日桶（趋势图 + 详情页卡片用） */
+  byConfig: Record<string, Record<string, DailyBucket>>
+  /** configId → modelId → 日期 → 模型统计（饼图用） */
+  byModel: Record<string, Record<string, Record<string, ModelDailyStat>>>
+}
+
+/** 空桶工厂（避免散落的对象字面量缺字段） */
+function emptyBucket(): DailyBucket {
+  return {
+    consult: emptyStat(),
+    resume: emptyStat(),
+    interview: emptyStat(),
+    pet: emptyStat(),
+  }
+}
+function emptyStat(): FeatureStat {
+  return { count: 0, prompt: 0, completion: 0, total: 0, totalDurationMs: 0 }
+}
+
+// ponytail: 4 个功能固定枚举，遍历用此常量而非 Object.keys（避免与 FeatureStat 字段混淆）
+const FEATURES: UsageFeature[] = ['consult', 'resume', 'interview', 'pet']
+
+/** 清除超过 keepMonths 个月的旧日期桶（返回新 store）。日期 YYYY-MM-DD 字典序=日期序，直接比较。 */
+function pruneOldUsage(store: UsageStore, keepMonths: number): UsageStore {
+  const cutoff = new Date()
+  cutoff.setMonth(cutoff.getMonth() - keepMonths)
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`
+  const byConfig: Record<string, Record<string, DailyBucket>> = {}
+  const byModel: Record<string, Record<string, Record<string, ModelDailyStat>>> = {}
+  for (const [cid, days] of Object.entries(store.byConfig)) {
+    if (!days) continue
+    const kept: Record<string, DailyBucket> = {}
+    for (const [date, bucket] of Object.entries(days)) {
+      if (date >= cutoffKey) kept[date] = bucket
+    }
+    if (Object.keys(kept).length > 0) byConfig[cid] = kept
+  }
+  for (const [cid, models] of Object.entries(store.byModel)) {
+    if (!models) continue
+    const keptModels: Record<string, Record<string, ModelDailyStat>> = {}
+    for (const [mid, dayMap] of Object.entries(models)) {
+      if (!dayMap) continue
+      const keptDays: Record<string, ModelDailyStat> = {}
+      for (const [date, s] of Object.entries(dayMap)) {
+        if (date >= cutoffKey) keptDays[date] = s
+      }
+      if (Object.keys(keptDays).length > 0) keptModels[mid] = keptDays
+    }
+    if (Object.keys(keptModels).length > 0) byModel[cid] = keptModels
+  }
+  return { byConfig, byModel }
+}
+
+/** getUsageDetail 返回的聚合结果 */
+export interface UsageDetail {
+  today: FeatureStat
+  total: FeatureStat
+  byFeature: { today: DailyBucket; total: DailyBucket }
+  avgDurationMs: number
+  hasData: boolean
+}
+
+/** 范围图表数据（饼图 + 趋势） */
+export interface RangeData {
+  /** 饼图：按 modelId 汇总 */
+  modelPie: { name: string; count: number; total: number }[]
+  /** 趋势：每个时间点 */
+  trend: { label: string; count: number; total: number }[]
 }
 
 export const useAIConfigStore = defineStore('aiConfig', () => {
@@ -33,8 +137,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   // 同步锁
   const { isLocked } = useSyncLock()
 
-  // Token 用量追踪
-  const totalTokens = ref<TokenUsage>({ prompt: 0, completion: 0, total: 0 })
+  // 用量追踪：byConfig（趋势图+卡片）+ byModel（饼图）
+  const usageByConfig = ref<UsageStore>(emptyUsageStore())
 
   // ========== 初始化就绪 Promise（与 resumeStore 一致）==========
   let _readyResolve!: () => void
@@ -75,14 +179,35 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       _readyResolve()
     }
 
-    // 加载历史 token 用量
+    // 加载历史用量（跟随缓存策略：目录模式走 meta.json，否则 IndexedDB）
     try {
-      const savedUsage = await getMeta<TokenUsage>('aiTokenUsage')
-      if (savedUsage) {
-        totalTokens.value = savedUsage
+      const saved = await getAIUsage<unknown>()
+      if (saved) {
+        // 迁移：旧结构是 Record<configId, Record<date, DailyBucket>>（无 byConfig 包装）
+        // 新结构是 { byConfig, byModel }
+        const s = saved as Record<string, unknown>
+        let store: UsageStore
+        if (s && typeof s === 'object' && 'byConfig' in s) {
+          store = saved as UsageStore
+        } else {
+          // 旧结构 → 迁到 byConfig，byModel 留空（旧数据无 modelId）
+          const oldByConfig = saved as Record<string, Record<string, DailyBucket>>
+          store = { byConfig: oldByConfig, byModel: {} }
+          console.warn('[aiConfigStore] 迁移旧版用量结构到 byConfig/byModel')
+        }
+        // 清除超 12 个月的旧数据
+        store = pruneOldUsage(store, 12)
+        usageByConfig.value = store
+      } else {
+        // ponytail: 迁移更早的全局 aiTokenUsage。无 configId/feature 归属，直接丢弃。
+        const legacy = await getMeta<{ prompt: number; completion: number; total: number }>('aiTokenUsage')
+        if (legacy) {
+          console.warn('[aiConfigStore] 丢弃无法归属的旧版全局 token 用量:', legacy)
+          await setMeta('aiTokenUsage', null)
+        }
       }
     } catch {
-      // token 用量加载失败不影响初始化
+      // 用量加载失败不影响初始化
     }
   }
 
@@ -133,6 +258,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     // 先同步移除内存数据，让 UI 立即响应
     const wasActive = activeConfigId.value === id
     configs.value = configs.value.filter(c => c.id !== id)
+    // 联动清除该配置的用量数据
+    deleteUsage(id)
 
     // 后台持久化
     const persist = async () => {
@@ -218,44 +345,252 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     await setActiveAIConfigId(id)
   }
 
-  /** 累加 token 用量（内存），防抖持久化到 IndexedDB */
+  // ========== 用量记录（内存累加，防抖持久化）==========
   let _usageSaveTimer: ReturnType<typeof setTimeout> | null = null
 
-  const addUsage = (usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }) => {
-    totalTokens.value = {
-      prompt: totalTokens.value.prompt + (usage.prompt_tokens || 0),
-      completion: totalTokens.value.completion + (usage.completion_tokens || 0),
-      total: totalTokens.value.total + (usage.total_tokens || 0),
-    }
-    // 防抖持久化：5 秒内不再有新 usage 才写入 IndexedDB
+  /** 今日日期串 YYYY-MM-DD（本地时区） */
+  const todayKey = () => dateKey(0)
+  /** 偏移 days 天的日期串（负数=过去）。days=0 即今天 */
+  const dateKey = (days: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + days)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  /** 空用量存储 */
+  function emptyUsageStore(): UsageStore {
+    return { byConfig: {}, byModel: {} }
+  }
+
+  /** 累加一次用量到「configId × 今日 × feature」桶 + byModel */
+  const recordUsage = (configId: string, record: UsageRecord) => {
+    if (!configId) return
+    const day = todayKey()
+    const store = usageByConfig.value
+
+    // byConfig：日功能桶
+    if (!store.byConfig[configId]) store.byConfig[configId] = {}
+    if (!store.byConfig[configId][day]) store.byConfig[configId][day] = emptyBucket()
+    const bucket = store.byConfig[configId][day]
+    const featureStat = bucket[record.feature]
+    featureStat.count += 1
+    featureStat.prompt += record.prompt_tokens || 0
+    featureStat.completion += record.completion_tokens || 0
+    featureStat.total += record.total_tokens || 0
+    featureStat.totalDurationMs += record.durationMs || 0
+
+    // byModel：configId × modelId × 日期（饼图用）
+    if (!store.byModel[configId]) store.byModel[configId] = {}
+    const mid = record.modelId || 'unknown'
+    if (!store.byModel[configId][mid]) store.byModel[configId][mid] = {}
+    const ms = store.byModel[configId][mid][day] ?? { count: 0, total: 0 }
+    ms.count += 1
+    ms.total += record.total_tokens || 0
+    store.byModel[configId][mid][day] = ms
+
+    // 触发响应式（整体替换引用）
+    usageByConfig.value = { ...store }
+
+    // 防抖持久化：5 秒内不再有新 usage 才写入
     if (_usageSaveTimer) clearTimeout(_usageSaveTimer)
     _usageSaveTimer = setTimeout(async () => {
       _usageSaveTimer = null
       try {
-        await setMeta('aiTokenUsage', totalTokens.value)
+        // ponytail: usageByConfig 是 Vue reactive，深层全是 proxy，toPlain(structuredClone(toRaw)) 剥不净深层。
+        // 用量是纯数字数据，JSON 往返安全可靠地剥离所有 proxy，再交 setAIUsage 跟随缓存策略落盘。
+        const plain = JSON.parse(JSON.stringify(usageByConfig.value)) as UsageStore
+        await setAIUsage(plain)
       } catch {
         // 持久化失败不影响功能
       }
     }, 5000)
   }
 
-  /** 立即持久化 token 用量（防抖窗口内关闭页面时调用） */
+  /** 立即持久化用量（防抖窗口内关闭页面时调用） */
   const flushUsage = async () => {
     if (_usageSaveTimer) {
       clearTimeout(_usageSaveTimer)
       _usageSaveTimer = null
     }
     try {
-      await setMeta('aiTokenUsage', totalTokens.value)
+      const plain = JSON.parse(JSON.stringify(usageByConfig.value)) as UsageStore
+      await setAIUsage(plain)
     } catch {
       // 持久化失败不影响功能
     }
   }
 
-  // 页面关闭时 flush 未持久化的 token 用量
+  /** 删除某配置的全部用量（配置删除时联动） */
+  const deleteUsage = (configId: string) => {
+    const store = usageByConfig.value
+    if (!store.byConfig[configId] && !store.byModel[configId]) return
+    const next: UsageStore = {
+      byConfig: { ...store.byConfig },
+      byModel: { ...store.byModel },
+    }
+    delete next.byConfig[configId]
+    delete next.byModel[configId]
+    usageByConfig.value = next
+    flushUsage()
+  }
+
+  /** 聚合一组日期桶为 UsageDetail。todayBucket 为今日桶，allBuckets 为全部日期桶（含今日）。 */
+  const aggregateBuckets = (todayBucket: DailyBucket, allBuckets: DailyBucket[]): UsageDetail => {
+    const totalBucket = emptyBucket()
+    for (const bucket of allBuckets) {
+      FEATURES.forEach(f => {
+        const src = bucket[f] ?? emptyStat()
+        totalBucket[f].count += src.count
+        totalBucket[f].prompt += src.prompt
+        totalBucket[f].completion += src.completion
+        totalBucket[f].total += src.total
+        totalBucket[f].totalDurationMs += src.totalDurationMs
+      })
+    }
+
+    const sumStat = (b: DailyBucket): FeatureStat => {
+      const s = emptyStat()
+      FEATURES.forEach(f => {
+        const src = b[f] ?? emptyStat()
+        s.count += src.count
+        s.prompt += src.prompt
+        s.completion += src.completion
+        s.total += src.total
+        s.totalDurationMs += src.totalDurationMs
+      })
+      return s
+    }
+    const todayStat = sumStat(todayBucket)
+    const totalStat = sumStat(totalBucket)
+    const avgDurationMs = totalStat.count > 0 ? Math.round(totalStat.totalDurationMs / totalStat.count) : 0
+
+    return {
+      today: todayStat,
+      total: totalStat,
+      byFeature: { today: todayBucket, total: totalBucket },
+      avgDurationMs,
+      hasData: totalStat.count > 0,
+    }
+  }
+
+  /** 聚合某配置的用量明细：今日 / 总计 / 按功能拆分 / 平均响应时间 */
+  const getUsageDetail = (configId: string): UsageDetail => {
+    const days = usageByConfig.value.byConfig[configId] ?? {}
+    const today = todayKey()
+    const todayBucket = days[today] ?? emptyBucket()
+    return aggregateBuckets(todayBucket, Object.values(days))
+  }
+
+  /** 聚合所有配置的用量明细（全局） */
+  const getTotalUsageDetail = (): UsageDetail => {
+    const today = todayKey()
+    const todayBucket = emptyBucket()
+    const allBuckets: DailyBucket[] = []
+    for (const days of Object.values(usageByConfig.value.byConfig)) {
+      if (!days) continue
+      const tb = days[today]
+      if (tb) {
+        FEATURES.forEach(f => {
+          const src = tb[f] ?? emptyStat()
+          todayBucket[f].count += src.count
+          todayBucket[f].prompt += src.prompt
+          todayBucket[f].completion += src.completion
+          todayBucket[f].total += src.total
+          todayBucket[f].totalDurationMs += src.totalDurationMs
+        })
+      }
+      allBuckets.push(...Object.values(days))
+    }
+    return aggregateBuckets(todayBucket, allBuckets)
+  }
+
+  /** 把 YYYY-MM-DD 转为 Date（本地 00:00） */
+  const parseDate = (key: string): Date => {
+    const [y, m, d] = key.split('-').map(Number)
+    return new Date(y, (m ?? 1) - 1, d ?? 1)
+  }
+  /** 枚举 start..end（含）的所有 YYYY-MM-DD */
+  const enumDates = (start: string, end: string): string[] => {
+    const out: string[] = []
+    const d = parseDate(start)
+    const last = parseDate(end)
+    while (d <= last) {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      out.push(`${y}-${m}-${day}`)
+      d.setDate(d.getDate() + 1)
+    }
+    return out
+  }
+
+  /**
+   * 取时间范围内的图表数据。
+   * - 饼图：范围内 byModel 按 modelId 汇总
+   * - 趋势：按天展示（1天/3天/多天均按天，不做小时粒度——纯客户端遍历按天最省）
+   * configId='__all' 或省略 = 全局；否则单配置
+   */
+  const getRangeData = (start: string, end: string, configId: string): RangeData => {
+    const store = usageByConfig.value
+    const isAll = configId === '__all__'
+    const cids = isAll ? Object.keys(store.byConfig) : [configId]
+    const dates = enumDates(start, end)
+
+    // ---- 饼图：byModel 按 modelId 汇总 ----
+    const pieMap = new Map<string, { count: number; total: number }>()
+    for (const cid of cids) {
+      const models = store.byModel[cid]
+      if (!models) continue
+      for (const [mid, dayMap] of Object.entries(models)) {
+        if (!dayMap) continue
+        for (const date of dates) {
+          const s = dayMap[date]
+          if (!s) continue
+          const acc = pieMap.get(mid) ?? { count: 0, total: 0 }
+          acc.count += s.count
+          acc.total += s.total
+          pieMap.set(mid, acc)
+        }
+      }
+    }
+    const modelPie = Array.from(pieMap.entries())
+      .map(([name, v]) => ({ name, count: v.count, total: v.total }))
+      .filter(x => x.count > 0)
+
+    // ---- 趋势：按天 ----
+    const trend = dates.map(date => {
+      let count = 0, total = 0
+      for (const cid of cids) {
+        const bucket = store.byConfig[cid]?.[date]
+        if (bucket) {
+          FEATURES.forEach(f => {
+            const s = bucket[f] ?? emptyStat()
+            count += s.count
+            total += s.total
+          })
+        }
+      }
+      return { label: date.slice(5), count, total }
+    })
+
+    return { modelPie, trend }
+  }
+
+  // 页面隐藏/关闭时 flush 未持久化的 token 用量
+  // ponytail: beforeunload 的 async 不可靠；visibilitychange（hidden 时）时机更早，
+  //           pagehide 在卸载时兜底。对齐 interviewStore 的做法。
   if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-      if (_usageSaveTimer) flushUsage()
+    const onVisibility = () => { if (document.hidden) flushUsage() }
+    window.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', flushUsage)
+    window.addEventListener('beforeunload', flushUsage)
+    onScopeDispose(() => {
+      window.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', flushUsage)
+      window.removeEventListener('beforeunload', flushUsage)
     })
   }
 
@@ -278,6 +613,21 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
         // 不自动激活第一个（用户可能已主动停用所有）
         activeConfigId.value = null
       }
+      // 重新加载用量数据（跟随缓存策略）
+      try {
+        const saved = await getAIUsage<UsageStore>()
+        if (saved && typeof saved === 'object' && 'byConfig' in saved) {
+          usageByConfig.value = pruneOldUsage(saved, 12)
+        } else if (saved) {
+          // 旧结构，迁移
+          const oldByConfig = saved as unknown as Record<string, Record<string, DailyBucket>>
+          usageByConfig.value = pruneOldUsage({ byConfig: oldByConfig, byModel: {} }, 12)
+        } else {
+          usageByConfig.value = emptyUsageStore()
+        }
+      } catch {
+        // 用量加载失败不影响主流程
+      }
     } catch (e) {
       console.error('[aiConfigStore] reloadFromStorage 失败:', e)
     }
@@ -289,9 +639,13 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     activeConfig,
     hasConfigs,
     ready,
-    totalTokens,
-    addUsage,
+    usageByConfig,
+    recordUsage,
     flushUsage,
+    getUsageDetail,
+    getTotalUsageDetail,
+    getRangeData,
+    deleteUsage,
     addConfig,
     updateConfig,
     deleteConfig,

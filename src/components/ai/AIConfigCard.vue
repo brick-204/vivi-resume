@@ -20,6 +20,9 @@
         </n-tag>
       </div>
       <div v-if="!selectable" class="card__actions">
+        <button class="action-btn" title="流量详情" @click.stop="$emit('usage')">
+          <Icon icon="mdi:chart-bar" :width="16" />
+        </button>
         <button v-if="isActive" class="action-btn action-btn--deactivate" title="停用" @click="$emit('deactivate')">
           <Icon icon="mdi:close-circle-outline" :width="16" />
           <span>停用</span>
@@ -86,6 +89,7 @@ const emit = defineEmits<{
   'set-active': []
   deactivate: []
   'toggle-select': []
+  usage: []
 }>()
 
 const onCardClick = () => {

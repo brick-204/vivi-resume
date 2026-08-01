@@ -189,7 +189,7 @@ export interface StreamChatOptions {
   signal?: AbortSignal
   /** 连接建立、首个 chunk 到达时的回调（用于更新 UI 状态） */
   onConnected?: () => void
-  /** token 用量回调（每次续写请求单独上报） */
+  /** token 用量回调（整次 streamChat 调用合并上报一次：续写期间 completion 累加，prompt 取最后一次避免历史重复计算） */
   onUsage?: (usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number }) => void
   /** 单次请求最大生成 token 数（建议 4096，配合自动续写兜底） */
   maxTokens?: number
@@ -197,6 +197,37 @@ export interface StreamChatOptions {
   continuationPrompt?: string
   /** 是否验证并清洗续写拼接点（针对 JSON/结构化输出），清理重复内容、代码块标记等 */
   validateSplice?: boolean
+}
+
+/**
+ * 粗估一段文本的 token 数。
+ * ponytail: 中英文混合近似 1 token ≈ 2 字符（中文偏保守、英文偏多，均值可用）。
+ * 仅在服务商流式不返回 usage 时兜底，非精确值。
+ */
+function estimateTokens(text: string): number {
+  if (!text) return 0
+  return Math.ceil(text.length / 2)
+}
+
+/** 累加 messages 的输入 token 估算（content 可能是 string 或多模态数组） */
+function estimatePromptTokens(messages: ChatMessage[]): number {
+  let total = 0
+  for (const m of messages) {
+    if (typeof m.content === 'string') {
+      total += estimateTokens(m.content)
+    } else if (Array.isArray(m.content)) {
+      for (const part of m.content) {
+        if (part && typeof part === 'object' && 'text' in part && typeof part.text === 'string') {
+          total += estimateTokens(part.text)
+        } else {
+          // 图片等非文本部分，按固定开销估
+          total += 50
+        }
+      }
+    }
+    total += 4  // 每条消息的角色/分隔符开销
+  }
+  return total
 }
 
 /**
@@ -224,6 +255,10 @@ export async function streamChat(
   let preContinuationLength = 0        // 续写前的 accumulatedText 长度（供拼接验证使用）
   let hasConnected = false              // onConnected 仅首次触发
   let wasTruncated = false              // 是否因续写次数上限被截断
+  let usageReported = false             // 服务商是否在流中返回过真实 usage
+  // ponytail: 续写期间聚合 usage——completion 累加，prompt 取最后一次（避免续写消息累积重复算前文）
+  let aggPromptTokens = 0
+  let aggCompletionTokens = 0
 
   for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
     // ---- 发起请求 ----
@@ -241,6 +276,7 @@ export async function streamChat(
           model: config.modelId,
           messages: conversationMessages,
           stream: true,
+          stream_options: { include_usage: true },  // 请求流式 usage（OpenAI 及多数兼容服务商支持）
           temperature: 0.7,
           ...(maxTokens ? { max_tokens: maxTokens } : {}),
         }),
@@ -330,8 +366,11 @@ export async function streamChat(
               if (choice?.finish_reason) {
                 finishReason = choice.finish_reason
               }
-              if (parsed?.usage && onUsage) {
-                onUsage(parsed.usage)
+              if (parsed?.usage) {
+                // 续写期间累积，循环结束后合并回调一次（见 S1：避免请求数/token 虚高）
+                aggPromptTokens = parsed.usage.prompt_tokens ?? aggPromptTokens
+                aggCompletionTokens += parsed.usage.completion_tokens ?? 0
+                usageReported = true
               }
             } catch {
               // 单行 JSON 解析失败，跳过
@@ -392,6 +431,27 @@ export async function streamChat(
 
     // 记录续写前的文本长度，供下轮拼接验证使用
     preContinuationLength = accumulatedText.length
+  }
+
+  // ponytail: 兜底——若服务商全程未返回流式 usage（不认 include_usage 或无此字段），
+  // 用客户端估算补一次，保证流量监控总有数据（非精确值）
+  if (onUsage) {
+    if (usageReported) {
+      // 合并续写期间累积的 usage，整次调用只回调一次
+      onUsage({
+        prompt_tokens: aggPromptTokens,
+        completion_tokens: aggCompletionTokens,
+        total_tokens: aggPromptTokens + aggCompletionTokens,
+      })
+    } else {
+      const promptTokens = estimatePromptTokens(conversationMessages)
+      const completionTokens = estimateTokens(accumulatedText)
+      onUsage({
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: promptTokens + completionTokens,
+      })
+    }
   }
 
   return { wasTruncated, finalText: accumulatedText }

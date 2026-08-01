@@ -294,6 +294,7 @@ const handleStartScan = async () => {
   const messages = buildMessages('scan', resumeText, jdText.value.trim())
 
   try {
+    const t0 = performance.now()
     const result = await streamChat(
       props.config,
       messages,
@@ -304,7 +305,12 @@ const handleStartScan = async () => {
       {
         signal: abortController.signal,
         onUsage: (usage) => {
-          aiConfigStore.addUsage(usage)
+          aiConfigStore.recordUsage(props.config!.id, {
+            ...usage,
+            durationMs: performance.now() - t0,
+            feature: 'resume',
+            modelId: props.config!.modelId,
+          })
         },
         maxTokens: 4096,
       },
