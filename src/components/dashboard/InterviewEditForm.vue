@@ -1,5 +1,5 @@
 <template>
-  <div class="interview-edit-form">
+  <div class="interview-edit-form" ref="rootRef">
     <!-- 公司信息区 -->
     <div class="form-section">
       <div class="form-section__title form-section__title--collapsible" @click="companyCollapsed = !companyCollapsed">
@@ -125,7 +125,7 @@
 
     <!-- 轮次区 -->
     <div class="form-section">
-      <div class="form-section__title">
+      <div class="form-section__title form-section__title--sticky">
         <Icon icon="mdi:format-list-numbered" :width="16" />
         <span>面试轮次</span>
         <n-button size="small" quaternary class="form-section__action" @click="addRound">
@@ -140,30 +140,44 @@
         还没有面试轮次，点击「添加轮次」开始记录
       </div>
 
-      <div class="form-rounds">
-        <InterviewRoundEditor
-          v-for="(r, i) in form.rounds"
-          :key="r.id"
-          :round="r"
-          :index="i"
-          @update:round="onRoundUpdate(i, $event)"
-          @remove="onRoundRemove(i)"
-        />
-      </div>
+      <!-- ponytail: class 直接挂 draggable——它渲染为 flex 容器，gap 作用于内部轮次卡 -->
+      <draggable
+        v-model="sortableRounds"
+        class="form-rounds"
+        item-key="id"
+        handle=".round-editor__drag"
+        :animation="200"
+        ghost-class="round-editor--ghost"
+        :scroll="scrollContainer"
+        :scroll-sensitivity="80"
+        :scroll-speed="10"
+      >
+        <template #item="{ element: r, index: i }">
+          <InterviewRoundEditor
+            :round="r"
+            :index="i"
+            @update:round="onRoundUpdate(i, $event)"
+            @remove="onRoundRemove(i)"
+            @duplicate="onRoundDuplicate(i)"
+          />
+        </template>
+      </draggable>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import { NInput, NSelect, NButton } from 'naive-ui'
+import draggable from 'vuedraggable'
 import type { SelectOption } from 'naive-ui'
 import type { Interview, InterviewStatus } from '@/types/interview'
 import { createEmptyRound } from '@/types/interview'
+import { generateId } from '@/types/resume'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useResumeStore } from '@/stores/resumeStore'
-import { message as naiveMessage } from '@/plugins/naive-ui'
+import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import InterviewRoundEditor from './InterviewRoundEditor.vue'
 
 const props = defineProps<{ interview: Interview }>()
@@ -216,6 +230,19 @@ const resumeOptions = computed(() =>
   })),
 )
 
+// ponytail: draggable v-model 双向绑定——get 透传 form.rounds，set 拖拽后整体写回
+const sortableRounds = computed({
+  get: () => form.value.rounds,
+  set: (rounds) => { form.value = { ...form.value, rounds } },
+})
+
+// ponytail: 拖拽自动滚动——向上 closest 找到外层滚动容器 .dashboard__content 传给 SortableJS
+const rootRef = ref<HTMLElement | null>(null)
+const scrollContainer = ref<HTMLElement | undefined>(undefined)
+onMounted(() => {
+  scrollContainer.value = rootRef.value?.closest('.dashboard__content') ?? undefined
+})
+
 function onFieldUpdate<K extends keyof Interview>(key: K, value: Interview[K]) {
   form.value = { ...form.value, [key]: value }
 }
@@ -231,8 +258,33 @@ function onRoundUpdate(index: number, round: Interview['rounds'][number]) {
 }
 
 function onRoundRemove(index: number) {
-  const rounds = form.value.rounds.filter((_, i) => i !== index)
+  const round = form.value.rounds[index]
+  dialog.warning({
+    title: '删除面试轮次',
+    content: `确定要删除「第 ${index + 1} 轮 · ${round.roundType || '未命名轮次'}」吗？`,
+    positiveText: '删除',
+    negativeText: '取消',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
+    onPositiveClick: () => {
+      const rounds = form.value.rounds.filter((_, i) => i !== index)
+      form.value = { ...form.value, rounds }
+    },
+  })
+}
+
+function onRoundDuplicate(index: number) {
+  // ponytail: 深拷贝该轮 + 新 id + 重置时间戳，插到原轮后面（复制插其后更直觉）
+  const now = new Date().toISOString()
+  const copy: Interview['rounds'][number] = {
+    ...JSON.parse(JSON.stringify(form.value.rounds[index])),
+    id: generateId(),
+    createdAt: now,
+    updatedAt: now,
+  }
+  const rounds = form.value.rounds.slice()
+  rounds.splice(index + 1, 0, copy)
   form.value = { ...form.value, rounds }
+  naiveMessage.success('已复制轮次')
 }
 
 // 暴露给父组件（InterviewDetail edit header 的保存按钮）触发
@@ -251,9 +303,14 @@ defineExpose({ save })
 
 <style lang="scss" scoped>
 .form-section {
+  // ponytail: 对齐只读态 .detail-section——实色卡片浮于面板背景，避免编辑态文字透底发虚
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-lg;
+  padding: $spacing-lg $spacing-xl;
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: $spacing-md;
   margin-bottom: $spacing-md;
 
   &:last-child {
@@ -301,12 +358,24 @@ defineExpose({ save })
   &__action {
     margin-left: auto;
   }
+
+  // ponytail: 轮次标题吸顶——top 跟随 InterviewDetail header 高度（--detail-header-h 由父级测量写入）。
+  // 负 margin + 等宽 padding 拉满卡片宽度，实色背景覆盖下方滚上来的内容，底部 border 分隔
+  &__title--sticky {
+    position: sticky;
+    top: var(--detail-header-h, 0px);
+    z-index: 5;
+    margin: (-$spacing-lg) (-$spacing-xl) 0;
+    padding: $spacing-lg $spacing-xl;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+  }
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: $spacing-sm;
+  gap: $spacing-md;
 
   @include tablet {
     grid-template-columns: 1fr;
@@ -316,20 +385,28 @@ defineExpose({ save })
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 
   &--full {
     grid-column: 1 / -1;
   }
 
   label {
-    font-size: $font-size-xs;
-    color: $text-light;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-secondary;
   }
 
   &__required {
     color: $error-color;
   }
+}
+
+// ponytail: Outfit 可变字体 weight 400 笔画偏细，与中文回退字体粗细不一致致发虚；
+// 编辑表单内输入框正文提到 600 对齐视觉粗细（方案 C：更实，仅作用于面试编辑页）
+:deep(.n-input .n-input__input-el),
+:deep(.n-input .n-input__textarea-el) {
+  font-weight: 600;
 }
 
 .form-empty {
@@ -344,6 +421,6 @@ defineExpose({ save })
 .form-rounds {
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: 12px;
 }
 </style>

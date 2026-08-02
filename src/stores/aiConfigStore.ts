@@ -89,6 +89,14 @@ function emptyUsageStoreTop(): UsageStore {
 // ponytail: 4 个功能固定枚举，遍历用此常量而非 Object.keys（避免与 FeatureStat 字段混淆）
 const FEATURES: UsageFeature[] = ['consult', 'resume', 'interview', 'pet']
 
+// 功能模块中文名（与 UsageDetailPanel 的 featureSections 对齐）
+const FEATURE_LABELS: Record<UsageFeature, string> = {
+  consult: 'AI 咨询',
+  resume: '简历功能',
+  interview: '面试功能',
+  pet: '桌宠功能',
+}
+
 /** 清除超过 keepMonths 个月的旧日期桶（返回新 store）。日期 YYYY-MM-DD 字典序=日期序，直接比较。 */
 function pruneOldUsage(store: UsageStore, keepMonths: number): UsageStore {
   const cutoff = new Date()
@@ -193,8 +201,16 @@ export interface UsageDetail {
 export interface RangeData {
   /** 饼图：按 modelId 汇总 */
   modelPie: { name: string; count: number; total: number }[]
-  /** 趋势：每个时间点 */
-  trend: { label: string; count: number; total: number }[]
+  /** 饼图：按功能模块汇总 */
+  featurePie: { name: string; count: number; total: number }[]
+  /** 趋势：每个时间点（含各功能明细，供拆分趋势图叠加功能线） */
+  trend: {
+    label: string
+    count: number
+    total: number
+    /** 各功能该天的值，key = UsageFeature */
+    features: Record<UsageFeature, { count: number; total: number }>
+  }[]
 }
 
 export const useAIConfigStore = defineStore('aiConfig', () => {
@@ -732,8 +748,35 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       .map(([name, v]) => ({ name, count: v.count, total: v.total }))
       .filter(x => x.count > 0)
 
-    // ---- 趋势：按天 ----
+    // ---- 功能分布饼图：byConfig 按 feature 汇总 ----
+    const featureMap = new Map<UsageFeature, { count: number; total: number }>(
+      FEATURES.map(f => [f, { count: 0, total: 0 }])
+    )
+    for (const cid of cids) {
+      for (const date of dates) {
+        const bucket = store.byConfig[cid]?.[date]
+        if (!bucket) continue
+        FEATURES.forEach(f => {
+          const s = bucket[f]
+          if (!s) return
+          const acc = featureMap.get(f)!
+          acc.count += s.count
+          acc.total += s.total
+        })
+      }
+    }
+    const featurePie = FEATURES
+      .map(f => ({ name: FEATURE_LABELS[f], count: featureMap.get(f)!.count, total: featureMap.get(f)!.total }))
+      .filter(x => x.count > 0)
+
+    // ---- 趋势：按天（含各功能明细） ----
     const trend = dates.map(date => {
+      const features = {
+        consult: { count: 0, total: 0 },
+        resume: { count: 0, total: 0 },
+        interview: { count: 0, total: 0 },
+        pet: { count: 0, total: 0 },
+      } as Record<UsageFeature, { count: number; total: number }>
       let count = 0, total = 0
       for (const cid of cids) {
         const bucket = store.byConfig[cid]?.[date]
@@ -742,13 +785,15 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
             const s = bucket[f] ?? emptyStat()
             count += s.count
             total += s.total
+            features[f].count += s.count
+            features[f].total += s.total
           })
         }
       }
-      return { label: date.slice(5), count, total }
+      return { label: date.slice(5), count, total, features }
     })
 
-    return { modelPie, trend }
+    return { modelPie, featurePie, trend }
   }
 
   // 页面隐藏/关闭时 flush 未持久化的 token 用量

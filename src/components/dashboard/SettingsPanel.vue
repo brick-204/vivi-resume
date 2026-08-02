@@ -8,8 +8,11 @@
       </h2>
     </div>
 
+  <div class="settings-layout">
+    <div class="settings-layout__main">
+
     <!-- 本地目录绑定 -->
-    <div class="settings-section">
+    <div class="settings-section" data-toc="directory">
       <h3 class="settings-section__title">
         <Icon icon="mdi:folder-outline" :width="20" />
         本地目录绑定
@@ -92,7 +95,7 @@
     </div>
 
     <!-- 回收设置（回收站 + 回收箱） -->
-    <div class="settings-section">
+    <div class="settings-section" data-toc="recycle">
       <h3 class="settings-section__title">
         <Icon icon="mdi:delete-clock-outline" :width="20" />
         回收设置
@@ -143,7 +146,7 @@
     </div>
 
     <!-- 桌宠设置 -->
-    <div class="settings-section">
+    <div class="settings-section" data-toc="pet">
       <h3 class="settings-section__title">
         <Icon icon="mdi:cat" :width="20" />
         桌宠设置
@@ -274,6 +277,48 @@
       </div>
     </div>
 
+    <!-- 面试提示 -->
+    <div class="settings-section" data-toc="interview">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:briefcase-clock-outline" :width="20" />
+        面试提示
+      </h3>
+      <p class="settings-section__desc">
+        当有进行中的面试且下一面在 3 天内时，在指定位置显示倒计时提醒。临场（≤24 小时）会变红脉冲提示。
+      </p>
+      <div class="settings-section__row">
+        <span class="settings-section__label">开启面试提示</span>
+        <NSwitch v-model:value="bannerEnabled" />
+      </div>
+      <div class="settings-section__row" :class="{ 'is-disabled': !bannerEnabled }">
+        <span class="settings-section__label">显示位置</span>
+        <NSelect
+          v-model:value="bannerPosition"
+          :options="bannerPositionOptions"
+          :disabled="!bannerEnabled"
+          size="small"
+          style="width: 180px"
+        />
+      </div>
+    </div>
+
+    </div>
+
+    <!-- 小目录（TOC）：宽屏右侧 sticky 竖排，窄屏折成顶部横向条 -->
+    <nav class="settings-toc" aria-label="设置目录">
+      <button
+        v-for="item in tocItems"
+        :key="item.id"
+        type="button"
+        class="settings-toc__item"
+        :class="{ 'is-active': activeToc === item.id }"
+        @click="scrollToSection(item.id)"
+      >
+        <Icon :icon="item.icon" :width="16" />
+        <span class="settings-toc__label">{{ item.label }}</span>
+      </button>
+    </nav>
+  </div>
     <!-- 添加自定义桌宠弹窗 -->
     <n-modal
       :show="showAddPetModal"
@@ -409,11 +454,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
 import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
+import type { InterviewBannerPosition } from '@/utils/storageAdapter'
 import { DESKTOP_PETS } from '@/config/desktopPets'
 import { parsePetFile, type ParsedPet } from '@/utils/petUpload'
 import { message as naiveMessage } from '@/plugins/naive-ui'
@@ -425,6 +471,50 @@ const resumeStore = useResumeStore()
 const allPets = computed(() => [...DESKTOP_PETS, ...settingsStore.customPets])
 const showUnbindConfirm = ref(false)
 const copyToBrowser = ref(false)
+
+// 设置小目录（TOC）：4 个分区，点击平滑滚动，IntersectionObserver 高亮当前
+const tocItems = [
+  { id: 'directory', label: '本地目录', icon: 'mdi:folder-outline' },
+  { id: 'recycle', label: '回收设置', icon: 'mdi:delete-clock-outline' },
+  { id: 'pet', label: '桌宠设置', icon: 'mdi:cat' },
+  { id: 'interview', label: '面试提示', icon: 'mdi:briefcase-clock-outline' },
+] as const
+const activeToc = ref<string>('directory')
+let tocObserver: IntersectionObserver | null = null
+
+const scrollToSection = (id: string) => {
+  // 点击立即高亮，不等 observer（窄屏 sticky TOC 遮顶时 observer 可能漏判）
+  activeToc.value = id
+  const el = document.querySelector<HTMLElement>(`.settings-section[data-toc="${id}"]`)
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+onMounted(() => {
+  // ponytail: IntersectionObserver 高亮当前可视分区；rootMargin 让上半屏的 section 优先命中
+  const sections = Array.from(
+    document.querySelectorAll<HTMLElement>('.settings-section[data-toc]')
+  )
+  tocObserver = new IntersectionObserver(
+    (entries) => {
+      // 取最靠上且仍可见的那个
+      const visible = entries
+        .filter(e => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      if (visible[0]) {
+        const id = (visible[0].target as HTMLElement).dataset.toc
+        if (id) activeToc.value = id
+      }
+    },
+    // ponytail: 不指定 root 默认视口；当前 .dashboard__content 填满视口故等价，若布局改为非满屏滚动容器需显式传 root
+    { rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+  )
+  sections.forEach(s => tocObserver!.observe(s))
+})
+
+onBeforeUnmount(() => {
+  tocObserver?.disconnect()
+  tocObserver = null
+})
 
 const handlePetChange = (petId: string) => {
   settingsStore.updateDesktopPetId(petId)
@@ -463,6 +553,22 @@ const idleInterval = computed({
     settingsStore.updateIdleIntervalMinutes(val)
   },
 })
+
+// 面试提示横幅：开关 + 位置
+const bannerEnabled = computed({
+  get: () => settingsStore.interviewBannerEnabled,
+  set: (val: boolean) => { settingsStore.updateInterviewBannerEnabled(val) },
+})
+const bannerPosition = computed({
+  get: () => settingsStore.interviewBannerPosition,
+  set: (val: InterviewBannerPosition) => { settingsStore.updateInterviewBannerPosition(val) },
+})
+const bannerPositionOptions: { label: string; value: InterviewBannerPosition }[] = [
+  { label: '左下角', value: 'bottom-left' },
+  { label: '右下角', value: 'bottom-right' },
+  { label: '顶部横幅', value: 'top-bar' },
+  { label: '侧边栏顶部', value: 'nav-top' },
+]
 
 const isCustomPet = (id: string) => id.startsWith('custom-')
 
@@ -634,10 +740,120 @@ const handleResync = () => {
 
 <style lang="scss" scoped>
 .settings-panel {
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
+}
+
+// 两栏布局：主内容 + 右侧 TOC
+.settings-layout {
+  display: flex;
+  gap: $spacing-xl;
+  align-items: flex-start;
+}
+
+.settings-layout__main {
+  flex: 1;
+  min-width: 0; // ponytail: 允许收缩，防止内容溢出挤掉 TOC
   max-width: 640px;
   display: flex;
   flex-direction: column;
   gap: $spacing-xl;
+}
+
+// 小目录（TOC）
+.settings-toc {
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+  padding: $spacing-sm 0;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-xs $spacing-sm;
+    border: none;
+    background: transparent;
+    border-left: 2px solid transparent;
+    border-radius: 0 $radius-sm $radius-sm 0;
+    color: $text-secondary;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    transition: all $transition-base;
+    font-family: $font-family;
+    text-align: left;
+
+    &:hover {
+      color: $text-primary;
+      background: var(--bg-glass-hover);
+    }
+
+    &.is-active {
+      color: $primary-color;
+      border-left-color: $primary-color;
+      background: rgba($primary-color, 0.08);
+      font-weight: 600;
+    }
+  }
+
+  &__label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// 锚点跳转时贴顶留呼吸空间
+.settings-section[data-toc] {
+  scroll-margin-top: $spacing-md;
+}
+
+// 窄屏（≤1024px）：TOC 折成顶部横向标签条，主内容全宽
+@include tablet {
+  .settings-layout {
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  // sticky TOC 条吸顶会遮住 section 顶部，跳转时多留一截
+  .settings-section[data-toc] {
+    scroll-margin-top: 60px;
+  }
+
+  .settings-layout__main {
+    max-width: none;
+  }
+
+  .settings-toc {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    padding: $spacing-sm 0;
+    order: -1; // ponytail: 窄屏折顶部——DOM 里 TOC 在 main 之后，用 order 排到前面
+    background: $bg-secondary; // ponytail: 吸顶时遮住下方滚动内容，避免穿透
+
+    &__item {
+      border-left: none;
+      border-bottom: 2px solid transparent;
+      border-radius: $radius-sm;
+      padding: $spacing-xs $spacing-sm;
+
+      &.is-active {
+        border-left: none;
+        border-bottom-color: $primary-color;
+      }
+    }
+  }
 }
 
 // 面板头部（复用 AISettingsPanel 样式）

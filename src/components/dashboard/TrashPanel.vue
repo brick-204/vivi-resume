@@ -234,7 +234,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
-import { dialog, message } from '@/plugins/naive-ui'
+import { dialog } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
 const store = useResumeStore()
@@ -456,19 +456,14 @@ const confirmPurgePet = async () => {
 const handleEmptyTrash = () => {
   showEmptyTrashModal.value = true
 }
-const confirmEmptyTrash = async () => {
+// 四个 store 均先清内存、落盘 fire-and-forget（各自 store 内 catch），UI 立即关闭
+const confirmEmptyTrash = () => {
   if (actionPending.value) return
-  actionPending.value = true
-  try {
-    await Promise.all([store.emptyTrash(), settingsStore.emptyTrashPets(), interviewStore.emptyTrash(), aiConfigStore.emptyTrash()])
-  } catch (e) {
-    console.error('[TrashPanel] emptyTrash:', e)
-    // 三路并发写盘，部分失败会留下跨 store 不一致——提示用户重试，避免误以为已全部清空
-    message.error('部分回收站清空失败，请重试')
-  } finally {
-    showEmptyTrashModal.value = false
-    actionPending.value = false
-  }
+  store.emptyTrash()
+  settingsStore.emptyTrashPets()
+  interviewStore.emptyTrash()
+  aiConfigStore.emptyTrash()
+  showEmptyTrashModal.value = false
 }
 </script>
 

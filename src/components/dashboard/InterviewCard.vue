@@ -35,6 +35,15 @@
         </span>
       </div>
 
+      <!-- 下一面倒计时（仅面试中 + 有未来待面轮次） -->
+      <div v-if="nextRound" class="interview-card__countdown">
+        <div class="interview-card__countdown-label">
+          <Icon icon="mdi:timer-sand" :width="14" />
+          <span>下一面 · {{ nextRound.roundType }}</span>
+        </div>
+        <div class="interview-card__countdown-value">{{ countdownText }}</div>
+      </div>
+
       <!-- 关联简历 -->
       <div v-if="resumeTitle" class="interview-card__resume">
         <Icon icon="mdi:file-document-outline" :width="14" />
@@ -69,6 +78,7 @@
 import { computed } from 'vue'
 import type { Interview, InterviewStatus, RoundStatus } from '@/types/interview'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useNextRoundCountdown } from '@/composables/useNextRoundCountdown'
 import { Icon } from '@iconify/vue'
 
 const props = defineProps<{
@@ -149,6 +159,9 @@ const relativeTime = (iso: string): string => {
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`
   return `${Math.floor(diff / 86_400_000)}天前`
 }
+
+// 下一面倒计时：复用 useNextRoundCountdown composable（与面试横幅共享逻辑）
+const { nextRound, countdownText } = useNextRoundCountdown(() => props.interview)
 </script>
 
 <style lang="scss" scoped>
@@ -253,6 +266,35 @@ const relativeTime = (iso: string): string => {
     gap: $spacing-xs;
     font-size: $font-size-xs;
     color: $text-secondary;
+  }
+
+  // 下一面倒计时：橙色高亮（呼应「面试中」状态色 #f39c12），加粗强调
+  &__countdown {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $radius-md;
+    background: rgba(243, 156, 18, 0.12);
+    border: 1px solid rgba(243, 156, 18, 0.35);
+  }
+
+  &__countdown-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: #f39c12;
+  }
+
+  &__countdown-value {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: #e67e22;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
   }
 
   &__footer {

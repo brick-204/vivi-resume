@@ -31,6 +31,8 @@ export interface OfferEffectOptions {
   zIndex?: number
   /** 参与雨的公司名列表（触发时快照注入，组件据此预渲染 sprite） */
   companies?: string[]
+  /** 是否启用音效（默认 false；用户未设置偏好时弹提示让用户选择，记 localStorage） */
+  sound?: boolean
 }
 export type OfferEffectPhase = 'entering' | 'visible' | 'leaving' | 'finished'
 
@@ -123,6 +125,7 @@ export function clampOfferOptions(
     wind: clamp(o.wind ?? 0.06, -0.4, 0.4),
     zIndex: Math.round(clamp(o.zIndex ?? 2147483000, 0, 2147483647)),
     companies: o.companies && o.companies.length > 0 ? o.companies : undefined,
+    sound: o.sound ?? false,
   }
 }
 
@@ -135,6 +138,7 @@ const service = createEffectService({
   sequence: ['o', 'f', 'f', 'e', 'r'],
   seqTimeout: 1800, // 5 键稍长
   onMatch: () => showOfferEffect(),
+  hasSound: true,
 })
 
 export const active = service.active

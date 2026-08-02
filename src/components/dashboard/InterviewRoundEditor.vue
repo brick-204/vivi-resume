@@ -2,6 +2,13 @@
   <div class="round-editor">
     <div class="round-editor__header" @click="collapsed = !collapsed">
       <Icon
+        class="round-editor__drag"
+        icon="mdi:drag"
+        :width="18"
+        title="拖拽排序"
+        @click.stop
+      />
+      <Icon
         class="round-editor__chevron"
         :class="{ 'round-editor__chevron--collapsed': collapsed }"
         icon="mdi:chevron-down"
@@ -9,6 +16,17 @@
       />
       <span class="round-editor__title">第 {{ index + 1 }} 轮 · {{ roundTypeLabel }}</span>
       <span v-if="collapsed" class="round-editor__summary">{{ roundSummary }}</span>
+      <n-button
+        quaternary
+        size="tiny"
+        class="round-editor__copy"
+        title="复制此轮"
+        @click.stop="emit('duplicate')"
+      >
+        <template #icon>
+          <Icon icon="mdi:content-copy" :width="16" />
+        </template>
+      </n-button>
       <n-button
         quaternary
         size="tiny"
@@ -139,6 +157,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:round': [round: InterviewRound]
   remove: []
+  duplicate: []
 }>()
 
 const roundTypeOptions = [
@@ -195,13 +214,21 @@ function onScheduledAtUpdate(ts: number | null) {
 
 <style lang="scss" scoped>
 .round-editor {
-  border: 1px solid $border-glass;
+  // ponytail: 外层 .form-section 已是实色卡片，轮次卡用次级背景内嵌，避免卡片套卡片同色
+  border: 1px solid var(--border-color);
   border-radius: $radius-md;
-  padding: $spacing-lg $spacing-md;
-  background: $bg-glass;
+  padding: $spacing-lg;
+  background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
+
+  // ponytail: vuedraggable 拖拽占位——半透明 + 虚线边框
+  &--ghost {
+    opacity: 0.5;
+    border: 1px dashed $primary-color;
+    background: var(--bg-primary);
+  }
 
   &__header {
     display: flex;
@@ -215,6 +242,16 @@ function onScheduledAtUpdate(ts: number | null) {
 
     &:hover {
       color: $text-primary;
+    }
+  }
+
+  &__drag {
+    color: $text-light;
+    cursor: grab;
+    flex-shrink: 0;
+
+    &:active {
+      cursor: grabbing;
     }
   }
 
@@ -242,6 +279,14 @@ function onScheduledAtUpdate(ts: number | null) {
     white-space: nowrap;
   }
 
+  &__copy {
+    color: $text-light;
+
+    &:hover {
+      color: $primary-color;
+    }
+  }
+
   &__remove {
     color: $text-light;
 
@@ -263,16 +308,30 @@ function onScheduledAtUpdate(ts: number | null) {
   &__field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 
     &--full {
       grid-column: 1 / -1;
     }
 
     label {
-      font-size: $font-size-xs;
-      color: $text-light;
+      font-size: 13px;
+      font-weight: 600;
+      color: $text-secondary;
     }
   }
+
+  // ponytail: __body 包着 __grid + 3 个 full 字段，需自带 gap 否则 full 字段紧贴 grid
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+}
+
+// ponytail: 同 InterviewEditForm——Outfit weight 400 发虚，输入框正文提到 600（方案 C：更实）
+:deep(.n-input .n-input__input-el),
+:deep(.n-input .n-input__textarea-el) {
+  font-weight: 600;
 }
 </style>

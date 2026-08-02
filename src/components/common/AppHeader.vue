@@ -15,10 +15,18 @@
           <Icon icon="mdi:view-dashboard-outline" :width="16" />
           <span>控制台</span>
         </router-link>
+        <router-link
+          v-if="showEditorRight"
+          :to="{ path: '/dashboard', query: { tab: 'interviews' } }"
+          class="app-header__nav-tab"
+        >
+          <Icon icon="mdi:account-tie" :width="16" />
+          <span>我的面试</span>
+        </router-link>
       </nav>
     </div>
 
-    <!-- 中间：编辑模式简历名称 -->
+    <!-- 中间：编辑模式简历名称 / 非编辑模式滚动公告条 -->
     <div v-if="showEditorCenter" class="app-header__center">
       <input
         v-model="resumeTitle"
@@ -27,6 +35,18 @@
         @blur="emit('save-title')"
       />
       <span v-if="templateName" class="app-header__template-badge">{{ templateName }}</span>
+    </div>
+    <div v-else-if="!noticeDismissed" class="app-header__notice">
+      <div class="app-header__marquee" role="status" aria-live="polite">
+        <div class="app-header__marquee-track">
+          <span class="app-header__marquee-text">{{ noticeText }}</span>
+          <span class="app-header__marquee-text" aria-hidden="true">{{ noticeText }}</span>
+        </div>
+      </div>
+      <label class="app-header__notice-dismiss" :title="'勾选后不再提示'">
+        <input type="checkbox" v-model="noticeDismissed" />
+        <span>知道🌶️</span>
+      </label>
     </div>
 
     <!-- 右侧：编辑模式操作按钮 + 主题切换 -->
@@ -76,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { NDropdown } from 'naive-ui'
 import type { DropdownOption } from 'naive-ui'
 import { Icon } from '@iconify/vue'
@@ -112,6 +132,14 @@ const { soundEnabled, toggleSound } = useEasterEggSound()
 
 // ponytail: 稳定常量直接内联，无需 config 层
 const githubUrl = 'https://github.com/brick-204/vivi-resume'
+
+// 关闭挽留提示：浏览器拦截离开 = 后台仍在落盘，强行关闭可能丢数据
+const noticeText = '亲爱的用户，关闭或刷新页面时若浏览器弹窗挽留你，请一定要留下哦——后台正在为你保存数据，强行离开可能会丢失刚刚的修改～'
+
+// 已读勾选：localStorage 持久化，勾选后整块公告条不再渲染
+const NOTICE_DISMISSED_KEY = 'notice-close-warn-dismissed'
+const noticeDismissed = ref(localStorage.getItem(NOTICE_DISMISSED_KEY) === '1')
+watch(noticeDismissed, (v) => localStorage.setItem(NOTICE_DISMISSED_KEY, v ? '1' : '0'))
 
 // 下拉菜单展开状态（供 aria-expanded 使用）
 const aiHelpOpen = ref(false)
@@ -174,6 +202,11 @@ const onExportSelect = (key: string) => {
 </script>
 
 <style lang="scss" scoped>
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 .app-header {
   display: flex;
   align-items: center;
@@ -226,6 +259,80 @@ const onExportSelect = (key: string) => {
     align-items: center;
     gap: $spacing-md;
     justify-content: center;
+  }
+
+  // 公告区：滚动条 + 右侧「知道🌶️」勾选，整体占据 header 中间
+  &__notice {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    justify-content: center;
+  }
+
+  // 滚动公告条：CSS marquee 无依赖
+  &__marquee {
+    flex: 1;
+    min-width: 0;          // flex 子项默认 min-width:auto 会被 nowrap 文字撑破 border
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    max-width: 560px;
+    padding: 4px 12px;
+    border: 1px solid var(--notice-border, rgba(255, 167, 38, 0.5));
+    border-radius: $radius-full;
+    background: var(--notice-bg, rgba(255, 167, 38, 0.1));
+  }
+
+  // 仅 hover 公告条本身才暂停滚动，不波及 header 其他空白区
+  // （放外层：& = .app-header，避免嵌套内 & 拼成 __marquee__marquee-track）
+  &__marquee:hover &__marquee-track {
+    animation-play-state: paused;
+  }
+
+  &__marquee-track {
+    flex: 0 0 auto;        // 不压缩：按内容自然宽，translateX(-50%) 才能基于真实内容宽平移
+    width: max-content;
+    display: inline-flex;
+    white-space: nowrap;
+    animation: marquee-scroll 22s linear infinite;
+  }
+
+  // 无障碍：系统级"减少动态效果"时停止滚动
+  @media (prefers-reduced-motion: reduce) {
+    &__marquee-track { animation: none; }
+  }
+
+  &__marquee-text {
+    font-size: $font-size-sm;
+    color: var(--notice-text, #f57c00);
+    font-weight: $font-weight-semibold;
+    padding-right: 64px;  // 两段之间的间隔
+  }
+
+  &__notice-dismiss {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: $text-secondary;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+
+    input {
+      margin: 0;
+      cursor: pointer;
+    }
+  }
+
+  // 浅色模式：橙字在白底上加深，背景更明显
+  [data-theme="light"] &__marquee {
+    --notice-border: rgba(245, 124, 0, 0.45);
+    --notice-bg: rgba(255, 167, 38, 0.16);
+    --notice-text: #e65100;
   }
 
   // Apple 风格：导航栏透明背景，pill 形状标签

@@ -518,6 +518,50 @@ export async function setIdleIntervalMinutes(minutes: number): Promise<void> {
   }
 }
 
+/** 面试提示横幅位置 */
+export type InterviewBannerPosition = 'bottom-left' | 'bottom-right' | 'top-bar' | 'nav-top'
+
+/** 读取面试提示开关（默认开） */
+export async function getInterviewBannerEnabled(): Promise<boolean> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.interviewBannerEnabled as boolean) ?? true
+  }
+  return (await idb.getMeta<boolean>('interviewBannerEnabled')) ?? true
+}
+
+/** 写入面试提示开关 */
+export async function setInterviewBannerEnabled(enabled: boolean): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.interviewBannerEnabled = enabled
+    })
+  } else {
+    await idb.setMeta('interviewBannerEnabled', enabled)
+  }
+}
+
+/** 读取面试提示位置（默认左下角） */
+export async function getInterviewBannerPosition(): Promise<InterviewBannerPosition> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    const v = meta?.interviewBannerPosition as InterviewBannerPosition | undefined
+    return v ?? 'bottom-left'
+  }
+  return (await idb.getMeta<InterviewBannerPosition>('interviewBannerPosition')) ?? 'bottom-left'
+}
+
+/** 写入面试提示位置 */
+export async function setInterviewBannerPosition(position: InterviewBannerPosition): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.interviewBannerPosition = position
+    })
+  } else {
+    await idb.setMeta('interviewBannerPosition', position)
+  }
+}
+
 /** 读取休息提醒间隔分钟数（默认 25，下限 10） */
 export async function getRestReminderInterval(): Promise<number> {
   if (isDirectoryMode()) {

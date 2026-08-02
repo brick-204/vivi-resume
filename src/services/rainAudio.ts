@@ -20,7 +20,16 @@ export interface RainAudio {
   dispose: () => void
 }
 
-const RAIN_BASE_GAIN = 0.18
+/** 雨声参数：cutoff 越低越闷柔（细雨），baseGain 越低越轻 */
+export interface RainAudioOptions {
+  /** 低通截止频率 Hz（默认 800；细雨约 400） */
+  cutoff?: number
+  /** 基础音量（默认 0.18；细雨约 0.10） */
+  baseGain?: number
+}
+
+const DEFAULT_CUTOFF = 800
+const DEFAULT_BASE_GAIN = 0.18
 const THUNDER_BASE_GAIN = 0.5
 
 /** 生成 N 秒白噪声 buffer（1 通道） */
@@ -32,7 +41,9 @@ function createNoiseBuffer(ctx: AudioContext, seconds: number): AudioBuffer {
   return buf
 }
 
-export function createRainAudio(): RainAudio {
+export function createRainAudio(opts: RainAudioOptions = {}): RainAudio {
+  const cutoff = opts.cutoff ?? DEFAULT_CUTOFF
+  const baseGain = opts.baseGain ?? DEFAULT_BASE_GAIN
   let ctx: AudioContext | null = null
   let rainSource: AudioBufferSourceNode | null = null
   let rainGain: GainNode | null = null
@@ -51,15 +62,15 @@ export function createRainAudio(): RainAudio {
     if (!c || rainSource) return // 幂等：已在播
     if (c.state === 'suspended') c.resume().catch(() => {})
 
-    // 雨声链：source(loop) → lowpass(800Hz) → gain → destination
+    // 雨声链：source(loop) → lowpass(cutoff) → gain → destination
     rainSource = c.createBufferSource()
     rainSource.buffer = createNoiseBuffer(c, 2)
     rainSource.loop = true
     const lowpass = c.createBiquadFilter()
     lowpass.type = 'lowpass'
-    lowpass.frequency.value = 800
+    lowpass.frequency.value = cutoff
     rainGain = c.createGain()
-    rainGain.gain.value = currentRainGain * RAIN_BASE_GAIN
+    rainGain.gain.value = currentRainGain * baseGain
     rainSource.connect(lowpass).connect(rainGain).connect(c.destination)
     rainSource.start()
   }
@@ -68,7 +79,7 @@ export function createRainAudio(): RainAudio {
     currentRainGain = Math.max(0, Math.min(1, emissionMultiplier))
     if (rainGain && ctx) {
       // ponytail: 直接设值，不做 ramp——每帧调，ramp 反而抖动
-      rainGain.gain.value = currentRainGain * RAIN_BASE_GAIN
+      rainGain.gain.value = currentRainGain * baseGain
     }
   }
 

@@ -79,33 +79,6 @@
 
     <!-- 三段分区 -->
     <template v-else>
-      <section v-if="upcomingInterviews.length > 0" class="interview-panel__segment">
-        <button class="interview-panel__segment-title" @click="toggleSegment('upcoming')">
-          <Icon
-            icon="mdi:chevron-right"
-            :width="20"
-            class="interview-panel__segment-arrow"
-            :class="{ 'is-collapsed': isCollapsed('upcoming') }"
-          />
-          即将面试
-          <span class="interview-panel__segment-count">{{ upcomingInterviews.length }}</span>
-        </button>
-        <div v-show="!isCollapsed('upcoming')" class="interview-panel__grid">
-          <InterviewCard
-            v-for="i in upcomingInterviews"
-            :key="i.id"
-            :interview="i"
-            :selectable="batchMode"
-            :selected="selectedIds.has(i.id)"
-            @view="onView(i.id)"
-            @copy="onCopy(i.id)"
-            @delete="onDelete(i.id)"
-            @ai="openAIPanel(i.id, 'mockInterview')"
-            @toggle-select="toggleSelect(i.id)"
-          />
-        </div>
-      </section>
-
       <section v-if="ongoingInterviews.length > 0" class="interview-panel__segment">
         <button class="interview-panel__segment-title" @click="toggleSegment('ongoing')">
           <Icon
@@ -120,6 +93,33 @@
         <div v-show="!isCollapsed('ongoing')" class="interview-panel__grid">
           <InterviewCard
             v-for="i in ongoingInterviews"
+            :key="i.id"
+            :interview="i"
+            :selectable="batchMode"
+            :selected="selectedIds.has(i.id)"
+            @view="onView(i.id)"
+            @copy="onCopy(i.id)"
+            @delete="onDelete(i.id)"
+            @ai="openAIPanel(i.id, 'mockInterview')"
+            @toggle-select="toggleSelect(i.id)"
+          />
+        </div>
+      </section>
+
+      <section v-if="upcomingInterviews.length > 0" class="interview-panel__segment">
+        <button class="interview-panel__segment-title" @click="toggleSegment('upcoming')">
+          <Icon
+            icon="mdi:chevron-right"
+            :width="20"
+            class="interview-panel__segment-arrow"
+            :class="{ 'is-collapsed': isCollapsed('upcoming') }"
+          />
+          即将面试
+          <span class="interview-panel__segment-count">{{ upcomingInterviews.length }}</span>
+        </button>
+        <div v-show="!isCollapsed('upcoming')" class="interview-panel__grid">
+          <InterviewCard
+            v-for="i in upcomingInterviews"
             :key="i.id"
             :interview="i"
             :selectable="batchMode"
@@ -293,8 +293,8 @@ const toggleSelect = (id: string) => {
 
 // 筛选后当前可见的面试（全选作用域）
 const visibleInterviews = computed(() => [
-  ...upcomingInterviews.value,
   ...ongoingInterviews.value,
+  ...upcomingInterviews.value,
   ...endedInterviews.value,
 ])
 

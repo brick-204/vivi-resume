@@ -1,7 +1,7 @@
 <template>
-  <div class="interview-detail">
+  <div class="interview-detail" ref="rootRef">
     <!-- 顶部 header：返回箭头 + 标题 + 操作按钮 -->
-    <div class="interview-detail__header">
+    <div class="interview-detail__header" ref="headerRef">
       <button class="interview-detail__back" :title="mode === 'edit' ? '取消编辑' : '返回'" @click="mode === 'edit' ? $emit('cancel') : $emit('back')">
         <Icon icon="mdi:arrow-left" :width="22" />
       </button>
@@ -86,7 +86,19 @@
           </div>
           <div class="detail-field">
             <span class="detail-field__label">关联简历</span>
-            <span class="detail-field__value" :class="{ 'is-empty': !resumeTitle }">{{ resumeTitle || '未关联' }}</span>
+            <span v-if="resumeTitle" class="detail-field__value detail-field__resume">
+              <span class="detail-field__resume-title">{{ resumeTitle }}</span>
+              <button
+                class="detail-field__resume-btn"
+                title="前往编辑该简历"
+                @click="goEditResume"
+              >
+                <Icon icon="mdi:pencil-outline" :width="14" />
+                前往编辑
+              </button>
+            </span>
+            <span v-else-if="resumeId" class="detail-field__value is-empty">简历已删除</span>
+            <span v-else class="detail-field__value is-empty">未关联</span>
           </div>
         </div>
       </section>
@@ -199,9 +211,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Interview, InterviewStatus, RoundStatus, InterviewFormat } from '@/types/interview'
 import { useResumeStore } from '@/stores/resumeStore'
+import { dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import InterviewEditForm from './InterviewEditForm.vue'
 
@@ -220,6 +234,27 @@ const emit = defineEmits<{
 
 // 编辑表单引用（edit 态由 header 保存按钮触发 save）
 const editFormRef = ref<InstanceType<typeof InterviewEditForm> | null>(null)
+
+// ponytail: 测量 header 实际高度写入 CSS 变量，供编辑态轮次标题 sticky 偏移使用（header 可能 wrap，高度不固定）
+const rootRef = ref<HTMLElement | null>(null)
+const headerRef = ref<HTMLElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+
+const syncHeaderHeight = () => {
+  const h = headerRef.value?.offsetHeight ?? 0
+  if (rootRef.value) rootRef.value.style.setProperty('--detail-header-h', `${h}px`)
+}
+
+onMounted(() => {
+  syncHeaderHeight()
+  if (headerRef.value) {
+    resizeObserver = new ResizeObserver(syncHeaderHeight)
+    resizeObserver.observe(headerRef.value)
+  }
+})
+onUnmounted(() => { resizeObserver?.disconnect() })
+// mode/interview 变化后 header 内容可能变（如空态），下一帧重测
+watch([() => props.mode, () => props.interview], () => nextTick(syncHeaderHeight))
 
 function handleSave() {
   // 校验未过（公司名空）时 editForm 内部已提示，不退出编辑态
@@ -269,13 +304,31 @@ const roundStatusLabel = (s: RoundStatus) => ROUND_STATUS_LABEL[s]
 const formatLabel = (f: InterviewFormat) => FORMAT_LABEL[f]
 
 // 关联简历标题
+const router = useRouter()
 const resumeStore = useResumeStore()
+const resumeId = computed(() => props.interview?.resumeId)
 const resumeTitle = computed(() => {
-  const rid = props.interview?.resumeId
+  const rid = resumeId.value
   if (!rid) return ''
   const r = resumeStore.resumeList.find(r => r.id === rid)
   return r?.title || ''
 })
+
+function goEditResume() {
+  const rid = resumeId.value
+  if (!rid) return
+  // ponytail: 跳转会离开面试详情页，按项目弹窗规范用离散 dialog 确认（操作按钮在左、取消在右）
+  dialog.warning({
+    title: '前往编辑简历',
+    content: '将离开当前面试记录，前往该简历的编辑页面。是否继续？',
+    positiveText: '前往编辑',
+    negativeText: '取消',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
+    onPositiveClick: () => {
+      router.push(`/editor/${rid}`)
+    },
+  })
+}
 
 const formatDateTime = (iso: string): string => {
   const d = new Date(iso)
@@ -296,7 +349,15 @@ const formatDateTime = (iso: string): string => {
     display: flex;
     align-items: center;
     gap: $spacing-md;
+    // ponytail: sticky 吸顶——滚动容器为外层 .dashboard__content，top:0 贴其顶。
+    // 背景与 .dashboard__content 同色（$bg-secondary），吸顶时与两侧 padding 区融为一体
+    position: sticky;
+    top: 0;
     margin-bottom: $spacing-xl;
+    padding: $spacing-md 0;
+    background: $bg-secondary;
+    border-bottom: 1px solid var(--border-color);
+    z-index: 10;
     flex-wrap: wrap;
   }
 
@@ -426,7 +487,7 @@ const formatDateTime = (iso: string): string => {
 
   &__value {
     font-size: $font-size-md;
-    font-weight: 500;
+    font-weight: 600;
     color: $text-primary;
     word-break: break-word;
     line-height: 1.5;
@@ -464,10 +525,50 @@ const formatDateTime = (iso: string): string => {
       min-width: 0;
     }
   }
+
+  &__resume {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    flex-wrap: wrap;
+  }
+
+  &__resume-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  &__resume-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    flex-shrink: 0;
+    padding: 2px $spacing-sm;
+    border-radius: $radius-md;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $primary-color;
+    background: rgba($primary-color, 0.12);
+    border: 1px solid rgba($primary-color, 0.3);
+    cursor: pointer;
+    transition: all $transition-base;
+    font-family: $font-family;
+
+    &:hover {
+      background: rgba($primary-color, 0.2);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
 }
 
 .detail-jd {
   font-size: $font-size-md;
+  font-weight: 600;
   color: $text-primary;
   line-height: 1.7;
   white-space: pre-wrap;
@@ -594,7 +695,7 @@ const formatDateTime = (iso: string): string => {
 
 .timeline__text-content {
   font-size: $font-size-md;
-  font-weight: 500;
+  font-weight: 600;
   color: $text-primary;
   line-height: 1.6;
   white-space: pre-wrap;

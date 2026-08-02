@@ -30,6 +30,7 @@
       <AIInterviewDemo v-if="activeTab === 'interview'" />
       <AIWriteDemo v-if="activeTab === 'write'" />
       <AIImportDemo v-if="activeTab === 'import'" />
+      <AIConsultDemo v-if="activeTab === 'consult'" />
     </div>
   </section>
 </template>
@@ -84,9 +85,14 @@ const AIImportDemo = defineAsyncComponent({
   loadingComponent: DemoSkeleton,
   delay: 0,
 })
+const AIConsultDemo = defineAsyncComponent({
+  loader: () => import('@/components/home/demo/AIConsultDemo.vue'),
+  loadingComponent: DemoSkeleton,
+  delay: 0,
+})
 
 const sectionRef = ref<HTMLElement | null>(null)
-const activeTab = ref<'polish' | 'eval' | 'scan' | 'optimize' | 'interview' | 'write' | 'import'>('polish')
+const activeTab = ref<'polish' | 'eval' | 'scan' | 'optimize' | 'interview' | 'write' | 'import' | 'consult'>('polish')
 
 const tabs = [
   { id: 'polish' as const, label: 'AI 润色', icon: 'mdi:auto-fix' },
@@ -96,6 +102,7 @@ const tabs = [
   { id: 'interview' as const, label: '面试准备', icon: 'mdi:account-tie' },
   { id: 'write' as const, label: 'AI 帮写', icon: 'mdi:pencil-plus' },
   { id: 'import' as const, label: 'AI 智能导入', icon: 'mdi:file-import-outline' },
+  { id: 'consult' as const, label: 'AI 智能咨询', icon: 'mdi:comment-question-outline' },
 ]
 </script>
 

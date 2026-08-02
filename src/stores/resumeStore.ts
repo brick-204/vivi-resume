@@ -388,10 +388,13 @@ export const useResumeStore = defineStore('resume', () => {
     await trackPending(saveTrash(trash.value))
   }
 
-  // 清空回收站
-  const emptyTrash = async () => {
+  // 清空回收站 — ponytail: 先清内存让 UI 立即响应，落盘后台执行
+  const emptyTrash = () => {
     trash.value = []
-    await trackPending(saveTrash([]))
+    trackPending(saveTrash([])).catch(e => {
+      console.error('[resumeStore] emptyTrash persist failed:', e)
+      naiveMessage.warning('清空未完全同步，请检查存储空间')
+    })
   }
 
   // 自动清理过期简历

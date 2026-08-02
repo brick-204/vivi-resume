@@ -1,6 +1,8 @@
 <template>
   <div class="dashboard">
     <AppHeader />
+    <!-- 最近待面横幅：top-bar 位置时挂在顶栏下方满宽 -->
+    <UpcomingInterviewBanner v-if="storesReady && bannerPosition === 'top-bar'" />
     <!-- 主体区域 -->
     <div id="main-content" class="dashboard__body">
       <!-- 侧边栏 -->
@@ -19,11 +21,16 @@
 
     <!-- 同步遮罩 -->
     <SyncOverlay />
+
+    <!-- 最近待面横幅：bottom-left / bottom-right 位置时 fixed 悬浮 -->
+    <UpcomingInterviewBanner
+      v-if="storesReady && (bannerPosition === 'bottom-left' || bannerPosition === 'bottom-right')"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, defineAsyncComponent, defineComponent, h, type Component } from 'vue'
+import { ref, computed, onMounted, watch, defineAsyncComponent, defineComponent, h, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
@@ -35,6 +42,7 @@ import AppHeader from '@/components/common/AppHeader.vue'
 import SidebarNav from '@/components/dashboard/SidebarNav.vue'
 import DashboardSkeleton from '@/components/dashboard/DashboardSkeleton.vue'
 import SyncOverlay from '@/components/dashboard/SyncOverlay.vue'
+import UpcomingInterviewBanner from '@/components/dashboard/UpcomingInterviewBanner.vue'
 
 // ponytail: 面板懒加载，首屏只加载当前 tab 对应面板，切换时按需加载
 // defineAsyncComponent 的 loadingComponent 在组件首次加载时显示
@@ -93,6 +101,8 @@ const router = useRouter()
 
 const activeTab = ref<'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings'>('resumes')
 const storesReady = ref(false)
+// 面试提示横幅位置（决定挂载点：top-bar / nav-top / corner）
+const bannerPosition = computed(() => settingsStore.interviewBannerPosition)
 
 // ponytail: tab → 桌宠话术分类映射；进 dashboard/切 tab 都说当前 tab 话术（不单独设 enterDashboard）
 const tabQuoteCategory: Record<typeof activeTab.value, QuoteCategory> = {

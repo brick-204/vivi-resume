@@ -19,7 +19,7 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes } from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, type InterviewBannerPosition } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import {
   isFileSystemAccessSupported,
@@ -69,6 +69,9 @@ export const useSettingsStore = defineStore('settings', () => {
   const idleAiEnabled = ref(false)
   // 空闲冒泡间隔（分钟），默认 1，下限 1 上限 60
   const idleIntervalMinutes = ref(1)
+  // 面试提示横幅：默认开，默认左下角
+  const interviewBannerEnabled = ref(true)
+  const interviewBannerPosition = ref<InterviewBannerPosition>('bottom-left')
 
   // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
@@ -125,6 +128,12 @@ export const useSettingsStore = defineStore('settings', () => {
         idleIntervalMinutes.value = await getIdleIntervalMinutes()
       } catch (e) {
         console.error('[settingsStore] 读取 idle AI 开关/间隔失败:', e)
+      }
+      try {
+        interviewBannerEnabled.value = await getInterviewBannerEnabled()
+        interviewBannerPosition.value = await getInterviewBannerPosition()
+      } catch (e) {
+        console.error('[settingsStore] 读取面试提示设置失败:', e)
       }
       try {
         customPets.value = await getAllDesktopPets()
@@ -196,6 +205,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets, idbUsageRaw,
         idbInterviewTrash, idbAiConfigTrash,
         idbRestReminderEnabled, idbRestReminderInterval, idbPetAIChatEnabled, idbIdleAiEnabled, idbIdleIntervalMinutes,
+        idbInterviewBannerEnabled, idbInterviewBannerPosition,
       ] = await Promise.all([
         idb.getMeta<Resume[]>('trash'),
         idb.getMeta<number>('trashRetentionDays'),
@@ -209,6 +219,8 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getMeta<boolean>('petAIChatEnabled'),
         idb.getMeta<boolean>('idleAiEnabled'),
         idb.getMeta<number>('idleIntervalMinutes'),
+        idb.getMeta<boolean>('interviewBannerEnabled'),
+        idb.getMeta<InterviewBannerPosition>('interviewBannerPosition'),
       ])
 
       // 5. 读取目录现有数据（用于冲突检测与合并）
@@ -231,6 +243,8 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirPetAIChatEnabled: boolean | undefined
       let dirIdleAiEnabled: boolean | undefined
       let dirIdleIntervalMinutes: number | undefined
+      let dirInterviewBannerEnabled: boolean | undefined
+      let dirInterviewBannerPosition: InterviewBannerPosition | undefined
       try {
         const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
         if (dirMeta) {
@@ -248,6 +262,8 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.petAIChatEnabled === 'boolean') dirPetAIChatEnabled = dirMeta.petAIChatEnabled
           if (typeof dirMeta.idleAiEnabled === 'boolean') dirIdleAiEnabled = dirMeta.idleAiEnabled
           if (typeof dirMeta.idleIntervalMinutes === 'number') dirIdleIntervalMinutes = dirMeta.idleIntervalMinutes
+          if (typeof dirMeta.interviewBannerEnabled === 'boolean') dirInterviewBannerEnabled = dirMeta.interviewBannerEnabled
+          if (typeof dirMeta.interviewBannerPosition === 'string') dirInterviewBannerPosition = dirMeta.interviewBannerPosition as InterviewBannerPosition
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
       // 桌宠回收站：从 trash-pets/ 子目录读取（每条独立存储，不再走 meta.json）
@@ -467,6 +483,8 @@ export const useSettingsStore = defineStore('settings', () => {
         petAIChatEnabled: dirPetAIChatEnabled ?? idbPetAIChatEnabled ?? false,
         idleAiEnabled: dirIdleAiEnabled ?? idbIdleAiEnabled ?? false,
         idleIntervalMinutes: dirIdleIntervalMinutes ?? idbIdleIntervalMinutes ?? 1,
+        interviewBannerEnabled: dirInterviewBannerEnabled ?? idbInterviewBannerEnabled ?? true,
+        interviewBannerPosition: dirInterviewBannerPosition ?? idbInterviewBannerPosition ?? 'bottom-left',
       }
 
       updateProgress('正在序列化数据...', 20)
@@ -592,6 +610,8 @@ export const useSettingsStore = defineStore('settings', () => {
       await idb.setMeta('petAIChatEnabled', null)
       await idb.setMeta('idleAiEnabled', null)
       await idb.setMeta('idleIntervalMinutes', null)
+      await idb.setMeta('interviewBannerEnabled', null)
+      await idb.setMeta('interviewBannerPosition', null)
 
       updateProgress('同步完成！', 100)
 
@@ -609,6 +629,8 @@ export const useSettingsStore = defineStore('settings', () => {
       petAIChatEnabled.value = mergedMeta.petAIChatEnabled
       idleAiEnabled.value = mergedMeta.idleAiEnabled
       idleIntervalMinutes.value = mergedMeta.idleIntervalMinutes
+      interviewBannerEnabled.value = mergedMeta.interviewBannerEnabled
+      interviewBannerPosition.value = mergedMeta.interviewBannerPosition
       // 同步到 petStore（与 init 末尾一致）
       try {
         const { usePetStore } = await import('@/stores/petStore')
@@ -709,6 +731,8 @@ export const useSettingsStore = defineStore('settings', () => {
         if (typeof metaAny?.petAIChatEnabled === 'boolean') await idb.setMeta('petAIChatEnabled', metaAny.petAIChatEnabled)
         if (typeof metaAny?.idleAiEnabled === 'boolean') await idb.setMeta('idleAiEnabled', metaAny.idleAiEnabled)
         if (typeof metaAny?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', metaAny.idleIntervalMinutes)
+        if (typeof metaAny?.interviewBannerEnabled === 'boolean') await idb.setMeta('interviewBannerEnabled', metaAny.interviewBannerEnabled)
+        if (typeof metaAny?.interviewBannerPosition === 'string') await idb.setMeta('interviewBannerPosition', metaAny.interviewBannerPosition)
       }
 
       updateProgress('正在清理目录模式...', 80)
@@ -738,6 +762,8 @@ export const useSettingsStore = defineStore('settings', () => {
       petAIChatEnabled.value = await getPetAIChatEnabled()
       idleAiEnabled.value = await getIdleAiEnabled()
       idleIntervalMinutes.value = await getIdleIntervalMinutes()
+      interviewBannerEnabled.value = await getInterviewBannerEnabled()
+      interviewBannerPosition.value = await getInterviewBannerPosition()
       try {
         const { usePetStore } = await import('@/stores/petStore')
         const petStore = usePetStore()
@@ -848,6 +874,18 @@ export const useSettingsStore = defineStore('settings', () => {
     const { usePetStore } = await import('@/stores/petStore')
     usePetStore().setIdleIntervalMs(clamped * 60 * 1000)
     trackPending(setIdleIntervalMinutes(clamped)).catch(e => console.error('[settingsStore] idle 间隔写盘失败:', e))
+  }
+
+  /** 切换面试提示横幅开关：持久化（fire-and-forget） */
+  const updateInterviewBannerEnabled = async (enabled: boolean) => {
+    interviewBannerEnabled.value = enabled
+    trackPending(setInterviewBannerEnabled(enabled)).catch(e => console.error('[settingsStore] 面试提示开关写盘失败:', e))
+  }
+
+  /** 修改面试提示横幅位置：持久化（fire-and-forget） */
+  const updateInterviewBannerPosition = async (position: InterviewBannerPosition) => {
+    interviewBannerPosition.value = position
+    trackPending(setInterviewBannerPosition(position)).catch(e => console.error('[settingsStore] 面试提示位置写盘失败:', e))
   }
 
   // ========== 自定义桌宠管理 ==========
@@ -1066,6 +1104,8 @@ export const useSettingsStore = defineStore('settings', () => {
       if (typeof rMeta?.petAIChatEnabled === 'boolean') await idb.setMeta('petAIChatEnabled', rMeta.petAIChatEnabled)
       if (typeof rMeta?.idleAiEnabled === 'boolean') await idb.setMeta('idleAiEnabled', rMeta.idleAiEnabled)
       if (typeof rMeta?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', rMeta.idleIntervalMinutes)
+      if (typeof rMeta?.interviewBannerEnabled === 'boolean') await idb.setMeta('interviewBannerEnabled', rMeta.interviewBannerEnabled)
+      if (typeof rMeta?.interviewBannerPosition === 'string') await idb.setMeta('interviewBannerPosition', rMeta.interviewBannerPosition)
 
       updateProgress('正在刷新数据...', 80)
 
@@ -1078,6 +1118,8 @@ export const useSettingsStore = defineStore('settings', () => {
       petAIChatEnabled.value = await getPetAIChatEnabled()
       idleAiEnabled.value = await getIdleAiEnabled()
       idleIntervalMinutes.value = await getIdleIntervalMinutes()
+      interviewBannerEnabled.value = await getInterviewBannerEnabled()
+      interviewBannerPosition.value = await getInterviewBannerPosition()
       try {
         const { usePetStore } = await import('@/stores/petStore')
         const petStore = usePetStore()
@@ -1159,6 +1201,10 @@ export const useSettingsStore = defineStore('settings', () => {
     updateIdleAiEnabled,
     idleIntervalMinutes,
     updateIdleIntervalMinutes,
+    interviewBannerEnabled,
+    interviewBannerPosition,
+    updateInterviewBannerEnabled,
+    updateInterviewBannerPosition,
     customPets,
     addCustomPet,
     removeCustomPet,

@@ -1,5 +1,7 @@
 <template>
   <aside class="sidebar-nav">
+    <!-- 最近待面横幅：nav-top 位置时嵌在导航顶部 -->
+    <UpcomingInterviewBanner v-if="bannerPosition === 'nav-top'" />
     <!-- 导航项 -->
     <nav class="sidebar-nav__items">
       <button
@@ -78,8 +80,10 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { Icon } from '@iconify/vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import UpcomingInterviewBanner from '@/components/dashboard/UpcomingInterviewBanner.vue'
 
 const props = defineProps<{
   activeTab: 'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings'
@@ -90,6 +94,7 @@ defineEmits<{
 }>()
 
 const settingsStore = useSettingsStore()
+const { interviewBannerPosition: bannerPosition } = storeToRefs(settingsStore)
 
 // 'unbound'（未绑定，红）| 'unauthorized'（已绑定但权限丢失，黄）| null
 const directoryAlert = computed<'unbound' | 'unauthorized' | null>(() => {

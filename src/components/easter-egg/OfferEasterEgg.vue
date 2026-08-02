@@ -26,6 +26,7 @@ import {
   generateOfferContent,
   OFFER_COMPANIES,
 } from '@/services/offerEffect'
+import { createRainAudio, type RainAudio } from '@/services/rainAudio'
 
 const props = defineProps<{
   options: Omit<OfferEffectOptions, 'companies'> & { companies?: string[] }
@@ -111,6 +112,8 @@ let cssH = 0
 let dpr = 1
 let prevTime = 0
 let reducedMotion = false
+// 音频（sound 开启时创建）：复用雨声，offer 雨视觉配雨声
+let audio: RainAudio | null = null
 
 const wind: OfferWind = { current: 0, target: 0, changeAt: 0 }
 
@@ -566,6 +569,9 @@ const loop = (now: number) => {
   prevTime = now
   const deltaSeconds = delta / 1000
   updateTimeline(now)
+  // 音量联动：offer 势 × 容器透明度（淡出时也降音量）
+  const a = audio as RainAudio | null
+  if (a) a.updateRainGain(emissionMultiplier * globalOpacity)
   updateWind(now, deltaSeconds)
   updateItems(deltaSeconds)
   draw(now)
@@ -616,6 +622,9 @@ const cleanup = () => {
   if (endTimer) { clearTimeout(endTimer); endTimer = null }
   if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
   if (resizeRaf !== null) { cancelAnimationFrame(resizeRaf); resizeRaf = null }
+  // 音频释放：dispose 关闭 AudioContext
+  const a = audio as RainAudio | null
+  if (a) { a.dispose(); audio = null }
   window.removeEventListener('resize', onResize)
   window.removeEventListener('visibilitychange', onVisibility)
   if (window.visualViewport) window.visualViewport.removeEventListener('resize', onResize)
@@ -632,6 +641,8 @@ defineExpose({
   getEmissionMultiplier: () => emissionMultiplier,
   getItem: (i: number) => (i < activeCount ? pool[i] : null),
   getPhase: () => phase.value,
+  /** 音频是否已启动（测试用） */
+  getAudioStarted: () => audio !== null,
 })
 
 onMounted(() => {
@@ -641,6 +652,12 @@ onMounted(() => {
   setupCanvas()
   buildSprites()
   startTimers()
+  // 音效：sound 开启时创建并启动（service 层已确认用户偏好，此处 AudioContext 由 offer 按键手势链触发）
+  // 复用雨声但调成细雨：低通 400Hz 去"沙沙"颗粒感留闷柔底噪，音量 0.10 更轻；不调 triggerThunder 故无雷
+  if (safe.value.sound) {
+    audio = createRainAudio({ cutoff: 400, baseGain: 0.10 })
+    audio.start()
+  }
   rafId = requestAnimationFrame(loop)
   window.addEventListener('resize', onResize)
   window.addEventListener('visibilitychange', onVisibility)

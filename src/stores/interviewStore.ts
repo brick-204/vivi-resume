@@ -53,6 +53,22 @@ const normalizeInterview = (i: Interview): Interview => ({
   })),
 })
 
+/**
+ * 取该面试「下一面」时间戳：rounds 中未来 scheduledAt 的最小值；无未来轮次返回 Infinity。
+ * 用于「进行中」段按紧急度排序（越近越靠前，无安排垫底）。
+ * ponytail: 时间判定基于调用时刻，computed 不会因时间流逝自动重算——
+ * 用户进入面板/操作时重算即可，秒级重排无意义，不引入全局定时器驱动 store。
+ */
+const nextScheduledTs = (i: Interview, now = Date.now()): number => {
+  let min = Infinity
+  for (const r of i.rounds) {
+    if (!r.scheduledAt) continue
+    const ts = new Date(r.scheduledAt).getTime()
+    if (ts > now && ts < min) min = ts
+  }
+  return min
+}
+
 export const useInterviewStore = defineStore('interview', () => {
   // 按 updatedAt 降序排列的面试记录列表
   const interviews = shallowRef<Interview[]>([])
@@ -74,11 +90,17 @@ export const useInterviewStore = defineStore('interview', () => {
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   )
 
-  const ongoingInterviews = computed<Interview[]>(() =>
-    interviews.value
+  const ongoingInterviews = computed<Interview[]>(() => {
+    const now = Date.now()
+    return interviews.value
       .filter(i => inferInterviewSegment(i) === 'ongoing')
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-  )
+      // ponytail: 按下一面紧急度升序（越近越靠前，无未来轮次 Infinity 垫底）；同紧急度按 updatedAt 降序兜底
+      .sort((a, b) => {
+        const da = nextScheduledTs(a, now), db = nextScheduledTs(b, now)
+        if (da !== db) return da - db
+        return b.updatedAt.localeCompare(a.updatedAt)
+      })
+  })
 
   const endedInterviews = computed<Interview[]>(() =>
     interviews.value
@@ -266,9 +288,13 @@ export const useInterviewStore = defineStore('interview', () => {
   }
 
   /** 清空面试回收站 */
-  const emptyTrash = async () => {
+  // ponytail: 先清内存让 UI 立即响应，落盘后台执行
+  const emptyTrash = () => {
     trash.value = []
-    await trackPending(saveInterviewTrash([]))
+    trackPending(saveInterviewTrash([])).catch(e => {
+      console.error('[interviewStore] emptyTrash persist failed:', e)
+      naiveMessage.warning('清空未完全同步，请检查存储空间')
+    })
   }
 
   /** 自动清理过期面试记录（复用简历保留天数配置） */
