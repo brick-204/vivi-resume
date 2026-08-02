@@ -125,6 +125,37 @@
           </div>
         </div>
       </div>
+
+      <!-- AI 配置分区 -->
+      <div v-if="aiConfigCount > 0" class="trash-section">
+        <h3 class="trash-section__title">
+          <Icon icon="mdi:robot-outline" :width="18" />
+          AI 服务（{{ aiConfigCount }}）
+        </h3>
+        <div
+          v-for="config in trashAIConfigsWithRemainingDays"
+          :key="config.id"
+          class="trash-item"
+        >
+          <div class="trash-item__info">
+            <h3 class="trash-item__title">{{ config.name || '未命名配置' }}</h3>
+            <p class="trash-item__meta">
+              删除于 {{ formatDate(config.deletedAt) }}
+              <span class="trash-item__remaining">剩余 {{ config.remainingDays }} 天</span>
+            </p>
+          </div>
+          <div class="trash-item__actions">
+            <button class="trash-item__btn trash-item__btn--restore" @click="handleRestoreAIConfig(config.id)">
+              <Icon icon="mdi:restore" :width="18" />
+              恢复
+            </button>
+            <button class="trash-item__btn trash-item__btn--delete" @click="handlePermanentDeleteAIConfig(config.id)">
+              <Icon icon="mdi:delete-forever" :width="18" />
+              永久删除
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 恢复桌宠弹窗 -->
@@ -177,7 +208,7 @@
       preset="dialog"
       title="清空回收站"
       :auto-focus="false"
-      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历、${interviewCount} 个面试记录和 ${petCount} 个桌宠，此操作不可撤销。`"
+      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历、${interviewCount} 个面试记录、${aiConfigCount} 个 AI 服务和 ${petCount} 个桌宠，此操作不可撤销。`"
       @update:show="v => { if (!v) showEmptyTrashModal = false }"
     >
       <template #action>
@@ -202,12 +233,14 @@ import { NModal } from 'naive-ui'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useInterviewStore } from '@/stores/interviewStore'
+import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { dialog, message } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
 const store = useResumeStore()
 const settingsStore = useSettingsStore()
 const interviewStore = useInterviewStore()
+const aiConfigStore = useAIConfigStore()
 
 // ponytail: dialog 按钮顺序：操作(positive)靠左、取消(negative)靠右，整体居中
 // naive UI 默认 DOM 顺序 [negative, positive]，row-reverse 反转视觉 + center 居中 + gap 补间距
@@ -217,7 +250,8 @@ const REVERSE_ACTION = 'flex-direction: row-reverse; justify-content: center; ga
 const trashCount = computed(() => store.trash.length)
 const petCount = computed(() => settingsStore.trashPets.length)
 const interviewCount = computed(() => interviewStore.trash.length)
-const totalCount = computed(() => trashCount.value + petCount.value + interviewCount.value)
+const aiConfigCount = computed(() => aiConfigStore.trash.length)
+const totalCount = computed(() => trashCount.value + petCount.value + interviewCount.value + aiConfigCount.value)
 
 // 计算剩余天数
 const trashWithRemainingDays = computed(() => {
@@ -248,6 +282,17 @@ const trashInterviewsWithRemainingDays = computed(() => {
     const remainingMs = cutoff - deletedAt
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
     return { ...interview, remainingDays }
+  })
+})
+
+// AI 配置回收站剩余天数（复用简历保留天数配置）
+const trashAIConfigsWithRemainingDays = computed(() => {
+  return aiConfigStore.trash.map(config => {
+    const deletedAt = config.deletedAt ? new Date(config.deletedAt).getTime() : Date.now()
+    const cutoff = Date.now() + store.trashRetentionDays * 24 * 60 * 60 * 1000
+    const remainingMs = cutoff - deletedAt
+    const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
+    return { ...config, remainingDays }
   })
 })
 
@@ -324,6 +369,36 @@ const handlePermanentDeleteInterview = (id: string) => {
   })
 }
 
+// 恢复 AI 配置
+const handleRestoreAIConfig = (id: string) => {
+  const config = aiConfigStore.trash.find(c => c.id === id)
+  dialog.success({
+    title: '恢复 AI 服务配置',
+    content: `确定要恢复「${config?.name || '这个配置'}」吗？`,
+    positiveText: '恢复',
+    negativeText: '取消',
+    actionStyle: REVERSE_ACTION,
+    onPositiveClick: () => {
+      aiConfigStore.restoreConfig(id).catch(e => console.error('[TrashPanel] restoreConfig:', e))
+    },
+  })
+}
+
+// 永久删除 AI 配置（含历史用量）
+const handlePermanentDeleteAIConfig = (id: string) => {
+  const config = aiConfigStore.trash.find(c => c.id === id)
+  dialog.warning({
+    title: '永久删除',
+    content: `确定要永久删除「${config?.name || '这个配置'}」吗？历史用量将一并清除，此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    actionStyle: REVERSE_ACTION,
+    onPositiveClick: () => {
+      aiConfigStore.permanentDeleteConfig(id).catch(e => console.error('[TrashPanel] permanentDeleteConfig:', e))
+    },
+  })
+}
+
 // ========== 桌宠弹窗状态（自定义 spin 按钮，主线程阻塞期 spin 由合成线程驱动仍可转） ==========
 const showRestorePetModal = ref(false)
 const restoringPetId = ref<string | null>(null)
@@ -385,7 +460,7 @@ const confirmEmptyTrash = async () => {
   if (actionPending.value) return
   actionPending.value = true
   try {
-    await Promise.all([store.emptyTrash(), settingsStore.emptyTrashPets(), interviewStore.emptyTrash()])
+    await Promise.all([store.emptyTrash(), settingsStore.emptyTrashPets(), interviewStore.emptyTrash(), aiConfigStore.emptyTrash()])
   } catch (e) {
     console.error('[TrashPanel] emptyTrash:', e)
     // 三路并发写盘，部分失败会留下跨 store 不一致——提示用户重试，避免误以为已全部清空

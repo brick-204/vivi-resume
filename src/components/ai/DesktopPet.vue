@@ -139,7 +139,9 @@ watch(petData, (d) => {
 const loadAnim = (petId: string) => {
   destroyLottie()
   petData.value = getDesktopPetById(petId)
-  // petName 由上方 watch(petData) 自动同步，无需在此手动赋值
+  // ponytail: 同步赋 petName——sayTimeGreet 在 watch(petId) 同一轮 flush 里更早执行，
+  //   若靠 watch(petData) 异步 flush 更新 petName 会滞后一拍（切 B 仍说 A）。此处先同步到位。
+  petStore.petName = petData.value?.name
   // img 类型直接渲染 <img>，无需挂载 lottie
   if (isImg.value) return
   // lottie 类型：容器 ready 后挂载；数据畸形回退默认桌宠，保证 action 列始终可用

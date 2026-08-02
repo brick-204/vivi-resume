@@ -15,6 +15,7 @@ import {
   clearResumesStore,
   clearAIConfigsStore,
   clearInterviewsStore,
+  clearConsultSessionsStore,
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
@@ -35,9 +36,12 @@ import { generateId } from '@/types/resume'
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import type { Interview } from '@/types/interview'
+import type { ConsultSession } from '@/types/consult'
 import { getProviderInfo } from '@/types/aiConfig'
 import { extractPhotos} from '@/utils/photoFileRef'
+import { mergeUsageStores, normalizeUsage, type UsageStore } from '@/stores/aiConfigStore'
 import { useSyncLock } from '@/composables/useSyncLock'
+import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import { message as naiveMessage, dialog as naiveDialog } from '@/plugins/naive-ui'
 import { h } from 'vue'
 import { pickQuote } from '@/data/petQuotes'
@@ -179,19 +183,32 @@ export const useSettingsStore = defineStore('settings', () => {
       acquireLock('正在准备同步数据...')
 
       // 4. 从 IndexedDB 读取全部业务数据（直接用 storage.ts，不走 adapter）
-      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId, idbInterviews] = await Promise.all([
+      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId, idbInterviews, idbConsultSessions] = await Promise.all([
         idb.getAllResumes(),
         idb.getAllAIConfigs(),
         idb.getCurrentId(),
         idb.getActiveAIConfigId(),
         idb.getAllInterviews(),
+        idb.getAllConsultSessions(),
       ])
-      // IndexedDB 的回收站设置（meta store），需一并迁移到目录 meta.json
-      const [idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets] = await Promise.all([
+      // IndexedDB 的回收站设置 + 桌宠偏好（meta store），需一并迁移到目录 meta.json
+      const [
+        idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets, idbUsageRaw,
+        idbInterviewTrash, idbAiConfigTrash,
+        idbRestReminderEnabled, idbRestReminderInterval, idbPetAIChatEnabled, idbIdleAiEnabled, idbIdleIntervalMinutes,
+      ] = await Promise.all([
         idb.getMeta<Resume[]>('trash'),
         idb.getMeta<number>('trashRetentionDays'),
         idb.getMeta<number>('trashBinRetentionDays'),
         idb.getAllTrashPets(),
+        idb.getMeta<unknown>('aiUsageByConfig'),
+        idb.getMeta<Interview[]>('interviewTrash'),
+        idb.getMeta<AIServiceConfig[]>('aiConfigTrash'),
+        idb.getMeta<boolean>('restReminderEnabled'),
+        idb.getMeta<number>('restReminderInterval'),
+        idb.getMeta<boolean>('petAIChatEnabled'),
+        idb.getMeta<boolean>('idleAiEnabled'),
+        idb.getMeta<number>('idleIntervalMinutes'),
       ])
 
       // 5. 读取目录现有数据（用于冲突检测与合并）
@@ -205,6 +222,15 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirCurrentId: string | null = null
       let dirActiveAIConfigId: string | null = null
       let dirDesktopPetId: string | null = null
+      let dirUsageRaw: unknown = undefined
+      let dirInterviewTrash: Interview[] = []
+      let dirAiConfigTrash: AIServiceConfig[] = []
+      // 桌宠偏好标量：目录优先，目录无值（undefined）才用 IndexedDB
+      let dirRestReminderEnabled: boolean | undefined
+      let dirRestReminderInterval: number | undefined
+      let dirPetAIChatEnabled: boolean | undefined
+      let dirIdleAiEnabled: boolean | undefined
+      let dirIdleIntervalMinutes: number | undefined
       try {
         const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
         if (dirMeta) {
@@ -214,6 +240,14 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.currentId === 'string') dirCurrentId = dirMeta.currentId
           if (typeof dirMeta.activeAIConfigId === 'string') dirActiveAIConfigId = dirMeta.activeAIConfigId
           if (typeof dirMeta.desktopPetId === 'string') dirDesktopPetId = dirMeta.desktopPetId
+          dirUsageRaw = dirMeta.aiUsageByConfig
+          dirInterviewTrash = (dirMeta.interviewTrash as Interview[]) ?? []
+          dirAiConfigTrash = (dirMeta.aiConfigTrash as AIServiceConfig[]) ?? []
+          if (typeof dirMeta.restReminderEnabled === 'boolean') dirRestReminderEnabled = dirMeta.restReminderEnabled
+          if (typeof dirMeta.restReminderInterval === 'number') dirRestReminderInterval = dirMeta.restReminderInterval
+          if (typeof dirMeta.petAIChatEnabled === 'boolean') dirPetAIChatEnabled = dirMeta.petAIChatEnabled
+          if (typeof dirMeta.idleAiEnabled === 'boolean') dirIdleAiEnabled = dirMeta.idleAiEnabled
+          if (typeof dirMeta.idleIntervalMinutes === 'number') dirIdleIntervalMinutes = dirMeta.idleIntervalMinutes
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
       // 桌宠回收站：从 trash-pets/ 子目录读取（每条独立存储，不再走 meta.json）
@@ -397,6 +431,27 @@ export const useSettingsStore = defineStore('settings', () => {
       // 桌宠回收站合并：按 id 去重，目录已有保留，IndexedDB 独有追加（与 customPets 迁移策略一致）
       // 写入阶段仅把 IndexedDB 独有的写入目录 trash-pets/，目录已有的不重写
       const dirTrashPetIds = new Set(dirTrashPets.map(p => p.id))
+      // 用量合并：IndexedDB 用量与目录用量逐 (configId,日期) 桶取 count 大者覆盖
+      // ponytail: 不求和——防解绑→重绑同一目录时同一份用量翻倍；哪边记的调用多就保留哪边，跨设备不丢
+      const mergedUsage: UsageStore = mergeUsageStores(
+        normalizeUsage(dirUsageRaw),
+        normalizeUsage(idbUsageRaw),
+      )
+      // 回收站合并（面试/AI配置）：按 id 去重，目录已有保留，IndexedDB 独有追加（与 customPets 一致）
+      const mergeTrashById = <T extends { id: string }>(dirList: T[], idbList: T[] | undefined): T[] => {
+        const merged = [...dirList]
+        const ids = new Set(dirList.map(x => x.id))
+        for (const item of idbList ?? []) {
+          if (!ids.has(item.id)) {
+            merged.push(item)
+            ids.add(item.id)
+          }
+        }
+        return merged
+      }
+      const mergedInterviewTrash = mergeTrashById(dirInterviewTrash, idbInterviewTrash)
+      const mergedAiConfigTrash = mergeTrashById(dirAiConfigTrash, idbAiConfigTrash)
+      // 桌宠偏好标量：目录优先，目录无值（undefined）才回退 IndexedDB
       const mergedMeta = {
         currentId: resolvedCurrentId,
         activeAIConfigId: resolvedActiveId,
@@ -404,6 +459,14 @@ export const useSettingsStore = defineStore('settings', () => {
         trashRetentionDays: trashRetentionDays ?? dirTrashRetentionDays,
         trashBinRetentionDays: trashBinRetentionDays ?? dirTrashBinRetentionDays,
         desktopPetId: dirDesktopPetId ?? currentPetId.value,
+        aiUsageByConfig: mergedUsage,
+        interviewTrash: mergedInterviewTrash,
+        aiConfigTrash: mergedAiConfigTrash,
+        restReminderEnabled: dirRestReminderEnabled ?? idbRestReminderEnabled ?? true,
+        restReminderInterval: dirRestReminderInterval ?? idbRestReminderInterval ?? 25,
+        petAIChatEnabled: dirPetAIChatEnabled ?? idbPetAIChatEnabled ?? false,
+        idleAiEnabled: dirIdleAiEnabled ?? idbIdleAiEnabled ?? false,
+        idleIntervalMinutes: dirIdleIntervalMinutes ?? idbIdleIntervalMinutes ?? 1,
       }
 
       updateProgress('正在序列化数据...', 20)
@@ -492,6 +555,14 @@ export const useSettingsStore = defineStore('settings', () => {
         await writeJsonFile(handle, `interviews/${iv.id}.json`, idb.toPlain(iv))
       }
 
+      // 写入咨询会话文件（从 IndexedDB 迁移到目录，按 id 去重，目录已有的不重写）
+      const dirConsultSessions = await readAllJsonFiles<ConsultSession>(handle, 'consult-sessions')
+      const dirConsultIds = new Set(dirConsultSessions.map(s => s.id))
+      for (const s of idbConsultSessions) {
+        if (dirConsultIds.has(s.id)) continue
+        await writeJsonFile(handle, `consult-sessions/${s.id}.json`, idb.toPlain(s))
+      }
+
       // 写入 meta.json（metaContent 已是 JSON 字符串）
       await writeJsonFile(handle, 'meta.json', result.metaContent)
 
@@ -510,18 +581,44 @@ export const useSettingsStore = defineStore('settings', () => {
       await clearAIConfigsStore()
       await idb.clearTrashPetsStore()
       await clearInterviewsStore()
+      await clearConsultSessionsStore()
+      // 以下数据已合并进目录 meta.json，清空 IndexedDB meta 缓存（置 null，下次无目录模式从空开始）
+      await idb.setMeta('aiUsageByConfig', null)
+      await idb.setMeta('trash', null)
+      await idb.setMeta('interviewTrash', null)
+      await idb.setMeta('aiConfigTrash', null)
+      await idb.setMeta('restReminderEnabled', null)
+      await idb.setMeta('restReminderInterval', null)
+      await idb.setMeta('petAIChatEnabled', null)
+      await idb.setMeta('idleAiEnabled', null)
+      await idb.setMeta('idleIntervalMinutes', null)
 
       updateProgress('同步完成！', 100)
 
       // 12. 通知 stores 重新加载
       await notifyStoresReload()
 
-      // 13. 同步桌宠偏好到内存（目录值优先时需覆盖内存旧值）
+      // 13. 同步桌宠偏好到内存（合并后值：目录优先，目录无值才用 IndexedDB）
       currentPetId.value = dirDesktopPetId ?? currentPetId.value
       customPets.value = await adapter.getAllDesktopPets()
       setCustomPetsCache(customPets.value)
       trashPets.value = await getAllTrashPets()
       await cleanupTrashPets()
+      restReminderEnabled.value = mergedMeta.restReminderEnabled
+      restReminderInterval.value = mergedMeta.restReminderInterval
+      petAIChatEnabled.value = mergedMeta.petAIChatEnabled
+      idleAiEnabled.value = mergedMeta.idleAiEnabled
+      idleIntervalMinutes.value = mergedMeta.idleIntervalMinutes
+      // 同步到 petStore（与 init 末尾一致）
+      try {
+        const { usePetStore } = await import('@/stores/petStore')
+        const petStore = usePetStore()
+        petStore.setRestEnabled(restReminderEnabled.value)
+        petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
+        petStore.setAIChatEnabled(petAIChatEnabled.value)
+        petStore.setIdleAiEnabled(idleAiEnabled.value)
+        petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+      } catch { /* petStore 未初始化，忽略 */ }
 
       naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
     } catch (e) {
@@ -591,6 +688,27 @@ export const useSettingsStore = defineStore('settings', () => {
         for (const iv of dirInterviews) {
           await idb.saveInterview(iv)
         }
+        // 用量：目录为准写回 IndexedDB（目录文件保留，解绑后目录用量仍在，下次重绑可恢复）
+        const dirUsage = (metaJson as Record<string, unknown> | null)?.aiUsageByConfig
+        await idb.setMeta('aiUsageByConfig', dirUsage ?? null)
+        // 咨询会话：从目录 consult-sessions/ 读取，以目录为权威刷新 IndexedDB（先清后写）
+        const dirConsultSessions = await adapter.getAllConsultSessions()
+        await clearConsultSessionsStore()
+        for (const s of dirConsultSessions) {
+          await idb.saveConsultSession(s)
+        }
+        // 回收站 + 桌宠偏好：目录为准写回 IndexedDB meta（目录文件保留）
+        const metaAny = metaJson as Record<string, unknown> | null
+        await idb.setMeta('trash', (metaAny?.trash as Resume[]) ?? null)
+        await idb.setMeta('interviewTrash', (metaAny?.interviewTrash as Interview[]) ?? null)
+        await idb.setMeta('aiConfigTrash', (metaAny?.aiConfigTrash as AIServiceConfig[]) ?? null)
+        if (typeof metaAny?.trashRetentionDays === 'number') await idb.setMeta('trashRetentionDays', metaAny.trashRetentionDays)
+        if (typeof metaAny?.trashBinRetentionDays === 'number') await idb.setMeta('trashBinRetentionDays', metaAny.trashBinRetentionDays)
+        if (typeof metaAny?.restReminderEnabled === 'boolean') await idb.setMeta('restReminderEnabled', metaAny.restReminderEnabled)
+        if (typeof metaAny?.restReminderInterval === 'number') await idb.setMeta('restReminderInterval', metaAny.restReminderInterval)
+        if (typeof metaAny?.petAIChatEnabled === 'boolean') await idb.setMeta('petAIChatEnabled', metaAny.petAIChatEnabled)
+        if (typeof metaAny?.idleAiEnabled === 'boolean') await idb.setMeta('idleAiEnabled', metaAny.idleAiEnabled)
+        if (typeof metaAny?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', metaAny.idleIntervalMinutes)
       }
 
       updateProgress('正在清理目录模式...', 80)
@@ -610,11 +728,25 @@ export const useSettingsStore = defineStore('settings', () => {
       // 5. 通知 stores 重新加载
       await notifyStoresReload()
 
-      // 6. 刷新桌宠偏好到内存（已切回 IndexedDB）
+      // 6. 刷新桌宠偏好到内存（已切回 IndexedDB，从 adapter 重读）
       customPets.value = await adapter.getAllDesktopPets()
       setCustomPetsCache(customPets.value)
       trashPets.value = await getAllTrashPets()
       await cleanupTrashPets()
+      restReminderEnabled.value = await getRestReminderEnabled()
+      restReminderInterval.value = await getRestReminderInterval()
+      petAIChatEnabled.value = await getPetAIChatEnabled()
+      idleAiEnabled.value = await getIdleAiEnabled()
+      idleIntervalMinutes.value = await getIdleIntervalMinutes()
+      try {
+        const { usePetStore } = await import('@/stores/petStore')
+        const petStore = usePetStore()
+        petStore.setRestEnabled(restReminderEnabled.value)
+        petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
+        petStore.setAIChatEnabled(petAIChatEnabled.value)
+        petStore.setIdleAiEnabled(idleAiEnabled.value)
+        petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+      } catch { /* petStore 未初始化，忽略 */ }
 
       if (copyToBrowser) {
         naiveMessage.success('已解绑目录，数据已复制到浏览器存储')
@@ -698,7 +830,7 @@ export const useSettingsStore = defineStore('settings', () => {
     const text = pickQuote(enabled ? 'aiChatOn' : 'aiChatOff', petStore.petName)
     if (petStore.paused) naiveMessage.info(text)
     else petStore.say(text)
-    setPetAIChatEnabled(enabled).catch(e => console.error('[settingsStore] 桌宠 AI 话术开关写盘失败:', e))
+    trackPending(setPetAIChatEnabled(enabled)).catch(e => console.error('[settingsStore] 桌宠 AI 话术开关写盘失败:', e))
   }
 
   /** 切换 idle/rest 也走 AI 子开关：注入 petStore + 持久化（fire-and-forget） */
@@ -706,7 +838,7 @@ export const useSettingsStore = defineStore('settings', () => {
     idleAiEnabled.value = enabled
     const { usePetStore } = await import('@/stores/petStore')
     usePetStore().setIdleAiEnabled(enabled)
-    setIdleAiEnabled(enabled).catch(e => console.error('[settingsStore] idle AI 开关写盘失败:', e))
+    trackPending(setIdleAiEnabled(enabled)).catch(e => console.error('[settingsStore] idle AI 开关写盘失败:', e))
   }
 
   /** 修改空闲冒泡间隔（分钟）：注入 petStore（重启定时器）+ 持久化；下限 1 上限 60 */
@@ -715,7 +847,7 @@ export const useSettingsStore = defineStore('settings', () => {
     idleIntervalMinutes.value = clamped
     const { usePetStore } = await import('@/stores/petStore')
     usePetStore().setIdleIntervalMs(clamped * 60 * 1000)
-    setIdleIntervalMinutes(clamped).catch(e => console.error('[settingsStore] idle 间隔写盘失败:', e))
+    trackPending(setIdleIntervalMinutes(clamped)).catch(e => console.error('[settingsStore] idle 间隔写盘失败:', e))
   }
 
   // ========== 自定义桌宠管理 ==========
@@ -755,11 +887,11 @@ export const useSettingsStore = defineStore('settings', () => {
     // 删除的是当前选中的桌宠 → 同步回退内存，写盘 fire-and-forget（避免 message 滞后）
     if (currentPetId.value === id) {
       currentPetId.value = DEFAULT_PET_ID
-      setDesktopPetId(DEFAULT_PET_ID).catch(e => console.error('[settingsStore] 回退默认桌宠写盘失败:', e))
+      trackPending(setDesktopPetId(DEFAULT_PET_ID)).catch(e => console.error('[settingsStore] 回退默认桌宠写盘失败:', e))
     }
     // 后台持久化：先写回收站再删源数据，写盘失败仅 console.error 不回滚（与简历同策略）
-    saveTrashPet(plainTrashed)
-      .then(() => deleteDesktopPet(id))
+    trackPending(saveTrashPet(plainTrashed)
+      .then(() => deleteDesktopPet(id)))
       .catch(e => console.error('[settingsStore] removeCustomPet 持久化失败:', e))
   }
 
@@ -780,7 +912,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const { usePetStore } = await import('@/stores/petStore')
       usePetStore().petName = name
     }
-    saveDesktopPet(renamed).catch(e => console.error('[settingsStore] renameCustomPet 持久化失败:', e))
+    trackPending(saveDesktopPet(renamed)).catch(e => console.error('[settingsStore] renameCustomPet 持久化失败:', e))
   }
 
   /** 从回收站恢复桌宠（移回 customPets，去掉 deletedAt） */
@@ -796,21 +928,21 @@ export const useSettingsStore = defineStore('settings', () => {
     customPets.value = [...customPets.value, restored]
     setCustomPetsCache(customPets.value)
     trashPets.value = trashPets.value.filter(p => p.id !== id)
-    saveDesktopPet(restored)
-      .then(() => deleteTrashPet(id))
+    trackPending(saveDesktopPet(restored)
+      .then(() => deleteTrashPet(id)))
       .catch(e => console.error('[settingsStore] restorePet 持久化失败:', e))
   }
 
   /** 彻底删除回收站中的桌宠（不可恢复） */
   const purgePet = async (id: string): Promise<void> => {
     trashPets.value = trashPets.value.filter(p => p.id !== id)
-    deleteTrashPet(id).catch(e => console.error('[settingsStore] purgePet 持久化失败:', e))
+    trackPending(deleteTrashPet(id)).catch(e => console.error('[settingsStore] purgePet 持久化失败:', e))
   }
 
   /** 清空桌宠回收站 */
   const emptyTrashPets = async (): Promise<void> => {
     trashPets.value = []
-    clearAllTrashPets().catch(e => console.error('[settingsStore] emptyTrashPets 持久化失败:', e))
+    trackPending(clearAllTrashPets()).catch(e => console.error('[settingsStore] emptyTrashPets 持久化失败:', e))
   }
 
   /** 自动清理过期桌宠回收站（复用简历回收站保留天数） */
@@ -910,11 +1042,51 @@ export const useSettingsStore = defineStore('settings', () => {
       for (const iv of dirInterviews) {
         await idb.saveInterview(iv)
       }
+      // 用量：目录为权威刷新 IndexedDB（先置 null 再写目录值，与面试/桌宠回收站「先清后写」对齐）
+      const resyncUsage = (metaJson as Record<string, unknown> | null)?.aiUsageByConfig
+      await idb.setMeta('aiUsageByConfig', null)
+      if (resyncUsage !== undefined) {
+        await idb.setMeta('aiUsageByConfig', resyncUsage)
+      }
+      // 咨询会话：目录为权威刷新 IndexedDB（先清后写）
+      const resyncConsult = await adapter.getAllConsultSessions()
+      await clearConsultSessionsStore()
+      for (const s of resyncConsult) {
+        await idb.saveConsultSession(s)
+      }
+      // 回收站 + 桌宠偏好：目录为权威刷新 IndexedDB meta（先清后写）
+      const rMeta = metaJson as Record<string, unknown> | null
+      await idb.setMeta('trash', (rMeta?.trash as Resume[]) ?? null)
+      await idb.setMeta('interviewTrash', (rMeta?.interviewTrash as Interview[]) ?? null)
+      await idb.setMeta('aiConfigTrash', (rMeta?.aiConfigTrash as AIServiceConfig[]) ?? null)
+      if (typeof rMeta?.trashRetentionDays === 'number') await idb.setMeta('trashRetentionDays', rMeta.trashRetentionDays)
+      if (typeof rMeta?.trashBinRetentionDays === 'number') await idb.setMeta('trashBinRetentionDays', rMeta.trashBinRetentionDays)
+      if (typeof rMeta?.restReminderEnabled === 'boolean') await idb.setMeta('restReminderEnabled', rMeta.restReminderEnabled)
+      if (typeof rMeta?.restReminderInterval === 'number') await idb.setMeta('restReminderInterval', rMeta.restReminderInterval)
+      if (typeof rMeta?.petAIChatEnabled === 'boolean') await idb.setMeta('petAIChatEnabled', rMeta.petAIChatEnabled)
+      if (typeof rMeta?.idleAiEnabled === 'boolean') await idb.setMeta('idleAiEnabled', rMeta.idleAiEnabled)
+      if (typeof rMeta?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', rMeta.idleIntervalMinutes)
 
       updateProgress('正在刷新数据...', 80)
 
       // 3. 通知 stores 重新加载
       await notifyStoresReload()
+
+      // 刷新桌宠偏好内存（目录为权威）
+      restReminderEnabled.value = await getRestReminderEnabled()
+      restReminderInterval.value = await getRestReminderInterval()
+      petAIChatEnabled.value = await getPetAIChatEnabled()
+      idleAiEnabled.value = await getIdleAiEnabled()
+      idleIntervalMinutes.value = await getIdleIntervalMinutes()
+      try {
+        const { usePetStore } = await import('@/stores/petStore')
+        const petStore = usePetStore()
+        petStore.setRestEnabled(restReminderEnabled.value)
+        petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
+        petStore.setAIChatEnabled(petAIChatEnabled.value)
+        petStore.setIdleAiEnabled(idleAiEnabled.value)
+        petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+      } catch { /* petStore 未初始化，忽略 */ }
 
       updateProgress('重新同步完成！', 100)
       naiveMessage.success('已从目录重新同步数据')
@@ -955,6 +1127,10 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 初始化
   init()
+
+  // ponytail: 注册到 flushGuard —— settingsStore 无防抖 dirty 标记，getDirty 返 false，
+  //           在途写入判定由 useFlushGuard 的 pendingWrites 统一管；刷新/关闭时先等在途写完
+  registerFlush(() => false, () => {})
 
   return {
     isDirectoryMode,

@@ -8,6 +8,16 @@
   max-width: 400px;
 }
 
+// ponytail: popconfirm 底部按钮居中、操作(positive/确定)靠左、取消(negative)靠右
+// naive UI 默认 DOM 顺序 [negative, positive] 且右对齐；row-reverse 翻转视觉 + center 居中 + gap 补间距
+// 与 CLAUDE.md 询问类 modal 按钮规范一致（dialog 用 actionStyle，popconfirm 用此全局覆盖）
+// 特异性用后代选择器 .n-popconfirm .n-popconfirm__action 盖过 naive CSSR 运行时注入的单 class 规则
+.n-popconfirm .n-popconfirm__action {
+  flex-direction: row-reverse;
+  justify-content: center;
+  gap: 12px;
+}
+
 // 简历预览样式
 .resume-preview {
   background: #ffffff;

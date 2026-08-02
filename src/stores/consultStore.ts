@@ -12,7 +12,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef, onScopeDispose } from 'vue'
+import { ref, computed, shallowRef } from 'vue'
 import type { ChatMessage, ContentPart } from '@/services/aiService'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
@@ -29,6 +29,7 @@ import { MAX_CONSULT_SESSIONS } from '@/types/consult'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import {
   getAllConsultSessions,
   saveConsultSession,
@@ -78,7 +79,7 @@ export const useConsultStore = defineStore('consult', () => {
     if (existing) clearTimeout(existing)
     const timer = setTimeout(() => {
       _saveTimer.delete(session.id)
-      saveConsultSession(session).catch(e => {
+      trackPending(saveConsultSession(session)).catch(e => {
         console.error('[consultStore] persistSession failed:', e)
       })
     }, 300)
@@ -95,11 +96,11 @@ export const useConsultStore = defineStore('consult', () => {
   }
 
   const flushSession = async (id: string) => {
+    // ponytail: 无 pending 防抖定时器则早退，避免 flushAll 时无谓写一次会话文件（目录模式慢）
     const timer = _saveTimer.get(id)
-    if (timer) {
-      clearTimeout(timer)
-      _saveTimer.delete(id)
-    }
+    if (!timer) return
+    clearTimeout(timer)
+    _saveTimer.delete(id)
     const session = sessions.value.find(s => s.id === id)
     if (session) {
       await saveConsultSession(session)
@@ -441,7 +442,7 @@ export const useConsultStore = defineStore('consult', () => {
 
     // user 消息立即落盘（不等流式结束），避免关页面丢本轮对话
     // ponytail: 直接 saveConsultSession 不走防抖，因为马上要进 await streamChat
-    saveConsultSession(session).catch(e => {
+    trackPending(saveConsultSession(session)).catch(e => {
       console.error('[consultStore] persist user message failed:', e)
     })
 
@@ -485,7 +486,7 @@ export const useConsultStore = defineStore('consult', () => {
         // ponytail: assistant 消息立即落盘，不走 300ms 防抖
         // 防抖依赖 visibilitychange/pagehide flush，但 reload 时该 async 不可靠，
         // 瞬间刷新会让 assistant 消息（仍在 streamChat await 中）丢失
-        saveConsultSession(session).catch(e => {
+        trackPending(saveConsultSession(session)).catch(e => {
           console.error('[consultStore] persist assistant message failed:', e)
         })
         await enforceSessionLimit()
@@ -508,7 +509,7 @@ export const useConsultStore = defineStore('consult', () => {
           })
           session.updatedAt = Date.now()
           session = commitSession(session)
-          saveConsultSession(session).catch(e => {
+          trackPending(saveConsultSession(session)).catch(e => {
             console.error('[consultStore] persist aborted assistant message failed:', e)
           })
           await enforceSessionLimit()
@@ -643,23 +644,12 @@ export const useConsultStore = defineStore('consult', () => {
   }
 
   // 页面隐藏/关闭时 flush 当前会话
-  // ponytail: beforeunload 的 async 不可靠；visibilitychange（hidden 时）时机更早，
-  //           pagehide 在页面卸载时兜底。两者配合最大化落盘概率。
-  //           visibilitychange 在 visible 时也会触发，但重复 flush 无害（内部已 clearTimeout）
-  const flushCurrentSession = () => {
-    if (currentSessionId.value) {
-      flushSession(currentSessionId.value)
-    }
+  // ponytail: 统一交由 useFlushGuard 注册三事件 + 驱动保存遮罩（顺带补上原本缺失的 beforeunload）。
+  //           返回 Promise 让 flushAll 的 allSettled 真正 await 落盘，避免遮罩提前消失、写被中断丢数据。
+  const flushCurrentSession = (): Promise<void> => {
+    return currentSessionId.value ? flushSession(currentSessionId.value) : Promise.resolve()
   }
-  if (typeof window !== 'undefined') {
-    const onVisibility = () => { if (document.hidden) flushCurrentSession() }
-    window.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pagehide', flushCurrentSession)
-    onScopeDispose(() => {
-      window.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pagehide', flushCurrentSession)
-    })
-  }
+  registerFlush(() => _saveTimer.size > 0, () => flushCurrentSession())
 
   // 初始化
   init()

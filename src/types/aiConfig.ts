@@ -33,6 +33,8 @@ export interface AIServiceConfig {
   endpointComplete?: boolean
   createdAt: string
   updatedAt: string
+  /** 软删除时间戳（进回收站时打上，恢复时移除；与 Resume.deletedAt/Interview.deletedAt 同义） */
+  deletedAt?: string
 }
 
 // 服务商预设列表

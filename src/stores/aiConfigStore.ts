@@ -4,10 +4,11 @@
  */
 
 import { defineStore } from 'pinia'
-import { ref, computed, onScopeDispose } from 'vue'
+import { ref, computed, shallowRef } from 'vue'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { generateId } from '@/types/resume'
 import { useSyncLock } from '@/composables/useSyncLock'
+import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import { useSettingsStore } from '@/stores/settingsStore'
 import {
   getAllAIConfigs,
@@ -19,6 +20,9 @@ import {
   setMeta,
   getAIUsage,
   setAIUsage,
+  getAIConfigTrash,
+  saveAIConfigTrash,
+  getTrashRetentionDays,
 } from '@/utils/storageAdapter'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 
@@ -78,6 +82,9 @@ function emptyBucket(): DailyBucket {
 function emptyStat(): FeatureStat {
   return { count: 0, prompt: 0, completion: 0, total: 0, totalDurationMs: 0 }
 }
+function emptyUsageStoreTop(): UsageStore {
+  return { byConfig: {}, byModel: {} }
+}
 
 // ponytail: 4 个功能固定枚举，遍历用此常量而非 Object.keys（避免与 FeatureStat 字段混淆）
 const FEATURES: UsageFeature[] = ['consult', 'resume', 'interview', 'pet']
@@ -113,6 +120,66 @@ function pruneOldUsage(store: UsageStore, keepMonths: number): UsageStore {
   return { byConfig, byModel }
 }
 
+/**
+ * 把任意结构（新 {byConfig,byModel} / 旧 Record<cid,Record<date,DailyBucket>> / null）
+ * 归一化为 UsageStore。供 bind/unbind/resync 迁移时复用，避免重复判断旧结构。
+ */
+function normalizeUsage(raw: unknown): UsageStore {
+  if (!raw || typeof raw !== 'object') return emptyUsageStoreTop()
+  const r = raw as Record<string, unknown>
+  if ('byConfig' in r) return raw as UsageStore
+  // 旧结构：Record<cid, Record<date, DailyBucket>>，无 byModel
+  return { byConfig: raw as Record<string, Record<string, DailyBucket>>, byModel: {} }
+}
+
+/**
+ * 按 configId × 日期 合并两个 UsageStore：逐桶取 count 大者整桶覆盖（不累加）。
+ * 防翻倍：同一份用量两边 count 相等时取其一；某天哪边记的调用多就保留哪边（跨设备不丢）。
+ * byModel 同理按 (configId, modelId, 日期) 取 count 大者。供 settingsStore 迁移用量。纯函数。
+ */
+export function mergeUsageStores(a: UsageStore, b: UsageStore): UsageStore {
+  const byConfig: Record<string, Record<string, DailyBucket>> = {}
+  const byModel: Record<string, Record<string, Record<string, ModelDailyStat>>> = {}
+  // byConfig：逐 (cid, date) 桶，count 大者整桶覆盖；相等保留先入者（a）
+  const totalCallCount = (bucket: DailyBucket): number =>
+    FEATURES.reduce((sum, f) => sum + (bucket[f]?.count ?? 0), 0)
+  for (const store of [a, b]) {
+    for (const [cid, days] of Object.entries(store.byConfig ?? {})) {
+      if (!days) continue
+      byConfig[cid] ??= {}
+      for (const [date, bucket] of Object.entries(days)) {
+        if (!bucket) continue
+        const existing = byConfig[cid][date]
+        if (!existing || totalCallCount(bucket) > totalCallCount(existing)) {
+          byConfig[cid][date] = bucket
+        }
+      }
+    }
+  }
+  // byModel：逐 (cid, mid, date) 取 count 大者
+  for (const store of [a, b]) {
+    for (const [cid, models] of Object.entries(store.byModel ?? {})) {
+      if (!models) continue
+      byModel[cid] ??= {}
+      for (const [mid, dayMap] of Object.entries(models)) {
+        if (!dayMap) continue
+        byModel[cid][mid] ??= {}
+        for (const [date, s] of Object.entries(dayMap)) {
+          if (!s) continue
+          const existing = byModel[cid][mid][date]
+          if (!existing || s.count > existing.count) {
+            byModel[cid][mid][date] = s
+          }
+        }
+      }
+    }
+  }
+  return { byConfig, byModel }
+}
+
+/** 导出归一化，供 settingsStore 把读到的原始数据转成可合并的 UsageStore */
+export { normalizeUsage }
+
 /** getUsageDetail 返回的聚合结果 */
 export interface UsageDetail {
   today: FeatureStat
@@ -140,6 +207,10 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   // 用量追踪：byConfig（趋势图+卡片）+ byModel（饼图）
   const usageByConfig = ref<UsageStore>(emptyUsageStore())
 
+  // 回收站：软删除的配置暂存（对齐 interviewStore，trash 走 meta 数组）
+  const trash = shallowRef<AIServiceConfig[]>([])
+  const trashRetentionDays = ref(30)
+
   // ========== 初始化就绪 Promise（与 resumeStore 一致）==========
   let _readyResolve!: () => void
   const ready = new Promise<void>(resolve => { _readyResolve = resolve })
@@ -160,11 +231,15 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     await settingsStore.ready
 
     try {
-      const [allConfigs, savedActiveId] = await Promise.all([
+      const [allConfigs, savedActiveId, trashData, retentionDays] = await Promise.all([
         getAllAIConfigs(),
         getActiveAIConfigId(),
+        getAIConfigTrash(),
+        getTrashRetentionDays(),
       ])
       configs.value = allConfigs
+      trash.value = trashData
+      trashRetentionDays.value = retentionDays
       // 仅恢复已保存的激活配置；不再自动激活第一个
       // ponytail: 旧逻辑在 savedActiveId 为 null（用户主动停用所有 AI）时仍强制激活第一个，
       //           导致"停用 → 刷新 → 又自动启用"。激活态完全由用户控制，首配由 addConfig 自动激活
@@ -173,6 +248,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       } else {
         activeConfigId.value = null
       }
+      // 过期回收站清理
+      await cleanupTrash()
     } catch (e) {
       console.error('[aiConfigStore] 初始化失败:', e)
     } finally {
@@ -214,7 +291,7 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   // ========== CRUD ==========
 
   /** 添加新配置 */
-  const addConfig = async (data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addConfig = (data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (isLocked.value) return undefined
 
     const now = new Date().toISOString()
@@ -224,19 +301,25 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       createdAt: now,
       updatedAt: now,
     }
-    await saveAIConfig(config)
+    // ponytail: 先入内存让 UI 立即响应，持久化后台执行（与 deleteConfig 一致，避免 IDB/文件写入阻塞弹窗）
     configs.value.push(config)
 
-    // 如果是第一个配置，自动激活
-    if (configs.value.length === 1) {
-      await setActiveConfig(config.id)
+    const persist = async () => {
+      await saveAIConfig(config)
+      // 如果是第一个配置，自动激活
+      if (configs.value.length === 1) {
+        await setActiveConfig(config.id)
+      }
     }
-
+    trackPending(persist()).catch(e => {
+      console.error('[aiConfigStore] addConfig persist failed:', e)
+      naiveMessage.warning('保存未完全同步，请检查存储空间')
+    })
     return config
   }
 
   /** 更新配置 */
-  const updateConfig = async (id: string, updates: Partial<Omit<AIServiceConfig, 'id' | 'createdAt'>>) => {
+  const updateConfig = (id: string, updates: Partial<Omit<AIServiceConfig, 'id' | 'createdAt'>>) => {
     if (isLocked.value) return
 
     const index = configs.value.findIndex(c => c.id === id)
@@ -247,25 +330,42 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       ...updates,
       updatedAt: new Date().toISOString(),
     }
-    await saveAIConfig(updated)
+    // ponytail: 先更新内存让 UI 立即响应，持久化后台执行
     configs.value[index] = updated
+
+    const persist = async () => {
+      await saveAIConfig(updated)
+    }
+    trackPending(persist()).catch(e => {
+      console.error('[aiConfigStore] updateConfig persist failed:', e)
+      naiveMessage.warning('保存未完全同步，请检查存储空间')
+    })
   }
 
-  /** 删除配置 */
-  const deleteConfig = (id: string) => {
-    if (isLocked.value) return
+  /**
+   * 移入回收站（软删除）：从主列表移除 + 打 deletedAt + 推入 trash +
+   * 物理删源文件 + trash 落 meta。用量数据保留（恢复后历史用量可见），仅永久删除才清。
+   * @returns 是否真正执行（同步期 isLocked / 未找到配置时返回 false，调用方据此决定成功提示）
+   */
+  const deleteConfig = async (id: string): Promise<boolean> => {
+    if (isLocked.value) return false
 
-    // 先同步移除内存数据，让 UI 立即响应
+    const config = configs.value.find(c => c.id === id)
+    if (!config) return false
     const wasActive = activeConfigId.value === id
+    const now = new Date().toISOString()
+    const deleted: AIServiceConfig = { ...config, deletedAt: now }
+
+    // ponytail: 先改内存让 UI 立即响应（popconfirm/dialog 立即关闭），落盘后台执行
     configs.value = configs.value.filter(c => c.id !== id)
-    // 联动清除该配置的用量数据
-    deleteUsage(id)
+    trash.value = [...trash.value, deleted]
 
-    // 后台持久化
     const persist = async () => {
-      await deleteAIConfigFromStorage(id)
-
-      // 如果删除的是当前激活的配置
+      await Promise.all([
+        deleteAIConfigFromStorage(id),
+        saveAIConfigTrash(trash.value),
+      ])
+      // 如果删除的是当前激活的配置，自动激活第一个或置 null
       if (wasActive) {
         if (configs.value.length > 0) {
           await setActiveConfig(configs.value[0].id)
@@ -275,27 +375,34 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
         }
       }
     }
-    persist().catch(e => {
+    trackPending(persist()).catch(e => {
       console.error('[aiConfigStore] deleteConfig persist failed:', e)
       naiveMessage.warning('删除未完全同步，请检查存储空间')
     })
+    return true
   }
 
-  /** 批量删除配置 */
-  const deleteConfigs = (ids: string[]) => {
+  /** 批量移入回收站 */
+  const deleteConfigs = async (ids: string[]) => {
     if (isLocked.value || ids.length === 0) return
 
     const idSet = new Set(ids)
     const wasActive = activeConfigId.value ? idSet.has(activeConfigId.value) : false
+    const now = new Date().toISOString()
+    const deleted = configs.value
+      .filter(c => idSet.has(c.id))
+      .map(c => ({ ...c, deletedAt: now }))
+    if (deleted.length === 0) return
 
-    // 先同步移除内存数据，让 UI 立即响应
+    // ponytail: 先改内存让 UI 立即响应，落盘后台执行
     configs.value = configs.value.filter(c => !idSet.has(c.id))
+    trash.value = [...trash.value, ...deleted]
 
-    // 后台持久化
     const persist = async () => {
-      await Promise.all(ids.map(id => deleteAIConfigFromStorage(id)))
-
-      // 如果删除的包含当前激活的配置
+      await Promise.all([
+        Promise.all(ids.map(id => deleteAIConfigFromStorage(id))),
+        saveAIConfigTrash(trash.value),
+      ])
       if (wasActive) {
         if (configs.value.length > 0) {
           await setActiveConfig(configs.value[0].id)
@@ -305,10 +412,64 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
         }
       }
     }
-    persist().catch(e => {
+    trackPending(persist()).catch(e => {
       console.error('[aiConfigStore] deleteConfigs persist failed:', e)
       naiveMessage.warning('删除未完全同步，请检查存储空间')
     })
+  }
+
+  /** 从回收站恢复：移除 deletedAt + 回到主列表 + 重新落盘源文件 */
+  const restoreConfig = async (id: string) => {
+    const config = trash.value.find(c => c.id === id)
+    if (!config) return
+    const restored: AIServiceConfig = { ...config, deletedAt: undefined }
+    // ponytail: 先改内存让 UI 立即响应，落盘后台执行（避免 dialog onPositiveClick 等落盘卡住）
+    trash.value = trash.value.filter(c => c.id !== id)
+    configs.value = [...configs.value, restored]
+    trackPending(Promise.all([
+      saveAIConfig(restored),
+      saveAIConfigTrash(trash.value),
+    ])).catch(e => {
+      console.error('[aiConfigStore] restoreConfig persist failed:', e)
+      naiveMessage.warning('恢复未完全同步，请检查存储空间')
+    })
+  }
+
+  /** 永久删除（从回收站移除 + 清用量；源文件在 deleteConfig 时已物理删除） */
+  const permanentDeleteConfig = async (id: string) => {
+    // ponytail: 先改内存让 UI 立即响应，落盘后台执行
+    trash.value = trash.value.filter(c => c.id !== id)
+    deleteUsage(id)
+    trackPending(saveAIConfigTrash(trash.value)).catch(e => {
+      console.error('[aiConfigStore] permanentDeleteConfig persist failed:', e)
+      naiveMessage.warning('删除未完全同步，请检查存储空间')
+    })
+  }
+
+  /** 清空 AI 配置回收站（含批量清用量） */
+  const emptyTrash = async () => {
+    // ponytail: 先清内存让 UI 立即响应，落盘后台执行
+    trash.value.forEach(c => deleteUsage(c.id))
+    trash.value = []
+    trackPending(saveAIConfigTrash([])).catch(e => {
+      console.error('[aiConfigStore] emptyTrash persist failed:', e)
+      naiveMessage.warning('清空未完全同步，请检查存储空间')
+    })
+  }
+
+  /** 自动清理过期配置（复用简历保留天数配置） */
+  const cleanupTrash = async () => {
+    const cutoff = Date.now() - trashRetentionDays.value * 24 * 60 * 60 * 1000
+    const valid = trash.value.filter(c => {
+      const deletedAt = c.deletedAt ? new Date(c.deletedAt).getTime() : Date.now()
+      return deletedAt > cutoff
+    })
+    if (valid.length !== trash.value.length) {
+      // 过期项的用量一并清除
+      trash.value.filter(c => !valid.includes(c)).forEach(c => deleteUsage(c.id))
+      trash.value = valid
+      await saveAIConfigTrash(valid)
+    }
   }
 
   /** 复制配置（含 API Key） */
@@ -325,6 +486,7 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       name: `${source.name} (副本)`,
       createdAt: now,
       updatedAt: now,
+      deletedAt: undefined,
     }
     // 先入内存让 UI 立即响应，持久化后台执行（与 deleteConfig 一致，避免文件系统/IDB 写入阻塞）
     configs.value.push(duplicated)
@@ -332,7 +494,7 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     const persist = async () => {
       await saveAIConfig(duplicated)
     }
-    persist().catch(e => {
+    trackPending(persist()).catch(e => {
       console.error('[aiConfigStore] duplicateConfig persist failed:', e)
       naiveMessage.warning('复制未完全同步，请检查存储空间')
     })
@@ -409,8 +571,14 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     }, 5000)
   }
 
-  /** 立即持久化用量（防抖窗口内关闭页面时调用） */
-  const flushUsage = async () => {
+  /**
+   * 立即持久化用量（防抖窗口内关闭页面时调用）。
+   * @param force true=强制写盘（用量删除/清空场景：无 pending 防抖也必须落盘，否则孤儿用量残留）。
+   */
+  const flushUsage = async (force = false) => {
+    // ponytail: 无 pending 用量早退，避免 flushAll 时无谓写一次 meta（目录模式慢）；
+    //           force 路径绕过早退（deleteUsage 改内存后必须落盘，否则刷新后用量回滚）
+    if (!force && !_usageSaveTimer) return
     if (_usageSaveTimer) {
       clearTimeout(_usageSaveTimer)
       _usageSaveTimer = null
@@ -423,7 +591,7 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     }
   }
 
-  /** 删除某配置的全部用量（配置删除时联动） */
+  /** 删除某配置的全部用量（配置删除时联动）。强制落盘，避免永久删除/清空回收站后孤儿用量残留。 */
   const deleteUsage = (configId: string) => {
     const store = usageByConfig.value
     if (!store.byConfig[configId] && !store.byModel[configId]) return
@@ -434,7 +602,11 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     delete next.byConfig[configId]
     delete next.byModel[configId]
     usageByConfig.value = next
-    flushUsage()
+    // ponytail: force=true 绕过 flushUsage 早退；trackPending 让 flushGuard 感知在途写、弹遮罩兜底
+    trackPending(flushUsage(true)).catch(e => {
+      console.error('[aiConfigStore] deleteUsage 落盘失败:', e)
+      naiveMessage.warning('用量数据未完全同步，请检查存储空间')
+    })
   }
 
   /** 聚合一组日期桶为 UsageDetail。todayBucket 为今日桶，allBuckets 为全部日期桶（含今日）。 */
@@ -580,19 +752,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   }
 
   // 页面隐藏/关闭时 flush 未持久化的 token 用量
-  // ponytail: beforeunload 的 async 不可靠；visibilitychange（hidden 时）时机更早，
-  //           pagehide 在卸载时兜底。对齐 interviewStore 的做法。
-  if (typeof window !== 'undefined') {
-    const onVisibility = () => { if (document.hidden) flushUsage() }
-    window.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pagehide', flushUsage)
-    window.addEventListener('beforeunload', flushUsage)
-    onScopeDispose(() => {
-      window.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pagehide', flushUsage)
-      window.removeEventListener('beforeunload', flushUsage)
-    })
-  }
+  // ponytail: 统一交由 useFlushGuard 注册三事件 + 驱动保存遮罩，对齐其他 store。
+  registerFlush(() => _usageSaveTimer !== null, () => flushUsage())
 
   // 初始化
   init()
@@ -602,17 +763,22 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
   /** 从当前存储后端重新加载全部数据 */
   const reloadFromStorage = async () => {
     try {
-      const [allConfigs, savedActiveId] = await Promise.all([
+      const [allConfigs, savedActiveId, trashData, retentionDays] = await Promise.all([
         getAllAIConfigs(),
         getActiveAIConfigId(),
+        getAIConfigTrash(),
+        getTrashRetentionDays(),
       ])
       configs.value = allConfigs
+      trash.value = trashData
+      trashRetentionDays.value = retentionDays
       if (savedActiveId && allConfigs.some(c => c.id === savedActiveId)) {
         activeConfigId.value = savedActiveId
       } else {
         // 不自动激活第一个（用户可能已主动停用所有）
         activeConfigId.value = null
       }
+      await cleanupTrash()
       // 重新加载用量数据（跟随缓存策略）
       try {
         const saved = await getAIUsage<UsageStore>()
@@ -640,6 +806,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     hasConfigs,
     ready,
     usageByConfig,
+    trash,
+    trashRetentionDays,
     recordUsage,
     flushUsage,
     getUsageDetail,
@@ -650,6 +818,9 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     updateConfig,
     deleteConfig,
     deleteConfigs,
+    restoreConfig,
+    permanentDeleteConfig,
+    emptyTrash,
     duplicateConfig,
     setActiveConfig,
     reloadFromStorage,

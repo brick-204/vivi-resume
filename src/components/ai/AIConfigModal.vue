@@ -111,8 +111,8 @@
 
     <template #footer>
       <div class="modal-footer">
-        <n-button @click="$emit('close')">取消</n-button>
-        <n-button type="primary" @click="handleSave">
+        <n-button :disabled="saving" @click="$emit('close')">取消</n-button>
+        <n-button type="primary" :loading="saving" :disabled="saving" @click="handleSave">
           {{ isEdit ? '保存修改' : '添加' }}
         </n-button>
       </div>
@@ -140,6 +140,8 @@ const emit = defineEmits<{
 
 const isDev = import.meta.env.MODE === 'development'
 const isEdit = computed(() => !!props.config)
+// ponytail: 保存按钮 spin，覆盖表单校验期间，防连点；emit 后父立即关弹窗销毁本组件
+const saving = ref(false)
 
 const formRef = ref<FormInst | null>(null)
 
@@ -239,12 +241,18 @@ const onProviderChange = (providerId: AIProvider) => {
 }
 
 const handleSave = async () => {
+  if (saving.value) return
+  saving.value = true
   try {
     await formRef.value?.validate()
   } catch {
+    saving.value = false
     return
   }
   emit('save', { ...formData.value })
+  // ponytail: 父组件收到 save 后同步更新内存并 closeModal 销毁本组件；
+  //           万一父未关弹窗（如 isLocked 静默失败），复位 saving 让用户可重试
+  saving.value = false
 }
 </script>
 

@@ -37,13 +37,13 @@
         <button class="action-btn" title="复制" @click="$emit('copy')">
           <Icon icon="mdi:content-copy" :width="16" />
         </button>
-        <n-popconfirm @positive-click="$emit('delete')">
+        <n-popconfirm positive-text="移入回收站" negative-text="取消" @positive-click="$emit('delete')">
           <template #trigger>
             <button class="action-btn action-btn--danger" title="删除" @click.stop>
               <Icon icon="mdi:delete-outline" :width="16" />
             </button>
           </template>
-          确定删除「{{ config.name }}」配置吗？
+          确定将「{{ config.name }}」移入回收站吗？
         </n-popconfirm>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef, toRaw, onScopeDispose } from 'vue'
+import { ref, computed, shallowRef, toRaw } from 'vue'
 import type { Resume, CustomTextSection, CustomCardSection, HeaderTextColor, HeaderIconColor, EvaluationResult, JdScanResult, InterviewResult, DeletedItems, DeletedSections, WorkItem, EducationItem, ProjectItem, SkillItem, CustomCardItem, FieldConflict, ConflictDetectionResult } from '@/types/resume'
 import { validateResumeJSON, type ValidationError } from '@/schemas/resumeSchema'
 
@@ -26,6 +26,7 @@ import {
 } from '@/utils/trashConfig'
 import type { DeletedCardKey } from '@/utils/trashConfig'
 import { useSyncLock } from '@/composables/useSyncLock'
+import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import {
@@ -210,6 +211,8 @@ export const useResumeStore = defineStore('resume', () => {
         await setCurrentId(currentResume.value.id)
       }
     })
+    // ponytail: trackPending 让 flushGuard 感知这次写未落盘，刷新/关闭时弹框+遮罩保护
+    trackPending(_writeLock)
     await _writeLock
   }
 
@@ -240,12 +243,17 @@ export const useResumeStore = defineStore('resume', () => {
           naiveMessage.warning('保存失败，请检查存储空间或权限')
           // isDirty 保持 true，下次编辑触发重试
         })
+        // ponytail: trackPending 让 flushGuard 感知这次防抖写未落盘
+        trackPending(_writeLock)
       }
     }, AUTO_SAVE_DELAY)
   }
 
   /** 立即保存当前简历（标题修改、关键操作等场景） */
   const saveCurrentResumeNow = async () => {
+    // ponytail: flushAll 会遍历各 flusher 调 flush；无 dirty 时早退，避免把整份 resumeList
+    //           全量重写到存储（目录模式逐文件 writeAtomically 很慢，会让关页面遮罩转很久）
+    if (!isDirty.value) return
     if (!currentResume.value) return
 
     // 先取消防抖计时器，避免重复保存
@@ -325,7 +333,8 @@ export const useResumeStore = defineStore('resume', () => {
     }
     trash.value = [...trash.value, ...deleted]
 
-    Promise.all([saveToStorageNow(), saveTrash(trash.value)]).catch(e => {
+    // 持久化（saveToStorageNow 内部已 track _writeLock，saveTrash 部分也需 track）
+    trackPending(Promise.all([saveToStorageNow(), saveTrash(trash.value)])).catch(e => {
       console.error('[resumeStore] trashResumes persist failed:', e)
       naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
     })
@@ -349,7 +358,7 @@ export const useResumeStore = defineStore('resume', () => {
     trash.value = [...trash.value, deletedResume]
 
     // 持久化
-    Promise.all([saveToStorageNow(), saveTrash(trash.value)]).catch(e => {
+    trackPending(Promise.all([saveToStorageNow(), saveTrash(trash.value)])).catch(e => {
       console.error('[resumeStore] trashResume persist failed:', e)
       naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
     })
@@ -370,19 +379,19 @@ export const useResumeStore = defineStore('resume', () => {
     resumeList.value = [...resumeList.value, restored]
 
     // 持久化
-    await Promise.all([saveToStorageNow(), saveTrash(trash.value)])
+    await trackPending(Promise.all([saveToStorageNow(), saveTrash(trash.value)]))
   }
 
   // 永久删除
   const permanentDeleteResume = async (id: string) => {
     trash.value = trash.value.filter(r => r.id !== id)
-    await saveTrash(trash.value)
+    await trackPending(saveTrash(trash.value))
   }
 
   // 清空回收站
   const emptyTrash = async () => {
     trash.value = []
-    await saveTrash([])
+    await trackPending(saveTrash([]))
   }
 
   // 自动清理过期简历
@@ -394,7 +403,7 @@ export const useResumeStore = defineStore('resume', () => {
     })
     if (valid.length !== trash.value.length) {
       trash.value = valid
-      await saveTrash(valid)
+      await trackPending(saveTrash(valid))
     }
   }
 
@@ -1249,19 +1258,11 @@ export const useResumeStore = defineStore('resume', () => {
     }
   }
 
-  // 页面关闭/刷新前尽力保存最近编辑（与 aiConfigStore/consultStore 对齐）
-  // ponytail: best-effort，idb/file 的 beforeunload async 不可靠，但触发比不触发强
-  if (typeof window !== 'undefined') {
-    const onBeforeUnload = () => {
-      if (isDirty.value) {
-        saveCurrentResumeNow()
-      }
-    }
-    window.addEventListener('beforeunload', onBeforeUnload)
-    onScopeDispose(() => {
-      window.removeEventListener('beforeunload', onBeforeUnload)
-    })
-  }
+  // 页面隐藏/关闭前尽力保存最近编辑
+  // ponytail: 统一交由 useFlushGuard 注册三事件（visibilitychange/pagehide/beforeunload）
+  //           + 驱动全屏保存遮罩。beforeunload 弹原生「确认离开」框，用户点「留下」后遮罩可见。
+  //           平台限制：unload 阶段异步写不可靠，本机制显著降低丢失概率，非 100% 保证。
+  registerFlush(() => isDirty.value, () => saveCurrentResumeNow())
 
   return {
     resumeList,

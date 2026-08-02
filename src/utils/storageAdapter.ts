@@ -307,6 +307,27 @@ export async function saveInterviewTrash(trash: Interview[]): Promise<void> {
   }
 }
 
+/** 读取 AI 配置回收站列表（meta.json / meta store，与简历/面试回收站同存储模式） */
+export async function getAIConfigTrash(): Promise<AIServiceConfig[]> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.aiConfigTrash as AIServiceConfig[]) ?? []
+  }
+  return (await idb.getMeta<AIServiceConfig[]>('aiConfigTrash')) ?? []
+}
+
+/** 写入 AI 配置回收站列表 */
+export async function saveAIConfigTrash(trash: AIServiceConfig[]): Promise<void> {
+  const plain = idb.toPlain(trash)
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.aiConfigTrash = plain
+    })
+  } else {
+    await idb.setMeta('aiConfigTrash', plain)
+  }
+}
+
 // ========== 转发 IndexedDB 专用方法（目录模式不需要） ==========
 
 /** localStorage 迁移（仅 IndexedDB 模式需要） */

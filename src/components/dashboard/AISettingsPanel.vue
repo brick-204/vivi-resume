@@ -165,13 +165,14 @@ const onBatchDelete = () => {
   const ids = [...selectedIds.value]
   if (ids.length === 0) return
   dialog.warning({
-    title: '批量删除 AI 服务',
-    content: `确定要删除选中的 ${ids.length} 个 AI 服务配置吗？`,
-    positiveText: '删除',
+    title: '批量移入回收站',
+    content: `确定要将选中的 ${ids.length} 个 AI 服务配置移入回收站吗？`,
+    positiveText: '移入回收站',
     negativeText: '取消',
-    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
+    // ponytail: 按钮居中、操作(positive)靠左、取消(negative)靠右（CLAUDE.md 弹窗按钮规范）
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
     onPositiveClick: () => {
-      aiConfigStore.deleteConfigs(ids)
+      aiConfigStore.deleteConfigs(ids).catch(e => console.error('[AISettingsPanel] deleteConfigs:', e))
       exitSelectionMode()
     },
   })
@@ -192,13 +193,14 @@ const closeModal = () => {
   editingConfig.value = null
 }
 
-const handleSave = async (data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
+const handleSave = (data: Omit<AIServiceConfig, 'id' | 'createdAt' | 'updatedAt'>) => {
+  // ponytail: store 先改内存后异步落盘，这里同步完成、立即关弹窗，不阻塞 UI
   try {
     if (editingConfig.value) {
-      await aiConfigStore.updateConfig(editingConfig.value.id, data)
+      aiConfigStore.updateConfig(editingConfig.value.id, data)
       naiveMessage.success('配置已更新')
     } else {
-      await aiConfigStore.addConfig(data)
+      aiConfigStore.addConfig(data)
       naiveMessage.success('配置已添加')
     }
     closeModal()
@@ -212,8 +214,8 @@ const handleCopy = (id: string) => {
   try {
     const duplicated = aiConfigStore.duplicateConfig(id)
     if (duplicated) {
+      // ponytail: 复制即生成副本并落盘，不自动打开编辑弹窗（用户想改可自行点编辑）
       naiveMessage.info('配置已复制')
-      openEditModal(duplicated)
     }
   } catch (e) {
     console.error('[AISettingsPanel] 复制失败:', e)
@@ -222,13 +224,13 @@ const handleCopy = (id: string) => {
 }
 
 const handleDelete = (id: string) => {
-  try {
-    aiConfigStore.deleteConfig(id)
-    naiveMessage.success('配置已删除')
-  } catch (e) {
+  // ponytail: deleteConfig 返回是否真正执行（同步期 isLocked 返回 false），据此决定提示，避免误导
+  aiConfigStore.deleteConfig(id).then(ok => {
+    if (ok) naiveMessage.success('已移入回收站')
+  }).catch(e => {
     console.error('[AISettingsPanel] 删除失败:', e)
-    naiveMessage.error('删除失败，请重试')
-  }
+    naiveMessage.error('移入回收站失败，请重试')
+  })
 }
 
 const handleDeactivate = async () => {

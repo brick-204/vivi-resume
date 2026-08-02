@@ -316,11 +316,12 @@ export const usePetStore = defineStore('pet', () => {
     }
   }
 
-  /** 说当前时段的招呼（进页面/切桌宠时调用），并记录时段供跨段检测。
-   *  走 sayCategory('greet')：开关开时由 AI 现编，否则静态时段招呼 */
+  /** 切换桌宠时的即时招呼：强制走静态时段招呼（绕开 AI 异步），
+   *  保证切换后气泡立即带上新桌宠名字，不被 AI 生成延迟拖住。
+   *  并记录时段供跨段检测。 */
   const sayTimeGreet = () => {
     lastGreetPeriod = getTimePeriod(new Date().getHours())
-    void sayCategory('greet', petName.value)
+    say(pickQuote('greet', petName.value))
   }
 
   return {

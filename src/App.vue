@@ -20,6 +20,8 @@
         v-model:show="consultVisible"
         v-model:placement="consultPlacement"
       />
+      <!-- ponytail: 落盘兜底遮罩 — beforeunload/flush 期间显示，引导用户等待落盘完成 -->
+      <SaveGuardOverlay :visible="isFlushing" />
     </n-message-provider>
   </n-config-provider>
 </template>
@@ -33,11 +35,18 @@ import { useTheme } from '@/composables/useTheme'
 import { useSettingsStore } from '@/stores/settingsStore'
 import router from '@/router'
 import RouteSkeletonOverlay from '@/components/common/RouteSkeletonOverlay.vue'
+import SaveGuardOverlay from '@/components/common/SaveGuardOverlay.vue'
+import { useFlushGuard } from '@/composables/useFlushGuard'
 import ConsultDrawer from '@/components/ai/ConsultDrawer.vue'
 import DesktopPet from '@/components/ai/DesktopPet.vue'
 
 const { resolvedTheme } = useTheme()
 const settingsStore = useSettingsStore()
+
+// ponytail: 落盘兜底守卫 — 绑定单例生命周期（注册 visibilitychange/pagehide/beforeunload），
+//           isFlushing 驱动下方保存遮罩。各 store 内调 registerFlush 注册各自 flush 逻辑。
+const flushGuard = useFlushGuard()
+const isFlushing = computed(() => flushGuard.isFlushing.value)
 
 // ponytail: 等 settingsStore ready（currentPetId/customPets 已从存储读入）再挂载桌宠，
 //           避免启动瞬间用默认桌宠渲染、ready 后再切换造成的闪烁

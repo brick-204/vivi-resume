@@ -434,3 +434,9 @@ export async function clearInterviewsStore(): Promise<void> {
   const db = await getDB()
   await db.clear(INTERVIEWS_STORE)
 }
+
+/** 清空咨询会话 store（bind 迁移后清缓存用） */
+export async function clearConsultSessionsStore(): Promise<void> {
+  const db = await getDB()
+  await db.clear(CONSULT_SESSIONS_STORE)
+}

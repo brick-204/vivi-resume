@@ -8,8 +8,9 @@
  */
 
 import { defineStore } from 'pinia'
-import { computed, shallowRef, ref, onScopeDispose } from 'vue'
+import { computed, shallowRef, ref } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import {
   getAllInterviews,
   saveInterview,
@@ -94,7 +95,7 @@ export const useInterviewStore = defineStore('interview', () => {
     if (existing) clearTimeout(existing)
     const timer = setTimeout(() => {
       _saveTimer.delete(interview.id)
-      saveInterview(toPlainDeep(interview)).catch(e => {
+      trackPending(saveInterview(toPlainDeep(interview))).catch(e => {
         console.error('[interviewStore] persistInterview failed:', e)
       })
     }, 300)
@@ -111,11 +112,11 @@ export const useInterviewStore = defineStore('interview', () => {
   }
 
   const flushInterview = async (id: string) => {
+    // ponytail: 无 pending 防抖定时器则早退，避免 flushAll 时无谓写一次面试文件（目录模式慢）
     const timer = _saveTimer.get(id)
-    if (timer) {
-      clearTimeout(timer)
-      _saveTimer.delete(id)
-    }
+    if (!timer) return
+    clearTimeout(timer)
+    _saveTimer.delete(id)
     const interview = interviews.value.find(i => i.id === id)
     if (interview) {
       await saveInterview(toPlainDeep(interview))
@@ -171,7 +172,7 @@ export const useInterviewStore = defineStore('interview', () => {
     // shallowRef 需整体替换触发响应式
     interviews.value = [interview, ...interviews.value]
     // 新建即落盘，避免关页面丢失
-    saveInterview(toPlainDeep(interview)).catch(e => {
+    trackPending(saveInterview(toPlainDeep(interview))).catch(e => {
       console.error('[interviewStore] createInterview persist failed:', e)
     })
     return interview.id
@@ -197,10 +198,10 @@ export const useInterviewStore = defineStore('interview', () => {
     interviews.value = interviews.value.filter(i => i.id !== id)
     trash.value = [...trash.value, deleted]
     try {
-      await Promise.all([
+      await trackPending(Promise.all([
         deleteInterviewFromStorage(id),
         saveInterviewTrash(trash.value),
-      ])
+      ]))
     } catch (e) {
       console.error('[interviewStore] trashInterview persist failed:', e)
       naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
@@ -215,7 +216,7 @@ export const useInterviewStore = defineStore('interview', () => {
     cancelPendingPersist(id)
     interviews.value = interviews.value.filter(i => i.id !== id)
     try {
-      await deleteInterviewFromStorage(id)
+      await trackPending(deleteInterviewFromStorage(id))
     } catch (e) {
       console.error('[interviewStore] purgeInterview persist failed:', e)
       naiveMessage.warning('删除未完全同步，请检查存储空间')
@@ -235,10 +236,10 @@ export const useInterviewStore = defineStore('interview', () => {
     interviews.value = interviews.value.filter(i => !idSet.has(i.id))
     trash.value = [...trash.value, ...deleted]
     try {
-      await Promise.all([
+      await trackPending(Promise.all([
         Promise.all(ids.map(id => deleteInterviewFromStorage(id))),
         saveInterviewTrash(trash.value),
-      ])
+      ]))
     } catch (e) {
       console.error('[interviewStore] trashInterviews persist failed:', e)
       naiveMessage.warning('删除未完全同步，刷新后可能恢复，请检查存储空间')
@@ -252,22 +253,22 @@ export const useInterviewStore = defineStore('interview', () => {
     const restored: Interview = { ...interview, deletedAt: undefined }
     trash.value = trash.value.filter(i => i.id !== id)
     interviews.value = [restored, ...interviews.value]
-    await Promise.all([
+    await trackPending(Promise.all([
       saveInterview(toPlainDeep(restored)),
       saveInterviewTrash(trash.value),
-    ])
+    ]))
   }
 
   /** 永久删除（仅从回收站 meta 移除；源文件在 trashInterview 时已物理删除） */
   const permanentDeleteInterview = async (id: string) => {
     trash.value = trash.value.filter(i => i.id !== id)
-    await saveInterviewTrash(trash.value)
+    await trackPending(saveInterviewTrash(trash.value))
   }
 
   /** 清空面试回收站 */
   const emptyTrash = async () => {
     trash.value = []
-    await saveInterviewTrash([])
+    await trackPending(saveInterviewTrash([]))
   }
 
   /** 自动清理过期面试记录（复用简历保留天数配置） */
@@ -299,7 +300,7 @@ export const useInterviewStore = defineStore('interview', () => {
     copy.updatedAt = now
     delete copy.deletedAt
     interviews.value = [copy, ...interviews.value]
-    saveInterview(toPlainDeep(copy)).catch(e => {
+    trackPending(saveInterview(toPlainDeep(copy))).catch(e => {
       console.error('[interviewStore] duplicateInterview persist failed:', e)
     })
     return copy.id
@@ -362,23 +363,12 @@ export const useInterviewStore = defineStore('interview', () => {
   }
 
   // ========== 页面隐藏/关闭 flush ==========
-  // ponytail: beforeunload 的 async 不可靠；visibilitychange（hidden 时）时机更早，
-  //           pagehide 在页面卸载时兜底。两者配合最大化落盘概率。
-  //           visibilitychange 在 visible 时也会触发，但重复 flush 无害（内部已 clearTimeout）
-  const flushCurrentInterviews = () => {
-    _saveTimer.forEach((_t, id) => {
-      flushInterview(id)
-    })
+  // ponytail: 统一交由 useFlushGuard 注册三事件 + 驱动保存遮罩（顺带补上原本缺失的 beforeunload）。
+  //           返回 Promise.all 让 flushAll 的 allSettled 真正 await 落盘，避免遮罩提前消失、写被中断丢数据。
+  const flushCurrentInterviews = (): Promise<void> => {
+    return Promise.all([..._saveTimer.keys()].map(id => flushInterview(id))).then(() => undefined)
   }
-  if (typeof window !== 'undefined') {
-    const onVisibility = () => { if (document.hidden) flushCurrentInterviews() }
-    window.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pagehide', flushCurrentInterviews)
-    onScopeDispose(() => {
-      window.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pagehide', flushCurrentInterviews)
-    })
-  }
+  registerFlush(() => _saveTimer.size > 0, () => flushCurrentInterviews())
 
   // 初始化
   init()
