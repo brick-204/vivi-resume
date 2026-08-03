@@ -2,6 +2,7 @@
   <n-modal
     :show="visible"
     preset="card"
+    :auto-focus="false"
     :style="{ maxWidth: '480px', width: '90vw' }"
     @update:show="(v: boolean) => { if (!v) emit('close') }"
   >
@@ -16,6 +17,7 @@
       <button
         v-for="opt in options"
         :key="opt.mode"
+        ref="optionBtnRefs"
         type="button"
         class="create-option"
         @click="emit('create', opt.mode)"
@@ -29,10 +31,11 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { NModal } from 'naive-ui'
 
-defineProps<{
+const props = defineProps<{
   visible: boolean
 }>()
 
@@ -40,6 +43,15 @@ const emit = defineEmits<{
   close: []
   create: [mode: 'hand' | 'jd']
 }>()
+
+// ponytail: preset="card" 无默认 action 按钮，auto-focus 找不到目标会留焦在触发按钮上，
+// 此时背景被 naive 加 aria-hidden → a11y 警告。打开后手动把焦点移进 modal 第一个选项。
+const optionBtnRefs = ref<HTMLButtonElement[]>([])
+watch(() => props.visible, async (v) => {
+  if (!v) return
+  await nextTick()
+  optionBtnRefs.value[0]?.focus()
+})
 
 const options: { mode: 'hand' | 'jd'; icon: string; title: string; desc: string }[] = [
   { mode: 'hand', icon: 'mdi:pencil-plus', title: '手动新建', desc: '从空白表单开始填写' },
