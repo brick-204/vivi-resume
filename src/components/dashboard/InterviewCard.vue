@@ -29,19 +29,17 @@
       <div class="interview-card__rounds">
         <Icon icon="mdi:format-list-numbered" :width="14" />
         <span v-if="interview.rounds.length === 0">尚未安排轮次</span>
-        <span v-else>
-          共 {{ interview.rounds.length }} 轮 ·
-          {{ latestRoundText }}
-        </span>
+        <span v-else>共 {{ interview.rounds.length }} 轮 · 最后一面 · {{ lastRoundText }}</span>
       </div>
 
       <!-- 下一面倒计时（仅面试中 + 有未来待面轮次） -->
-      <div v-if="nextRound" class="interview-card__countdown">
-        <div class="interview-card__countdown-label">
+      <div v-if="nextRound" class="interview-card__countdown" :style="countdownBoxStyle">
+        <div class="interview-card__countdown-label" :style="{ color: countdownColors.label }">
           <Icon icon="mdi:timer-sand" :width="14" />
           <span>下一面 · {{ nextRound.roundType }}</span>
+          <span v-if="nextScheduledText" class="interview-card__countdown-time">{{ nextScheduledText }}</span>
         </div>
-        <div class="interview-card__countdown-value">{{ countdownText }}</div>
+        <div class="interview-card__countdown-value" :style="{ color: countdownColors.value }">{{ countdownText }}</div>
       </div>
 
       <!-- 关联简历 -->
@@ -76,9 +74,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Interview, InterviewStatus, RoundStatus } from '@/types/interview'
+import type { Interview, InterviewStatus } from '@/types/interview'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useNextRoundCountdown } from '@/composables/useNextRoundCountdown'
+import { formatInterviewDate } from '@/utils/timestamp'
 import { Icon } from '@iconify/vue'
 
 const props = defineProps<{
@@ -114,32 +113,17 @@ const STATUS_STYLE: Record<InterviewStatus, { bg: string; color: string }> = {
   closed: { bg: 'rgba(120, 120, 120, 0.15)', color: '#999' },
 }
 
-const ROUND_STATUS_LABEL: Record<RoundStatus, string> = {
-  pending: '待面',
-  done: '已面',
-  passed: '通过',
-  failed: '未通过',
-}
-
 const statusLabel = computed(() => STATUS_LABEL[props.interview.status])
 const statusStyle = computed(() => STATUS_STYLE[props.interview.status])
 
-/** 最近一轮摘要：取 rounds 最后一个，显示「轮次类型 + 状态 + 短日期」 */
-const latestRoundText = computed(() => {
+/** 最后一轮摘要：「轮次类型 · MM-DD 周X」（无 scheduledAt 则只显示类型） */
+const lastRoundText = computed(() => {
   const rounds = props.interview.rounds
   if (rounds.length === 0) return ''
   const last = rounds[rounds.length - 1]
-  const type = last.roundType
-  const status = ROUND_STATUS_LABEL[last.status]
-  const date = last.scheduledAt ? shortDate(last.scheduledAt) : ''
-  return `${type} ${status}${date ? ' · ' + date : ''}`
+  const dt = formatInterviewDate(last.scheduledAt)
+  return dt ? `${last.roundType} · ${dt}` : last.roundType
 })
-
-const shortDate = (iso: string): string => {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  return `${d.getMonth() + 1}-${d.getDate().toString().padStart(2, '0')}`
-}
 
 // 关联简历标题
 const resumeStore = useResumeStore()
@@ -161,7 +145,27 @@ const relativeTime = (iso: string): string => {
 }
 
 // 下一面倒计时：复用 useNextRoundCountdown composable（与面试横幅共享逻辑）
-const { nextRound, countdownText } = useNextRoundCountdown(() => props.interview)
+// urgencyLevel 三档色复用横幅同款：soon 蓝 / near 橙 / urgent 红（无脉冲，卡片不打扰）
+const { nextRound, countdownText, urgencyLevel } = useNextRoundCountdown(() => props.interview)
+
+/** 下一面具体时刻：MM-DD 周X HH:MM（有 nextRound.scheduledAt 才有值） */
+const nextScheduledText = computed(() => formatInterviewDate(nextRound.value?.scheduledAt, true))
+
+const URGENCY_COLORS = {
+  soon:   { bg: 'rgba(52, 152, 219, 0.12)', border: 'rgba(52, 152, 219, 0.35)', label: '#3498db', value: '#2980b9' },
+  near:   { bg: 'rgba(243, 156, 18, 0.12)', border: 'rgba(243, 156, 18, 0.35)', label: '#f39c12', value: '#e67e22' },
+  urgent: { bg: 'rgba(231, 76, 60, 0.14)', border: 'rgba(231, 76, 60, 0.45)',  label: '#e74c3c', value: '#c0392b' },
+} as const
+
+// ponytail: 倒计时块背景/边框/文字色随紧迫度动态切；nextRound 为 null 时此块不渲染，故不处理 null
+const countdownColors = computed(() => {
+  const lvl = urgencyLevel.value
+  return lvl ? URGENCY_COLORS[lvl] : URGENCY_COLORS.near
+})
+const countdownBoxStyle = computed(() => ({
+  background: countdownColors.value.bg,
+  borderColor: countdownColors.value.border,
+}))
 </script>
 
 <style lang="scss" scoped>
@@ -268,7 +272,7 @@ const { nextRound, countdownText } = useNextRoundCountdown(() => props.interview
     color: $text-secondary;
   }
 
-  // 下一面倒计时：橙色高亮（呼应「面试中」状态色 #f39c12），加粗强调
+  // 下一面倒计时：背景/边框/文字色由内联 style 按紧迫度切（soon 蓝/near 橙/urgent 红），此处仅布局
   &__countdown {
     display: flex;
     align-items: center;
@@ -276,23 +280,30 @@ const { nextRound, countdownText } = useNextRoundCountdown(() => props.interview
     gap: $spacing-sm;
     padding: $spacing-xs $spacing-sm;
     border-radius: $radius-md;
-    background: rgba(243, 156, 18, 0.12);
-    border: 1px solid rgba(243, 156, 18, 0.35);
+    border: 1px solid transparent;
   }
 
   &__countdown-label {
     display: flex;
     align-items: center;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 2px 4px;
+    min-width: 0;
     font-size: $font-size-xs;
     font-weight: 600;
-    color: #f39c12;
+  }
+
+  // 具体时刻：占满一行换行展示，与「下一面·轮次」分开
+  &__countdown-time {
+    width: 100%;
+    font-weight: 400;
+    opacity: 0.85;
   }
 
   &__countdown-value {
+    flex-shrink: 0;
     font-size: $font-size-sm;
     font-weight: 700;
-    color: #e67e22;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
   }

@@ -56,13 +56,28 @@
 
       <div class="round-editor__field">
         <label>面试时间</label>
-        <n-date-picker
-          :value="scheduledAtTs"
-          type="datetime"
-          size="small"
-          clearable
-          @update:value="onScheduledAtUpdate"
-        />
+        <div class="round-editor__time-row">
+          <n-date-picker
+            :value="scheduledAtTs"
+            type="datetime"
+            size="small"
+            clearable
+            format="yyyy-MM-dd HH:mm"
+            :default-time="'00:00:00'"
+            :time-picker-props="{ format: 'HH:mm' }"
+            @update:value="onScheduledAtUpdate"
+          />
+          <n-button
+            quaternary
+            size="small"
+            class="round-editor__sharp"
+            :disabled="!scheduledAtTs"
+            title="整点：分秒置 00"
+            @click="onSharpClick"
+          >
+            整点
+          </n-button>
+        </div>
       </div>
 
       <div class="round-editor__field">
@@ -206,9 +221,24 @@ function onFieldUpdate<K extends keyof InterviewRound>(key: K, value: InterviewR
   emit('update:round', { ...props.round, [key]: value })
 }
 
+// ponytail: 时间统一不存秒——picker 关了秒选择（format HH:mm），存值也清秒，避免显示层带 :00 末尾
 function onScheduledAtUpdate(ts: number | null) {
-  const iso = ts !== null ? new Date(ts).toISOString() : null
-  onFieldUpdate('scheduledAt', iso)
+  if (ts === null) {
+    onFieldUpdate('scheduledAt', null)
+    return
+  }
+  const d = new Date(ts)
+  d.setSeconds(0, 0)
+  onFieldUpdate('scheduledAt', d.toISOString())
+}
+
+/** 整点按钮：保留年月日时，分秒置 0（如 14:23:45 → 14:00:00） */
+function onSharpClick() {
+  const ts = scheduledAtTs.value
+  if (ts === null) return
+  const d = new Date(ts)
+  d.setMinutes(0, 0, 0)
+  onFieldUpdate('scheduledAt', d.toISOString())
 }
 </script>
 
@@ -318,6 +348,23 @@ function onScheduledAtUpdate(ts: number | null) {
       font-size: 13px;
       font-weight: 600;
       color: $text-secondary;
+    }
+  }
+
+  // 时间选择 + 整点按钮同行
+  &__time-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+  }
+
+  &__sharp {
+    flex-shrink: 0;
+    color: $text-light;
+    font-size: $font-size-xs;
+
+    &:not(:disabled):hover {
+      color: $primary-color;
     }
   }
 

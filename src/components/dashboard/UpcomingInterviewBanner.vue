@@ -10,6 +10,8 @@
     <Icon icon="mdi:timer-sand" :width="16" class="upcoming-banner__icon" />
     <span class="upcoming-banner__countdown">{{ countdownText }}</span>
     <span class="upcoming-banner__sep">·</span>
+    <span class="upcoming-banner__scheduled">{{ scheduledText }}</span>
+    <span class="upcoming-banner__sep">·</span>
     <span class="upcoming-banner__company">{{ interview?.company || '未填写公司' }}</span>
     <span class="upcoming-banner__sep">·</span>
     <span class="upcoming-banner__round">{{ nextRound?.roundType || '待面' }}</span>
@@ -17,7 +19,7 @@
     <span class="upcoming-banner__cta">查看 →</span>
   </button>
 
-  <!-- nav 顶部矩形卡（nav-top）：嵌在 SidebarNav 内部顶部 -->
+  <!-- nav 顶部矩形卡（nav-top）：嵌在 SidebarNav 内部顶部，三行布局适配窄侧边栏 -->
   <button
     v-else-if="position === 'nav-top' && shouldShow"
     class="upcoming-banner upcoming-banner--nav"
@@ -29,6 +31,7 @@
       <Icon icon="mdi:timer-sand" :width="16" class="upcoming-banner__icon" />
       <span>{{ countdownText }}</span>
     </div>
+    <div class="upcoming-banner__scheduled upcoming-banner__scheduled--line">{{ scheduledText }}</div>
     <div class="upcoming-banner__meta">
       <span class="upcoming-banner__company">{{ interview?.company || '未填写公司' }}</span>
       <span class="upcoming-banner__sep">·</span>
@@ -38,7 +41,7 @@
     </div>
   </button>
 
-  <!-- 左/右下角悬浮卡（bottom-left / bottom-right）：fixed -->
+  <!-- 左/右下角悬浮卡（bottom-left / bottom-right）：fixed，三行布局加高避免横向过长 -->
   <button
     v-else-if="isCorner && shouldShow"
     class="upcoming-banner upcoming-banner--corner"
@@ -50,6 +53,7 @@
       <Icon icon="mdi:timer-sand" :width="16" class="upcoming-banner__icon" />
       <span>{{ countdownText }}</span>
     </div>
+    <div class="upcoming-banner__scheduled upcoming-banner__scheduled--line">{{ scheduledText }}</div>
     <div class="upcoming-banner__meta">
       <span class="upcoming-banner__company">{{ interview?.company || '未填写公司' }}</span>
       <span class="upcoming-banner__sep">·</span>
@@ -67,6 +71,7 @@ import { storeToRefs } from 'pinia'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useNextRoundCountdown } from '@/composables/useNextRoundCountdown'
+import { formatInterviewDate } from '@/utils/timestamp'
 import { Icon } from '@iconify/vue'
 import type { InterviewBannerPosition } from '@/utils/storageAdapter'
 
@@ -86,6 +91,9 @@ const isCorner = computed(() => position.value === 'bottom-left' || position.val
  */
 const interview = computed(() => ongoingInterviews.value[0] ?? null)
 const { nextRound, countdownText, urgencyLevel } = useNextRoundCountdown(() => interview.value)
+
+/** 具体面试时间「MM-DD 周X HH:MM」——复用 formatInterviewDate，与卡片一致 */
+const scheduledText = computed(() => formatInterviewDate(nextRound.value?.scheduledAt, true))
 
 // 开关开 + 有紧迫度（≤3天且有未来轮次）才显示
 const shouldShow = computed(() => interviewBannerEnabled.value && urgencyLevel.value !== null)
@@ -144,12 +152,21 @@ const goToInterviews = () => {
   }
 
   &__round,
-  &__cta {
+  &__cta,
+  &__scheduled {
     flex-shrink: 0;
   }
 
   &__cta {
     opacity: 0.85;
+  }
+
+  // corner 三行布局里日期单独成行：介于倒计时(大)与 meta(xs)之间
+  &__scheduled--line {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-semibold;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.92;
   }
 
   &__meta {
@@ -261,6 +278,10 @@ const goToInterviews = () => {
 
       .upcoming-banner__countdown--stack {
         font-size: $font-size-md;
+      }
+
+      .upcoming-banner__scheduled--line {
+        font-size: $font-size-xs;
       }
 
       .upcoming-banner__meta {
