@@ -884,6 +884,28 @@ export const useSettingsStore = defineStore('settings', () => {
         setCustomPetsCache(customPets.value)
         trashPets.value = await getAllTrashPets()
         await cleanupTrashPets()
+        // 重读标量偏好（init 时因权限未 granted 走 IndexedDB 读到空值，权限恢复后必须从目录 meta.json 刷新）
+        restReminderEnabled.value = await getRestReminderEnabled()
+        restReminderInterval.value = await getRestReminderInterval()
+        petAIChatEnabled.value = await getPetAIChatEnabled()
+        idleAiEnabled.value = await getIdleAiEnabled()
+        idleIntervalMinutes.value = await getIdleIntervalMinutes()
+        interviewBannerEnabled.value = await getInterviewBannerEnabled()
+        interviewBannerPosition.value = await getInterviewBannerPosition()
+        amapKey.value = await getAmapKey()
+        amapSecurityCode.value = await getAmapSecurityCode()
+        myLocation.value = await getMyLocation()
+        amapEnabled.value = await getAmapEnabled()
+        mapLocationHistory.value = await getMapLocationHistory()
+        try {
+          const { usePetStore } = await import('@/stores/petStore')
+          const petStore = usePetStore()
+          petStore.setRestEnabled(restReminderEnabled.value)
+          petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
+          petStore.setAIChatEnabled(petAIChatEnabled.value)
+          petStore.setIdleAiEnabled(idleAiEnabled.value)
+          petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+        } catch { /* petStore 未初始化，忽略 */ }
         naiveMessage.success('已重新获取目录权限')
       } else {
         naiveMessage.warning('未能获取目录权限')
