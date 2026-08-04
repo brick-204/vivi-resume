@@ -260,11 +260,13 @@ import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import InterviewRoundEditor from './InterviewRoundEditor.vue'
 import PoiSearchModal from './PoiSearchModal.vue'
 import type { PoiResult } from '@/services/amapService'
+import { geocode } from '@/services/amapService'
 
 const props = defineProps<{ interview: Interview }>()
 
 const emit = defineEmits<{
   saved: []
+  cancel: []
 }>()
 
 const interviewStore = useInterviewStore()
@@ -373,7 +375,30 @@ function openPoiSearch(target: 'interviewLocation' | 'location') {
       negativeText: '取消',
       actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
       onPositiveClick: () => {
-        router.push({ query: { tab: 'settings' } })
+        const goToSettings = () => router.push({ query: { tab: 'settings' } })
+        // 跳转前若有未保存改动 → 复用「保存/不保存/取消」三选，跳转即退出编辑态（对齐 handleCancel）
+        if (!isDirty()) {
+          goToSettings()
+          return
+        }
+        dialog.warning({
+          title: '是否保存修改？',
+          content: '当前面试记录有未保存的改动，跳转设置将退出编辑。是否先保存？',
+          positiveText: '保存',
+          negativeText: '不保存',
+          actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
+          onPositiveClick: () => {
+            if (save()) {
+              emit('saved')
+              emit('cancel')
+              goToSettings()
+            }
+          },
+          onNegativeClick: () => {
+            emit('cancel')
+            goToSettings()
+          },
+        })
       },
     })
     return
@@ -470,8 +495,78 @@ function save() {
     return false
   }
   interviewStore.updateInterview(form.value)
+  // ponytail: 保存后后台预 geocode 无经纬度的手输地址，落盘缓存结果。
+  // 进面试足迹 tab 时绝大多数面试已有经纬度，不再临时 geocode（避免坏数据如「线上」卡 8s 才画线）。
+  // 不 await——不阻塞保存返回；静默失败（失败标 geocodeFailed，足迹 tab 会统计提示）
+  prefetchGeocodeAfterSave(form.value)
   emit('saved')
   return true
+}
+
+/**
+ * 后台预 geocode：对有文本、无经纬度、未标失败的地点字段各自 geocode，结果回写落盘。
+ * 竞态保护：回写时取 store 最新记录，若地址已被用户再次编辑（快照不一致）则丢弃结果。
+ * locationSameAsInterview=true 时只 geocode 面试地点，工作地点同步其结果。
+ */
+function prefetchGeocodeAfterSave(saved: Interview) {
+  if (!mapAvailable.value) return
+  const key = settingsStore.amapKey
+  const code = settingsStore.amapSecurityCode
+
+  // 单个字段 geocode + 回写：addr 为保存时的地址快照，field 标识回写哪个字段
+  const prefetchField = async (
+    addr: string,
+    field: 'interviewLocation' | 'location',
+  ) => {
+    try {
+      const pos = await geocode(addr, key, code)
+      // 取 store 最新记录（用户可能保存后又改了）
+      const latest = interviewStore.interviews.find(i => i.id === saved.id)
+      if (!latest) return
+      // 地址已变 → 丢弃结果（用户改了地址，会触发新的预 geocode）
+      const currentAddr = field === 'interviewLocation' ? latest.interviewLocation : latest.location
+      if (currentAddr !== addr) return
+      if (pos) {
+        if (field === 'interviewLocation') {
+          interviewStore.updateInterview({ ...latest, interviewLocationLng: pos.lng, interviewLocationLat: pos.lat, interviewLocationGeocodeFailed: false })
+        } else {
+          interviewStore.updateInterview({ ...latest, locationLng: pos.lng, locationLat: pos.lat, locationGeocodeFailed: false })
+        }
+      } else {
+        // geocode 返回 null（解析失败或超时）→ 标失败，足迹 tab 不再重试
+        if (field === 'interviewLocation') {
+          interviewStore.updateInterview({ ...latest, interviewLocationGeocodeFailed: true })
+        } else {
+          interviewStore.updateInterview({ ...latest, locationGeocodeFailed: true })
+        }
+      }
+    } catch {
+      // geocode 抛错 → 标失败
+      const latest = interviewStore.interviews.find(i => i.id === saved.id)
+      if (!latest) return
+      const currentAddr = field === 'interviewLocation' ? latest.interviewLocation : latest.location
+      if (currentAddr !== addr) return
+      if (field === 'interviewLocation') {
+        interviewStore.updateInterview({ ...latest, interviewLocationGeocodeFailed: true })
+      } else {
+        interviewStore.updateInterview({ ...latest, locationGeocodeFailed: true })
+      }
+    }
+  }
+
+  // 面试地点：有文本、无经纬度、未标失败
+  if (saved.interviewLocation && saved.interviewLocationLng == null && !saved.interviewLocationGeocodeFailed) {
+    prefetchField(saved.interviewLocation, 'interviewLocation')
+  }
+  // 工作地点：仅在未勾选「同面试地点」时单独 geocode（勾选时由面试地点同步）
+  if (
+    !saved.locationSameAsInterview &&
+    saved.location &&
+    saved.locationLng == null &&
+    !saved.locationGeocodeFailed
+  ) {
+    prefetchField(saved.location, 'location')
+  }
 }
 
 /** 表单是否有未保存改动（对比 form 与初始 interview，纯 JSON 比对） */

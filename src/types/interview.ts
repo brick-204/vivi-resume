@@ -25,6 +25,18 @@ export interface InterviewJdScanResult {
   scannedAt: string
 }
 
+/** AI 择业比较结果缓存（全局最近一次，跨多条面试，存 meta 不挂单条面试） */
+export interface CareerChoiceResult {
+  text: string
+  /** 推荐公司名（从 text 首行提取，便于 UI 直接展示） */
+  recommendationCompany: string
+  /** 置信度 0-100，缺失为 null */
+  confidence: number | null
+  /** 参与比较的面试 id 列表（仅记录，不复用——每次都重新生成） */
+  selectedIds: string[]
+  generatedAt: string
+}
+
 export interface InterviewRound {
   id: string
   roundType: string            // 轮次类型，预设可选项 + 用户自定义（如「三面」「加面」）

@@ -55,16 +55,16 @@
         请求量趋势
         <div class="usage-charts__toggle">
           <button
-            :class="['toggle-btn', { 'toggle-btn--active': trendType === 'line' }]"
+            :class="['toggle-btn', { 'toggle-btn--active': trendType.count === 'line' }]"
             title="折线图"
-            @click="trendType = 'line'"
+            @click="trendType = { ...trendType, count: 'line' }"
           >
             <Icon icon="mdi:chart-line" :width="16" />
           </button>
           <button
-            :class="['toggle-btn', { 'toggle-btn--active': trendType === 'bar' }]"
+            :class="['toggle-btn', { 'toggle-btn--active': trendType.count === 'bar' }]"
             title="柱状图"
-            @click="trendType = 'bar'"
+            @click="trendType = { ...trendType, count: 'bar' }"
           >
             <Icon icon="mdi:chart-histogram" :width="16" />
           </button>
@@ -79,6 +79,22 @@
       <div class="usage-charts__panel-title">
         <Icon icon="mdi:chart-line" :width="16" />
         Token 趋势
+        <div class="usage-charts__toggle">
+          <button
+            :class="['toggle-btn', { 'toggle-btn--active': trendType.token === 'line' }]"
+            title="折线图"
+            @click="trendType = { ...trendType, token: 'line' }"
+          >
+            <Icon icon="mdi:chart-line" :width="16" />
+          </button>
+          <button
+            :class="['toggle-btn', { 'toggle-btn--active': trendType.token === 'bar' }]"
+            title="柱状图"
+            @click="trendType = { ...trendType, token: 'bar' }"
+          >
+            <Icon icon="mdi:chart-histogram" :width="16" />
+          </button>
+        </div>
       </div>
       <div v-if="hasTrendData" ref="trendTokenEl" class="usage-charts__canvas usage-charts__canvas--trend" />
       <div v-else class="usage-charts__empty usage-charts__empty--trend">该范围内暂无趋势数据</div>
@@ -209,7 +225,7 @@ let pieChart: echarts.ECharts | null = null
 let featureChart: echarts.ECharts | null = null
 let trendCountChart: echarts.ECharts | null = null
 let trendTokenChart: echarts.ECharts | null = null
-const trendType = ref<'line' | 'bar'>('line')
+const trendType = ref<{ count: 'line' | 'bar'; token: 'line' | 'bar' }>({ count: 'line', token: 'line' })
 
 // 趋势图功能线：总量 + 4 个功能，顺序即 legend 顺序
 const TREND_FEATURES: { key: UsageFeature; label: string }[] = [
@@ -306,7 +322,7 @@ const renderFeaturePie = () => {
  * @param metric 'count' = 请求量趋势，'total' = Token 趋势
  * 5 条线：总量 + 4 个功能；气泡顶部总量，下面列各功能明细。
  */
-const buildTrendOption = (metric: 'count' | 'total', totalLabel: string, axisName: string) => {
+const buildTrendOption = (metric: 'count' | 'total', totalLabel: string, axisName: string, chartType: 'line' | 'bar') => {
   const trend = data.value.trend
   const labels = trend.map(x => x.label)
   const seriesNames = [totalLabel, ...TREND_FEATURES.map(f => f.label)]
@@ -341,7 +357,7 @@ const buildTrendOption = (metric: 'count' | 'total', totalLabel: string, axisNam
     yAxis: { type: 'value', name: axisName, nameTextStyle: { fontSize: 10 } },
     series: seriesNames.map((name, i) => ({
       name,
-      type: trendType.value,
+      type: chartType,
       data: seriesData[i],
       smooth: true,
     })),
@@ -369,9 +385,9 @@ const paintTrend = (
 }
 
 const renderTrendCount = () =>
-  paintTrend(trendCountEl.value, () => trendCountChart, c => { trendCountChart = c }, buildTrendOption('count', '总请求量', '请求量'))
+  paintTrend(trendCountEl.value, () => trendCountChart, c => { trendCountChart = c }, buildTrendOption('count', '总请求量', '请求量', trendType.value.count))
 const renderTrendToken = () =>
-  paintTrend(trendTokenEl.value, () => trendTokenChart, c => { trendTokenChart = c }, buildTrendOption('total', '累计 Token', 'Token'))
+  paintTrend(trendTokenEl.value, () => trendTokenChart, c => { trendTokenChart = c }, buildTrendOption('total', '累计 Token', 'Token', trendType.value.token))
 
 const render = () => {
   nextTick(() => { renderPie(); renderFeaturePie(); renderTrendCount(); renderTrendToken() })

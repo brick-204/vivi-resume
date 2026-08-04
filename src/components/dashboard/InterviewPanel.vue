@@ -53,6 +53,14 @@
           新建面试
         </button>
         <button
+          v-if="interviews.length >= 2"
+          class="action-btn action-btn--secondary"
+          @click="showCareerChoice = true"
+        >
+          <Icon icon="mdi:compare-horizontal" :width="18" />
+          AI 择业
+        </button>
+        <button
           v-if="interviews.length > 0"
           class="action-btn action-btn--secondary"
           @click="enterBatchMode"
@@ -196,6 +204,12 @@
       @close="showAIPanel = false"
       @parsed-jd="handleParsedJd"
     />
+
+    <!-- AI 择业比较 -->
+    <CareerChoiceModal
+      :show="showCareerChoice"
+      @close="showCareerChoice = false"
+    />
   </div>
 </template>
 
@@ -211,6 +225,7 @@ import InterviewCard from '@/components/dashboard/InterviewCard.vue'
 import InterviewDetail from '@/components/dashboard/InterviewDetail.vue'
 import InterviewCreateModal from '@/components/dashboard/InterviewCreateModal.vue'
 import InterviewAIPanel from '@/components/dashboard/InterviewAIPanel.vue'
+import CareerChoiceModal from '@/components/dashboard/CareerChoiceModal.vue'
 
 const store = useInterviewStore()
 const { interviews } = storeToRefs(store)
@@ -251,6 +266,7 @@ const selectedInterview = computed(() =>
 
 // 本地模态框状态
 const showCreate = ref(false)
+const showCareerChoice = ref(false)
 
 // 批量删除模式
 const batchMode = ref(false)

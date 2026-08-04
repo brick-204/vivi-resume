@@ -18,8 +18,10 @@ import {
   getInterviewTrash,
   saveInterviewTrash,
   getTrashRetentionDays,
+  getMeta,
+  setMeta,
 } from '@/utils/storageAdapter'
-import type { Interview, InterviewRound, MockInterviewResult, InterviewReviewResult, InterviewJdScanResult } from '@/types/interview'
+import type { Interview, InterviewRound, MockInterviewResult, InterviewReviewResult, InterviewJdScanResult, CareerChoiceResult } from '@/types/interview'
 import { inferInterviewSegment, createEmptyInterview, createEmptyRound } from '@/types/interview'
 import { generateId } from '@/types/resume'
 import { message as naiveMessage } from '@/plugins/naive-ui'
@@ -77,6 +79,9 @@ export const useInterviewStore = defineStore('interview', () => {
   // 回收站：与 resumeStore.trash 同构，独立数组 + deletedAt 软删除
   const trash = shallowRef<Interview[]>([])
   const trashRetentionDays = ref(30)
+
+  // AI 择业最近一次结果缓存（全局单值，存 meta，仅历史展示不复用）
+  const lastCareerChoice = ref<CareerChoiceResult | null>(null)
 
   // ========== 初始化就绪 Promise ==========
 
@@ -153,16 +158,18 @@ export const useInterviewStore = defineStore('interview', () => {
     await settingsStore.ready
 
     try {
-      const [all, trashData, retentionDays] = await Promise.all([
+      const [all, trashData, retentionDays, careerChoice] = await Promise.all([
         getAllInterviews(),
         getInterviewTrash(),
         getTrashRetentionDays(),
+        getMeta<CareerChoiceResult>('lastCareerChoice'),
       ])
       // 按 updatedAt 降序（ISO 字符串 localeCompare 降序）
       all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       interviews.value = all.map(normalizeInterview)
       trash.value = trashData.map(normalizeInterview)
       trashRetentionDays.value = retentionDays
+      lastCareerChoice.value = careerChoice ?? null
       // 自动清理过期面试记录（与 resumeStore.cleanupTrash 同策略）
       await cleanupTrash()
     } catch (e) {
@@ -389,6 +396,14 @@ export const useInterviewStore = defineStore('interview', () => {
     persistInterview(next)
   }
 
+  // ========== AI 择业结果缓存（全局单值，存 meta，仅历史展示不复用） ==========
+  const saveCareerChoiceResult = (result: CareerChoiceResult) => {
+    lastCareerChoice.value = result
+    trackPending(setMeta('lastCareerChoice', result)).catch(e => {
+      console.error('[interviewStore] saveCareerChoiceResult failed:', e)
+    })
+  }
+
   // ========== 页面隐藏/关闭 flush ==========
   // ponytail: 统一交由 useFlushGuard 注册三事件 + 驱动保存遮罩（顺带补上原本缺失的 beforeunload）。
   //           返回 Promise.all 让 flushAll 的 allSettled 真正 await 落盘，避免遮罩提前消失、写被中断丢数据。
@@ -410,15 +425,17 @@ export const useInterviewStore = defineStore('interview', () => {
     _saveTimer.clear()
 
     try {
-      const [all, trashData, retentionDays] = await Promise.all([
+      const [all, trashData, retentionDays, careerChoice] = await Promise.all([
         getAllInterviews(),
         getInterviewTrash(),
         getTrashRetentionDays(),
+        getMeta<CareerChoiceResult>('lastCareerChoice'),
       ])
       all.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       interviews.value = all.map(normalizeInterview)
       trash.value = trashData.map(normalizeInterview)
       trashRetentionDays.value = retentionDays
+      lastCareerChoice.value = careerChoice ?? null
       await cleanupTrash()
     } catch (e) {
       console.error('[interviewStore] reloadFromStorage 失败:', e)
@@ -429,6 +446,7 @@ export const useInterviewStore = defineStore('interview', () => {
     interviews,
     trash,
     trashRetentionDays,
+    lastCareerChoice,
     ready,
     upcomingInterviews,
     ongoingInterviews,
@@ -449,6 +467,7 @@ export const useInterviewStore = defineStore('interview', () => {
     saveMockInterviewResult,
     saveReviewResult,
     saveJdScanResult,
+    saveCareerChoiceResult,
     reloadFromStorage,
   }
 })

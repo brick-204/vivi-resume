@@ -135,6 +135,24 @@
           <div class="footprint-list__sort">
             <NButtonGroup size="small">
               <NButton
+                :type="locationMode === 'work' ? 'primary' : 'default'"
+                title="显示工作地点"
+                @click="locationMode = 'work'"
+              >
+                <Icon icon="mdi:office-building-outline" :width="14" />
+                工作
+              </NButton>
+              <NButton
+                :type="locationMode === 'interview' ? 'primary' : 'default'"
+                title="显示面试地点"
+                @click="locationMode = 'interview'"
+              >
+                <Icon icon="mdi:account-tie-voice-outline" :width="14" />
+                面试
+              </NButton>
+            </NButtonGroup>
+            <NButtonGroup size="small">
+              <NButton
                 :type="sortMode === 'company' ? 'primary' : 'default'"
                 @click="sortMode = 'company'"
               >
@@ -191,6 +209,9 @@
                 </button>
               </div>
             </div>
+            <p v-if="sortedList.length === 0" class="footprint-list__empty">
+              没有已填{{ locationMode === 'work' ? '工作地点' : '面试地点' }}的面试
+            </p>
           </div>
         </aside>
       </template>
@@ -247,6 +268,10 @@ const geocodeFailedCount = ref(0)
 // 列表排序：company=公司名字典序，distance=离我远近（无 myPosition 时 distance 不可用）
 const sortMode = ref<'company' | 'distance'>('company')
 const sortAsc = ref(true)
+// 地点模式：work=工作地点，interview=面试地点；决定地图标哪类点 + 列表展示哪类有地点的面试
+const locationMode = ref<'work' | 'interview'>('work')
+// plotMarkers 竞态守卫：mode 切换/数据变化时丢弃旧请求结果，避免慢的旧请求覆盖新视图
+let plotToken = 0
 // 列表数据：plotMarkers 后填充，供右侧列表渲染 + 排序 + 点击联动
 interface MarkerItem { iv: Interview; pos: LngLat; isPoi: boolean; dist: number | null }
 const markerItems = ref<MarkerItem[]>([])
@@ -404,6 +429,19 @@ watch(interviews, async (list) => {
   }
 })
 
+// 地点模式切换：不重建 map 实例（省配额），只清旧 marker 重画对应类别的地点
+watch(locationMode, async () => {
+  if (!map) return
+  // 清连线（旧 marker 被清后连线坐标失效）
+  clearLines()
+  // backfill=false：mode 切换是视图操作，不回写经纬度（回写只在 initMap 首次加载时做），
+  // 避免 updateInterview 触发 interviews 变化引发二次调度，干扰连线重画
+  await plotMarkers(false)
+  await nextTick()
+  // 重画后若连线开着且已有我的位置，按新 marker 重画连线
+  if (showLines.value && myPosition.value) drawLines()
+})
+
 async function initMap() {
   if (!mapEl.value || !mapReadyToInit.value) {
     return
@@ -444,80 +482,101 @@ function destroyMap() {
   }
 }
 
-/** 把所有面试标到地图上，无经纬度的走 geocode 兜底（单条失败不拖垮其他） */
-async function plotMarkers() {
+/** 把所有面试标到地图上，无经纬度的走 geocode 兜底（单条失败不拖垮其他）。
+ *  按 locationMode 只取一类地点：work=工作地点，interview=面试地点。
+ *  无该类地点的面试静默跳过（不标点不进列表）；有地址但 geocode 失败的计 failedCount 提示。
+ *  backfill=true 时回写 geocode 结果到面试记录（仅 initMap 首次加载用）；
+ *  mode 切换传 false，避免 updateInterview 触发 interviews 变化引发二次调度干扰连线重画。 */
+async function plotMarkers(backfill = true) {
   if (!map) return
+  const myToken = ++plotToken
   const AMap = (window as any).AMap
   const list = interviews.value
   // ponytail: 每条 geocode 独立 try/catch，避免单条地址解析抛错导致 Promise.all reject、全部 marker 丢失
-  // 回退顺序：工作地点经纬度 → 工作地点文本 geocode → 面试地点经纬度 → 面试地点文本 geocode
-  // isPoi：经纬度来自 POI 搜索（locationPoiSelected/interviewLocationPoiSelected 为 true）才算准确，geocode 兜底不算
+  // 按 locationMode 取对应字段：work→location*，interview→interviewLocation*
+  // isPoi：经纬度来自 POI 搜索（poiSelected 为 true）才算准确，geocode 兜底不算
   // backfill：geocode 成功后要回写的字段（省下次重复 geocode，落盘走 interviewStore 双后端）
-  // ponytail: 每条 geocode 独立 try/catch，避免单条地址解析抛错导致 Promise.all reject、全部 marker 丢失
-  // 回退顺序：工作地点经纬度 → 工作地点文本 geocode → 面试地点经纬度 → 面试地点文本 geocode
-  // 失败标记 locationGeocodeFailed/interviewLocationGeocodeFailed 为 true 时跳过该地址不重试（用户改地址后清除）
+  // 失败标记 geocodeFailed 为 true 时跳过该地址不重试（用户改地址后清除）
   // ponytail: 分批并发（每批 5 条），避免无经纬度面试过多时并发 geocode 触发高德 QPS 限流，
   // 限流返回失败会被永久标 geocodeFailed 不再重试；5 条/批对个人开发者配额（3-10 QPS）安全
   const BATCH = 5
+  // 按模式取该条面试的地点字段集合；无该类地点（无文本无经纬度）直接 pos=null 跳过，不发 geocode
+  type FieldSet = {
+    text: string
+    lng?: number
+    lat?: number
+    poiSelected?: boolean
+    geocodeFailed?: boolean
+    backfill: 'location' | 'interviewLocation'
+  }
+  const pickFields = (iv: Interview): FieldSet | null => {
+    if (locationMode.value === 'work') {
+      if (!iv.location && iv.locationLng == null) return null
+      return { text: iv.location, lng: iv.locationLng, lat: iv.locationLat, poiSelected: iv.locationPoiSelected, geocodeFailed: iv.locationGeocodeFailed, backfill: 'location' }
+    }
+    if (!iv.interviewLocation && iv.interviewLocationLng == null) return null
+    return { text: iv.interviewLocation, lng: iv.interviewLocationLng, lat: iv.interviewLocationLat, poiSelected: iv.interviewLocationPoiSelected, geocodeFailed: iv.interviewLocationGeocodeFailed, backfill: 'interviewLocation' }
+  }
   const positions: { iv: Interview; pos: LngLat | null; isPoi: boolean; backfill?: 'location' | 'interviewLocation'; geocodeFailed?: 'location' | 'interviewLocation' }[] = []
   for (let i = 0; i < list.length; i += BATCH) {
     const batch = list.slice(i, i + BATCH)
     const results = await Promise.all(
       batch.map(async (iv): Promise<{ iv: Interview; pos: LngLat | null; isPoi: boolean; backfill?: 'location' | 'interviewLocation'; geocodeFailed?: 'location' | 'interviewLocation' }> => {
-        // 工作地点有经纬度优先
-        if (iv.locationLng != null && iv.locationLat != null) {
-          return { iv, pos: { lng: iv.locationLng, lat: iv.locationLat }, isPoi: !!iv.locationPoiSelected }
+        const fs = pickFields(iv)
+        // 无该类地点（无文本无经纬度）→ 静默跳过，不标点不计 failed
+        if (!fs) return { iv, pos: null, isPoi: false }
+        // 有经纬度优先
+        if (fs.lng != null && fs.lat != null) {
+          return { iv, pos: { lng: fs.lng, lat: fs.lat }, isPoi: !!fs.poiSelected }
         }
-        // 工作地点文本 geocode（失败标记为 true 则跳过不重试）
-        if (iv.location && !iv.locationGeocodeFailed) {
+        // 有文本走 geocode（失败标记为 true 则跳过不重试）
+        if (fs.text && !fs.geocodeFailed) {
           try {
-            const pos = await geocode(iv.location, settingsStore.amapKey, settingsStore.amapSecurityCode)
-            if (pos) return { iv, pos, isPoi: false, backfill: 'location' }
-            return { iv, pos: null, isPoi: false, geocodeFailed: 'location' }
-          } catch { /* 继续回退面试地点 */ }
+            const pos = await geocode(fs.text, settingsStore.amapKey, settingsStore.amapSecurityCode)
+            if (pos) return { iv, pos, isPoi: false, backfill: fs.backfill }
+            return { iv, pos: null, isPoi: false, geocodeFailed: fs.backfill }
+          } catch { /* geocode 抛错视为失败 */ return { iv, pos: null, isPoi: false, geocodeFailed: fs.backfill } }
         }
-        // 面试地点经纬度
-        if (iv.interviewLocationLng != null && iv.interviewLocationLat != null) {
-          return { iv, pos: { lng: iv.interviewLocationLng, lat: iv.interviewLocationLat }, isPoi: !!iv.interviewLocationPoiSelected }
-        }
-        // 面试地点文本 geocode（失败标记为 true 则跳过不重试）
-        if (iv.interviewLocation && !iv.interviewLocationGeocodeFailed) {
-          try {
-            const pos = await geocode(iv.interviewLocation, settingsStore.amapKey, settingsStore.amapSecurityCode)
-            if (pos) return { iv, pos, isPoi: false, backfill: 'interviewLocation' }
-            return { iv, pos: null, isPoi: false, geocodeFailed: 'interviewLocation' }
-          } catch { /* 都失败 */ }
-        }
-        return { iv, pos: null, isPoi: false }
+        // 有文本但已标 geocodeFailed → 不重试，计 failed
+        return { iv, pos: null, isPoi: false, geocodeFailed: fs.backfill }
       }),
     )
     positions.push(...results)
   }
 
+  // 竞态：mode 切换/数据变化时丢弃旧请求结果
+  if (myToken !== plotToken) return
+
   // geocode 结果回写：成功的写经纬度，失败的写失败标记（都走 interviewStore 双后端落盘）
-  for (const { iv, pos, backfill, geocodeFailed } of positions) {
-    if (backfill && pos) {
-      if (backfill === 'location') {
-        interviewStore.updateInterview({ ...iv, locationLng: pos.lng, locationLat: pos.lat, locationGeocodeFailed: false })
-      } else {
-        interviewStore.updateInterview({ ...iv, interviewLocationLng: pos.lng, interviewLocationLat: pos.lat, interviewLocationGeocodeFailed: false })
-      }
-    } else if (geocodeFailed) {
-      if (geocodeFailed === 'location') {
-        interviewStore.updateInterview({ ...iv, locationGeocodeFailed: true })
-      } else {
-        interviewStore.updateInterview({ ...iv, interviewLocationGeocodeFailed: true })
+  // 仅 initMap 首次加载时回写（backfill=true）；mode 切换传 false 跳过，避免触发 interviews 变化
+  if (backfill) {
+    for (const { iv, pos, backfill: bf, geocodeFailed } of positions) {
+      if (bf && pos) {
+        if (bf === 'location') {
+          interviewStore.updateInterview({ ...iv, locationLng: pos.lng, locationLat: pos.lat, locationGeocodeFailed: false })
+        } else {
+          interviewStore.updateInterview({ ...iv, interviewLocationLng: pos.lng, interviewLocationLat: pos.lat, interviewLocationGeocodeFailed: false })
+        }
+      } else if (geocodeFailed) {
+        if (geocodeFailed === 'location') {
+          interviewStore.updateInterview({ ...iv, locationGeocodeFailed: true })
+        } else {
+          interviewStore.updateInterview({ ...iv, interviewLocationGeocodeFailed: true })
+        }
       }
     }
   }
 
+  // 清旧 marker
+  markers.forEach((m) => map.remove(m.marker))
   markers = []
   markerItems.value = []
   const items: MarkerItem[] = []
   let failedCount = 0
-  for (const { iv, pos, isPoi } of positions) {
+  for (const { iv, pos, isPoi, geocodeFailed } of positions) {
+    // 无该类地点（pos=null 且非 geocodeFailed）→ 静默跳过
     if (!pos) {
-      if (iv.location || iv.interviewLocation) failedCount++
+      if (geocodeFailed) failedCount++
       continue
     }
     const color = STATUS_COLOR[iv.status]
@@ -567,6 +626,9 @@ function infoContent(iv: Interview, pos: LngLat, isPoi: boolean): string {
   const sourceHtml = isPoi
     ? `<span style="color:#67c23a;font-size:11px;">✓ POI 搜索定位</span>`
     : `<span style="color:#bbb;font-size:11px;">~ 地址解析（近似）</span>`
+  // 地址行按 locationMode 显示对应地点：work=工作地点，interview=面试地点
+  const addr = locationMode.value === 'work' ? iv.location : iv.interviewLocation
+  const addrLabel = locationMode.value === 'work' ? '工作地点' : '面试地点'
   return `<div style="padding:4px;min-width:180px;">
     <div style="font-weight:600;font-size:14px;">${escapeHtml(iv.company || '未命名')}</div>
     <div style="color:#666;font-size:12px;margin-top:2px;">${escapeHtml(iv.position || '')}</div>
@@ -574,7 +636,7 @@ function infoContent(iv: Interview, pos: LngLat, isPoi: boolean): string {
       <span style="color:${STATUS_COLOR[iv.status]};">● ${STATUS_LABEL[iv.status]}</span>
       <span style="color:#999;margin-left:8px;">${rounds} 轮</span>
     </div>
-    ${(iv.location || iv.interviewLocation) ? `<div style="color:#999;font-size:12px;margin-top:2px;">📍 ${escapeHtml(iv.location || iv.interviewLocation)}</div>` : ''}
+    ${addr ? `<div style="color:#999;font-size:12px;margin-top:2px;">📍 ${addrLabel}：${escapeHtml(addr)}</div>` : ''}
     <div style="margin-top:2px;">${sourceHtml}</div>
     ${distHtml}
   </div>`
@@ -851,6 +913,7 @@ function refreshInfoWindows() {
   &__sort {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: $spacing-xs;
     flex-shrink: 0;
   }
@@ -863,6 +926,14 @@ function refreshInfoWindows() {
     gap: $spacing-xs;
     padding-right: 4px;
     @include scrollbar;
+  }
+
+  &__empty {
+    margin: auto;
+    padding: $spacing-lg $spacing-sm;
+    text-align: center;
+    font-size: $font-size-xs;
+    color: $text-light;
   }
 }
 

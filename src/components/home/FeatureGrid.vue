@@ -32,6 +32,8 @@ const features = [
   { icon: 'mdi:creation', title: '一键优化', desc: 'AI 系统性润色整份简历，全面提升' },
   { icon: 'mdi:account-tie', title: '面试准备', desc: '生成面试题和复习要点，从容应战' },
   { icon: 'mdi:briefcase-outline', title: '我的面试', desc: '多轮面试追踪，AI 模拟面试与复盘，三段分区' },
+  { icon: 'mdi:map-marker-path', title: '面试足迹', desc: '高德地图标注面试地点，连线测距，工作/面试地点切换' },
+  { icon: 'mdi:scale-balance', title: 'AI 择业', desc: '多 offer 横向对比，五维评分给出推荐与置信度' },
   { icon: 'mdi:file-import-outline', title: 'AI 智能导入', desc: '上传 PDF/Word/Markdown，AI 解析为结构化简历' },
   { icon: 'mdi:comment-question-outline', title: 'AI 智能咨询', desc: '常驻侧栏多轮对话，会话重命名，简历脱敏注入，停止生成' },
   { icon: 'mdi:cat', title: 'Lottie 桌宠', desc: 'v仔桌宠伴你编辑，自定义上传图片/Lottie，拖拽吸附' },

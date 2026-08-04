@@ -120,9 +120,18 @@ export async function geocode(address: string, key?: string, securityJsCode?: st
   const AMap = await ensureAmap(key, securityJsCode)
   const A: any = AMap
   return new Promise((resolve) => {
+    let done = false
+    // ponytail: 超时兜底——高德 Geocoder 对某些异常输入（如「线上」等非地址文本）可能不回调，
+    // 不加超时会导致 Promise 永久 pending，卡死调用方（plotMarkers 永不返回，连线不画）
+    const timer = setTimeout(() => {
+      if (!done) { done = true; resolve(null) }
+    }, 8000)
     A.plugin('AMap.Geocoder', () => {
       const geocoder = new A.Geocoder({ city: '全国' })
       geocoder.getLocation(address, (status: string, result: any) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
         if (status === 'complete' && result?.geocodes?.length) {
           const g = result.geocodes[0]
           resolve({ lng: g.location.getLng(), lat: g.location.getLat() })

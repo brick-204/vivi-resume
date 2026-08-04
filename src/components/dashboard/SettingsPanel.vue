@@ -309,9 +309,27 @@
         地图设置
       </h3>
       <p class="settings-section__desc">
-        面试足迹 tab 与面试地点搜索依赖高德地图 JS API。请在
-        <a href="https://lbs.amap.com/" target="_blank" rel="noopener">高德开放平台</a>
-        申请「Web 端（JS API）」Key 后填入下方。
+        面试足迹 tab 与面试地点搜索依赖高德地图 JS API。请在高德开放平台申请「Web 端（JS API）」
+        <span class="settings-section__keyword">
+          Key 后填入下方。
+          <NPopover trigger="hover" placement="top" :width="260">
+            <template #trigger>
+              <Icon class="settings-section__keyword-icon" icon="mdi:information-outline" :width="14" />
+            </template>
+            <div class="settings-section__popover">
+              <div class="settings-section__popover-title">如何在高德获取 key</div>
+              <a
+                class="settings-section__popover-link"
+                href="https://blog.csdn.net/brick_404/article/details/163471111?spm=1011.2124.3001.6209"
+                target="_blank"
+                rel="noopener"
+              >
+                查看图文教程
+                <Icon icon="mdi:open-in-new" :width="12" />
+              </a>
+            </div>
+          </NPopover>
+        </span>
       </p>
       <div class="settings-section__row">
         <span class="settings-section__label">启用地图功能</span>
@@ -497,7 +515,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber } from 'naive-ui'
+import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber, NPopover } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import type { InterviewBannerPosition } from '@/utils/storageAdapter'
@@ -985,6 +1003,51 @@ const handleResync = () => {
       margin-bottom: 0;
       font-size: $font-size-xs;
       opacity: 0.8;
+    }
+  }
+
+  &__keyword {
+    position: relative;
+    display: inline-block;
+
+    &-icon {
+      position: absolute;
+      top: 0;
+      right: 0;
+      transform: translate(75%, -15%);
+      color: $text-light;
+      cursor: pointer;
+      transition: color $transition-base;
+
+      &:hover {
+        color: $primary-color;
+      }
+    }
+  }
+
+  &__popover {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+
+    &-title {
+      font-size: $font-size-sm;
+      font-weight: 600;
+      color: $text-primary;
+    }
+
+    &-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: $primary-color;
+      text-decoration: none;
+      font-size: $font-size-sm;
+      transition: opacity $transition-base;
+
+      &:hover {
+        opacity: 0.7;
+      }
     }
   }
 

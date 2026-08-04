@@ -13,6 +13,21 @@ import { announceToScreenReader } from '@/composables/useAriaLive'
 const isDev = import.meta.env.MODE === 'development'
 
 /**
+ * extraBody 安全透传：原样返回，dev 模式下若检测到覆盖核心字段（model/messages/stream 等）则 warn。
+ * ponytail: 不做白名单拦截——extraBody 是开放透传 API，运行时防护只提醒不阻断，避免误伤合法用法。
+ */
+function __extraBodySafe(extra: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (isDev && extra) {
+    const dangerous = ['model', 'messages', 'stream', 'stream_options', 'temperature', 'max_tokens']
+      .filter(k => k in extra)
+    if (dangerous.length) {
+      console.warn(`[aiService] extraBody 覆盖了核心字段: ${dangerous.join(', ')}，确认是否 intentional`)
+    }
+  }
+  return extra ?? {}
+}
+
+/**
  * 获取请求 URL
  * - endpointComplete=true：完全信任用户输入，原样返回，不做任何补全
  * - 否则：确保 endpoint 以 /v1（或 /v4 智谱）结尾，再拼接 /chat/completions
@@ -197,6 +212,8 @@ export interface StreamChatOptions {
   continuationPrompt?: string
   /** 是否验证并清洗续写拼接点（针对 JSON/结构化输出），清理重复内容、代码块标记等 */
   validateSplice?: boolean
+  /** 额外请求体字段，浅合并进 body（覆盖同名默认字段）。用于服务商特定参数（如联网搜索 tools/enable_search） */
+  extraBody?: Record<string, unknown>
 }
 
 /**
@@ -279,6 +296,8 @@ export async function streamChat(
           stream_options: { include_usage: true },  // 请求流式 usage（OpenAI 及多数兼容服务商支持）
           temperature: 0.7,
           ...(maxTokens ? { max_tokens: maxTokens } : {}),
+          // ponytail: dev 模式提醒 extraBody 覆盖核心字段，避免未来调用方误传 messages/model/stream 难以排查
+          ...(__extraBodySafe(options.extraBody)),
         }),
         signal,
       })

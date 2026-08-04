@@ -2,7 +2,7 @@
   <div class="interview-detail" ref="rootRef">
     <!-- 顶部 header：返回箭头 + 标题 + 操作按钮 -->
     <div class="interview-detail__header" ref="headerRef">
-      <button class="interview-detail__back" :title="mode === 'edit' ? '取消编辑' : '返回'" @click="mode === 'edit' ? handleCancel : $emit('back')">
+      <button class="interview-detail__back" :title="mode === 'edit' ? '取消编辑' : '返回'" @click="mode === 'edit' ? handleCancel() : $emit('back')">
         <Icon icon="mdi:arrow-left" :width="22" />
       </button>
 
@@ -57,6 +57,7 @@
         ref="editFormRef"
         :interview="interview"
         @saved="$emit('saved')"
+        @cancel="$emit('cancel')"
       />
 
       <!-- 只读态：四分区展示 -->
