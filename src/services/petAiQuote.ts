@@ -34,6 +34,7 @@ const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
   enterAi: '用户刚进入 AI 设置页',
   enterTrash: '用户刚进入回收站',
   enterSettings: '用户刚进入设置页',
+  enterInterviewFootprint: '用户刚进入面试足迹页，这里用地图展示面试地点和路线，帮助回顾求职足迹',
   hover: '用户把鼠标悬停在你身上',
   click: '用户单击了你，点开了你的菜单',
   dragStart: '用户正在拖拽你移动位置',
@@ -46,6 +47,10 @@ const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
   rest: '用户连续用眼已到设定时长，提醒休息。必须包含"望 6 米外歇 20 秒"的 20-20-20 护眼指令，简短活泼',
   restOn: '用户刚开启了休息提醒功能',
   restOff: '用户刚关闭了休息提醒功能',
+  mapOn: '用户刚开启了地图功能，可以用地图查看面试地点和规划路线',
+  mapOff: '用户刚关闭了地图功能',
+  interviewHintOn: '用户刚开启了面试提示功能，会在面试临近时提醒',
+  interviewHintOff: '用户刚关闭了面试提示功能',
   // 注：aiChatOn/aiChatOff 故意不映射——开关反馈走静态 pickQuote + say（settingsStore.updatePetAIChatEnabled），
   // 不走 sayCategory/AI（开关切换需即时反馈，不等 AI）。若误调 sayCategory('aiChatOn') 会抛 UNSUPPORTED_CATEGORY。
   // 注：aiError 同样不映射——它在 sayCategory 静态分支直接 pickQuote（AI 不可用时本就不该走 AI）。

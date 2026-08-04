@@ -22,8 +22,19 @@
         <span v-if="interviews.length > 0" class="interview-panel__count">{{ interviews.length }}</span>
       </h2>
 
-      <!-- 简历筛选（普通+批量模式均可用） -->
+      <!-- 筛选区：公司/岗位搜索 + 关联简历筛选 -->
       <div class="interview-panel__filter">
+        <NInput
+          v-model:value="searchKeyword"
+          placeholder="搜索公司名或岗位"
+          size="small"
+          clearable
+          :consistent-menu-width="false"
+        >
+          <template #prefix>
+            <Icon icon="mdi:magnify" :width="16" />
+          </template>
+        </NInput>
         <NSelect
           v-model:value="filterResumeId"
           :options="resumeFilterOptions"
@@ -160,12 +171,12 @@
         </div>
       </section>
 
-      <!-- 筛选无匹配 -->
+      <!-- 筛选/搜索无匹配 -->
       <div v-if="visibleInterviews.length === 0" class="interview-panel__empty">
         <div class="empty__icon">
           <Icon icon="mdi:filter-remove-outline" :width="64" />
         </div>
-        <p class="empty__text">没有关联该简历的面试记录</p>
+        <p class="empty__text">没有匹配的面试记录</p>
       </div>
     </template>
     </div>
@@ -193,7 +204,7 @@ import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useResumeStore } from '@/stores/resumeStore'
-import { NSelect } from 'naive-ui'
+import { NSelect, NInput } from 'naive-ui'
 import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import InterviewCard from '@/components/dashboard/InterviewCard.vue'
@@ -207,6 +218,8 @@ const resumeStore = useResumeStore()
 
 // ponytail: 按关联简历筛选——本地 ref + computed 过滤三段分区，不动 store
 const filterResumeId = ref<string | null>(null)
+// 公司/岗位关键词搜索——与简历筛选同级，并入 filterFn，不动 store
+const searchKeyword = ref('')
 
 // 下拉选项：仅列出被面试关联过的简历（去重），按 title 搜索由 NSelect filterable 完成
 const resumeFilterOptions = computed(() => {
@@ -217,9 +230,13 @@ const resumeFilterOptions = computed(() => {
     .sort((a, b) => a.label.localeCompare(b.label))
 })
 
-// 筛选后的三段分区：若未选简历则原样透传
-const filterFn = (i: { resumeId: string | null }) =>
-  !filterResumeId.value || i.resumeId === filterResumeId.value
+// 筛选后的三段分区：简历筛选 + 公司/岗位关键词，两者皆空则原样透传
+const filterFn = (i: { resumeId: string | null; company: string; position: string }) => {
+  if (filterResumeId.value && i.resumeId !== filterResumeId.value) return false
+  const kw = searchKeyword.value.trim().toLowerCase()
+  if (kw && !i.company.toLowerCase().includes(kw) && !i.position.toLowerCase().includes(kw)) return false
+  return true
+}
 
 const upcomingInterviews = computed(() => store.upcomingInterviews.filter(filterFn))
 const ongoingInterviews = computed(() => store.ongoingInterviews.filter(filterFn))
@@ -432,7 +449,17 @@ const handleParsedJd = (fields: { company: string; position: string; salary: str
   }
 
   &__filter {
-    width: 220px;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    width: auto;
+
+    :deep(.n-input) {
+      width: 275px;
+    }
+    :deep(.n-base-selection) {
+      width: 200px;
+    }
   }
 
   &__empty {

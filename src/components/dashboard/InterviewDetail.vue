@@ -2,7 +2,7 @@
   <div class="interview-detail" ref="rootRef">
     <!-- 顶部 header：返回箭头 + 标题 + 操作按钮 -->
     <div class="interview-detail__header" ref="headerRef">
-      <button class="interview-detail__back" :title="mode === 'edit' ? '取消编辑' : '返回'" @click="mode === 'edit' ? $emit('cancel') : $emit('back')">
+      <button class="interview-detail__back" :title="mode === 'edit' ? '取消编辑' : '返回'" @click="mode === 'edit' ? handleCancel : $emit('back')">
         <Icon icon="mdi:arrow-left" :width="22" />
       </button>
 
@@ -35,7 +35,7 @@
           <Icon icon="mdi:check" :width="16" />
           保存
         </button>
-        <button class="action-btn action-btn--secondary" @click="$emit('cancel')">
+        <button class="action-btn action-btn--secondary" @click="handleCancel">
           取消
         </button>
       </div>
@@ -78,7 +78,13 @@
           </div>
           <div class="detail-field">
             <span class="detail-field__label">工作地点</span>
-            <span class="detail-field__value" :class="{ 'is-empty': !interview.location }">{{ interview.location || '未填写' }}</span>
+            <span class="detail-field__value" :class="{ 'is-empty': !interview.location }">
+              {{ interview.location || '未填写' }}
+              <span v-if="interview.locationPoiSelected" class="poi-tag" title="经 POI 搜索定位">
+                <Icon icon="mdi:check-circle" :width="12" />
+                已定位
+              </span>
+            </span>
           </div>
           <div class="detail-field">
             <span class="detail-field__label">招聘渠道</span>
@@ -101,6 +107,15 @@
             <span v-else class="detail-field__value is-empty">未关联</span>
           </div>
         </div>
+      </section>
+
+      <!-- 福利待遇区（空也显示占位） -->
+      <section class="detail-section">
+        <h3 class="detail-section__title">
+          <Icon icon="mdi:gift-outline" :width="16" />
+          福利待遇
+        </h3>
+        <div class="detail-jd" :class="{ 'is-empty': !interview.benefits }">{{ interview.benefits || '未填写福利待遇' }}</div>
       </section>
 
       <!-- JD 区（空也显示占位） -->
@@ -129,7 +144,13 @@
           </div>
           <div class="detail-field">
             <span class="detail-field__label">面试地点</span>
-            <span class="detail-field__value" :class="{ 'is-empty': !interview.interviewLocation }">{{ interview.interviewLocation || '未填写' }}</span>
+            <span class="detail-field__value" :class="{ 'is-empty': !interview.interviewLocation }">
+              {{ interview.interviewLocation || '未填写' }}
+              <span v-if="interview.interviewLocationPoiSelected" class="poi-tag" title="经 POI 搜索定位">
+                <Icon icon="mdi:check-circle" :width="12" />
+                已定位
+              </span>
+            </span>
           </div>
         </div>
       </section>
@@ -175,8 +196,8 @@
                 <div class="detail-field">
                   <span class="detail-field__label">面试链接</span>
                   <a
-                    v-if="r.meetingLink"
-                    :href="r.meetingLink"
+                    v-if="r.meetingLink && extractMeetingUrl(r.meetingLink)"
+                    :href="extractMeetingUrl(r.meetingLink)"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="detail-field__link"
@@ -185,6 +206,7 @@
                     <span class="detail-field__link-text">{{ r.meetingLink }}</span>
                     <Icon icon="mdi:open-in-new" :width="12" />
                   </a>
+                  <span v-else-if="r.meetingLink" class="detail-field__value">{{ r.meetingLink }}</span>
                   <span v-else class="detail-field__value is-empty">未填写</span>
                 </div>
               </div>
@@ -216,6 +238,7 @@ import { useRouter } from 'vue-router'
 import type { Interview, InterviewStatus, RoundStatus, InterviewFormat } from '@/types/interview'
 import { useResumeStore } from '@/stores/resumeStore'
 import { dialog } from '@/plugins/naive-ui'
+import { extractMeetingUrl } from '@/utils/url'
 import { Icon } from '@iconify/vue'
 import InterviewEditForm from './InterviewEditForm.vue'
 
@@ -261,6 +284,44 @@ function handleSave() {
   if (editFormRef.value?.save()) {
     emit('saved')
   }
+}
+
+/**
+ * 取消编辑 / 返回退出：
+ * - 新建未填（公司名为空）：直接 emit cancel，由 Panel 物理删除空记录
+ * - 已有记录且有未保存改动：弹「保存/不保存/取消」三选确认
+ * - 无改动：直接 emit cancel
+ */
+function handleCancel() {
+  const iv = props.interview
+  // 新建未填的空记录直接退出（Panel 会 purge）
+  if (iv && !iv.company.trim()) {
+    emit('cancel')
+    return
+  }
+  // 有未保存改动 → 弹确认
+  if (editFormRef.value?.isDirty()) {
+    dialog.warning({
+      title: '是否保存修改？',
+      content: '当前面试记录有未保存的改动，退出将丢失。是否先保存？',
+      positiveText: '保存',
+      negativeText: '不保存',
+      actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
+      onPositiveClick: () => {
+        // 保存成功才退出；校验不过（公司名空）留在编辑态
+        if (editFormRef.value?.save()) {
+          emit('saved')
+          emit('cancel')
+        }
+      },
+      onNegativeClick: () => {
+        emit('cancel')
+      },
+    })
+    return
+  }
+  // 无改动直接退出
+  emit('cancel')
 }
 
 // ponytail: 复用 InterviewCard 的中文映射，保持详情与卡片视觉一致
@@ -499,6 +560,21 @@ const formatDateTime = (iso: string): string => {
       font-style: italic;
       opacity: 0.5;
     }
+
+    // POI 搜索定位标记（值后面的绿色小标）
+    .poi-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 6px;
+      padding: 0 6px;
+      border-radius: 8px;
+      font-size: $font-size-xs;
+      font-weight: 500;
+      color: #67c23a;
+      background: rgba(103, 194, 58, 0.12);
+      vertical-align: middle;
+    }
   }
 
   &__link {
@@ -517,11 +593,9 @@ const formatDateTime = (iso: string): string => {
       text-decoration: underline;
     }
 
-    // ponytail: 链接文本超长时省略，外链图标常驻
+    // ponytail: 链接完整展示，长 URL 自动换行不省略
     &-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      overflow-wrap: anywhere;
       min-width: 0;
     }
   }

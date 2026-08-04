@@ -46,6 +46,7 @@ const ROUND_TYPE_MIGRATION: Record<string, string> = {
 }
 const normalizeInterview = (i: Interview): Interview => ({
   ...i,
+  benefits: i.benefits ?? '',
   rounds: i.rounds.map(r => ({
     ...r,
     meetingLink: r.meetingLink ?? '',

@@ -33,6 +33,15 @@
       </button>
       <button
         class="sidebar-nav__item"
+        :class="{ 'sidebar-nav__item--active': activeTab === 'interviewFootprint' }"
+        :aria-current="activeTab === 'interviewFootprint' ? 'page' : undefined"
+        @click="$emit('update:activeTab', 'interviewFootprint')"
+      >
+        <Icon icon="mdi:map-marker-path" :width="20" />
+        <span class="sidebar-nav__item-label">面试足迹</span>
+      </button>
+      <button
+        class="sidebar-nav__item"
         :class="{ 'sidebar-nav__item--active': activeTab === 'ai' }"
         :aria-current="activeTab === 'ai' ? 'page' : undefined"
         @click="$emit('update:activeTab', 'ai')"
@@ -86,11 +95,11 @@ import { useSettingsStore } from '@/stores/settingsStore'
 import UpcomingInterviewBanner from '@/components/dashboard/UpcomingInterviewBanner.vue'
 
 const props = defineProps<{
-  activeTab: 'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings'
+  activeTab: 'resumes' | 'templates' | 'interviews' | 'interviewFootprint' | 'ai' | 'trash' | 'settings'
 }>()
 
 defineEmits<{
-  'update:activeTab': [value: 'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings']
+  'update:activeTab': [value: 'resumes' | 'templates' | 'interviews' | 'interviewFootprint' | 'ai' | 'trash' | 'settings']
 }>()
 
 const settingsStore = useSettingsStore()

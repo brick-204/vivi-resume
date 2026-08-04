@@ -65,6 +65,11 @@ const InterviewPanel = defineAsyncComponent({
   loadingComponent: skeletonFor('interviews'),
   delay: 0,
 })
+const InterviewFootprintPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/InterviewFootprintPanel.vue'),
+  loadingComponent: skeletonFor('interviews'),
+  delay: 0,
+})
 const AISettingsPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/AISettingsPanel.vue'),
   loadingComponent: skeletonFor('ai'),
@@ -86,6 +91,7 @@ const panelMap: Record<string, Component> = {
   resumes: ResumeListPanel,
   templates: TemplateMarketPanel,
   interviews: InterviewPanel,
+  interviewFootprint: InterviewFootprintPanel,
   ai: AISettingsPanel,
   trash: TrashPanel,
   settings: SettingsPanel,
@@ -99,7 +105,7 @@ const petStore = usePetStore()
 const route = useRoute()
 const router = useRouter()
 
-const activeTab = ref<'resumes' | 'templates' | 'interviews' | 'ai' | 'trash' | 'settings'>('resumes')
+const activeTab = ref<'resumes' | 'templates' | 'interviews' | 'interviewFootprint' | 'ai' | 'trash' | 'settings'>('resumes')
 const storesReady = ref(false)
 // 面试提示横幅位置（决定挂载点：top-bar / nav-top / corner）
 const bannerPosition = computed(() => settingsStore.interviewBannerPosition)
@@ -109,13 +115,14 @@ const tabQuoteCategory: Record<typeof activeTab.value, QuoteCategory> = {
   resumes: 'enterResumes',
   templates: 'enterTemplates',
   interviews: 'enterInterviews',
+  interviewFootprint: 'enterInterviewFootprint',
   ai: 'enterAi',
   trash: 'enterTrash',
   settings: 'enterSettings',
 }
 
 // ponytail: URL ↔ activeTab 双向同步，isRouteChange 防循环
-const validTabs = ['resumes', 'templates', 'interviews', 'ai', 'trash', 'settings'] as const
+const validTabs = ['resumes', 'templates', 'interviews', 'interviewFootprint', 'ai', 'trash', 'settings'] as const
 let isRouteChange = false
 
 // URL → activeTab（处理 router.push 从子组件来的导航）

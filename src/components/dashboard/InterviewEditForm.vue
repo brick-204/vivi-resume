@@ -52,13 +52,88 @@
         </div>
 
         <div class="form-field">
-          <label>工作地点</label>
-          <n-input
-            :value="form.location"
-            placeholder="如：上海"
-            @update:value="onFieldUpdate('location', $event)"
-          />
+          <label>
+            面试地点
+            <NTooltip placement="top" :style="{ maxWidth: '280px' }">
+              <template #trigger>
+                <Icon icon="mdi:information-outline" :width="14" class="field-tip-icon" />
+              </template>
+              <div style="line-height:1.6;">
+                · 点放大镜用 POI 搜索选地点：消耗基础搜索服务额度<br>
+                · 手输地址在「面试足迹」会调地理编码转坐标，消耗地理编码额度；成功后缓存，每条地址仅消耗一次
+              </div>
+            </NTooltip>
+            <span v-if="form.interviewLocationPoiSelected" class="poi-tag" title="经 POI 搜索定位">
+              <Icon icon="mdi:check-circle" :width="13" />
+              已定位
+            </span>
+          </label>
+          <div class="field-with-action">
+            <n-input
+              :value="form.interviewLocation"
+              placeholder="如：XX 大厦 12 楼"
+              @update:value="onFieldUpdate('interviewLocation', $event)"
+            />
+            <NButton
+              quaternary
+              :title="mapAvailable ? '搜索定位' : '地图功能未启用，点击去设置'"
+              class="field-with-action__btn"
+              @click="openPoiSearch('interviewLocation')"
+            >
+              <Icon icon="mdi:map-search-outline" :width="18" />
+            </NButton>
+          </div>
         </div>
+
+        <div class="form-field">
+          <label>
+            工作地点
+            <NTooltip placement="top" :style="{ maxWidth: '280px' }">
+              <template #trigger>
+                <Icon icon="mdi:information-outline" :width="14" class="field-tip-icon" />
+              </template>
+              <div style="line-height:1.6;">
+                · 点放大镜用 POI 搜索选地点：消耗基础搜索服务额度<br>
+                · 手输地址在「面试足迹」会调地理编码转坐标，消耗地理编码额度；成功后缓存，每条地址仅消耗一次
+              </div>
+            </NTooltip>
+            <span v-if="form.locationPoiSelected" class="poi-tag" title="经 POI 搜索定位">
+              <Icon icon="mdi:check-circle" :width="13" />
+              已定位
+            </span>
+          </label>
+          <div class="field-with-action">
+            <n-input
+              :value="form.location"
+              placeholder="如：上海"
+              :disabled="locationSameAsInterview"
+              @update:value="onFieldUpdate('location', $event)"
+            />
+            <NButton
+              quaternary
+              :title="locationSameAsInterview ? '已同步面试地点' : (mapAvailable ? '搜索定位' : '地图功能未启用，点击去设置')"
+              class="field-with-action__btn"
+              :disabled="locationSameAsInterview"
+              @click="openPoiSearch('location')"
+            >
+              <Icon icon="mdi:map-search-outline" :width="18" />
+            </NButton>
+          </div>
+          <NCheckbox
+            :checked="locationSameAsInterview"
+            size="small"
+            class="field-same-checkbox"
+            @update:checked="onToggleLocationSame"
+          >
+            同面试地点（勾选后工作地点自动同步面试地点）
+          </NCheckbox>
+        </div>
+
+        <PoiSearchModal
+          :visible="poiModalVisible"
+          @close="poiModalVisible = false"
+          @select="onPoiSelect"
+        />
 
         <div class="form-field">
           <label>招聘渠道</label>
@@ -69,15 +144,6 @@
             tag
             placeholder="选择或输入"
             @update:value="(v: string | null) => onFieldUpdate('channel', v ?? '')"
-          />
-        </div>
-
-        <div class="form-field">
-          <label>面试地点</label>
-          <n-input
-            :value="form.interviewLocation"
-            placeholder="如：XX 大厦 12 楼"
-            @update:value="onFieldUpdate('interviewLocation', $event)"
           />
         </div>
 
@@ -107,6 +173,17 @@
             clearable
             placeholder="可选"
             @update:value="(v: string | null) => onFieldUpdate('resumeId', v)"
+          />
+        </div>
+
+        <div class="form-field form-field--full">
+          <label>福利待遇</label>
+          <n-input
+            :value="form.benefits"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 6 }"
+            placeholder="如 13薪 / 补充医疗 / 免费三餐 / 弹性工时"
+            @update:value="onFieldUpdate('benefits', $event)"
           />
         </div>
 
@@ -169,7 +246,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NInput, NSelect, NButton } from 'naive-ui'
+import { NInput, NSelect, NButton, NCheckbox, NTooltip } from 'naive-ui'
 import draggable from 'vuedraggable'
 import type { SelectOption } from 'naive-ui'
 import type { Interview, InterviewStatus } from '@/types/interview'
@@ -177,8 +254,12 @@ import { createEmptyRound } from '@/types/interview'
 import { generateId } from '@/types/resume'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { useRouter } from 'vue-router'
 import { message as naiveMessage, dialog } from '@/plugins/naive-ui'
 import InterviewRoundEditor from './InterviewRoundEditor.vue'
+import PoiSearchModal from './PoiSearchModal.vue'
+import type { PoiResult } from '@/services/amapService'
 
 const props = defineProps<{ interview: Interview }>()
 
@@ -188,12 +269,23 @@ const emit = defineEmits<{
 
 const interviewStore = useInterviewStore()
 const resumeStore = useResumeStore()
+const settingsStore = useSettingsStore()
+const router = useRouter()
+
+// 地图功能可用：开关开 + Key 已配置
+const mapAvailable = computed(() => settingsStore.amapEnabled && !!settingsStore.amapKey)
 
 // ponytail: 本地可变副本，避免每次输入触发 store 防抖；保存时一次性写回
 const form = ref<Interview>(JSON.parse(JSON.stringify(props.interview)) as Interview)
 
 // 公司信息折叠态（默认展开）；折叠时标题栏显示一行摘要
 const companyCollapsed = ref(false)
+// 高德 POI 搜索弹窗显隐 + 当前编辑目标（'interviewLocation' | 'location'）
+const poiModalVisible = ref(false)
+const poiTarget = ref<'interviewLocation' | 'location'>('interviewLocation')
+// 工作地点是否同面试地点（勾选后工作地点同步面试地点的地址+经纬度，且禁用编辑）
+// 状态持久化在 interview.locationSameAsInterview，保存时跟着落盘
+const locationSameAsInterview = ref(!!form.value.locationSameAsInterview)
 const companySummary = computed(() => {
   const parts = [
     form.value.company || '未命名',
@@ -244,7 +336,91 @@ onMounted(() => {
 })
 
 function onFieldUpdate<K extends keyof Interview>(key: K, value: Interview[K]) {
-  form.value = { ...form.value, [key]: value }
+  const next = { ...form.value, [key]: value }
+  // 手输改地址 → 该地点不再是 POI 选的，清标记 + 经纬度 + 失败标记（地址变了，重新试 geocode）
+  if (key === 'interviewLocation') {
+    next.interviewLocationPoiSelected = false
+    next.interviewLocationLng = undefined
+    next.interviewLocationLat = undefined
+    next.interviewLocationGeocodeFailed = false
+  }
+  if (key === 'location') {
+    next.locationPoiSelected = false
+    next.locationLng = undefined
+    next.locationLat = undefined
+    next.locationGeocodeFailed = false
+  }
+  // 面试地点变化时，若勾选了「同面试地点」，工作地点跟着同步（地址+经纬度+POI 标记+失败标记）
+  if (key === 'interviewLocation' && locationSameAsInterview.value) {
+    next.location = value as string
+    next.locationLng = next.interviewLocationLng
+    next.locationLat = next.interviewLocationLat
+    next.locationPoiSelected = next.interviewLocationPoiSelected
+    next.locationGeocodeFailed = next.interviewLocationGeocodeFailed
+  }
+  form.value = next
+}
+
+/** 打开 POI 搜索弹窗，记录当前编辑目标；地图功能未启用时弹提示并提供跳设置入口 */
+function openPoiSearch(target: 'interviewLocation' | 'location') {
+  if (target === 'location' && locationSameAsInterview.value) return
+  // 地图功能未启用或未配 Key → 弹提示 + 跳设置入口（不打开搜索弹窗）
+  if (!mapAvailable.value) {
+    dialog.warning({
+      title: '地图功能未启用',
+      content: '地点搜索依赖高德地图。请先在「设置 → 地图设置」中开启地图功能并填写高德地图 Key。',
+      positiveText: '去设置',
+      negativeText: '取消',
+      actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
+      onPositiveClick: () => {
+        router.push({ query: { tab: 'settings' } })
+      },
+    })
+    return
+  }
+  poiTarget.value = target
+  poiModalVisible.value = true
+}
+
+/** POI 选中：按 target 写回对应字段的地址+经纬度+POI 标记（清失败标记）；勾选同面试地点时工作地点一并同步 */
+function onPoiSelect(poi: PoiResult) {
+  const next = { ...form.value }
+  if (poiTarget.value === 'interviewLocation') {
+    next.interviewLocation = poi.name
+    next.interviewLocationLng = poi.lng
+    next.interviewLocationLat = poi.lat
+    next.interviewLocationPoiSelected = true
+    next.interviewLocationGeocodeFailed = false
+    if (locationSameAsInterview.value) {
+      next.location = poi.name
+      next.locationLng = poi.lng
+      next.locationLat = poi.lat
+      next.locationPoiSelected = true
+      next.locationGeocodeFailed = false
+    }
+  } else {
+    next.location = poi.name
+    next.locationLng = poi.lng
+    next.locationLat = poi.lat
+    next.locationPoiSelected = true
+    next.locationGeocodeFailed = false
+  }
+  form.value = next
+  naiveMessage.success(`已定位：${poi.name}`)
+}
+
+/** 切换「工作地点同面试地点」勾选：勾选时同步当前面试地点值 */
+function onToggleLocationSame(checked: boolean) {
+  locationSameAsInterview.value = checked
+  const next: Interview = { ...form.value, locationSameAsInterview: checked }
+  if (checked) {
+    next.location = form.value.interviewLocation
+    next.locationLng = form.value.interviewLocationLng
+    next.locationLat = form.value.interviewLocationLat
+    next.locationPoiSelected = form.value.interviewLocationPoiSelected
+    next.locationGeocodeFailed = form.value.interviewLocationGeocodeFailed
+  }
+  form.value = next
 }
 
 function addRound() {
@@ -298,7 +474,12 @@ function save() {
   return true
 }
 
-defineExpose({ save })
+/** 表单是否有未保存改动（对比 form 与初始 interview，纯 JSON 比对） */
+function isDirty(): boolean {
+  return JSON.stringify(form.value) !== JSON.stringify(props.interview)
+}
+
+defineExpose({ save, isDirty })
 </script>
 
 <style lang="scss" scoped>
@@ -399,6 +580,46 @@ defineExpose({ save })
 
   &__required {
     color: $error-color;
+  }
+}
+
+.field-with-action {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+
+  &__btn {
+    flex-shrink: 0;
+  }
+}
+
+.field-same-checkbox {
+  margin-top: 6px;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.poi-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #67c23a;
+  background: rgba(103, 194, 58, 0.12);
+}
+
+.field-tip-icon {
+  margin-left: 4px;
+  color: $text-light;
+  cursor: help;
+  vertical-align: middle;
+
+  &:hover {
+    color: $primary-color;
   }
 }
 

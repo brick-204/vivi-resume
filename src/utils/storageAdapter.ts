@@ -562,6 +562,114 @@ export async function setInterviewBannerPosition(position: InterviewBannerPositi
   }
 }
 
+/** 读取高德地图 Key（默认空） */
+export async function getAmapKey(): Promise<string> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.amapKey as string) ?? ''
+  }
+  return (await idb.getMeta<string>('amapKey')) ?? ''
+}
+
+/** 写入高德地图 Key */
+export async function setAmapKey(key: string): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.amapKey = key
+    })
+  } else {
+    await idb.setMeta('amapKey', key)
+  }
+}
+
+/** 读取高德安全密钥（默认空） */
+export async function getAmapSecurityCode(): Promise<string> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.amapSecurityCode as string) ?? ''
+  }
+  return (await idb.getMeta<string>('amapSecurityCode')) ?? ''
+}
+
+/** 写入高德安全密钥 */
+export async function setAmapSecurityCode(code: string): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.amapSecurityCode = code
+    })
+  } else {
+    await idb.setMeta('amapSecurityCode', code)
+  }
+}
+
+/** 读取「我的位置」（lng,lat 字符串，默认空）——面试足迹 tab 缓存用，省重复定位 */
+export async function getMyLocation(): Promise<string> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.myLocation as string) ?? ''
+  }
+  return (await idb.getMeta<string>('myLocation')) ?? ''
+}
+
+/** 写入「我的位置」 */
+export async function setMyLocation(loc: string): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.myLocation = loc
+    })
+  } else {
+    await idb.setMeta('myLocation', loc)
+  }
+}
+
+/** 搜索历史条目（面试足迹 tab 的「搜索位置」LRU 缓存） */
+export interface MapLocationItem {
+  name: string
+  address: string
+  lng: number
+  lat: number
+}
+
+/** 读取地图功能启用开关（默认关） */
+export async function getAmapEnabled(): Promise<boolean> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.amapEnabled as boolean) ?? false
+  }
+  return (await idb.getMeta<boolean>('amapEnabled')) ?? false
+}
+
+/** 写入地图功能启用开关 */
+export async function setAmapEnabled(enabled: boolean): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.amapEnabled = enabled
+    })
+  } else {
+    await idb.setMeta('amapEnabled', enabled)
+  }
+}
+
+/** 读取搜索位置历史（LRU，默认空数组） */
+export async function getMapLocationHistory(): Promise<MapLocationItem[]> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.mapLocationHistory as MapLocationItem[]) ?? []
+  }
+  return (await idb.getMeta<MapLocationItem[]>('mapLocationHistory')) ?? []
+}
+
+/** 写入搜索位置历史 */
+export async function setMapLocationHistory(history: MapLocationItem[]): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.mapLocationHistory = history
+    })
+  } else {
+    await idb.setMeta('mapLocationHistory', history)
+  }
+}
+
 /** 读取休息提醒间隔分钟数（默认 25，下限 10） */
 export async function getRestReminderInterval(): Promise<number> {
   if (isDirectoryMode()) {

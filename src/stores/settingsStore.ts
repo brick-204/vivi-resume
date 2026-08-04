@@ -19,7 +19,7 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, type InterviewBannerPosition } from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type MapLocationItem } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import {
   isFileSystemAccessSupported,
@@ -47,6 +47,24 @@ import { h } from 'vue'
 import { pickQuote } from '@/data/petQuotes'
 import MergeConflictModal from '@/components/dashboard/MergeConflictModal.vue'
 
+/**
+ * 合并两份搜索位置历史，按经纬度去重，截断最近 20 条（尾部为最新，LRU 语义同 addMapLocationHistory）。
+ * ponytail: bind 目录时用——目录项先入（去重基准），IndexedDB 独有项追加尾部；超出 20 条丢最旧的。
+ */
+function mergeMapLocationHistory(dir: MapLocationItem[] | undefined, idb: MapLocationItem[] | undefined): MapLocationItem[] {
+  const seen = new Set<string>()
+  const out: MapLocationItem[] = []
+  const push = (h: MapLocationItem) => {
+    const key = `${h.lng.toFixed(5)},${h.lat.toFixed(5)}`
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(h)
+  }
+  for (const h of dir ?? []) push(h)
+  for (const h of idb ?? []) push(h)
+  return out.slice(-20)
+}
+
 export const useSettingsStore = defineStore('settings', () => {
   // ========== 状态 ==========
   const isDirectoryMode = ref(false)
@@ -72,6 +90,16 @@ export const useSettingsStore = defineStore('settings', () => {
   // 面试提示横幅：默认开，默认左下角
   const interviewBannerEnabled = ref(true)
   const interviewBannerPosition = ref<InterviewBannerPosition>('bottom-left')
+  // 高德地图：Key + 安全密钥（面试足迹 tab 用，默认空，用户在设置面板填）
+  // 注：JS API 2.0 强制 scode，不配则 PlaceSearch 等服务接口返回 INVALID_USER_SCODE
+  const amapKey = ref('')
+  const amapSecurityCode = ref('')
+  // 「我的位置」（lng,lat 字符串）——面试足迹 tab 缓存定位结果，省重复调浏览器定位
+  const myLocation = ref('')
+  // 地图功能总开关：默认关，用户在设置面板主动开启后才启用地图相关功能
+  const amapEnabled = ref(false)
+  // 搜索位置历史（LRU，最多 20 条）——面试足迹 tab 搜过的位置，点击即用
+  const mapLocationHistory = ref<MapLocationItem[]>([])
 
   // Lock
   const { acquire: acquireLock, updateProgress, release: releaseLock, isLocked, lockMessage, syncPercent } = useSyncLock()
@@ -134,6 +162,15 @@ export const useSettingsStore = defineStore('settings', () => {
         interviewBannerPosition.value = await getInterviewBannerPosition()
       } catch (e) {
         console.error('[settingsStore] 读取面试提示设置失败:', e)
+      }
+      try {
+        amapKey.value = await getAmapKey()
+        amapSecurityCode.value = await getAmapSecurityCode()
+        myLocation.value = await getMyLocation()
+        amapEnabled.value = await getAmapEnabled()
+        mapLocationHistory.value = await getMapLocationHistory()
+      } catch (e) {
+        console.error('[settingsStore] 读取高德地图设置失败:', e)
       }
       try {
         customPets.value = await getAllDesktopPets()
@@ -206,6 +243,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idbInterviewTrash, idbAiConfigTrash,
         idbRestReminderEnabled, idbRestReminderInterval, idbPetAIChatEnabled, idbIdleAiEnabled, idbIdleIntervalMinutes,
         idbInterviewBannerEnabled, idbInterviewBannerPosition,
+        idbAmapKey, idbAmapSecurityCode, idbMyLocation, idbAmapEnabled, idbMapLocationHistory,
       ] = await Promise.all([
         idb.getMeta<Resume[]>('trash'),
         idb.getMeta<number>('trashRetentionDays'),
@@ -221,6 +259,11 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getMeta<number>('idleIntervalMinutes'),
         idb.getMeta<boolean>('interviewBannerEnabled'),
         idb.getMeta<InterviewBannerPosition>('interviewBannerPosition'),
+        idb.getMeta<string>('amapKey'),
+        idb.getMeta<string>('amapSecurityCode'),
+        idb.getMeta<string>('myLocation'),
+        idb.getMeta<boolean>('amapEnabled'),
+        idb.getMeta<MapLocationItem[]>('mapLocationHistory'),
       ])
 
       // 5. 读取目录现有数据（用于冲突检测与合并）
@@ -245,6 +288,11 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirIdleIntervalMinutes: number | undefined
       let dirInterviewBannerEnabled: boolean | undefined
       let dirInterviewBannerPosition: InterviewBannerPosition | undefined
+      let dirAmapKey: string | undefined
+      let dirAmapSecurityCode: string | undefined
+      let dirMyLocation: string | undefined
+      let dirAmapEnabled: boolean | undefined
+      let dirMapLocationHistory: MapLocationItem[] | undefined
       try {
         const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
         if (dirMeta) {
@@ -264,6 +312,11 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.idleIntervalMinutes === 'number') dirIdleIntervalMinutes = dirMeta.idleIntervalMinutes
           if (typeof dirMeta.interviewBannerEnabled === 'boolean') dirInterviewBannerEnabled = dirMeta.interviewBannerEnabled
           if (typeof dirMeta.interviewBannerPosition === 'string') dirInterviewBannerPosition = dirMeta.interviewBannerPosition as InterviewBannerPosition
+          if (typeof dirMeta.amapKey === 'string') dirAmapKey = dirMeta.amapKey
+          if (typeof dirMeta.amapSecurityCode === 'string') dirAmapSecurityCode = dirMeta.amapSecurityCode
+          if (typeof dirMeta.myLocation === 'string') dirMyLocation = dirMeta.myLocation
+          if (typeof dirMeta.amapEnabled === 'boolean') dirAmapEnabled = dirMeta.amapEnabled
+          if (Array.isArray(dirMeta.mapLocationHistory)) dirMapLocationHistory = dirMeta.mapLocationHistory as MapLocationItem[]
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
       // 桌宠回收站：从 trash-pets/ 子目录读取（每条独立存储，不再走 meta.json）
@@ -485,6 +538,12 @@ export const useSettingsStore = defineStore('settings', () => {
         idleIntervalMinutes: dirIdleIntervalMinutes ?? idbIdleIntervalMinutes ?? 1,
         interviewBannerEnabled: dirInterviewBannerEnabled ?? idbInterviewBannerEnabled ?? true,
         interviewBannerPosition: dirInterviewBannerPosition ?? idbInterviewBannerPosition ?? 'bottom-left',
+        amapKey: dirAmapKey ?? idbAmapKey ?? '',
+        amapSecurityCode: dirAmapSecurityCode ?? idbAmapSecurityCode ?? '',
+        myLocation: dirMyLocation ?? idbMyLocation ?? '',
+        amapEnabled: dirAmapEnabled ?? idbAmapEnabled ?? false,
+        // 搜索历史合并：目录优先，IndexedDB 独有的追加（按经纬度去重，截断 20 条）
+        mapLocationHistory: mergeMapLocationHistory(dirMapLocationHistory, idbMapLocationHistory),
       }
 
       updateProgress('正在序列化数据...', 20)
@@ -612,6 +671,11 @@ export const useSettingsStore = defineStore('settings', () => {
       await idb.setMeta('idleIntervalMinutes', null)
       await idb.setMeta('interviewBannerEnabled', null)
       await idb.setMeta('interviewBannerPosition', null)
+      await idb.setMeta('amapKey', null)
+      await idb.setMeta('amapSecurityCode', null)
+      await idb.setMeta('myLocation', null)
+      await idb.setMeta('amapEnabled', null)
+      await idb.setMeta('mapLocationHistory', null)
 
       updateProgress('同步完成！', 100)
 
@@ -631,6 +695,11 @@ export const useSettingsStore = defineStore('settings', () => {
       idleIntervalMinutes.value = mergedMeta.idleIntervalMinutes
       interviewBannerEnabled.value = mergedMeta.interviewBannerEnabled
       interviewBannerPosition.value = mergedMeta.interviewBannerPosition
+      amapKey.value = mergedMeta.amapKey
+      amapSecurityCode.value = mergedMeta.amapSecurityCode
+      myLocation.value = mergedMeta.myLocation
+      amapEnabled.value = mergedMeta.amapEnabled
+      mapLocationHistory.value = mergedMeta.mapLocationHistory
       // 同步到 petStore（与 init 末尾一致）
       try {
         const { usePetStore } = await import('@/stores/petStore')
@@ -733,6 +802,11 @@ export const useSettingsStore = defineStore('settings', () => {
         if (typeof metaAny?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', metaAny.idleIntervalMinutes)
         if (typeof metaAny?.interviewBannerEnabled === 'boolean') await idb.setMeta('interviewBannerEnabled', metaAny.interviewBannerEnabled)
         if (typeof metaAny?.interviewBannerPosition === 'string') await idb.setMeta('interviewBannerPosition', metaAny.interviewBannerPosition)
+        if (typeof metaAny?.amapKey === 'string') await idb.setMeta('amapKey', metaAny.amapKey)
+        if (typeof metaAny?.amapSecurityCode === 'string') await idb.setMeta('amapSecurityCode', metaAny.amapSecurityCode)
+        if (typeof metaAny?.myLocation === 'string') await idb.setMeta('myLocation', metaAny.myLocation)
+        if (typeof metaAny?.amapEnabled === 'boolean') await idb.setMeta('amapEnabled', metaAny.amapEnabled)
+        if (Array.isArray(metaAny?.mapLocationHistory)) await idb.setMeta('mapLocationHistory', metaAny.mapLocationHistory)
       }
 
       updateProgress('正在清理目录模式...', 80)
@@ -764,6 +838,11 @@ export const useSettingsStore = defineStore('settings', () => {
       idleIntervalMinutes.value = await getIdleIntervalMinutes()
       interviewBannerEnabled.value = await getInterviewBannerEnabled()
       interviewBannerPosition.value = await getInterviewBannerPosition()
+      amapKey.value = await getAmapKey()
+      amapSecurityCode.value = await getAmapSecurityCode()
+      myLocation.value = await getMyLocation()
+      amapEnabled.value = await getAmapEnabled()
+      mapLocationHistory.value = await getMapLocationHistory()
       try {
         const { usePetStore } = await import('@/stores/petStore')
         const petStore = usePetStore()
@@ -876,9 +955,17 @@ export const useSettingsStore = defineStore('settings', () => {
     trackPending(setIdleIntervalMinutes(clamped)).catch(e => console.error('[settingsStore] idle 间隔写盘失败:', e))
   }
 
-  /** 切换面试提示横幅开关：持久化（fire-and-forget） */
+  /** 切换面试提示横幅开关：持久化 + 桌宠说话反馈（fire-and-forget 写盘） */
   const updateInterviewBannerEnabled = async (enabled: boolean) => {
     interviewBannerEnabled.value = enabled
+    const { usePetStore } = await import('@/stores/petStore')
+    const petStore = usePetStore()
+    // 抽屉打开时桌宠隐藏，气泡看不见 → 改用 naiveMessage 顶替（与 restOn/restOff 同策略）
+    if (petStore.paused) {
+      naiveMessage.info(pickQuote(enabled ? 'interviewHintOn' : 'interviewHintOff', petStore.petName))
+    } else {
+      void petStore.sayCategory(enabled ? 'interviewHintOn' : 'interviewHintOff', petStore.petName)
+    }
     trackPending(setInterviewBannerEnabled(enabled)).catch(e => console.error('[settingsStore] 面试提示开关写盘失败:', e))
   }
 
@@ -886,6 +973,68 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateInterviewBannerPosition = async (position: InterviewBannerPosition) => {
     interviewBannerPosition.value = position
     trackPending(setInterviewBannerPosition(position)).catch(e => console.error('[settingsStore] 面试提示位置写盘失败:', e))
+  }
+
+  /** 修改高德地图 Key：持久化（fire-and-forget） */
+  const updateAmapKey = async (key: string) => {
+    amapKey.value = key
+    trackPending(setAmapKey(key)).catch(e => console.error('[settingsStore] 高德 Key 写盘失败:', e))
+  }
+
+  /** 修改高德安全密钥：持久化（fire-and-forget） */
+  const updateAmapSecurityCode = async (code: string) => {
+    amapSecurityCode.value = code
+    trackPending(setAmapSecurityCode(code)).catch(e => console.error('[settingsStore] 高德安全密钥写盘失败:', e))
+  }
+
+  /** 修改「我的位置」缓存：持久化（fire-and-forget） */
+  const updateMyLocation = async (loc: string) => {
+    myLocation.value = loc
+    trackPending(setMyLocation(loc)).catch(e => console.error('[settingsStore] 我的位置写盘失败:', e))
+  }
+
+  /** 切换地图功能总开关：持久化 + 桌宠说话反馈（fire-and-forget 写盘） */
+  const updateAmapEnabled = async (enabled: boolean) => {
+    amapEnabled.value = enabled
+    const { usePetStore } = await import('@/stores/petStore')
+    const petStore = usePetStore()
+    // 抽屉打开时桌宠隐藏，气泡看不见 → 改用 naiveMessage 顶替（与 restOn/restOff 同策略）
+    if (petStore.paused) {
+      naiveMessage.info(pickQuote(enabled ? 'mapOn' : 'mapOff', petStore.petName))
+    } else {
+      void petStore.sayCategory(enabled ? 'mapOn' : 'mapOff', petStore.petName)
+    }
+    trackPending(setAmapEnabled(enabled)).catch(e => console.error('[settingsStore] 地图开关写盘失败:', e))
+  }
+
+  /**
+   * 新增一条搜索位置历史（LRU）。
+   * 同坐标（经纬度四舍五入到 5 位约 1m）命中则移到末尾，否则追加；超 20 条截断头部。
+   */
+  const addMapLocationHistory = async (item: MapLocationItem) => {
+    const key = `${item.lng.toFixed(5)},${item.lat.toFixed(5)}`
+    const rest = mapLocationHistory.value.filter(
+      (h) => `${h.lng.toFixed(5)},${h.lat.toFixed(5)}` !== key,
+    )
+    const next = [...rest, item].slice(-20) // ponytail: LRU 上限 20，尾部最新
+    mapLocationHistory.value = next
+    trackPending(setMapLocationHistory(next)).catch(e => console.error('[settingsStore] 搜索历史写盘失败:', e))
+  }
+
+  /** 删除一条搜索历史（按经纬度） */
+  const removeMapLocationHistory = async (item: MapLocationItem) => {
+    const key = `${item.lng.toFixed(5)},${item.lat.toFixed(5)}`
+    const next = mapLocationHistory.value.filter(
+      (h) => `${h.lng.toFixed(5)},${h.lat.toFixed(5)}` !== key,
+    )
+    mapLocationHistory.value = next
+    trackPending(setMapLocationHistory(next)).catch(e => console.error('[settingsStore] 搜索历史删除失败:', e))
+  }
+
+  /** 清空搜索位置历史 */
+  const clearMapLocationHistory = async () => {
+    mapLocationHistory.value = []
+    trackPending(setMapLocationHistory([])).catch(e => console.error('[settingsStore] 搜索历史清空失败:', e))
   }
 
   // ========== 自定义桌宠管理 ==========
@@ -1106,6 +1255,11 @@ export const useSettingsStore = defineStore('settings', () => {
       if (typeof rMeta?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', rMeta.idleIntervalMinutes)
       if (typeof rMeta?.interviewBannerEnabled === 'boolean') await idb.setMeta('interviewBannerEnabled', rMeta.interviewBannerEnabled)
       if (typeof rMeta?.interviewBannerPosition === 'string') await idb.setMeta('interviewBannerPosition', rMeta.interviewBannerPosition)
+      if (typeof rMeta?.amapKey === 'string') await idb.setMeta('amapKey', rMeta.amapKey)
+      if (typeof rMeta?.amapSecurityCode === 'string') await idb.setMeta('amapSecurityCode', rMeta.amapSecurityCode)
+      if (typeof rMeta?.myLocation === 'string') await idb.setMeta('myLocation', rMeta.myLocation)
+      if (typeof rMeta?.amapEnabled === 'boolean') await idb.setMeta('amapEnabled', rMeta.amapEnabled)
+      if (Array.isArray(rMeta?.mapLocationHistory)) await idb.setMeta('mapLocationHistory', rMeta.mapLocationHistory)
 
       updateProgress('正在刷新数据...', 80)
 
@@ -1120,6 +1274,11 @@ export const useSettingsStore = defineStore('settings', () => {
       idleIntervalMinutes.value = await getIdleIntervalMinutes()
       interviewBannerEnabled.value = await getInterviewBannerEnabled()
       interviewBannerPosition.value = await getInterviewBannerPosition()
+      amapKey.value = await getAmapKey()
+      amapSecurityCode.value = await getAmapSecurityCode()
+      myLocation.value = await getMyLocation()
+      amapEnabled.value = await getAmapEnabled()
+      mapLocationHistory.value = await getMapLocationHistory()
       try {
         const { usePetStore } = await import('@/stores/petStore')
         const petStore = usePetStore()
@@ -1205,6 +1364,18 @@ export const useSettingsStore = defineStore('settings', () => {
     interviewBannerPosition,
     updateInterviewBannerEnabled,
     updateInterviewBannerPosition,
+    amapKey,
+    amapSecurityCode,
+    myLocation,
+    amapEnabled,
+    mapLocationHistory,
+    updateAmapKey,
+    updateAmapSecurityCode,
+    updateMyLocation,
+    updateAmapEnabled,
+    addMapLocationHistory,
+    removeMapLocationHistory,
+    clearMapLocationHistory,
     customPets,
     addCustomPet,
     removeCustomPet,

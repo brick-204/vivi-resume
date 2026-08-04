@@ -39,7 +39,21 @@
           <span>下一面 · {{ nextRound.roundType }}</span>
           <span v-if="nextScheduledText" class="interview-card__countdown-time">{{ nextScheduledText }}</span>
         </div>
-        <div class="interview-card__countdown-value" :style="{ color: countdownColors.value }">{{ countdownText }}</div>
+        <div class="interview-card__countdown-row">
+          <a
+            v-if="joinHref"
+            class="interview-card__join-btn"
+            :style="{ color: countdownColors.label, borderColor: countdownColors.label }"
+            :href="joinHref"
+            target="_blank"
+            rel="noopener noreferrer"
+            @click.stop
+          >
+            <Icon icon="mdi:video-outline" :width="14" />
+            <span>进入面试</span>
+          </a>
+          <div class="interview-card__countdown-value" :style="{ color: countdownColors.value }">{{ countdownText }}</div>
+        </div>
       </div>
 
       <!-- 关联简历 -->
@@ -78,6 +92,7 @@ import type { Interview, InterviewStatus } from '@/types/interview'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useNextRoundCountdown } from '@/composables/useNextRoundCountdown'
 import { formatInterviewDate } from '@/utils/timestamp'
+import { extractMeetingUrl } from '@/utils/url'
 import { Icon } from '@iconify/vue'
 
 const props = defineProps<{
@@ -150,6 +165,9 @@ const { nextRound, countdownText, urgencyLevel } = useNextRoundCountdown(() => p
 
 /** 下一面具体时刻：MM-DD 周X HH:MM（有 nextRound.scheduledAt 才有值） */
 const nextScheduledText = computed(() => formatInterviewDate(nextRound.value?.scheduledAt, true))
+
+/** 进入面试链接：从 meetingLink 文本提取首个 URL 并补全协议，提取不到则不显示按钮 */
+const joinHref = computed(() => extractMeetingUrl(nextRound.value?.meetingLink))
 
 const URGENCY_COLORS = {
   soon:   { bg: 'rgba(52, 152, 219, 0.12)', border: 'rgba(52, 152, 219, 0.35)', label: '#3498db', value: '#2980b9' },
@@ -275,9 +293,8 @@ const countdownBoxStyle = computed(() => ({
   // 下一面倒计时：背景/边框/文字色由内联 style 按紧迫度切（soon 蓝/near 橙/urgent 红），此处仅布局
   &__countdown {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: $spacing-sm;
+    flex-direction: column;
+    gap: $spacing-xs;
     padding: $spacing-xs $spacing-sm;
     border-radius: $radius-md;
     border: 1px solid transparent;
@@ -293,16 +310,43 @@ const countdownBoxStyle = computed(() => ({
     font-weight: 600;
   }
 
-  // 具体时刻：占满一行换行展示，与「下一面·轮次」分开
+  // 具体时刻：紧跟「下一面·轮次」之后，行内展示
   &__countdown-time {
-    width: 100%;
     font-weight: 400;
     opacity: 0.85;
   }
 
+  // 第二行：进入面试按钮（左）+ 倒计时数字（右）
+  &__countdown-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
+  }
+
+  // 进入面试：行内可点链接按钮，文字色/边框色继承紧迫度档色
+  &__join-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px $spacing-sm;
+    border-radius: $radius-sm;
+    border: 1px solid currentColor;
+    background: transparent;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+
   &__countdown-value {
     flex-shrink: 0;
-    font-size: $font-size-sm;
+    font-size: $font-size-lg;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;

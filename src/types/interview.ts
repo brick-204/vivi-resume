@@ -48,11 +48,28 @@ export interface Interview {
   jd: string
   salary: string
   location: string
+  // 高德 POI 经纬度（面试足迹 tab 标点用，可选——旧数据无此字段时地图侧 geocode 兜底）
+  locationLng?: number
+  locationLat?: number
+  // 工作地点是否经 POI 搜索定位（true=经纬度来自 POI 搜索，准确；未标记=手输/geocode 兜底）
+  locationPoiSelected?: boolean
+  // 工作地点 geocode 是否失败（true=足迹 tab 跳过该地址不重试，用户改地址后清除）
+  locationGeocodeFailed?: boolean
+  // 工作地点是否同面试地点（勾选状态持久化，可选——旧数据无此字段视为 false）
+  locationSameAsInterview?: boolean
   channel: string
   resumeId: string | null
   contactName: string
   contactInfo: string
   interviewLocation: string
+  // 面试地点经纬度（POI 搜索选中后存，可选）
+  interviewLocationLng?: number
+  interviewLocationLat?: number
+  // 面试地点是否经 POI 搜索定位
+  interviewLocationPoiSelected?: boolean
+  // 面试地点 geocode 是否失败（同 locationGeocodeFailed）
+  interviewLocationGeocodeFailed?: boolean
+  benefits: string             // 福利待遇（多行文本）
   rounds: InterviewRound[]
   // AI 结果缓存（可选，各功能最新一次）
   lastMockInterview?: MockInterviewResult
@@ -117,6 +134,7 @@ export function createEmptyInterview(): Interview {
     contactName: '',
     contactInfo: '',
     interviewLocation: '',
+    benefits: '',
     rounds: [],
     createdAt: now,
     updatedAt: now,

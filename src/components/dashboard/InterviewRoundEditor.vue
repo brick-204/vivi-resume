@@ -116,7 +116,7 @@
         <n-input
           :value="round.meetingLink"
           size="small"
-          placeholder="腾讯会议 / Zoom / Meet 链接"
+          placeholder="粘贴完整会议链接，如 https://meeting.tencent.com/..."
           @update:value="onFieldUpdate('meetingLink', $event)"
         />
       </div>

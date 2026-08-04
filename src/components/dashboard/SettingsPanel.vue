@@ -302,6 +302,47 @@
       </div>
     </div>
 
+    <!-- 地图设置 -->
+    <div class="settings-section" data-toc="map">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:map-marker-outline" :width="20" />
+        地图设置
+      </h3>
+      <p class="settings-section__desc">
+        面试足迹 tab 与面试地点搜索依赖高德地图 JS API。请在
+        <a href="https://lbs.amap.com/" target="_blank" rel="noopener">高德开放平台</a>
+        申请「Web 端（JS API）」Key 后填入下方。
+      </p>
+      <div class="settings-section__row">
+        <span class="settings-section__label">启用地图功能</span>
+        <NSwitch v-model:value="amapEnabled" />
+        <span class="settings-section__hint">关闭后面试足迹与地点搜索的地图功能将不可用</span>
+      </div>
+      <div class="settings-section__row">
+        <span class="settings-section__label">高德地图 Key</span>
+        <NInput
+          v-model:value="amapKey"
+          type="password"
+          show-password-on="click"
+          placeholder="高德开放平台 Web 端 JS API Key"
+          style="width: 320px"
+        />
+      </div>
+      <div class="settings-section__row">
+        <span class="settings-section__label">安全密钥</span>
+        <NInput
+          v-model:value="amapSecurityCode"
+          type="password"
+          show-password-on="click"
+          placeholder="JS API 安全密钥（securityJsCode，必填）"
+          style="width: 320px"
+        />
+      </div>
+      <p class="settings-section__desc settings-section__desc--hint">
+        Key 与安全密钥以明文存储于本地浏览器或本地目录，未加密。JS API 2.0 强制要求安全密钥，不配则地点搜索等服务无法使用。请使用个人 Key 并在高德控制台配置域名白名单。
+      </p>
+    </div>
+
     </div>
 
     <!-- 小目录（TOC）：宽屏右侧 sticky 竖排，窄屏折成顶部横向条 -->
@@ -478,24 +519,35 @@ const tocItems = [
   { id: 'recycle', label: '回收设置', icon: 'mdi:delete-clock-outline' },
   { id: 'pet', label: '桌宠设置', icon: 'mdi:cat' },
   { id: 'interview', label: '面试提示', icon: 'mdi:briefcase-clock-outline' },
+  { id: 'map', label: '地图设置', icon: 'mdi:map-marker-outline' },
 ] as const
 const activeToc = ref<string>('directory')
 let tocObserver: IntersectionObserver | null = null
+// ponytail: 点击 TOC 跳转时锁定，滚动动画期间忽略 observer 回调，避免高亮在路径上的 section 间乱跳
+let scrollLockTimer: ReturnType<typeof setTimeout> | null = null
 
 const scrollToSection = (id: string) => {
   // 点击立即高亮，不等 observer（窄屏 sticky TOC 遮顶时 observer 可能漏判）
   activeToc.value = id
+  // 锁定 observer，覆盖平滑滚动动画时长（约 400-600ms），动画结束后再解锁
+  if (scrollLockTimer) clearTimeout(scrollLockTimer)
+  scrollLockTimer = setTimeout(() => { scrollLockTimer = null }, 700)
   const el = document.querySelector<HTMLElement>(`.settings-section[data-toc="${id}"]`)
   el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 onMounted(() => {
-  // ponytail: IntersectionObserver 高亮当前可视分区；rootMargin 让上半屏的 section 优先命中
+  // ponytail: IntersectionObserver 高亮当前可视分区。
+  // root 必须显式设为 .dashboard__content（实际滚动容器），否则默认视口与 scrollIntoView 的滚动容器不一致，
+  // rootMargin 裁剪坐标系错位 → 滚动时高亮乱跳。
+  const scrollRoot = document.querySelector<HTMLElement>('.dashboard__content')
   const sections = Array.from(
     document.querySelectorAll<HTMLElement>('.settings-section[data-toc]')
   )
   tocObserver = new IntersectionObserver(
     (entries) => {
+      // 点击跳转动画期间锁定，不更新高亮
+      if (scrollLockTimer) return
       // 取最靠上且仍可见的那个
       const visible = entries
         .filter(e => e.isIntersecting)
@@ -503,10 +555,28 @@ onMounted(() => {
       if (visible[0]) {
         const id = (visible[0].target as HTMLElement).dataset.toc
         if (id) activeToc.value = id
+      } else {
+        // ponytail: 观察带内无命中（最后一个/较短 section 滚到顶时易发生），
+        // 回退取离滚动容器顶部最近的 section，避免高亮错位到上一个
+        let best: HTMLElement | null = null
+        let bestTop = Infinity
+        for (const s of sections) {
+          // 相对滚动容器顶部的偏移：getBoundingClientRect.top - root.top
+          const top = s.getBoundingClientRect().top - (scrollRoot?.getBoundingClientRect().top ?? 0)
+          // 顶部已滚过容器顶（top<=0）取最接近 0 的；否则取第一个还在容器下方的
+          if (top <= 0 && Math.abs(top) < bestTop) {
+            bestTop = Math.abs(top)
+            best = s
+          }
+        }
+        // 全部在容器下方（页面顶部）→ 取第一个
+        if (!best && sections[0]) best = sections[0]
+        const id = best?.dataset.toc
+        if (id) activeToc.value = id
       }
     },
-    // ponytail: 不指定 root 默认视口；当前 .dashboard__content 填满视口故等价，若布局改为非满屏滚动容器需显式传 root
-    { rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+    // rootMargin 相对 scrollRoot 裁剪：观察带为容器顶部 20%~40% 区间
+    { root: scrollRoot, rootMargin: '-20% 0px -60% 0px', threshold: 0 }
   )
   sections.forEach(s => tocObserver!.observe(s))
 })
@@ -514,6 +584,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   tocObserver?.disconnect()
   tocObserver = null
+  if (scrollLockTimer) { clearTimeout(scrollLockTimer); scrollLockTimer = null }
 })
 
 const handlePetChange = (petId: string) => {
@@ -562,6 +633,18 @@ const bannerEnabled = computed({
 const bannerPosition = computed({
   get: () => settingsStore.interviewBannerPosition,
   set: (val: InterviewBannerPosition) => { settingsStore.updateInterviewBannerPosition(val) },
+})
+const amapKey = computed({
+  get: () => settingsStore.amapKey,
+  set: (val: string) => { settingsStore.updateAmapKey(val) },
+})
+const amapSecurityCode = computed({
+  get: () => settingsStore.amapSecurityCode,
+  set: (val: string) => { settingsStore.updateAmapSecurityCode(val) },
+})
+const amapEnabled = computed({
+  get: () => settingsStore.amapEnabled,
+  set: (val: boolean) => { settingsStore.updateAmapEnabled(val) },
 })
 const bannerPositionOptions: { label: string; value: InterviewBannerPosition }[] = [
   { label: '左下角', value: 'bottom-left' },
@@ -896,6 +979,13 @@ const handleResync = () => {
     color: $text-secondary;
     line-height: 1.6;
     margin: 0 0 $spacing-lg;
+
+    &--hint {
+      margin-top: $spacing-sm;
+      margin-bottom: 0;
+      font-size: $font-size-xs;
+      opacity: 0.8;
+    }
   }
 
   &__unsupported {

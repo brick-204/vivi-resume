@@ -147,11 +147,19 @@ const goToInterviews = () => {
   }
 
   &__company {
+    min-width: 0; // flex 子项默认 min-width:auto 会撑爆父级，置 0 才能触发 ellipsis
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  &__round,
+  &__round {
+    flex-shrink: 1; // 允许收缩，长轮次名省略而非溢出
+    min-width: 0;
+    max-width: 7em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   &__cta,
   &__scheduled {
     flex-shrink: 0;
@@ -177,6 +185,8 @@ const goToInterviews = () => {
     font-weight: $font-weight-semibold;
     opacity: 0.9;
     overflow: hidden;
+    min-width: 0; // 解除 flex 撑爆，让内部 company/round 可 ellipsis
+    width: 100%; // nav/corner 窄容器内占满，配合 company flex:1 收缩
   }
 
   // ========== 形态：满宽顶条 ==========
@@ -189,6 +199,12 @@ const goToInterviews = () => {
     border-right: none;
     border-top: none;
     font-size: $font-size-sm;
+
+    // 长公司名可收缩省略，不顶飞后续的「查看 →」；短文本不主动撑开，保持居中
+    .upcoming-banner__company {
+      flex: 0 1 auto;
+      max-width: 40%;
+    }
 
     &:hover {
       filter: brightness(1.05);
@@ -205,6 +221,11 @@ const goToInterviews = () => {
     border-radius: $radius-md;
     box-shadow: $shadow-sm;
     margin-bottom: $spacing-md;
+
+    // 窄侧边栏内：公司名吃剩余空间省略，轮次名已全局 max-width 省略
+    .upcoming-banner__company {
+      flex: 1 1 0;
+    }
 
     &:hover {
       transform: translateY(-1px);
@@ -223,7 +244,15 @@ const goToInterviews = () => {
     padding: $spacing-sm $spacing-md;
     border-radius: $radius-lg;
     box-shadow: $shadow-md;
-    max-width: 260px;
+    // ponytail: banner fixed 在 left:$spacing-lg(24px)，nav 宽 240px；
+    // max-width 留出与 nav 右边界的间距(200px→右边界224px，距nav 240px 留16px)，不贴边框
+    max-width: 200px;
+    overflow: hidden; // 兜底：固定格式文本(倒计时/日期)超长时裁剪而非撑破
+
+    // 角落悬浮卡：公司名吃剩余空间省略
+    .upcoming-banner__company {
+      flex: 1 1 0;
+    }
 
     &:hover {
       transform: translateY(-2px);
