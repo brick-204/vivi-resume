@@ -23,121 +23,150 @@
     </div>
 
     <template v-else>
-      <!-- 选择态 -->
-      <div v-if="!isStreaming && !hasResult" class="cc-select">
-        <!-- 联网搜索能力提示 -->
-        <div v-if="!webSearchEnabled" class="cc-search-hint">
-          <Icon icon="mdi:information-outline" :width="14" />
-          <span>当前服务商不支持联网搜索，仅基于您填写的资料比较</span>
-        </div>
-        <!-- 隐私提示 -->
-        <div class="cc-privacy">
-          <Icon icon="mdi:shield-check-outline" :width="14" />
-          <span>仅发送公司、岗位、薪资、JD、福利等核心字段；不发送关联简历、联系方式（联系人/电话）、面试问题与回答、面试链接等敏感信息</span>
-        </div>
+      <n-tabs v-model:value="activeTab" type="line" animated>
+        <!-- 机会对比：选择面试 + 自定义要求 -->
+        <n-tab-pane name="compare" tab="机会对比">
+          <div class="cc-select">
+            <!-- 联网搜索能力提示 -->
+            <div v-if="!webSearchEnabled" class="cc-search-hint">
+              <Icon icon="mdi:information-outline" :width="14" />
+              <span>当前服务商不支持联网搜索，仅基于您填写的资料比较</span>
+            </div>
+            <!-- 隐私提示 -->
+            <div class="cc-privacy">
+              <Icon icon="mdi:shield-check-outline" :width="14" />
+              <span>仅发送公司、岗位、薪资、JD、福利等核心字段；不发送关联简历、联系方式（联系人/电话）、面试问题与回答、面试链接等敏感信息</span>
+            </div>
 
-        <!-- 多选列表 -->
-        <div v-if="interviewList.length > 0" class="cc-list">
-          <button class="cc-select-all" @click="toggleSelectAll">
-            <Icon
-              :icon="allSelected ? 'mdi:checkbox-multiple-marked-outline' : 'mdi:checkbox-multiple-blank-outline'"
-              :width="18"
-            />
-            {{ allSelected ? '取消全选' : '全选' }}
-          </button>
-          <label
-            v-for="i in interviewList"
-            :key="i.id"
-            class="cc-item"
-            :class="{ 'cc-item--checked': selectedIds.has(i.id) }"
-          >
-            <input
-              type="checkbox"
-              :checked="selectedIds.has(i.id)"
-              @change="toggleSelect(i.id)"
-            />
-            <span class="cc-item__main">
-              <span class="cc-item__company">{{ i.company || '未填写公司' }} · {{ i.position || '未填写岗位' }}</span>
-              <span class="cc-item__meta">
-                <span class="cc-item__status" :style="{ background: statusStyle(i.status).bg, color: statusStyle(i.status).color }">{{ statusLabel(i.status) }}</span>
-                {{ i.salary || '薪资未填' }} · {{ i.location || '地点未填' }}
-              </span>
-            </span>
-          </label>
-        </div>
-        <div v-else class="cc-empty">暂无可比较的面试记录</div>
+            <!-- 多选列表 -->
+            <div v-if="interviewList.length > 0" class="cc-list">
+              <button class="cc-select-all" @click="toggleSelectAll">
+                <Icon
+                  :icon="allSelected ? 'mdi:checkbox-multiple-marked-outline' : 'mdi:checkbox-multiple-blank-outline'"
+                  :width="18"
+                />
+                {{ allSelected ? '取消全选' : '全选' }}
+              </button>
+              <label
+                v-for="i in interviewList"
+                :key="i.id"
+                class="cc-item"
+                :class="{ 'cc-item--checked': selectedIds.has(i.id) }"
+              >
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.has(i.id)"
+                  @change="toggleSelect(i.id)"
+                />
+                <span class="cc-item__main">
+                  <span class="cc-item__company">{{ i.company || '未填写公司' }} · {{ i.position || '未填写岗位' }}</span>
+                  <span class="cc-item__meta">
+                    <span class="cc-item__status" :style="{ background: statusStyle(i.status).bg, color: statusStyle(i.status).color }">{{ statusLabel(i.status) }}</span>
+                    {{ i.salary || '薪资未填' }} · {{ i.location || '地点未填' }}
+                  </span>
+                </span>
+              </label>
+            </div>
+            <div v-else class="cc-empty">暂无可比较的面试记录</div>
 
-        <div class="cc-select__action">
-          <span class="cc-select__count">已选 {{ selectedIds.size }} 个{{ selectedIds.size < 2 ? '（至少选 2 个）' : '' }}</span>
-          <n-button type="primary" :disabled="!canStart" @click="handleStart">
-            <template #icon>
-              <Icon icon="mdi:play" :width="16" />
+            <!-- 用户自定义比较要求 -->
+            <div class="cc-custom-prompt">
+              <label class="cc-custom-prompt__label">
+                <Icon icon="mdi:format-list-checks" :width="14" />
+                额外要求（可选）
+              </label>
+              <n-input
+                v-model:value="userPrompt"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4 }"
+                placeholder="如：优先考虑成长空间、不接受 996、希望离家近、看重期权…"
+                :disabled="isStreaming"
+              />
+            </div>
+
+            <div class="cc-select__action">
+              <span class="cc-select__count">已选 {{ selectedIds.size }} 个{{ selectedIds.size < 2 ? '（至少选 2 个）' : '' }}</span>
+              <n-button type="primary" :disabled="!canStart || isStreaming" :loading="isStreaming" @click="handleStart">
+                <template #icon>
+                  <Icon icon="mdi:play" :width="16" />
+                </template>
+                {{ isStreaming ? '生成中…' : '开始比较' }}
+              </n-button>
+            </div>
+          </div>
+        </n-tab-pane>
+
+        <!-- 最新结果：推荐卡片 + 报告 -->
+        <n-tab-pane name="result" tab="最新结果">
+          <div class="cc-result">
+            <!-- 空态：无结果且非流式 -->
+            <div v-if="!isStreaming && !hasResult" class="cc-result__empty">
+              <Icon icon="mdi:file-document-outline" :width="32" />
+              <span>还没有对比结果</span>
+              <n-button size="small" type="primary" ghost @click="activeTab = 'compare'">去「机会对比」生成</n-button>
+            </div>
+
+            <template v-else>
+              <!-- 推荐卡片 -->
+              <div v-if="recommendation" class="cc-result__recommend">
+                <div class="score-ring" :style="recommendRingStyle">
+                  <span class="score-ring__value">{{ recommendDisplay }}</span>
+                </div>
+                <div class="score-ring__info">
+                  <span class="score-ring__label">{{ recommendation.company }}</span>
+                  <span class="score-ring__desc">推荐 offer{{ recommendation.confidence !== null ? ` · 置信度 ${recommendation.confidence}%` : '' }}</span>
+                </div>
+              </div>
+
+              <!-- 历史结果时间提示（仅展示用，不复用） -->
+              <div v-if="!isStreaming && hasResult && isLoadedHistory" class="cc-result__hint">
+                <Icon icon="mdi:clock-outline" :width="14" />
+                上次生成于 {{ loadedAtLabel }}（重新生成将覆盖）
+              </div>
+
+              <!-- 截断警告 -->
+              <div v-if="wasTruncated && hasResult && !isStreaming" class="cc-truncation-warning">
+                <Icon icon="mdi:alert-outline" :width="16" />
+                AI 输出因长度限制被截断，结果可能不完整
+              </div>
+
+              <!-- 错误状态 -->
+              <div v-if="errorMessage && !isStreaming" class="cc-error-card">
+                <Icon icon="mdi:alert-circle-outline" :width="16" />
+                <span class="cc-error-card__msg">{{ errorMessage }}</span>
+                <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
+              </div>
+
+              <!-- 流式期间：纯文本 + 光标 -->
+              <div v-if="isStreaming" class="cc-result__content cc-result__content--streaming">
+                {{ resultText }}
+                <span v-if="!isConnected" class="cc-result__placeholder">正在连接 AI 服务...</span>
+                <span v-if="isConnected && !hasResult" class="cc-result__placeholder">正在综合评估...</span>
+                <span class="cc-result__cursor" aria-hidden="true">▌</span>
+              </div>
+
+              <!-- 完成：渲染 markdown -->
+              <div v-else-if="hasResult" class="cc-result__content">
+                <div class="cc-result__rich" v-html="renderedResult" />
+              </div>
             </template>
-            开始比较
-          </n-button>
-        </div>
-      </div>
-
-      <!-- 结果态 -->
-      <div v-else class="cc-result">
-        <!-- 推荐卡片 -->
-        <div v-if="recommendation && (isStreaming || hasResult)" class="cc-result__recommend">
-          <div class="score-ring" :style="recommendRingStyle">
-            <span class="score-ring__value">{{ recommendDisplay }}</span>
           </div>
-          <div class="score-ring__info">
-            <span class="score-ring__label">{{ recommendation.company }}</span>
-            <span class="score-ring__desc">推荐 offer{{ recommendation.confidence !== null ? ` · 置信度 ${recommendation.confidence}%` : '' }}</span>
-          </div>
-        </div>
-
-        <!-- 历史结果时间提示（仅展示用，不复用） -->
-        <div v-if="!isStreaming && hasResult && isLoadedHistory" class="cc-result__hint">
-          <Icon icon="mdi:clock-outline" :width="14" />
-          上次生成于 {{ loadedAtLabel }}（重新生成将覆盖）
-        </div>
-
-        <!-- 截断警告 -->
-        <div v-if="wasTruncated && hasResult && !isStreaming" class="cc-truncation-warning">
-          <Icon icon="mdi:alert-outline" :width="16" />
-          AI 输出因长度限制被截断，结果可能不完整
-        </div>
-
-        <!-- 错误状态 -->
-        <div v-if="errorMessage && !isStreaming" class="cc-error-card">
-          <Icon icon="mdi:alert-circle-outline" :width="16" />
-          <span class="cc-error-card__msg">{{ errorMessage }}</span>
-          <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
-        </div>
-
-        <!-- 流式期间：纯文本 + 光标 -->
-        <div v-if="isStreaming" class="cc-result__content">
-          {{ resultText }}
-          <span v-if="!isConnected" class="cc-result__placeholder">正在连接 AI 服务...</span>
-          <span v-if="isConnected && !hasResult" class="cc-result__placeholder">正在综合评估...</span>
-          <span class="cc-result__cursor" aria-hidden="true">▌</span>
-        </div>
-
-        <!-- 完成：渲染 markdown -->
-        <div v-else-if="hasResult" class="cc-result__content">
-          <div class="cc-result__rich" v-html="renderedResult" />
-        </div>
-      </div>
+        </n-tab-pane>
+      </n-tabs>
     </template>
 
     <template #footer>
       <div class="cc-footer">
         <n-button
-          v-if="isStreaming || hasResult"
+          v-if="isStreaming"
           type="primary"
-          :ghost="hasResult && !isStreaming"
-          :autofocus="isStreaming"
+          :autofocus="true"
           @click="handleStart"
         >
           <template #icon>
-            <Icon :icon="isStreaming ? 'mdi:stop' : 'mdi:refresh'" :width="16" />
+            <Icon icon="mdi:stop" :width="16" />
           </template>
-          {{ isStreaming ? '取消生成' : '重新生成' }}
+          取消生成
         </n-button>
         <n-button @click="handleClose">关闭</n-button>
       </div>
@@ -149,7 +178,7 @@
 import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Icon } from '@iconify/vue'
-import { NModal, NButton } from 'naive-ui'
+import { NModal, NButton, NInput, NTabs, NTabPane } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import type { ChatMessage } from '@/services/aiService'
@@ -208,6 +237,10 @@ function roundsSummary(rounds: InterviewRound[]): string {
 // ========== 多选 ==========
 const selectedIds = ref<Set<string>>(new Set())
 const canStart = computed(() => selectedIds.value.size >= 2)
+// 用户自定义比较要求（每次生成时读取，不持久化）
+const userPrompt = ref('')
+// 当前激活 tab：compare 机会对比 / result 最新结果
+const activeTab = ref<'compare' | 'result'>('compare')
 
 const toggleSelect = (id: string) => {
   const next = new Set(selectedIds.value)
@@ -320,10 +353,13 @@ watch(() => props.show, (val) => {
         confidence: cached.confidence,
       }
       isLoadedHistory.value = true
+      // 有历史 → 默认看结果；无历史 → 默认去选择
+      activeTab.value = 'result'
     } else {
       resultText.value = ''
       recommendation.value = null
       isLoadedHistory.value = false
+      activeTab.value = 'compare'
     }
     // 保留 selectedIds，方便用户重开继续比较
   }
@@ -359,6 +395,8 @@ const handleStart = async () => {
   wasTruncated.value = false
   errorMessage.value = ''
   isLoadedHistory.value = false
+  // 切到结果 tab 看流式进度
+  activeTab.value = 'result'
   abortController = new AbortController()
 
   // 构造输入：从 selectedIds 取面试，映射核心字段（剥离敏感字段，不发简历）
@@ -386,6 +424,7 @@ const handleStart = async () => {
   const messages: ChatMessage[] = buildCareerChoiceMessages({
     interviews: inputs,
     webSearchEnabled: webSearchEnabled.value,
+    userPrompt: userPrompt.value,
   })
   // 联网搜索参数：支持则注入服务商特定 body，否则 undefined
   const searchBody = buildWebSearchBody(config.provider)
@@ -615,11 +654,37 @@ const goToAISettings = () => {
   font-size: $font-size-sm;
 }
 
+// ========== 自定义比较要求 ==========
+.cc-custom-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    color: $text-secondary;
+  }
+}
+
 // ========== 结果态 ==========
 .cc-result {
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-xl 0;
+    color: $text-light;
+    font-size: $font-size-sm;
+  }
 
   &__recommend {
     display: flex;
@@ -647,23 +712,73 @@ const goToAISettings = () => {
     padding: $spacing-md;
     font-size: $font-size-sm;
     line-height: 1.7;
-    white-space: pre-wrap;
     word-break: break-word;
     @include scrollbar;
   }
 
+  // 流式纯文本态：保留原始换行，光标行内跟随
+  &__content--streaming {
+    white-space: pre-wrap;
+  }
+
   &__rich {
+    // ponytail: 不用 pre-wrap——markdown 已转 HTML，pre-wrap 会与 <p> 的 margin 叠加产生莫名隔断
     :deep(p) {
-      margin: 0 0 0.5em;
+      margin: 0 0 0.6em;
       &:last-child { margin-bottom: 0; }
     }
     :deep(strong) { font-weight: 700; }
-    :deep(ul) { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
-    :deep(th), :deep(td) { border: 1px solid $border-glass; padding: 4px 8px; text-align: left; }
-    :deep(h2) { font-size: 1.1em; font-weight: 700; margin: 1em 0 0.5em; }
-    :deep(h3) { font-size: 1em; font-weight: 700; margin: 0.8em 0 0.4em; }
+    :deep(ul), :deep(ol) {
+      margin: 0.4em 0;
+      padding-left: 1.5em;
+      li { margin: 0.15em 0; }
+    }
+    :deep(ul) { list-style-type: disc; }
+    :deep(ol) { list-style-type: decimal; }
+    :deep(table) {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.5em 0;
+      font-size: $font-size-xs;
+    }
+    :deep(th), :deep(td) {
+      border: 1px solid $border-glass;
+      padding: 4px 8px;
+      text-align: left;
+    }
+    :deep(th) {
+      background: rgba($primary-color, 0.06);
+      font-weight: 600;
+    }
+    // 小节标题：左侧色条 + 底部细线，结构感强，消除零散隔断
+    :deep(h2) {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+      font-size: 1.05em;
+      font-weight: 700;
+      margin: 1em 0 0.5em;
+      padding-left: $spacing-sm;
+      position: relative;
+      &::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 2px;
+        bottom: 2px;
+        width: 3px;
+        border-radius: $radius-full;
+        background: $primary-color;
+      }
+    }
+    :deep(h3) {
+      font-size: 1em;
+      font-weight: 700;
+      margin: 0.7em 0 0.3em;
+      color: $text-primary;
+    }
+    // 首个标题不额外撑顶部
+    :deep(h2:first-child) { margin-top: 0; }
   }
 
   &__placeholder {

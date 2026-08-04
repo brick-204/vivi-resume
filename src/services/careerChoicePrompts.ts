@@ -29,6 +29,8 @@ export interface CareerChoiceInput {
   interviews: CareerChoiceInterviewInput[]
   /** 当前服务商是否启用了联网搜索——影响 prompt 是否提示模型可搜索 */
   webSearchEnabled: boolean
+  /** 用户自定义的额外比较要求（可选），追加到 user 消息末尾 */
+  userPrompt?: string
 }
 
 const SYSTEM_PROMPT = `你是一位资深职业选择顾问，擅长在多个 offer / 面试机会之间做横向对比，帮助求职者从多维度综合评估、做出更优选择。
@@ -108,7 +110,12 @@ export function buildCareerChoiceMessages(input: CareerChoiceInput): ChatMessage
   const body = input.interviews
     .map((iv, idx) => serializeInterview(iv, idx + 1))
     .join('\n\n')
-  const user = `请对以下 ${input.interviews.length} 个面试/offer 机会做横向对比评估，给出推荐项（含置信度）与 Markdown 报告：\n\n${body}\n\n请严格按系统提示的输出格式输出。`
+  let user = `请对以下 ${input.interviews.length} 个面试/offer 机会做横向对比评估，给出推荐项（含置信度）与 Markdown 报告：\n\n${body}\n\n请严格按系统提示的输出格式输出。`
+  // 用户自定义要求：非空才追加，提示模型在评估时重点考虑
+  const extra = input.userPrompt?.trim()
+  if (extra) {
+    user += `\n\n以下是用户的额外要求，请在评估与推荐时重点考虑：\n${extra}`
+  }
   return [
     { role: 'system', content: system },
     { role: 'user', content: user },
