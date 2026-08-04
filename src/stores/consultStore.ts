@@ -72,7 +72,7 @@ export const useConsultStore = defineStore('consult', () => {
 
   // ========== 持久化（300ms 防抖） ==========
 
-  let _saveTimer: Map<string, ReturnType<typeof setTimeout>> = new Map()
+  const _saveTimer: Map<string, ReturnType<typeof setTimeout>> = new Map()
 
   const persistSession = (session: ConsultSession) => {
     const existing = _saveTimer.get(session.id)
