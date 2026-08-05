@@ -68,7 +68,7 @@
       <!-- Tab 切换：面试准备 / 原始 JD -->
       <n-tabs v-if="hasResult && !isStreaming" v-model:value="activeTab" type="line" size="small">
         <n-tab-pane name="result" tab="面试准备">
-          <div class="interview-result__content">
+          <div class="interview-result__content interview-result__content--rich">
             <div class="interview-result__rich" v-html="renderedResult" />
           </div>
         </n-tab-pane>
@@ -78,7 +78,7 @@
       </n-tabs>
 
       <!-- 流式期间：直接显示结果（无 Tab） -->
-      <div v-if="isStreaming" class="interview-result__content">
+      <div v-if="isStreaming" class="interview-result__content interview-result__content--streaming">
         {{ resultText }}
         <span v-if="!isConnected" class="interview-result__placeholder">正在连接 AI 服务...</span>
         <span v-if="isConnected && !hasResult" class="interview-result__placeholder">正在生成面试题...</span>
@@ -332,28 +332,28 @@ const handleClose = () => {
     max-height: 400px;
     overflow-y: auto;
     padding: $spacing-md;
-    font-size: $font-size-sm;
-    line-height: 1.7;
-    white-space: pre-wrap;
+    font-size: 15px;
+    line-height: 1.75;
+    color: $text-primary;
     word-break: break-word;
     @include scrollbar;
   }
 
+  // 流式纯文本态：保留原始换行
+  &__content--streaming {
+    white-space: pre-wrap;
+  }
+
   &__rich {
-    :deep(p) {
-      margin: 0 0 0.5em;
-      &:last-child { margin-bottom: 0; }
+    // ponytail: 不用 pre-wrap——markdown 已转 HTML，pre-wrap 会与 <p> margin 叠加产生莫名隔断
+    :deep() {
+      @include ai-result-rich;
+      em { font-style: italic; }
+      u { text-decoration: underline; }
+      s { text-decoration: line-through; }
+      mark { border-radius: 2px; padding: 0 2px; }
+      a { color: $primary-light; text-decoration: underline; }
     }
-    :deep(strong) { font-weight: 700; }
-    :deep(em) { font-style: italic; }
-    :deep(u) { text-decoration: underline; }
-    :deep(s) { text-decoration: line-through; }
-    :deep(mark) { border-radius: 2px; padding: 0 2px; }
-    :deep(a) { color: $primary-light; text-decoration: underline; }
-    :deep(ul) { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(h2) { font-size: 1.1em; font-weight: 700; margin: 1em 0 0.5em; }
-    :deep(h3) { font-size: 1em; font-weight: 700; margin: 0.8em 0 0.4em; }
   }
 
   &__jd-text {

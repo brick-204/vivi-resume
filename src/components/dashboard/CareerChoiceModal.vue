@@ -710,8 +710,9 @@ const goToAISettings = () => {
     max-height: 440px;
     overflow-y: auto;
     padding: $spacing-md;
-    font-size: $font-size-sm;
-    line-height: 1.7;
+    font-size: 15px;
+    line-height: 1.75;
+    color: $text-primary;
     word-break: break-word;
     @include scrollbar;
   }
@@ -723,62 +724,9 @@ const goToAISettings = () => {
 
   &__rich {
     // ponytail: 不用 pre-wrap——markdown 已转 HTML，pre-wrap 会与 <p> 的 margin 叠加产生莫名隔断
-    :deep(p) {
-      margin: 0 0 0.6em;
-      &:last-child { margin-bottom: 0; }
+    :deep() {
+      @include ai-result-rich;
     }
-    :deep(strong) { font-weight: 700; }
-    :deep(ul), :deep(ol) {
-      margin: 0.4em 0;
-      padding-left: 1.5em;
-      li { margin: 0.15em 0; }
-    }
-    :deep(ul) { list-style-type: disc; }
-    :deep(ol) { list-style-type: decimal; }
-    :deep(table) {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 0.5em 0;
-      font-size: $font-size-xs;
-    }
-    :deep(th), :deep(td) {
-      border: 1px solid $border-glass;
-      padding: 4px 8px;
-      text-align: left;
-    }
-    :deep(th) {
-      background: rgba($primary-color, 0.06);
-      font-weight: 600;
-    }
-    // 小节标题：左侧色条 + 底部细线，结构感强，消除零散隔断
-    :deep(h2) {
-      display: flex;
-      align-items: center;
-      gap: $spacing-xs;
-      font-size: 1.05em;
-      font-weight: 700;
-      margin: 1em 0 0.5em;
-      padding-left: $spacing-sm;
-      position: relative;
-      &::before {
-        content: '';
-        position: absolute;
-        left: 0;
-        top: 2px;
-        bottom: 2px;
-        width: 3px;
-        border-radius: $radius-full;
-        background: $primary-color;
-      }
-    }
-    :deep(h3) {
-      font-size: 1em;
-      font-weight: 700;
-      margin: 0.7em 0 0.3em;
-      color: $text-primary;
-    }
-    // 首个标题不额外撑顶部
-    :deep(h2:first-child) { margin-top: 0; }
   }
 
   &__placeholder {

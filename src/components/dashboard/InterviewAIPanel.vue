@@ -23,188 +23,273 @@
     </div>
 
     <template v-else>
-      <!-- 隐私提示：三合一模式统一显示在内容区顶部（parseJd 入口不发简历，不显示） -->
-      <div v-if="mode !== 'parseJd' && !isStreaming" class="ia-privacy">
-        <Icon icon="mdi:shield-check-outline" :width="14" />
-        <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，您隐藏的模块和字段也不会发送给 AI，仅用于分析简历内容匹配度</span>
-      </div>
-
-      <n-tabs v-if="mode !== 'parseJd'" v-model:value="activeMode" type="line" size="small" @update:value="onModeChange">
-        <n-tab-pane name="mockInterview" tab="模拟面试" />
-        <n-tab-pane name="review" tab="面试复盘" />
-        <n-tab-pane name="jdScan" tab="JD 扫描" />
-      </n-tabs>
-
-      <!-- 输入区（非流式且无结果时） -->
-      <div v-if="!isStreaming && !hasResult" class="ia-input">
-        <!-- 模拟面试 -->
-        <template v-if="activeMode === 'mockInterview'">
-          <!-- 只读自动填充：岗位 / JD / 关联简历，缺一不可 -->
-          <div class="ia-readonly">
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">岗位名称</span>
-              <span class="ia-readonly__value">{{ mockPosition || '未填写' }}</span>
-            </div>
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">目标职位 JD</span>
-              <span class="ia-readonly__value ia-readonly__value--multi">{{ mockJd || '未填写' }}</span>
-            </div>
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">关联简历</span>
-              <span class="ia-readonly__value">{{ resumeTitle || '未关联' }}</span>
-            </div>
-          </div>
-          <!-- 缺项拦截提示 -->
-          <div v-if="missingHint" class="ia-missing">
-            <Icon icon="mdi:alert-outline" :width="16" />
-            <span>{{ missingHint }}</span>
-          </div>
-        </template>
-
-        <!-- 面试复盘 -->
-        <template v-else-if="activeMode === 'review'">
-          <div class="ia-readonly">
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">岗位名称</span>
-              <span class="ia-readonly__value">{{ reviewPosition || '未填写' }}</span>
-            </div>
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">目标职位 JD</span>
-              <span class="ia-readonly__value ia-readonly__value--multi">{{ reviewJd || '未填写' }}</span>
-            </div>
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">关联简历</span>
-              <span class="ia-readonly__value">{{ resumeTitle || '未关联' }}</span>
-            </div>
-          </div>
-          <!-- 轮次选择：默认第1轮，可切换 -->
-          <n-select
-            v-if="roundOptions.length > 0"
-            v-model:value="reviewRoundId"
-            :options="roundOptions"
-            placeholder="选择面试轮次"
-            @update:value="onRoundSelect"
-          />
-          <!-- 面试问题（只读，来自选中轮） -->
-          <div class="ia-readonly__row ia-readonly__row--block">
-            <span class="ia-readonly__label">面试问题</span>
-            <span class="ia-readonly__value ia-readonly__value--multi">{{ reviewQuestions || '（该轮暂无问题）' }}</span>
-          </div>
-          <!-- 我的回答（只读，允许缺省） -->
-          <div class="ia-readonly__row ia-readonly__row--block">
-            <span class="ia-readonly__label">我的回答</span>
-            <span class="ia-readonly__value ia-readonly__value--multi">{{ reviewAnswers || '（未填写，可空）' }}</span>
-          </div>
-          <!-- 缺项拦截提示 -->
-          <div v-if="missingHint" class="ia-missing">
-            <Icon icon="mdi:alert-outline" :width="16" />
-            <span>{{ missingHint }}</span>
-          </div>
-        </template>
-
-        <!-- JD 扫描：JD 只读来自面试，简历来自关联简历 -->
-        <template v-else-if="activeMode === 'jdScan'">
-          <div class="ia-readonly">
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">目标职位 JD</span>
-              <span class="ia-readonly__value ia-readonly__value--multi">{{ scanJd || '未填写' }}</span>
-            </div>
-            <div class="ia-readonly__row">
-              <span class="ia-readonly__label">关联简历</span>
-              <span class="ia-readonly__value">{{ resumeTitle || '未关联' }}</span>
-            </div>
-          </div>
-          <div v-if="missingHint" class="ia-missing">
-            <Icon icon="mdi:alert-outline" :width="16" />
-            <span>{{ missingHint }}</span>
-          </div>
-        </template>
-
-        <!-- JD 解析（仅新建面试入口，可粘贴 JD） -->
-        <template v-else>
+      <!-- parseJd 入口：单一 JD 粘贴 + 结果，无 tab -->
+      <template v-if="mode === 'parseJd'">
+        <div class="ia-input">
           <n-input
             v-model:value="jdText"
             type="textarea"
             placeholder="粘贴 JD 文本，AI 将提取公司/职位/薪资/地点/正文"
             :autosize="{ minRows: 6, maxRows: 14 }"
+            :disabled="parseJdState.isStreaming"
             @keydown.enter.ctrl="handleStart"
           />
-        </template>
-
-        <n-button type="primary" :disabled="!!missingHint" @click="handleStart">
-          <template #icon>
-            <Icon icon="mdi:play" :width="16" />
-          </template>
-          开始
-        </n-button>
-      </div>
-
-      <!-- 结果区 -->
-      <div v-else class="ia-result">
-        <!-- 上次结果时间提示 -->
-        <div v-if="!isStreaming && hasResult && isLoadedResult" class="ia-result__hint">
-          <Icon icon="mdi:clock-outline" :width="14" />
-          上次生成于 {{ loadedAtLabel }}
+          <n-button type="primary" :loading="parseJdState.isStreaming" @click="handleStart">
+            <template #icon>
+              <Icon :icon="parseJdState.isStreaming ? 'mdi:stop' : 'mdi:play'" :width="16" />
+            </template>
+            {{ parseJdState.isStreaming ? '取消' : '开始解析' }}
+          </n-button>
         </div>
-
-        <!-- 截断警告 -->
-        <div v-if="wasTruncated && hasResult && !isStreaming" class="ia-truncation-warning">
-          <Icon icon="mdi:alert-outline" :width="16" />
-          AI 输出因长度限制被截断，结果可能不完整
-        </div>
-
-        <!-- 错误状态 -->
-        <div v-if="errorMessage && !isStreaming" class="ia-error-card">
-          <Icon icon="mdi:alert-circle-outline" :width="16" />
-          <span class="ia-error-card__msg">{{ errorMessage }}</span>
-          <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
-        </div>
-
-        <!-- JD 扫描：匹配度圆环（流式 + 完成都显示） -->
-        <div v-if="activeMode === 'jdScan' && matchScore !== null && (isStreaming || hasResult)" class="ia-result__score">
-          <div class="score-ring" :style="scoreRingStyle">
-            <span class="score-ring__value">{{ matchScore }}%</span>
+        <div v-if="parseJdState.isStreaming || parseJdState.errorMessage" class="ia-result">
+          <div v-if="parseJdState.errorMessage && !parseJdState.isStreaming" class="ia-error-card">
+            <Icon icon="mdi:alert-circle-outline" :width="16" />
+            <span class="ia-error-card__msg">{{ parseJdState.errorMessage }}</span>
+            <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
           </div>
-          <div class="score-ring__info">
-            <span class="score-ring__label">{{ getScoreLabel(matchScore) }}</span>
-            <span class="score-ring__desc">匹配度</span>
+          <div v-if="parseJdState.isStreaming" class="ia-result__content ia-result__content--streaming">
+            {{ parseJdState.resultText }}
+            <span v-if="!parseJdState.isConnected" class="ia-result__placeholder">正在连接 AI 服务...</span>
+            <span v-if="parseJdState.isConnected && !hasParseJdResult" class="ia-result__placeholder">正在解析 JD...</span>
+            <span class="ia-result__cursor" aria-hidden="true">▌</span>
           </div>
         </div>
+      </template>
 
-        <!-- 流式期间：纯文本 + 光标 -->
-        <div v-if="isStreaming" class="ia-result__content">
-          {{ resultText }}
-          <span v-if="!isConnected" class="ia-result__placeholder">正在连接 AI 服务...</span>
-          <span v-if="isConnected && !hasResult" class="ia-result__placeholder">{{ placeholderText }}</span>
-          <span class="ia-result__cursor" aria-hidden="true">▌</span>
+      <!-- 三合一 AI 助手：每 tab 自包含输入区 + 独立结果区 -->
+      <template v-else>
+        <div class="ia-privacy">
+          <Icon icon="mdi:shield-check-outline" :width="14" />
+          <span>您的姓名、联系方式等个人敏感信息已自动替换为占位符，您隐藏的模块和字段也不会发送给 AI，仅用于分析简历内容匹配度</span>
         </div>
 
-        <!-- 完成：渲染 markdown -->
-        <div
-          v-else-if="hasResult"
-          class="ia-result__content"
-        >
-          <div class="ia-result__rich" v-html="renderedResult" />
-        </div>
+        <n-tabs v-model:value="activeMode" type="line" size="small" display-directive="show" @update:value="onModeChange">
+          <!-- 模拟面试 -->
+          <n-tab-pane name="mockInterview" tab="模拟面试">
+            <n-tabs v-model:value="tabStates.mockInterview.activeSubTab" type="line" size="small" display-directive="show">
+              <n-tab-pane name="gen" tab="生成">
+                <div class="ia-input">
+                  <div class="ia-readonly">
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">岗位名称</span>
+                      <span class="ia-readonly__value">{{ mockPosition || '未填写' }}</span>
+                    </div>
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">目标职位 JD</span>
+                      <span class="ia-readonly__value ia-readonly__value--multi">{{ mockJd || '未填写' }}</span>
+                    </div>
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">关联简历</span>
+                      <span class="ia-readonly__value">{{ resumeTitle || '未关联' }}</span>
+                    </div>
+                  </div>
+                  <div v-if="missingHint" class="ia-missing">
+                    <Icon icon="mdi:alert-outline" :width="16" />
+                    <span>{{ missingHint }}</span>
+                  </div>
+                  <n-button
+                    type="primary"
+                    :disabled="!!missingHint || tabStates.mockInterview.isStreaming"
+                    :loading="tabStates.mockInterview.isStreaming"
+                    @click="handleStart"
+                  >
+                    <template #icon>
+                      <Icon :icon="tabStates.mockInterview.isStreaming ? 'mdi:stop' : 'mdi:play'" :width="16" />
+                    </template>
+                    {{ tabStates.mockInterview.isStreaming ? '生成中…' : '开始生成' }}
+                  </n-button>
+                </div>
+              </n-tab-pane>
+              <n-tab-pane name="result" tab="结果">
+                <!-- 本 tab 独立结果区 -->
+                <div v-if="tabStates.mockInterview.isStreaming || tabStates.mockInterview.resultText || tabStates.mockInterview.errorMessage" class="ia-result">
+                  <div v-if="!tabStates.mockInterview.isStreaming && tabStates.mockInterview.resultText && tabStates.mockInterview.isLoadedResult" class="ia-result__hint">
+                    <Icon icon="mdi:clock-outline" :width="14" />
+                    上次生成于 {{ formatDateTime(tabStates.mockInterview.loadedAt) }}
+                  </div>
+                  <div v-if="tabStates.mockInterview.wasTruncated && tabStates.mockInterview.resultText && !tabStates.mockInterview.isStreaming" class="ia-truncation-warning">
+                    <Icon icon="mdi:alert-outline" :width="16" />
+                    AI 输出因长度限制被截断，结果可能不完整
+                  </div>
+                  <div v-if="tabStates.mockInterview.errorMessage && !tabStates.mockInterview.isStreaming" class="ia-error-card">
+                    <Icon icon="mdi:alert-circle-outline" :width="16" />
+                    <span class="ia-error-card__msg">{{ tabStates.mockInterview.errorMessage }}</span>
+                    <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
+                  </div>
+                  <div v-if="tabStates.mockInterview.isStreaming" class="ia-result__content ia-result__content--streaming">
+                    {{ tabStates.mockInterview.resultText }}
+                    <span v-if="!tabStates.mockInterview.isConnected" class="ia-result__placeholder">正在连接 AI 服务...</span>
+                    <span v-if="tabStates.mockInterview.isConnected && !tabStates.mockInterview.resultText" class="ia-result__placeholder">正在生成面试题...</span>
+                    <span class="ia-result__cursor" aria-hidden="true">▌</span>
+                  </div>
+                  <div v-else-if="tabStates.mockInterview.resultText" class="ia-result__content">
+                    <div class="ia-result__rich" v-html="renderedMockInterview" />
+                  </div>
+                </div>
+                <div v-else class="ia-result__empty">暂无结果，去「生成」子页开始</div>
+              </n-tab-pane>
+            </n-tabs>
+          </n-tab-pane>
 
-        <!-- 完成：parseJd 不在此渲染（成功时已 emit 关闭，失败走错误卡片） -->
-      </div>
+          <!-- 面试复盘 -->
+          <n-tab-pane name="review" tab="面试复盘">
+            <n-tabs v-model:value="tabStates.review.activeSubTab" type="line" size="small" display-directive="show">
+              <n-tab-pane name="gen" tab="生成">
+                <div class="ia-input">
+                  <div class="ia-readonly">
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">岗位名称</span>
+                      <span class="ia-readonly__value">{{ reviewPosition || '未填写' }}</span>
+                    </div>
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">目标职位 JD</span>
+                      <span class="ia-readonly__value ia-readonly__value--multi">{{ reviewJd || '未填写' }}</span>
+                    </div>
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">关联简历</span>
+                      <span class="ia-readonly__value">{{ resumeTitle || '未关联' }}</span>
+                    </div>
+                  </div>
+                  <n-select
+                    v-if="roundOptions.length > 0"
+                    v-model:value="reviewRoundId"
+                    :options="roundOptions"
+                    placeholder="选择面试轮次"
+                    @update:value="onRoundSelect"
+                  />
+                  <div class="ia-readonly__row ia-readonly__row--block">
+                    <span class="ia-readonly__label">面试问题</span>
+                    <span class="ia-readonly__value ia-readonly__value--multi">{{ reviewQuestions || '（该轮暂无问题）' }}</span>
+                  </div>
+                  <div class="ia-readonly__row ia-readonly__row--block">
+                    <span class="ia-readonly__label">我的回答</span>
+                    <span class="ia-readonly__value ia-readonly__value--multi">{{ reviewAnswers || '（未填写，可空）' }}</span>
+                  </div>
+                  <div v-if="missingHint" class="ia-missing">
+                    <Icon icon="mdi:alert-outline" :width="16" />
+                    <span>{{ missingHint }}</span>
+                  </div>
+                  <n-button
+                    type="primary"
+                    :disabled="!!missingHint || tabStates.review.isStreaming"
+                    :loading="tabStates.review.isStreaming"
+                    @click="handleStart"
+                  >
+                    <template #icon>
+                      <Icon :icon="tabStates.review.isStreaming ? 'mdi:stop' : 'mdi:play'" :width="16" />
+                    </template>
+                    {{ tabStates.review.isStreaming ? '生成中…' : '开始生成' }}
+                  </n-button>
+                </div>
+              </n-tab-pane>
+              <n-tab-pane name="result" tab="结果">
+                <div v-if="tabStates.review.isStreaming || tabStates.review.resultText || tabStates.review.errorMessage" class="ia-result">
+                  <div v-if="!tabStates.review.isStreaming && tabStates.review.resultText && tabStates.review.isLoadedResult" class="ia-result__hint">
+                    <Icon icon="mdi:clock-outline" :width="14" />
+                    上次生成于 {{ formatDateTime(tabStates.review.loadedAt) }}
+                  </div>
+                  <div v-if="tabStates.review.wasTruncated && tabStates.review.resultText && !tabStates.review.isStreaming" class="ia-truncation-warning">
+                    <Icon icon="mdi:alert-outline" :width="16" />
+                    AI 输出因长度限制被截断，结果可能不完整
+                  </div>
+                  <div v-if="tabStates.review.errorMessage && !tabStates.review.isStreaming" class="ia-error-card">
+                    <Icon icon="mdi:alert-circle-outline" :width="16" />
+                    <span class="ia-error-card__msg">{{ tabStates.review.errorMessage }}</span>
+                    <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
+                  </div>
+                  <div v-if="tabStates.review.isStreaming" class="ia-result__content ia-result__content--streaming">
+                    {{ tabStates.review.resultText }}
+                    <span v-if="!tabStates.review.isConnected" class="ia-result__placeholder">正在连接 AI 服务...</span>
+                    <span v-if="tabStates.review.isConnected && !tabStates.review.resultText" class="ia-result__placeholder">正在复盘面试...</span>
+                    <span class="ia-result__cursor" aria-hidden="true">▌</span>
+                  </div>
+                  <div v-else-if="tabStates.review.resultText" class="ia-result__content">
+                    <div class="ia-result__rich" v-html="renderedReview" />
+                  </div>
+                </div>
+                <div v-else class="ia-result__empty">暂无结果，去「生成」子页开始</div>
+              </n-tab-pane>
+            </n-tabs>
+          </n-tab-pane>
+
+          <!-- JD 扫描 -->
+          <n-tab-pane name="jdScan" tab="JD 扫描">
+            <n-tabs v-model:value="tabStates.jdScan.activeSubTab" type="line" size="small" display-directive="show">
+              <n-tab-pane name="gen" tab="生成">
+                <div class="ia-input">
+                  <div class="ia-readonly">
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">目标职位 JD</span>
+                      <span class="ia-readonly__value ia-readonly__value--multi">{{ scanJd || '未填写' }}</span>
+                    </div>
+                    <div class="ia-readonly__row">
+                      <span class="ia-readonly__label">关联简历</span>
+                      <span class="ia-readonly__value">{{ resumeTitle || '未关联' }}</span>
+                    </div>
+                  </div>
+                  <div v-if="missingHint" class="ia-missing">
+                    <Icon icon="mdi:alert-outline" :width="16" />
+                    <span>{{ missingHint }}</span>
+                  </div>
+                  <n-button
+                    type="primary"
+                    :disabled="!!missingHint || tabStates.jdScan.isStreaming"
+                    :loading="tabStates.jdScan.isStreaming"
+                    @click="handleStart"
+                  >
+                    <template #icon>
+                      <Icon :icon="tabStates.jdScan.isStreaming ? 'mdi:stop' : 'mdi:play'" :width="16" />
+                    </template>
+                    {{ tabStates.jdScan.isStreaming ? '生成中…' : '开始扫描' }}
+                  </n-button>
+                </div>
+              </n-tab-pane>
+              <n-tab-pane name="result" tab="结果">
+                <!-- 本 tab 独立结果区（含匹配度圆环） -->
+                <div v-if="tabStates.jdScan.isStreaming || tabStates.jdScan.resultText || tabStates.jdScan.errorMessage" class="ia-result">
+                  <div v-if="!tabStates.jdScan.isStreaming && tabStates.jdScan.resultText && tabStates.jdScan.isLoadedResult" class="ia-result__hint">
+                    <Icon icon="mdi:clock-outline" :width="14" />
+                    上次生成于 {{ formatDateTime(tabStates.jdScan.loadedAt) }}
+                  </div>
+                  <div v-if="tabStates.jdScan.wasTruncated && tabStates.jdScan.resultText && !tabStates.jdScan.isStreaming" class="ia-truncation-warning">
+                    <Icon icon="mdi:alert-outline" :width="16" />
+                    AI 输出因长度限制被截断，结果可能不完整
+                  </div>
+                  <div v-if="tabStates.jdScan.errorMessage && !tabStates.jdScan.isStreaming" class="ia-error-card">
+                    <Icon icon="mdi:alert-circle-outline" :width="16" />
+                    <span class="ia-error-card__msg">{{ tabStates.jdScan.errorMessage }}</span>
+                    <n-button size="small" type="primary" ghost @click="handleStart">重试</n-button>
+                  </div>
+                  <!-- 匹配度圆环（流式 + 完成都显示） -->
+                  <div v-if="tabStates.jdScan.matchScore !== null && (tabStates.jdScan.isStreaming || tabStates.jdScan.resultText)" class="ia-result__score">
+                    <div class="score-ring" :style="jdScanRingStyle">
+                      <span class="score-ring__value">{{ tabStates.jdScan.matchScore }}%</span>
+                    </div>
+                    <div class="score-ring__info">
+                      <span class="score-ring__label">{{ getScoreLabel(tabStates.jdScan.matchScore) }}</span>
+                      <span class="score-ring__desc">匹配度</span>
+                    </div>
+                  </div>
+                  <div v-if="tabStates.jdScan.isStreaming" class="ia-result__content ia-result__content--streaming">
+                    {{ tabStates.jdScan.resultText }}
+                    <span v-if="!tabStates.jdScan.isConnected" class="ia-result__placeholder">正在连接 AI 服务...</span>
+                    <span v-if="tabStates.jdScan.isConnected && !tabStates.jdScan.resultText" class="ia-result__placeholder">正在分析匹配度...</span>
+                    <span class="ia-result__cursor" aria-hidden="true">▌</span>
+                  </div>
+                  <div v-else-if="tabStates.jdScan.resultText" class="ia-result__content">
+                    <div class="ia-result__rich" v-html="renderedJdScan" />
+                  </div>
+                </div>
+                <div v-else class="ia-result__empty">暂无结果，去「生成」子页开始</div>
+              </n-tab-pane>
+            </n-tabs>
+          </n-tab-pane>
+        </n-tabs>
+      </template>
     </template>
 
     <template #footer>
       <div class="ia-footer">
-        <n-button
-          v-if="isStreaming || hasResult"
-          type="primary"
-          :ghost="hasResult && !isStreaming"
-          :autofocus="isStreaming"
-          @click="handleStart"
-        >
-          <template #icon>
-            <Icon :icon="isStreaming ? 'mdi:stop' : 'mdi:refresh'" :width="16" />
-          </template>
-          {{ isStreaming ? '取消生成' : '重新生成' }}
-        </n-button>
         <n-button @click="handleClose">关闭</n-button>
       </div>
     </template>
@@ -212,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, reactive } from 'vue'
 import { Icon } from '@iconify/vue'
 import { NModal, NButton, NInput, NSelect, NTabs, NTabPane } from 'naive-ui'
 import { useRouter } from 'vue-router'
@@ -262,66 +347,111 @@ const headerTitle = computed(() =>
   props.mode === 'parseJd' ? 'JD 解析与提取' : '面试 AI 助手',
 )
 
-// ========== 流式状态机（照搬 InterviewPrepModal） ==========
-const resultText = ref('')
-const isStreaming = ref(false)
-const isConnected = ref(false)
-const wasTruncated = ref(false)
-const errorMessage = ref('')
-let abortController: AbortController | null = null
+// ========== 流式状态机：每 tab 独立状态（mockInterview/review/jdScan） ==========
+// parseJd 是独立入口（不走 tab 切换），用独立局部 ref，不进 tabStates
+type BusinessMode = 'mockInterview' | 'review' | 'jdScan'
+const BUSINESS_MODES: BusinessMode[] = ['mockInterview', 'review', 'jdScan']
 
-const hasResult = computed(() => resultText.value.length > 0)
+interface TabState {
+  resultText: string
+  isStreaming: boolean
+  isConnected: boolean
+  wasTruncated: boolean
+  errorMessage: string
+  matchScore: number | null       // 仅 jdScan 用
+  isLoadedResult: boolean
+  loadedAt: string
+  abortController: AbortController | null
+  scoreParseTimer: ReturnType<typeof setTimeout> | null
+  pendingScoreText: string
+  activeSubTab: 'gen' | 'result'  // 内嵌子 tab 激活页
+  saveDone: boolean               // 防止 handleClose 和 catch 双重保存
+}
 
-const renderedResult = computed(() => {
-  if (!resultText.value || isStreaming.value) return ''
-  return sanitizeHtml(markdownToHtml(resultText.value))
+function createEmptyTabState(): TabState {
+  return {
+    resultText: '',
+    isStreaming: false,
+    isConnected: false,
+    wasTruncated: false,
+    errorMessage: '',
+    matchScore: null,
+    isLoadedResult: false,
+    loadedAt: '',
+    abortController: null,
+    scoreParseTimer: null,
+    pendingScoreText: '',
+    activeSubTab: 'gen',
+    saveDone: false,
+  }
+}
+
+const tabStates = reactive<Record<BusinessMode, TabState>>({
+  mockInterview: createEmptyTabState(),
+  review: createEmptyTabState(),
+  jdScan: createEmptyTabState(),
 })
 
-const placeholderText = computed(() => {
-  if (activeMode.value === 'parseJd') return '正在解析 JD...'
-  if (activeMode.value === 'review') return '正在复盘面试...'
-  if (activeMode.value === 'jdScan') return '正在分析匹配度...'
-  return '正在生成面试题...'
+// parseJd 独立状态（不参与 tab 切换，成功即 emit 关闭）
+const parseJdState = reactive({
+  resultText: '',
+  isStreaming: false,
+  isConnected: false,
+  wasTruncated: false,
+  errorMessage: '',
+  abortController: null as AbortController | null,
 })
 
-// ========== JD 扫描：匹配度圆环（仿 JDScanModal） ==========
-const matchScore = ref<number | null>(null)
-const scoreRingStyle = computed(() => {
-  const score = matchScore.value
+// ========== 当前模式 ==========
+const activeMode = ref<Mode>(props.mode)
+const activeBusinessMode = computed<BusinessMode>(() =>
+  activeMode.value === 'parseJd' ? 'mockInterview' : activeMode.value,
+)
+
+// 各 tab 结果的 markdown 渲染：拆成三个独立 computed，流式期间互不重算
+function makeRenderer(mode: BusinessMode) {
+  return computed(() => {
+    const t = tabStates[mode]
+    if (!t.resultText || t.isStreaming) return ''
+    return sanitizeHtml(markdownToHtml(t.resultText))
+  })
+}
+const renderedMockInterview = makeRenderer('mockInterview')
+const renderedReview = makeRenderer('review')
+const renderedJdScan = makeRenderer('jdScan')
+
+// parseJd 流式 placeholder 用：是否已有内容
+const hasParseJdResult = computed(() => parseJdState.resultText.length > 0)
+
+// ========== JD 扫描：匹配度圆环（绑定 jdScan tab） ==========
+const jdScanRingStyle = computed(() => {
+  const score = tabStates.jdScan.matchScore
   if (score === null) return {}
   return {
     '--ring-color': getScoreColor(score),
     '--ring-percentage': `${score / 100}`,
   }
 })
-// 实时提取分数：流式期间 500ms 节流
-let scoreParseTimer: ReturnType<typeof setTimeout> | null = null
-let pendingScoreText = ''
-watch(resultText, (text) => {
-  if (activeMode.value !== 'jdScan') return
-  if (!text) { matchScore.value = null; return }
-  pendingScoreText = text
-  if (!isStreaming.value) {
-    parseScore(text)
-  } else if (!scoreParseTimer) {
-    scoreParseTimer = setTimeout(() => {
-      scoreParseTimer = null
-      parseScore(pendingScoreText)
+
+/** 从文本提取匹配度分数，写入指定 tab */
+function parseScoreFor(mode: BusinessMode, text: string) {
+  const match = text.match(/匹配度[^\d]*(\d{1,3})\s*%/)
+  tabStates[mode].matchScore = match ? parseInt(match[1]) : null
+}
+
+/** 流式期间 500ms 节流提取分数（仅 jdScan 调用），timer 存在对应 tab */
+function scheduleScoreParse(mode: BusinessMode, text: string) {
+  const tab = tabStates[mode]
+  tab.pendingScoreText = text
+  if (!tab.scoreParseTimer) {
+    tab.scoreParseTimer = setTimeout(() => {
+      tab.scoreParseTimer = null
+      parseScoreFor(mode, tab.pendingScoreText)
     }, 500)
   }
-})
-function parseScore(text: string) {
-  const match = text.match(/匹配度[^\d]*(\d{1,3})\s*%/)
-  matchScore.value = match ? parseInt(match[1]) : null
 }
 
 // ========== 缓存：加载上次结果 ==========
-const isLoadedResult = ref(false)    // 当前显示的是从面试缓存加载的旧结果
-const loadedAt = ref('')             // 旧结果生成时间
-const loadedAtLabel = computed(() => formatDateTime(loadedAt.value))
-
-// ========== 当前模式 ==========
-const activeMode = ref<Mode>(props.mode)
 
 // ========== 绑定面试：只读自动填充来源 ==========
 const targetInterview = computed(() =>
@@ -401,27 +531,38 @@ const jdText = ref('')
 
 // ========== 弹窗打开/关闭初始化 ==========
 
-/** 加载当前模式对应的上次结果缓存（有则展示，无则清空） */
-const loadCachedResult = () => {
+/** 重置单个 tab 状态为空（保留 abortController/timer 由调用方先清） */
+function resetTabState(mode: BusinessMode) {
+  Object.assign(tabStates[mode], createEmptyTabState())
+}
+
+/** 打开弹窗时一次性加载三个 tab 的上次结果缓存 */
+const loadAllCachedResults = () => {
   const iv = targetInterview.value
-  resultText.value = ''
-  matchScore.value = null
-  isLoadedResult.value = false
-  loadedAt.value = ''
-  if (!iv) return
-  let cached: { text: string; generatedAt?: string; scannedAt?: string; score?: number | null } | undefined
-  if (activeMode.value === 'mockInterview') cached = iv.lastMockInterview
-  else if (activeMode.value === 'review') cached = iv.lastReview
-  else if (activeMode.value === 'jdScan') cached = iv.lastJdScan
-  if (cached?.text) {
-    resultText.value = cached.text
-    isLoadedResult.value = true
-    loadedAt.value = cached.generatedAt || cached.scannedAt || ''
-    if (activeMode.value === 'jdScan') {
-      matchScore.value = cached.score ?? null
-      parseScore(cached.text)
+  BUSINESS_MODES.forEach(mode => {
+    const tab = tabStates[mode]
+    tab.resultText = ''
+    tab.matchScore = null
+    tab.isLoadedResult = false
+    tab.loadedAt = ''
+    tab.activeSubTab = 'gen'
+    if (!iv) return
+    type Cached = { text: string; generatedAt?: string; scannedAt?: string; score?: number | null }
+    const cached: Cached | undefined = mode === 'mockInterview' ? iv.lastMockInterview
+      : mode === 'review' ? iv.lastReview
+      : iv.lastJdScan
+    if (cached?.text) {
+      tab.resultText = cached.text
+      tab.isLoadedResult = true
+      tab.loadedAt = cached.generatedAt || cached.scannedAt || ''
+      // 有历史结果 → 默认显示「结果」子页
+      tab.activeSubTab = 'result'
+      if (mode === 'jdScan') {
+        tab.matchScore = cached.score ?? null
+        parseScoreFor(mode, cached.text)
+      }
     }
-  }
+  })
 }
 
 /** 复盘模式：默认选第1轮并带出问题/回答 */
@@ -439,42 +580,33 @@ const initReviewRound = () => {
 
 watch(() => props.show, (val) => {
   if (val) {
-    if (abortController) {
-      abortController.abort()
-      abortController = null
-    }
-    if (scoreParseTimer) {
-      clearTimeout(scoreParseTimer)
-      scoreParseTimer = null
-    }
-    isStreaming.value = false
-    isConnected.value = false
-    wasTruncated.value = false
-    errorMessage.value = ''
-    activeMode.value = props.mode
+    // abort 所有 tab 的进行中请求，清 timer
+    BUSINESS_MODES.forEach(mode => {
+      const tab = tabStates[mode]
+      if (tab.abortController) { tab.abortController.abort(); tab.abortController = null }
+      if (tab.scoreParseTimer) { clearTimeout(tab.scoreParseTimer); tab.scoreParseTimer = null }
+      resetTabState(mode)
+    })
+    // parseJd 状态重置
+    if (parseJdState.abortController) { parseJdState.abortController.abort(); parseJdState.abortController = null }
+    parseJdState.resultText = ''
+    parseJdState.isStreaming = false
+    parseJdState.isConnected = false
+    parseJdState.wasTruncated = false
+    parseJdState.errorMessage = ''
 
+    activeMode.value = props.mode
     // 复盘模式：默认第1轮
     if (props.mode === 'review') initReviewRound()
-
-    // 加载当前模式缓存（parseJd 无缓存）
-    loadCachedResult()
+    // 一次性加载三 tab 缓存（parseJd 无缓存）
+    loadAllCachedResults()
   }
 })
 
+// 切 tab：什么都不动——后台生成中的 tab 继续跑，chunk 写各自 state
 const onModeChange = () => {
-  // 切换模式：流式中先 abort 旧请求（否则后台 chunk 继续累积进新 resultText，结果与模式错位）
-  if (isStreaming.value && abortController) {
-    abortController.abort()
-    abortController = null
-    isStreaming.value = false
-    isConnected.value = false
-  }
-  errorMessage.value = ''
-  wasTruncated.value = false
   // 切到复盘：默认第1轮
   if (activeMode.value === 'review') initReviewRound()
-  // 加载切换后模式的上次结果缓存
-  loadCachedResult()
 }
 
 // ========== 构造消息 ==========
@@ -529,34 +661,46 @@ const handleParseJdResult = (finalText: string): boolean => {
     return true
   } catch {
     naiveMessage.error('JD 解析失败，请重试或精简 JD')
-    errorMessage.value = 'JD 解析失败：AI 输出不是有效 JSON，请重试或精简 JD'
+    parseJdState.errorMessage = 'JD 解析失败：AI 输出不是有效 JSON，请重试或精简 JD'
     return false
   }
 }
 
-// ========== 缓存写入（生成成功后） ==========
-const saveResultCache = () => {
+// ========== 缓存写入（生成成功后）：按 mode 写对应 tab 的结果 ==========
+const saveResultCacheFor = (mode: BusinessMode) => {
+  // 防止 handleClose 与 catch 双重保存（仿 JDScanModal 的 saveDone）
+  if (tabStates[mode].saveDone) return
+  tabStates[mode].saveDone = true
   const id = props.interviewId
-  const text = resultText.value
+  const tab = tabStates[mode]
+  const text = tab.resultText
   if (!id || !text) return
-  if (activeMode.value === 'mockInterview') {
+  if (mode === 'mockInterview') {
     interviewStore.saveMockInterviewResult(id, { text, generatedAt: new Date().toISOString() })
-  } else if (activeMode.value === 'review') {
+  } else if (mode === 'review') {
     interviewStore.saveReviewResult(id, { text, generatedAt: new Date().toISOString() })
-  } else if (activeMode.value === 'jdScan') {
+  } else if (mode === 'jdScan') {
     interviewStore.saveJdScanResult(id, {
-      score: matchScore.value,
+      score: tab.matchScore,
       text,
       scannedAt: new Date().toISOString(),
     })
   }
 }
 
-// ========== 开始 ==========
+// ========== 开始：parseJd 走独立分支，三 tab 走闭包捕获 mode 的统一分支 ==========
 const handleStart = async () => {
-  // 流式中点击 → 取消
-  if (isStreaming.value) {
-    if (abortController) abortController.abort()
+  // parseJd 入口：独立状态机
+  if (activeMode.value === 'parseJd') {
+    return handleParseJdStart()
+  }
+
+  const mode = activeBusinessMode.value
+  const tab = tabStates[mode]
+
+  // 流式中点击 → 取消该 tab 的生成
+  if (tab.isStreaming) {
+    if (tab.abortController) tab.abortController.abort()
     return
   }
 
@@ -565,36 +709,30 @@ const handleStart = async () => {
     naiveMessage.warning('请先配置 AI 服务')
     return
   }
-
   // 缺项拦截（按钮已 disabled，此为兜底）
   if (missingHint.value) {
     naiveMessage.warning(missingHint.value)
     return
   }
 
-  const validateMsg = validateInput()
-  if (validateMsg) {
-    naiveMessage.warning(validateMsg)
-    return
-  }
+  // 该 tab 已有进行中请求则先 abort（理论上 tab.isStreaming 已挡住，兜底）
+  if (tab.abortController) { tab.abortController.abort(); tab.abortController = null }
 
-  if (abortController) {
-    abortController.abort()
-    abortController = null
-  }
-
-  resultText.value = ''
-  matchScore.value = null
-  isStreaming.value = true
-  isConnected.value = false
-  wasTruncated.value = false
-  errorMessage.value = ''
-  isLoadedResult.value = false
-  abortController = new AbortController()
+  tab.resultText = ''
+  tab.matchScore = null
+  tab.isStreaming = true
+  tab.isConnected = false
+  tab.wasTruncated = false
+  tab.errorMessage = ''
+  tab.isLoadedResult = false
+  tab.saveDone = false
+  // 点开始后自动切到「结果」子页看流式进度
+  tab.activeSubTab = 'result'
+  tab.abortController = new AbortController()
 
   const messages = buildMessagesForMode()
   // ponytail: jdScan 结果较长（含逐条匹配分析），与 JDScanModal 一致用 4096；其余 2048
-  const maxTokens = activeMode.value === 'jdScan' ? 4096 : 2048
+  const maxTokens = mode === 'jdScan' ? 4096 : 2048
 
   try {
     const t0 = performance.now()
@@ -602,11 +740,13 @@ const handleStart = async () => {
       config,
       messages,
       (chunk) => {
-        resultText.value += chunk
-        if (!isConnected.value) isConnected.value = true
+        tab.resultText += chunk
+        if (!tab.isConnected) tab.isConnected = true
+        // jdScan 流式期间节流提取分数，写入该 tab
+        if (mode === 'jdScan') scheduleScoreParse(mode, tab.resultText)
       },
       {
-        signal: abortController.signal,
+        signal: tab.abortController!.signal,
         onUsage: (usage) => {
           aiConfigStore.recordUsage(config.id, {
             ...usage,
@@ -618,46 +758,107 @@ const handleStart = async () => {
         maxTokens,
       },
     )
-    wasTruncated.value = result.wasTruncated
-
-    // JD 解析：用 finalText（清洗后的完整文本）解析，更可靠
-    if (activeMode.value === 'parseJd' && !errorMessage.value) {
-      const ok = handleParseJdResult(result.finalText)
-      if (ok) {
-        // 成功：关闭弹窗
-        isStreaming.value = false
-        emit('close')
-        return
-      }
-      // 失败：保留 resultText 供调试查看？ponytail：清空，走错误卡片
-      resultText.value = ''
+    tab.wasTruncated = result.wasTruncated
+    // 成功且有内容 → 缓存到对应面试
+    saveResultCacheFor(mode)
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      // 用户取消：保留已接收的部分结果
+      if (tab.resultText) saveResultCacheFor(mode)
+    } else if (err instanceof AIServiceError) {
+      const msg = AI_ERROR_MESSAGES[err.code] || err.message
+      naiveMessage.error(msg)
+      tab.errorMessage = msg
+    } else {
+      naiveMessage.error('生成失败，请重试')
+      tab.errorMessage = '生成失败，请重试'
     }
+  } finally {
+    tab.isStreaming = false
+    tab.isConnected = false
+    tab.abortController = null
+    // 收尾时立即提取一次最终分数（jdScan）
+    if (mode === 'jdScan' && tab.scoreParseTimer) {
+      clearTimeout(tab.scoreParseTimer)
+      tab.scoreParseTimer = null
+      parseScoreFor(mode, tab.resultText)
+    }
+  }
+}
 
-    // 成功且有内容 → 缓存到对应面试（parseJd 无缓存）
-    saveResultCache()
+// ========== parseJd 独立启动（不走 tab 状态） ==========
+const handleParseJdStart = async () => {
+  const s = parseJdState
+  if (s.isStreaming) {
+    if (s.abortController) s.abortController.abort()
+    return
+  }
+  const config = aiConfigStore.activeConfig
+  if (!config) { naiveMessage.warning('请先配置 AI 服务'); return }
+  const validateMsg = validateInput()
+  if (validateMsg) { naiveMessage.warning(validateMsg); return }
+
+  if (s.abortController) { s.abortController.abort(); s.abortController = null }
+  s.resultText = ''
+  s.isStreaming = true
+  s.isConnected = false
+  s.wasTruncated = false
+  s.errorMessage = ''
+  s.abortController = new AbortController()
+
+  const messages = buildMessagesForMode()
+  try {
+    const t0 = performance.now()
+    const result = await streamChat(
+      config,
+      messages,
+      (chunk) => { s.resultText += chunk; if (!s.isConnected) s.isConnected = true },
+      {
+        signal: s.abortController!.signal,
+        onUsage: (usage) => {
+          aiConfigStore.recordUsage(config.id, {
+            ...usage, durationMs: performance.now() - t0, feature: 'interview', modelId: config.modelId,
+          })
+        },
+        maxTokens: 2048,
+      },
+    )
+    s.wasTruncated = result.wasTruncated
+    if (!s.errorMessage) {
+      const ok = handleParseJdResult(result.finalText)
+      if (ok) { s.isStreaming = false; emit('close'); return }
+      s.resultText = ''
+    }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       // 用户取消
     } else if (err instanceof AIServiceError) {
       const msg = AI_ERROR_MESSAGES[err.code] || err.message
       naiveMessage.error(msg)
-      errorMessage.value = msg
+      s.errorMessage = msg
     } else {
       naiveMessage.error('生成失败，请重试')
-      errorMessage.value = '生成失败，请重试'
+      s.errorMessage = '生成失败，请重试'
     }
   } finally {
-    isStreaming.value = false
-    isConnected.value = false
-    abortController = null
+    s.isStreaming = false
+    s.isConnected = false
+    s.abortController = null
   }
 }
 
 const handleClose = () => {
-  if (isStreaming.value && abortController) {
-    abortController.abort()
-    // 用户中止时保存已接收的部分结果（仿 JDScanModal）
-    saveResultCache()
+  // 关闭时 abort 所有正在生成的 tab，并保存已接收的部分结果
+  BUSINESS_MODES.forEach(mode => {
+    const tab = tabStates[mode]
+    if (tab.isStreaming && tab.abortController) {
+      tab.abortController.abort()
+      if (tab.resultText) saveResultCacheFor(mode)
+    }
+    if (tab.scoreParseTimer) { clearTimeout(tab.scoreParseTimer); tab.scoreParseTimer = null }
+  })
+  if (parseJdState.isStreaming && parseJdState.abortController) {
+    parseJdState.abortController.abort()
   }
   emit('close')
 }
@@ -790,28 +991,35 @@ const goToAISettings = () => {
     max-height: 420px;
     overflow-y: auto;
     padding: $spacing-md;
-    font-size: $font-size-sm;
-    line-height: 1.7;
-    white-space: pre-wrap;
+    font-size: 15px;
+    line-height: 1.75;
+    color: $text-primary;
     word-break: break-word;
     @include scrollbar;
   }
 
+  // 流式纯文本态：保留原始换行，光标行内跟随
+  &__content--streaming {
+    white-space: pre-wrap;
+  }
+
   &__rich {
-    :deep(p) {
-      margin: 0 0 0.5em;
-      &:last-child { margin-bottom: 0; }
+    // ponytail: 不用 pre-wrap——markdown 已转 HTML，pre-wrap 会与 <p> margin 叠加产生莫名隔断
+    :deep() {
+      @include ai-result-rich;
     }
-    :deep(strong) { font-weight: 700; }
-    :deep(ul) { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(h2) { font-size: 1.1em; font-weight: 700; margin: 1em 0 0.5em; }
-    :deep(h3) { font-size: 1em; font-weight: 700; margin: 0.8em 0 0.4em; }
   }
 
   &__placeholder {
     color: $text-light;
     font-style: italic;
+  }
+
+  &__empty {
+    text-align: center;
+    padding: $spacing-xl 0;
+    color: $text-light;
+    font-size: $font-size-sm;
   }
 
   &__cursor {

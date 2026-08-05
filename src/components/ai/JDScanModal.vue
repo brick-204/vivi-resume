@@ -81,7 +81,7 @@
           </div>
 
           <!-- 结果内容 -->
-          <div class="jd-scan-result__content">
+          <div class="jd-scan-result__content jd-scan-result__content--rich">
             <div class="jd-scan-result__rich" v-html="renderedResult" />
           </div>
         </n-tab-pane>
@@ -103,7 +103,7 @@
           </div>
         </div>
 
-        <div class="jd-scan-result__content">
+        <div class="jd-scan-result__content jd-scan-result__content--streaming">
           {{ resultText }}
           <span v-if="!isConnected" class="jd-scan-result__placeholder">正在连接 AI 服务...</span>
           <span v-if="isConnected && !hasResult" class="jd-scan-result__placeholder">正在分析...</span>
@@ -416,26 +416,29 @@ const handleClose = () => {
     max-height: 400px;
     overflow-y: auto;
     padding: $spacing-md;
-    font-size: $font-size-sm;
-    line-height: 1.7;
-    white-space: pre-wrap;
+    font-size: 15px;
+    line-height: 1.75;
+    color: $text-primary;
     word-break: break-word;
     @include scrollbar;
   }
 
+  // 流式纯文本态：保留原始换行
+  &__content--streaming {
+    white-space: pre-wrap;
+  }
+
   &__rich {
-    :deep(p) {
-      margin: 0 0 0.5em;
-      &:last-child { margin-bottom: 0; }
+    // ponytail: 不用 pre-wrap——markdown 已转 HTML，pre-wrap 会与 <p> margin 叠加产生莫名隔断
+    :deep() {
+      @include ai-result-rich;
+      // JD 扫描报告额外保留的行内样式（mixin 未覆盖的 mark/a 等）
+      em { font-style: italic; }
+      u { text-decoration: underline; }
+      s { text-decoration: line-through; }
+      mark { border-radius: 2px; padding: 0 2px; }
+      a { color: $primary-light; text-decoration: underline; }
     }
-    :deep(strong) { font-weight: 700; }
-    :deep(em) { font-style: italic; }
-    :deep(u) { text-decoration: underline; }
-    :deep(s) { text-decoration: line-through; }
-    :deep(mark) { border-radius: 2px; padding: 0 2px; }
-    :deep(a) { color: $primary-light; text-decoration: underline; }
-    :deep(ul) { list-style-type: disc; margin: 0.5em 0; padding-left: 1.5em; }
-    :deep(ol) { list-style-type: decimal; margin: 0.5em 0; padding-left: 1.5em; }
   }
 
   &__jd-text {

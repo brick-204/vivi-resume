@@ -536,6 +536,76 @@
   mark[data-color] { background: attr(data-color); }
 }
 
+// AI 结果报告渲染样式（模拟面试/面试复盘/JD扫描/择业/面试准备 共用）
+// 与 rich-text-content 区别：面向 AI 输出的 Markdown 报告——不用 pre-wrap（避免与 <p> margin
+// 叠加产生莫名隔断）、显式主色文字（治模糊）、h2 色条强调、表格加粗表头。
+// 注意：不使用 :deep()，由调用方在外层 :deep() 包裹（同 rich-text-content 的设计，见上方注释）。
+@mixin ai-result-rich {
+  p {
+    margin: 0 0 0.6em;
+    color: $text-primary;
+    &:last-child { margin-bottom: 0; }
+  }
+  strong {
+    font-weight: 700;
+    color: $text-primary;
+  }
+  ul, ol {
+    margin: 0.4em 0;
+    padding-left: 1.5em;
+    color: $text-primary;
+    li { margin: 0.15em 0; }
+  }
+  ul { list-style-type: disc; }
+  ol { list-style-type: decimal; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.5em 0;
+    font-size: 13px;
+    color: $text-primary;
+  }
+  th, td {
+    border: 1px solid $border-glass;
+    padding: 5px 9px;
+    text-align: left;
+  }
+  th {
+    background: rgba($primary-color, 0.08);
+    font-weight: 700;
+    color: $text-primary;
+  }
+  // 小节标题：左侧色条，结构感强
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: 1.12em;
+    font-weight: 700;
+    margin: 1em 0 0.5em;
+    padding-left: $spacing-sm;
+    position: relative;
+    color: $text-primary;
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 2px;
+      bottom: 2px;
+      width: 3px;
+      border-radius: $radius-full;
+      background: $primary-color;
+    }
+    &:first-child { margin-top: 0; }
+  }
+  h3 {
+    font-size: 1.02em;
+    font-weight: 700;
+    margin: 0.7em 0 0.3em;
+    color: $text-primary;
+  }
+}
+
 // ==================== Privacy Notice ====================
 @mixin privacy-notice {
   display: flex;
