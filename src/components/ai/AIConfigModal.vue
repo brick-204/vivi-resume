@@ -30,7 +30,7 @@
               </template>
               <div class="hint-content">
                 <template v-if="!selectedProvider?.corsFriendly">
-                  <template v-if="isDev && devProxyEndpoint">
+                  <template v-if="useProxy && devProxyEndpoint">
                     开发环境对官方 API 已自动使用代理地址，无需额外配置
                   </template>
                   <template v-else>
@@ -127,6 +127,7 @@ import { NModal, NForm, NFormItem, NInput, NSelect, NButton, NPopover, NSwitch, 
 import type { AIServiceConfig, AIProvider } from '@/types/aiConfig'
 import { AI_PROVIDERS, getProviderInfo } from '@/types/aiConfig'
 import { getDevProxyEndpoint } from '@/services/aiService'
+import { isElectron } from '@/utils/runtime'
 
 const props = defineProps<{
   visible: boolean
@@ -139,6 +140,8 @@ const emit = defineEmits<{
 }>()
 
 const isDev = import.meta.env.MODE === 'development'
+// dev 走 Vite sseProxy，桌面走主进程内置代理，两者都需展示代理 endpoint 提示
+const useProxy = isDev || isElectron
 const isEdit = computed(() => !!props.config)
 // ponytail: 保存按钮 spin，覆盖表单校验期间，防连点；emit 后父立即关弹窗销毁本组件
 const saving = ref(false)
@@ -162,15 +165,15 @@ const providerOptions = AI_PROVIDERS.map(p => ({
 const selectedProvider = computed(() => getProviderInfo(formData.value.provider))
 
 const devProxyEndpoint = computed(() => {
-  if (!isDev || !selectedProvider.value) return ''
+  if (!useProxy || !selectedProvider.value) return ''
   return getDevProxyEndpoint(formData.value.provider, selectedProvider.value.defaultEndpoint)
 })
 
 // 共用校验逻辑：返回错误消息字符串，无错误返回空串
 function validateEndpoint(value: string): string {
   if (!value) return ''
-  // 开发环境下允许 /api/ 开头的代理路径
-  if (isDev && value.startsWith('/api/')) return ''
+  // 代理模式下允许 /api/ 开头的代理路径（dev 相对路径）
+  if (useProxy && value.startsWith('/api/')) return ''
   // 纯客户端请求，用户自管 API，仅做基本 URL 格式校验，不强制 https
   try {
     new URL(value)
@@ -231,8 +234,8 @@ const onProviderChange = (providerId: AIProvider) => {
   const info = getProviderInfo(providerId)
   if (info) {
     formData.value.modelId = info.defaultModel
-    // 开发环境下自动使用代理地址
-    formData.value.endpoint = isDev
+    // 代理模式下自动使用代理地址（dev 走 Vite，桌面走主进程内置代理）
+    formData.value.endpoint = useProxy
       ? getDevProxyEndpoint(providerId, info.defaultEndpoint)
       : info.defaultEndpoint
     // 切换服务商填的是需系统补全的基础路径，与「完整 URL」模式互斥

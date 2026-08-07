@@ -6,11 +6,15 @@
 import type { AIServiceConfig } from '@/types/aiConfig'
 import { buildMessages, type FullAIOperation } from '@/services/aiPrompts'
 import { announceToScreenReader } from '@/composables/useAriaLive'
+import { isElectron } from '@/utils/runtime'
 
 // ========== 开发代理支持 ==========
 
 /** 是否为开发环境（按 mode 判断，与 main.ts 的生产判断同基准） */
 const isDev = import.meta.env.MODE === 'development'
+
+/** 是否需要走代理：dev 模式走 Vite sseProxy，桌面模式走主进程内置代理 */
+const useProxy = isDev || isElectron
 
 /**
  * extraBody 安全透传：原样返回，dev 模式下若检测到覆盖核心字段（model/messages/stream 等）则 warn。
@@ -505,11 +509,13 @@ export async function performAIOperation(
 }
 
 /**
- * 开发代理辅助：为不支持 CORS 的服务商生成开发环境下的代理 endpoint
- * 在开发环境下返回 /api/ai/{provider} 路径，生产环境返回原始 endpoint
+ * 开发代理辅助：为不支持 CORS 的服务商生成代理 endpoint
+ * - dev 模式：返回 /api/ai/{provider} 相对路径，走 Vite sseProxy
+ * - 桌面模式：返回主进程内置代理的完整地址 http://127.0.0.1:port/api/ai/{provider}
+ * - 生产 web：原样返回
  */
 export function getDevProxyEndpoint(provider: string, originalEndpoint: string): string {
-  if (!isDev) return originalEndpoint
+  if (!useProxy) return originalEndpoint
   // CORS 友好的服务商无需代理
   const proxyMap: Record<string, string> = {
     openai: '/api/ai/openai/v1',
@@ -519,5 +525,14 @@ export function getDevProxyEndpoint(provider: string, originalEndpoint: string):
     baichuan: '/api/ai/baichuan/v1',
     yi: '/api/ai/yi/v1',
   }
-  return proxyMap[provider] || originalEndpoint
+  const relative = proxyMap[provider]
+  if (!relative) return originalEndpoint
+  // dev 模式：相对路径走 Vite dev server 的 sseProxy（dev 下即便在 Electron 里也走 Vite）
+  if (isDev) return relative
+  // 桌面模式：前缀主进程代理 base（preload 注入）；base 缺失回落相对路径（代理不可用时降级）
+  if (isElectron) {
+    const base = (window as { electronAPI?: { aiProxyBase?: string } }).electronAPI?.aiProxyBase
+    return base ? `${base}${relative}` : relative
+  }
+  return relative
 }

@@ -22,8 +22,14 @@
         未绑定时，数据默认存储在浏览器 IndexedDB 中。
       </p>
 
+      <!-- 桌面端（阶段 1 暂未实现目录模式） -->
+      <div v-if="isElectron" class="settings-section__unsupported">
+        <Icon icon="mdi:clock-outline" :width="16" />
+        <span>桌面端目录模式将在下个版本支持，当前使用本地数据库存储</span>
+      </div>
+
       <!-- 浏览器不支持 -->
-      <div v-if="!settingsStore.isSupported" class="settings-section__unsupported">
+      <div v-else-if="!settingsStore.isSupported" class="settings-section__unsupported">
         <Icon icon="mdi:alert-circle-outline" :width="16" />
         <span>当前浏览器不支持本地目录功能，请使用 Chrome 或 Edge 浏览器</span>
       </div>
@@ -523,6 +529,7 @@ import { DESKTOP_PETS } from '@/config/desktopPets'
 import { parsePetFile, type ParsedPet } from '@/utils/petUpload'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
+import { isElectron } from '@/utils/runtime'
 
 const settingsStore = useSettingsStore()
 const resumeStore = useResumeStore()

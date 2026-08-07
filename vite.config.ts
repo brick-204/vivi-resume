@@ -5,6 +5,7 @@ import viteCompression from 'vite-plugin-compression'
 import type { ProxyOptions } from 'vite'
 
 export default defineConfig({
+  base: './',
   plugins: [
     vue(),
     // 预压缩：生成 .gz 文件（Nginx/CDN 可直接传输，无需实时压缩）
@@ -80,6 +81,7 @@ export default defineConfig({
       // AI 服务代理 — 开发环境下解决 CORS 问题
       // 使用方式：在 AI 配置中将 endpoint 设为 /api/ai/openai 等
       // 注意：必须禁用 proxy 缓冲以支持 SSE 流式响应
+      // 注意：路由需与 electron/aiProxy.ts 的 ROUTES 保持一致——新增/修改服务商时两处同步改
       '/api/ai/openai': sseProxy('https://api.openai.com', '/api/ai/openai'),
       '/api/ai/zhipu': sseProxy('https://open.bigmodel.cn', '/api/ai/zhipu'),
       '/api/ai/qwen': sseProxy('https://dashscope.aliyuncs.com', '/api/ai/qwen'),
