@@ -306,6 +306,7 @@ import type { ChatMessage } from '@/services/aiService'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useInterviewStore } from '@/stores/interviewStore'
+import { usePetStore } from '@/stores/petStore'
 import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
@@ -338,6 +339,7 @@ const router = useRouter()
 const aiConfigStore = useAIConfigStore()
 const resumeStore = useResumeStore()
 const interviewStore = useInterviewStore()
+const petStore = usePetStore()
 
 const hasActiveConfig = computed(() => !!aiConfigStore.activeConfig)
 
@@ -686,6 +688,8 @@ const saveResultCacheFor = (mode: BusinessMode) => {
       scannedAt: new Date().toISOString(),
     })
   }
+  // ponytail: 三 tab 三触发路径(成功/中止/关闭)统一在此触发桌宠 save 话术
+  void petStore.sayCategory('save')
 }
 
 // ========== 开始：parseJd 走独立分支，三 tab 走闭包捕获 mode 的统一分支 ==========

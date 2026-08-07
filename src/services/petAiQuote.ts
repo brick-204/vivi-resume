@@ -42,6 +42,8 @@ const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
   rainy: '用户刚开启了雨夜窗景特效，窗外下起雨了',
   snowy: '用户刚开启了下雪彩蛋，窗外飘起雪花了',
   offer: '用户刚开启了天上掉 offer 彩蛋，满屏 offer 从天而降，祝贺求职顺利',
+  offerGot: '用户刚收到一家公司的 offer，求职成功了，表达真诚祝贺',
+  rejected: '用户刚被一家公司拒绝，情绪低落，温柔安慰鼓励，不要说教',
   greet: '向用户打招呼',
   idle: '用户什么都没做，随机说一句闲话或卖萌',
   rest: '用户连续用眼已到设定时长，提醒休息。必须包含"望 6 米外歇 20 秒"的 20-20-20 护眼指令，简短活泼',
@@ -51,6 +53,7 @@ const CATEGORY_SEMANTICS: Partial<Record<QuoteCategory, string>> = {
   mapOff: '用户刚关闭了地图功能',
   interviewHintOn: '用户刚开启了面试提示功能，会在面试临近时提醒',
   interviewHintOff: '用户刚关闭了面试提示功能',
+  interviewSoon: '用户的面试即将开始（30分钟或10分钟内），提醒做最后准备，简短鼓励',
   // 注：aiChatOn/aiChatOff 故意不映射——开关反馈走静态 pickQuote + say（settingsStore.updatePetAIChatEnabled），
   // 不走 sayCategory/AI（开关切换需即时反馈，不等 AI）。若误调 sayCategory('aiChatOn') 会抛 UNSUPPORTED_CATEGORY。
   // 注：aiError 同样不映射——它在 sayCategory 静态分支直接 pickQuote（AI 不可用时本就不该走 AI）。

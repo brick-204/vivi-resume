@@ -115,6 +115,7 @@ import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiServ
 import { buildMessages } from '@/services/aiPrompts'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { usePetStore } from '@/stores/petStore'
 import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
@@ -123,6 +124,7 @@ import { message as naiveMessage } from '@/plugins/naive-ui'
 
 const resumeStore = useResumeStore()
 const aiConfigStore = useAIConfigStore()
+const petStore = usePetStore()
 
 const props = defineProps<{
   visible: boolean
@@ -269,6 +271,7 @@ const handleStartPrep = async () => {
         jdText: jdText.value,
         preparedAt: new Date().toISOString(),
       })
+      void petStore.sayCategory('save')
     }
   }
 }
@@ -284,6 +287,7 @@ const handleClose = () => {
         jdText: jdText.value,
         preparedAt: new Date().toISOString(),
       })
+      void petStore.sayCategory('save')
     }
   }
   emit('close')

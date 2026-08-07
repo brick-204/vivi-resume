@@ -87,6 +87,8 @@ export interface Interview {
   lastMockInterview?: MockInterviewResult
   lastReview?: InterviewReviewResult
   lastJdScan?: InterviewJdScanResult
+  // AI 择业推荐反查标记：该面试曾被 AI 择业推荐为最优选择（清旧加新，任意时刻最多一场为 true）
+  careerChoiceRecommended?: boolean
   // 软删除标记：移入回收站时写入，恢复时置 undefined（与 Resume.deletedAt 同名同义）
   deletedAt?: string
   createdAt: string

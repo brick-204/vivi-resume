@@ -214,6 +214,43 @@
           </div>
         </template>
 
+        <!-- 历史归档（被压缩的更早对话，分页展开） -->
+        <template v-if="displayedArchived.length > 0 || hasMoreArchived">
+          <template v-for="(msg, i) in displayedArchived" :key="`arch-${i}`">
+            <div
+              v-if="msg.kind === 'user-question'"
+              class="consult-bubble consult-bubble--user consult-bubble--archived"
+            >
+              {{ msg.content }}
+            </div>
+            <div
+              v-else-if="msg.kind === 'assistant-answer'"
+              class="consult-bubble consult-bubble--ai consult-bubble--archived"
+            >
+              <div
+                v-html="
+                  renderMarkdown(
+                    typeof msg.content === 'string' ? msg.content : '',
+                  )
+                "
+              />
+            </div>
+          </template>
+          <button
+            v-if="hasMoreArchived"
+            type="button"
+            class="consult-arch-more"
+            @click="loadMoreArchived"
+          >
+            <Icon icon="mdi:chevron-up" :width="14" />
+            展开更早的对话
+          </button>
+          <div class="consult-ctx consult-ctx--notice consult-arch-divider">
+            <Icon icon="mdi:archive-outline" :width="14" />
+            <span>以上为已归档的早期对话</span>
+          </div>
+        </template>
+
         <template v-for="(msg, i) in visibleMessages" :key="i">
           <!-- 简历上下文消息：居中 chip -->
           <div v-if="msg.kind === 'resume-context'" class="consult-ctx">
@@ -475,6 +512,7 @@ const router = useRouter();
 const {
   sessions,
   currentSessionId,
+  currentSession,
   currentMessages,
   pendingResumeIds,
   pendingAttachments,
@@ -676,6 +714,35 @@ const onPinDragEnd = () => {
 const visibleMessages = computed<ConsultMessage[]>(() =>
   currentMessages.value.filter((m) => m.kind && m.kind !== "history-summary"),
 );
+
+/** ===== 历史归档展开（分页） =====
+ * archivedMessages 是压缩时从 messages 移出的原始 user/assistant 段（含旧 history-summary），
+ * 按压缩批次时间正序追加。展开时过滤掉 history-summary（旧摘要冗余），只显示 user/assistant。
+ * 分页从最近的归档往远处翻：取末尾 N 条，点"展开更早"扩大 N。
+ */
+const ARCHIVE_PAGE_SIZE = 20;
+const archivedShownCount = ref(0);
+/** 归档中可展示的消息（剔除旧 history-summary） */
+const archivableMessages = computed<ConsultMessage[]>(() =>
+  (currentSession.value?.archivedMessages ?? []).filter(
+    (m) => m.kind === "user-question" || m.kind === "assistant-answer",
+  ),
+);
+const displayedArchived = computed<ConsultMessage[]>(() => {
+  const all = archivableMessages.value;
+  if (archivedShownCount.value <= 0) return [];
+  return all.slice(Math.max(0, all.length - archivedShownCount.value));
+});
+const hasMoreArchived = computed(
+  () => archivedShownCount.value < archivableMessages.value.length,
+);
+const loadMoreArchived = () => {
+  archivedShownCount.value += ARCHIVE_PAGE_SIZE;
+};
+// 切换会话时重置展开计数
+watch(currentSessionId, () => {
+  archivedShownCount.value = 0;
+});
 
 /** 发送按钮可用条件：有文字；若挂起了简历也必须有文字（必须和提问一起发） */
 const canSend = computed(
@@ -1141,6 +1208,32 @@ watch(
     font-size: 11px;
     opacity: 0.85;
   }
+}
+
+// 归档气泡：降低透明度区分早期对话
+.consult-bubble--archived {
+  opacity: 0.62;
+}
+.consult-arch-more {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--n-text-color-3, #999);
+  padding: 4px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--n-color-target, rgba(0, 0, 0, 0.04));
+  cursor: pointer;
+  transition: opacity 0.15s;
+  &:hover {
+    opacity: 0.75;
+    color: var(--n-text-color-2, #666);
+  }
+}
+.consult-arch-divider {
+  margin-top: 4px;
 }
 
 .consult-bubble {

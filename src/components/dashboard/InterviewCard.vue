@@ -21,7 +21,13 @@
     <div class="interview-card__body">
       <!-- 公司 + 岗位 -->
       <div class="interview-card__head">
-        <h4 class="interview-card__company">{{ interview.company || '未填写公司' }}</h4>
+        <div class="interview-card__title-row">
+          <span v-if="interview.careerChoiceRecommended" class="interview-card__recommend" title="AI 择业推荐">
+            <Icon icon="mdi:star-shooting" :width="13" />
+            AI 推荐
+          </span>
+          <h4 class="interview-card__company">{{ interview.company || '未填写公司' }}</h4>
+        </div>
         <p class="interview-card__position">{{ interview.position || '未填写岗位' }}</p>
       </div>
 
@@ -255,6 +261,26 @@ const countdownBoxStyle = computed(() => ({
 
   &__head {
     margin-bottom: $spacing-xs;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__recommend {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 6px;
+    border-radius: $radius-full;
+    color: $secondary-color;
+    background: rgba($secondary-color, 0.12);
   }
 
   &__company {

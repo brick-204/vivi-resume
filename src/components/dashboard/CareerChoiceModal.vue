@@ -184,6 +184,7 @@ import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiServ
 import type { ChatMessage } from '@/services/aiService'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useInterviewStore } from '@/stores/interviewStore'
+import { usePetStore } from '@/stores/petStore'
 import { markdownToHtml } from '@/utils/markdownConverter'
 import { sanitizeHtml } from '@/utils/sanitizeHtml'
 import { getScoreColor, formatDateTime } from '@/utils/evaluationScore'
@@ -198,6 +199,7 @@ const emit = defineEmits<{ close: [] }>()
 const router = useRouter()
 const aiConfigStore = useAIConfigStore()
 const interviewStore = useInterviewStore()
+const petStore = usePetStore()
 const { lastCareerChoice } = storeToRefs(interviewStore)
 
 const hasActiveConfig = computed(() => !!aiConfigStore.activeConfig)
@@ -466,6 +468,21 @@ const handleStart = async () => {
         selectedIds: [...selectedIds.value],
         generatedAt: new Date().toISOString(),
       })
+      // ponytail: 以下副作用（桌宠话术 + 推荐标记）独立 try/catch，避免任何意外抛错
+      // 冒泡到外层 catch 显示"生成失败"——AI 已成功生成并缓存结果，不该被副作用误判失败
+      try {
+        void petStore.sayCategory('save')
+        // 反查被推荐的面试（公司名匹配 selectedIds 里的面试），打推荐标记（清旧加新）
+        // 公司名严格相等匹配；同名多场只命中第一个，接受模糊
+        const recommendedId = rec?.company
+          ? [...selectedIds.value]
+              .map(id => byId.get(id))
+              .find(i => i && i.company === rec.company)?.id ?? null
+          : null
+        interviewStore.markCareerChoiceRecommended(recommendedId)
+      } catch (e) {
+        console.warn('[CareerChoiceModal] 推荐标记/话术副作用失败，不影响生成结果:', e)
+      }
     }
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {

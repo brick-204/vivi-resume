@@ -195,6 +195,7 @@ export const useSettingsStore = defineStore('settings', () => {
         petStore.setAIChatEnabled(petAIChatEnabled.value)
         petStore.setIdleAiEnabled(idleAiEnabled.value)
         petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+        petStore.setInterviewHintEnabled(interviewBannerEnabled.value)
       } catch { /* petStore 未初始化，忽略 */ }
       _readyResolve()
     }
@@ -709,6 +710,7 @@ export const useSettingsStore = defineStore('settings', () => {
         petStore.setAIChatEnabled(petAIChatEnabled.value)
         petStore.setIdleAiEnabled(idleAiEnabled.value)
         petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+        petStore.setInterviewHintEnabled(interviewBannerEnabled.value)
       } catch { /* petStore 未初始化，忽略 */ }
 
       naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
@@ -851,6 +853,7 @@ export const useSettingsStore = defineStore('settings', () => {
         petStore.setAIChatEnabled(petAIChatEnabled.value)
         petStore.setIdleAiEnabled(idleAiEnabled.value)
         petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+        petStore.setInterviewHintEnabled(interviewBannerEnabled.value)
       } catch { /* petStore 未初始化，忽略 */ }
 
       if (copyToBrowser) {
@@ -905,6 +908,7 @@ export const useSettingsStore = defineStore('settings', () => {
           petStore.setAIChatEnabled(petAIChatEnabled.value)
           petStore.setIdleAiEnabled(idleAiEnabled.value)
           petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+        petStore.setInterviewHintEnabled(interviewBannerEnabled.value)
         } catch { /* petStore 未初始化，忽略 */ }
         naiveMessage.success('已重新获取目录权限')
       } else {
@@ -982,6 +986,8 @@ export const useSettingsStore = defineStore('settings', () => {
     interviewBannerEnabled.value = enabled
     const { usePetStore } = await import('@/stores/petStore')
     const petStore = usePetStore()
+    // 同步面试临近提醒开关（getter 由 interviewStore 注入，此处只更新 enabled）
+    petStore.setInterviewHintEnabled(enabled)
     // 抽屉打开时桌宠隐藏，气泡看不见 → 改用 naiveMessage 顶替（与 restOn/restOff 同策略）
     if (petStore.paused) {
       naiveMessage.info(pickQuote(enabled ? 'interviewHintOn' : 'interviewHintOff', petStore.petName))
@@ -1309,6 +1315,7 @@ export const useSettingsStore = defineStore('settings', () => {
         petStore.setAIChatEnabled(petAIChatEnabled.value)
         petStore.setIdleAiEnabled(idleAiEnabled.value)
         petStore.setIdleIntervalMs(idleIntervalMinutes.value * 60 * 1000)
+        petStore.setInterviewHintEnabled(interviewBannerEnabled.value)
       } catch { /* petStore 未初始化，忽略 */ }
 
       updateProgress('重新同步完成！', 100)

@@ -28,6 +28,7 @@ import type { DeletedCardKey } from '@/utils/trashConfig'
 import { useSyncLock } from '@/composables/useSyncLock'
 import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { usePetStore } from '@/stores/petStore'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import {
   migrateFromLocalStorage,
@@ -194,6 +195,9 @@ export const useResumeStore = defineStore('resume', () => {
   let _writeLock: Promise<void> = Promise.resolve()
   // 自动保存防抖延迟
   const AUTO_SAVE_DELAY = 1000
+  // ponytail: save 话术最小间隔——防抖只保证1s内不重复，跨多次编辑停顿仍会刷屏，加60s节流
+  const SAVE_QUOTE_MIN_INTERVAL_MS = 60_000
+  let lastSaveQuoteAt = 0
 
   // 立即写入 IndexedDB（用于创建/删除等不可丢失操作）
   const saveToStorageNow = async (): Promise<void> => {
@@ -238,6 +242,13 @@ export const useResumeStore = defineStore('resume', () => {
           }
           // 写入成功后才清除脏标记，避免写入失败导致数据丢失
           isDirty.value = false
+          // ponytail: 常规编辑落盘成功 → 桌宠反馈；防抖+60s节流避免频繁编辑刷屏
+          // 关键操作(创建/删除/AI结果/导入)走 saveToStorageNow 不触发此路径，避免"删简历还说存好啦"
+          const now = Date.now()
+          if (now - lastSaveQuoteAt > SAVE_QUOTE_MIN_INTERVAL_MS) {
+            lastSaveQuoteAt = now
+            try { usePetStore().sayCategory('save') } catch { /* pinia 未就绪，静默 */ }
+          }
         }).catch(err => {
           console.error('[resumeStore] 自动保存失败：', err)
           naiveMessage.warning('保存失败，请检查存储空间或权限')

@@ -10,6 +10,7 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef, ref } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { usePetStore } from '@/stores/petStore'
 import { registerFlush, trackPending } from '@/composables/useFlushGuard'
 import {
   getAllInterviews,
@@ -172,6 +173,21 @@ export const useInterviewStore = defineStore('interview', () => {
       lastCareerChoice.value = careerChoice ?? null
       // 自动清理过期面试记录（与 resumeStore.cleanupTrash 同策略）
       await cleanupTrash()
+      // 注入面试临近提醒 getter 到 petStore（每秒 tick 调用，每次用最新 now 重算）
+      // ponytail: 用函数而非 computed——computed 不因时间流逝重算，函数每次调用都取最新 Date.now()
+      try {
+        usePetStore().setInterviewTsGetter(() => {
+          const now = Date.now()
+          let min = Infinity
+          for (const i of interviews.value) {
+            // 仅对待面/进行中的面试提醒（已结束的不提醒）
+            if (inferInterviewSegment(i) === 'ended') continue
+            const ts = nextScheduledTs(i, now)
+            if (ts < min) min = ts
+          }
+          return min
+        })
+      } catch { /* petStore 未就绪，忽略 */ }
     } catch (e) {
       console.error('[interviewStore] 初始化失败:', e)
     } finally {
@@ -210,9 +226,35 @@ export const useInterviewStore = defineStore('interview', () => {
 
   /** 更新面试记录（整体替换 + 更新时间戳 + 防抖持久化） */
   const updateInterview = (interview: Interview) => {
+    // ponytail: commit 前取旧 status，commit 后整体替换引用再 find 就拿不到旧值了
+    const old = interviews.value.find(i => i.id === interview.id)
+    const statusChanged = old && old.status !== interview.status
     interview.updatedAt = new Date().toISOString()
     const next = commitInterview(interview)
     persistInterview(next)
+    // status 流转到 offer/rejected 是强情绪事件 → 桌宠反馈（仅变化时触发，避免每次 update 都说）
+    if (statusChanged) {
+      try {
+        const ps = usePetStore()
+        if (interview.status === 'offer') void ps.sayCategory('offerGot')
+        else if (interview.status === 'rejected') void ps.sayCategory('rejected')
+      } catch { /* pinia 未就绪，静默 */ }
+    }
+  }
+
+  /**
+   * 标记某场面试为 AI 择业推荐（清旧加新：任意时刻最多一场 careerChoiceRecommended=true）。
+   * 不刷 updatedAt，避免污染「按 updatedAt 降序」的列表排序。
+   * 逐条 commit + persist（300ms 防抖合并），批量改也只产生 N 个独立写定时器。
+   */
+  const markCareerChoiceRecommended = (id: string | null) => {
+    for (const iv of interviews.value) {
+      const want = iv.id === id
+      if (!!iv.careerChoiceRecommended !== want) {
+        const next = commitInterview({ ...iv, careerChoiceRecommended: want })
+        persistInterview(next)
+      }
+    }
   }
 
   /**
@@ -468,6 +510,7 @@ export const useInterviewStore = defineStore('interview', () => {
     saveReviewResult,
     saveJdScanResult,
     saveCareerChoiceResult,
+    markCareerChoiceRecommended,
     reloadFromStorage,
   }
 })

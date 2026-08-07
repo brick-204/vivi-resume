@@ -234,6 +234,65 @@ export const usePetStore = defineStore('pet', () => {
     }
   }
 
+  // ----- 面试临近提醒（独立 interviewTimer，每秒 tick） -----
+  // ponytail: 独立于 restTimer——用户可能关休息提醒但开面试提醒，restEnabled=false 会 stopRest，
+  //   若共用 timer 面试提醒也跟着停。开关由 settingsStore 注入，getter 由 interviewStore 注入（保持 petStore 不依赖业务 store）。
+  //   去重：记 firedKey(轮次时间戳) + firedLevel，同一面试同一档位只说一次；
+  //   下一面变了（换场次/换轮次）自动重新触发。
+  let interviewHintEnabled = false
+  let nextInterviewTsGetter: (() => number) | null = null
+  let firedKey: string | null = null
+  let firedLevel: '30' | '10' | null = null
+
+  /** 检查面试临近并触发提醒（由 interviewTimer tick 每秒调用） */
+  const checkInterviewSoon = () => {
+    if (!interviewHintEnabled || !nextInterviewTsGetter) return
+    const nextTs = nextInterviewTsGetter()
+    if (!Number.isFinite(nextTs)) {
+      // 无待面面试 → 清去重状态
+      firedKey = null
+      firedLevel = null
+      return
+    }
+    const now = Date.now()
+    const diffMs = nextTs - now
+    // 已过期（面试已开始）→ 不提醒，清去重状态等下一场
+    if (diffMs <= 0) {
+      firedKey = null
+      firedLevel = null
+      return
+    }
+    const key = String(nextTs)
+    const within10 = diffMs <= 10 * 60 * 1000
+    const within30 = diffMs <= 30 * 60 * 1000
+    if (within10 && !(firedKey === key && firedLevel === '10')) {
+      firedKey = key
+      firedLevel = '10'
+      void sayCategory('interviewSoon', petName.value)
+    } else if (!within10 && within30 && !(firedKey === key && firedLevel === '30')) {
+      firedKey = key
+      firedLevel = '30'
+      void sayCategory('interviewSoon', petName.value)
+    }
+  }
+
+  let interviewTimer: ReturnType<typeof setInterval> | null = null
+
+  const stopInterview = () => {
+    if (interviewTimer) {
+      clearInterval(interviewTimer)
+      interviewTimer = null
+    }
+  }
+
+  /** 启动面试临近提醒计时；已在跑则不重复启动 */
+  const startInterview = () => {
+    if (interviewTimer) return
+    interviewTimer = setInterval(() => {
+      checkInterviewSoon()
+    }, REST_TICK_MS)
+  }
+
   /** 启动连续用眼计时；已在跑则不重复启动 */
   const startRest = () => {
     if (restTimer) return
@@ -257,11 +316,14 @@ export const usePetStore = defineStore('pet', () => {
   const start = () => {
     startIdle()
     startRest()
+    // ponytail: 仅开关开时启动面试提醒 timer，避免无条件空跑每秒 tick
+    if (interviewHintEnabled) startInterview()
   }
 
   const stop = () => {
     stopIdle()
     stopRest()
+    stopInterview()
     unbindActivityListeners()
     clearTtl()
     currentQuote.value = null
@@ -316,6 +378,23 @@ export const usePetStore = defineStore('pet', () => {
     }
   }
 
+  /** 注入面试临近提醒开关（settingsStore 调用）：开则启动计时，关则停 */
+  const setInterviewHintEnabled = (enabled: boolean) => {
+    interviewHintEnabled = enabled
+    if (enabled) {
+      startInterview()
+    } else {
+      stopInterview()
+      firedKey = null
+      firedLevel = null
+    }
+  }
+
+  /** 注入下一面时间戳 getter（interviewStore 调用）：返回最近待面面试的 ms，无则 Infinity */
+  const setInterviewTsGetter = (getter: (() => number) | null) => {
+    nextInterviewTsGetter = getter
+  }
+
   /** 切换桌宠时的即时招呼：强制走静态时段招呼（绕开 AI 异步），
    *  保证切换后气泡立即带上新桌宠名字，不被 AI 生成延迟拖住。
    *  并记录时段供跨段检测。 */
@@ -341,6 +420,8 @@ export const usePetStore = defineStore('pet', () => {
     setAIChatEnabled,
     setIdleAiEnabled,
     setIdleIntervalMs,
+    setInterviewHintEnabled,
+    setInterviewTsGetter,
     sayTimeGreet,
   }
 })

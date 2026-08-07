@@ -103,6 +103,7 @@ import { Icon } from '@iconify/vue'
 import { NModal, NButton, NSpin } from 'naive-ui'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { usePetStore } from '@/stores/petStore'
 import { serializeResumeForEvaluation } from '@/services/resumeSerializer'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
 import { markdownToHtml } from '@/utils/markdownConverter'
@@ -115,6 +116,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const resumeStore = useResumeStore()
 const aiConfigStore = useAIConfigStore()
+const petStore = usePetStore()
 
 const resultText = ref('')
 const isStreaming = ref(false)
@@ -348,6 +350,7 @@ const startEvaluation = async () => {
         text: resultText.value,
         evaluatedAt: new Date().toISOString(),
       })
+      void petStore.sayCategory('save')
     }
   }
 }
@@ -365,6 +368,7 @@ const handleClose = () => {
         text: resultText.value,
         evaluatedAt: new Date().toISOString(),
       })
+      void petStore.sayCategory('save')
     }
   }
   emit('close')

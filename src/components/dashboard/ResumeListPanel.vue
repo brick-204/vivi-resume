@@ -178,6 +178,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
+import { useInterviewStore } from '@/stores/interviewStore'
 import type { ImportResult } from '@/stores/resumeStore'
 import type { ValidationError } from '@/schemas/resumeSchema'
 import { useResumeSearch } from '@/composables/useResumeSearch'
@@ -192,6 +193,7 @@ import ResumeCard from '@/components/home/ResumeCard.vue'
 
 const router = useRouter()
 const store = useResumeStore()
+const interviewStore = useInterviewStore()
 const showMethodModal = ref(false)
 const showAIImportModal = ref(false)
 const showJSONImportModal = ref(false)
@@ -234,15 +236,32 @@ const toggleSelectAll = () => {
   }
 }
 
+/**
+ * 构造删除确认文案：若被删简历关联了面试，提示将变成孤儿（只提示，不置空 resumeId——
+ * 恢复简历时关联自动复联，置空反而破坏此副作用）。
+ */
+const buildDeleteContent = (ids: string[]): string => {
+  const base = ids.length === 1
+    ? '确定要删除这个简历吗？如需找回可前往回收站'
+    : `确定要删除选中的 ${ids.length} 份简历吗？如需找回可前往回收站`
+  const linked = interviewStore.interviews.filter(i => i.resumeId && ids.includes(i.resumeId))
+  if (linked.length === 0) return base
+  const companies = [...new Set(linked.map(i => i.company).filter(Boolean))]
+  const companyText = companies.length > 0
+    ? `（${companies.slice(0, 3).join('、')}${companies.length > 3 ? '等' : ''}）`
+    : ''
+  return `${base}\n注意：有 ${linked.length} 场面试${companyText}关联此简历，删除后这些面试的简历关联将暂时失效，恢复简历后自动恢复。`
+}
+
 const onBatchDelete = () => {
   const ids = [...selectedIds.value]
   if (ids.length === 0) return
   dialog.warning({
     title: '批量删除简历',
-    content: `确定要删除选中的 ${ids.length} 份简历吗？如需找回可前往回收站`,
+    content: buildDeleteContent(ids),
     positiveText: '删除',
     negativeText: '取消',
-    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
     onPositiveClick: () => {
       store.trashResumes(ids)
       exitSelectionMode()
@@ -289,10 +308,10 @@ const openResume = (id: string) => {
 const onDeleteResume = (id: string) => {
   dialog.warning({
     title: '删除简历',
-    content: '确定要删除这个简历吗？如需找回可前往回收站',
+    content: buildDeleteContent([id]),
     positiveText: '删除',
     negativeText: '取消',
-    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
     onPositiveClick: () => {
       // 不用 async — 避免 Naive UI 等待 Promise resolve 才关闭弹窗
       // deleteResume 内部 await saveToStorageNow() 是持久化写入，
