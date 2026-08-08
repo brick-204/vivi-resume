@@ -34,11 +34,11 @@
                     开发环境对官方 API 已自动使用代理地址，无需额外配置
                   </template>
                   <template v-else>
-                    该服务商官方 API 不支持浏览器直调，你可能需要配置代理
+                    该服务商官方 API 不支持直接调用，你可能需要配置代理
                   </template>
                 </template>
                 <template v-else>
-                  此服务商官方 API 支持浏览器直接调用
+                  此服务商官方 API 支持直接调用，无需代理
                 </template>
               </div>
             </n-popover>
@@ -66,7 +66,7 @@
                 </span>
               </template>
               <div class="hint-content">
-                API Key 将以明文存储在本地浏览器或设置的本地目录中，请勿在公共设备上保存密钥
+                API Key 将以明文存储在本机（应用内置存储或设置的本地目录）中，请勿在公共设备上保存密钥
               </div>
             </n-popover>
           </span>

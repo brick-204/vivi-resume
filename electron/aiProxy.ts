@@ -70,9 +70,13 @@ function proxyRequest(req: IncomingMessage, res: ServerResponse, route: { prefix
         respHeaders[key] = val
       }
       respHeaders['x-accel-buffering'] = 'no'
+      // ponytail: 显式禁缓存——POST 响应通常不缓存，但显式声明避免某些中间层/边缘行为
+      respHeaders['cache-control'] = 'no-store'
       res.writeHead(upstreamRes.statusCode ?? 502, respHeaders)
       // ponytail: pipe 足够，等价于 data->write + end->end，上游压缩已禁用无需 transform
       upstreamRes.pipe(res)
+      // res 端写失败时销毁上游流，避免 socket/fd 泄漏（Node pipe 不会自动销毁源流）
+      res.on('error', () => upstreamRes.destroy())
     },
   )
 
@@ -96,9 +100,16 @@ function proxyRequest(req: IncomingMessage, res: ServerResponse, route: { prefix
 export function startAiProxy(): Promise<{ port: number }> {
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
-      // CORS：渲染进程 origin 为 app://，跨协议到 http://127.0.0.1 必触发预检；
-      // 放行所有响应头，OPTIONS 短路。代理绑定 127.0.0.1 且仅转发固定上游，放开 origin 可接受。
-      res.setHeader('access-control-allow-origin', '*')
+      // CORS：渲染进程 origin 为 app://（prod）或 http://localhost:5173（dev 直连，极少见）。
+      // 仅放行已知 origin，挡住同机恶意网页猜到动态端口后借用用户 API Key。
+      // 注：浏览器请求必带 Origin，此校验对"网页"有效；对"同机原生进程"无效（不带 Origin）——
+      // 主要防线是 127.0.0.1 绑定 + 动态端口随机，Origin 校验是补充。
+      const origin = req.headers.origin ?? ''
+      const allowed = origin.startsWith('app://') || /^http:\/\/localhost(:\d+)?$/.test(origin)
+      if (origin && allowed) {
+        res.setHeader('access-control-allow-origin', origin)
+        res.setHeader('access-control-allow-credentials', 'true')
+      }
       res.setHeader('access-control-allow-headers', 'authorization, content-type')
       res.setHeader('access-control-allow-methods', 'POST, OPTIONS')
       if (req.method === 'OPTIONS') {

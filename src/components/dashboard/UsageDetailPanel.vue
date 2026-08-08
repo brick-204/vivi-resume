@@ -19,7 +19,7 @@
     <!-- 数据说明 -->
     <div class="usage-detail__notice">
       <Icon icon="mdi:information-outline" :width="14" />
-      <span>数据基于本地浏览器对 AI 调用的统计，仅供参考。精确用量与计费详情请前往对应服务供应商控制台查看。</span>
+      <span>数据基于本应用对 AI 调用的统计，仅供参考。精确用量与计费详情请前往对应服务供应商控制台查看。</span>
     </div>
 
     <!-- 空状态 -->

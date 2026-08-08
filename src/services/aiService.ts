@@ -66,7 +66,7 @@ export class AIServiceError extends Error {
 
 export const AI_ERROR_MESSAGES: Record<AIErrorCode, string> = {
   auth: 'API Key 无效，请检查配置',
-  cors: '网络请求被阻止，该服务商可能不支持浏览器直调 API，请使用代理或切换服务商',
+  cors: '网络请求被阻止，该服务商可能不支持直接调用 API，请使用代理或切换服务商',
   rate_limit: '请求过于频繁，请稍后重试',
   network: '网络连接失败，请检查网络',
   invalid_response: 'AI 返回格式异常，请重试',

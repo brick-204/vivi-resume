@@ -445,7 +445,7 @@ Dashboard 侧边「我的面试」入口，独立于简历的面试流程管理�
 
 ## 数据存储
 
-简历数据存储在浏览器 **IndexedDB**（`vivi-resume-db` 数据库）：
+简历数据存储在本地 **IndexedDB**（`vivi-resume-db` 数据库）：
 
 - 照片以 Blob 形式存储，避免 Base64 字符串占用过多内存
 - 高频写入（拖拽排序）使用 300ms 防抖

@@ -46,7 +46,7 @@
         <NButton
           v-if="currentLocationName"
           size="small"
-          title="切回浏览器定位的当前位置"
+          title="切回定位的当前位置"
           @click="onBackToMyLocation"
         >
           <Icon icon="mdi:crosshairs-gps" :width="16" />
@@ -126,7 +126,7 @@
             开启「连线」可查看各面试点与你的距离
           </p>
           <p v-if="locateFailed" class="footprint-hint footprint-hint--warn">
-            定位失败，请允许浏览器定位权限后重试
+            定位失败，请允许定位权限后重试
           </p>
         </div>
 
@@ -393,7 +393,7 @@ async function toggleFullscreen() {
       await mapWrapEl.value.requestFullscreen()
     }
   } catch {
-    naiveMessage.error('全屏不可用，请检查浏览器支持')
+    naiveMessage.error('全屏不可用，请检查系统是否支持')
   }
 }
 

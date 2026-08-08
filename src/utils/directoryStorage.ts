@@ -309,3 +309,23 @@ export async function deleteFilesByPrefix(
     // 目录不存在，忽略
   }
 }
+
+/**
+ * 清空子目录下所有文件（仅文件，不递归删子目录），用于桌宠回收站清空。
+ * 与 directoryStorageElectron.ts 的 clearDir 对称，让 storageAdapter 无分支调用。
+ */
+export async function clearDir(
+  rootHandle: FileSystemDirectoryHandle,
+  subdir: string,
+): Promise<void> {
+  try {
+    const dirHandle = await rootHandle.getDirectoryHandle(subdir)
+    for await (const entry of (dirHandle as FileSystemDirectoryHandleWithPermission).values()) {
+      if (entry.kind === 'file') {
+        try { await dirHandle.removeEntry(entry.name) } catch { /* 忽略单个文件删除失败 */ }
+      }
+    }
+  } catch {
+    // 目录不存在，忽略
+  }
+}

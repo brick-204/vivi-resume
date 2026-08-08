@@ -134,7 +134,7 @@ const { soundEnabled, toggleSound } = useEasterEggSound()
 const githubUrl = 'https://github.com/brick-204/vivi-resume'
 
 // 关闭挽留提示：浏览器拦截离开 = 后台仍在落盘，强行关闭可能丢数据
-const noticeText = '亲爱的用户，关闭或刷新页面时若浏览器弹窗挽留你，请一定要留下哦——后台正在为你保存数据，强行离开可能会丢失刚刚的修改～'
+const noticeText = '亲爱的用户，关闭或刷新页面时若系统弹窗挽留你，请一定要留下哦——后台正在为你保存数据，强行离开可能会丢失刚刚的修改～'
 
 // 已读勾选：localStorage 持久化，勾选后整块公告条不再渲染
 const NOTICE_DISMISSED_KEY = 'notice-close-warn-dismissed'

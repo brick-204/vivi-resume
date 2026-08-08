@@ -21,17 +21,13 @@ import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
 import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type MapLocationItem } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
-import {
-  isFileSystemAccessSupported,
-  pickDirectory,
-  queryPermission,
-  requestPermission,
-  ensureDir,
-  writeJsonFile,
-  writeDataUrlFile,
-  readAllJsonFiles,
-  readJsonFile,
-} from '@/utils/directoryStorage'
+import * as dirWeb from '@/utils/directoryStorage'
+import * as dirElectron from '@/utils/directoryStorageElectron'
+import { isElectron } from '@/utils/runtime'
+// ponytail: 运行时分发目录后端——web 走 File System Access API，桌面走 IPC。
+// 两模块函数签名形态一致，handle 类型不同（web=DirectoryHandle, electron=string），
+// dir 用 typeof dirWeb 接收，调用处传 directoryHandle.value（联合类型），运行时安全 TS 不安全。
+const dir: typeof dirWeb = isElectron ? (dirElectron as unknown as typeof dirWeb) : dirWeb
 import { generateId } from '@/types/resume'
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
@@ -109,7 +105,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const ready = new Promise<void>(resolve => { _readyResolve = resolve })
 
   // ========== 计算属性 ==========
-  const isSupported = computed(() => isFileSystemAccessSupported())
+  const isSupported = computed(() => dir.isFileSystemAccessSupported())
 
   // ========== 初始化 ==========
   const init = async () => {
@@ -120,10 +116,13 @@ export const useSettingsStore = defineStore('settings', () => {
 
       if (mode === true && handle) {
         directoryHandle.value = handle
-        directoryName.value = handle.name
+        // 目录名：web 从 handle.name，桌面从路径 basename 取（与 bindDirectory 对齐，handle 是 string 无 .name）
+        directoryName.value = isElectron
+          ? (handle as unknown as string).split(/[\\/]/).pop() ?? ''
+          : (handle as FileSystemDirectoryHandle).name
 
         // 检查权限
-        const perm = await queryPermission(handle)
+        const perm = await dir.queryPermission(handle)
         permissionStatus.value = perm
 
         if (perm === 'granted') {
@@ -204,19 +203,26 @@ export const useSettingsStore = defineStore('settings', () => {
   // ========== 绑定目录 ==========
   // ========== 绑定目录 ==========
   const bindDirectory = async () => {
-    if (!isFileSystemAccessSupported()) {
-      naiveMessage.error('当前浏览器不支持本地目录功能，请使用 Chrome 或 Edge')
+    if (!dir.isFileSystemAccessSupported()) {
+      naiveMessage.error('当前环境不支持本地目录功能，请使用桌面端或 Chrome / Edge 浏览器')
       return
     }
 
     try {
-      // 1. 选择目录
-      const handle = await pickDirectory()
+      // 1. 选择目录（web: showDirectoryPicker 返 handle 对象；桌面: IPC 返路径字符串，取消返空）
+      const handle = await dir.pickDirectory()
+      if (!handle) {
+        naiveMessage.info('已取消选择目录')
+        return
+      }
       directoryHandle.value = handle
-      directoryName.value = handle.name
+      // 目录名：web 从 handle.name，桌面从路径 basename 取
+      directoryName.value = isElectron
+        ? (handle as unknown as string).split(/[\\/]/).pop() ?? ''
+        : (handle as FileSystemDirectoryHandle).name
 
-      // 2. 获取权限
-      const perm = await requestPermission(handle)
+      // 2. 获取权限（桌面端恒 granted，内部顺带 rebind 恢复主进程 boundRoot）
+      const perm = await dir.requestPermission(handle)
       if (perm !== 'granted') {
         directoryHandle.value = null
         directoryName.value = ''
@@ -268,8 +274,8 @@ export const useSettingsStore = defineStore('settings', () => {
       ])
 
       // 5. 读取目录现有数据（用于冲突检测与合并）
-      const dirResumesRaw = await readAllJsonFiles<Resume>(handle, 'resumes')
-      const dirAiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
+      const dirResumesRaw = await dir.readAllJsonFiles<Resume>(handle, 'resumes')
+      const dirAiConfigs = await dir.readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
       let dirTrash: Resume[] = []
       let dirTrashRetentionDays = trashRetentionDays ?? 30
       let dirTrashBinRetentionDays = trashBinRetentionDays ?? 7
@@ -295,7 +301,7 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirAmapEnabled: boolean | undefined
       let dirMapLocationHistory: MapLocationItem[] | undefined
       try {
-        const dirMeta = await readJsonFile<Record<string, unknown>>(handle, 'meta.json')
+        const dirMeta = await dir.readJsonFile<Record<string, unknown>>(handle, 'meta.json')
         if (dirMeta) {
           dirTrash = (dirMeta.trash as Resume[]) ?? []
           if (typeof dirMeta.trashRetentionDays === 'number') dirTrashRetentionDays = dirMeta.trashRetentionDays
@@ -322,7 +328,7 @@ export const useSettingsStore = defineStore('settings', () => {
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
       // 桌宠回收站：从 trash-pets/ 子目录读取（每条独立存储，不再走 meta.json）
       try {
-        dirTrashPets = await readAllJsonFiles<CustomDesktopPet>(handle, 'trash-pets')
+        dirTrashPets = await dir.readAllJsonFiles<CustomDesktopPet>(handle, 'trash-pets')
       } catch { /* 目录不存在，用空数组 */ }
 
       // 6. 冲突检测 + 合并
@@ -565,11 +571,11 @@ export const useSettingsStore = defineStore('settings', () => {
       updateProgress('正在写入简历文件...', 50)
 
       // 创建子目录
-      await ensureDir(handle, 'resumes')
-      await ensureDir(handle, 'ai-configs')
-      await ensureDir(handle, 'photos')
-      await ensureDir(handle, 'desktop-pets')
-      await ensureDir(handle, 'interviews')
+      await dir.ensureDir(handle, 'resumes')
+      await dir.ensureDir(handle, 'ai-configs')
+      await dir.ensureDir(handle, 'photos')
+      await dir.ensureDir(handle, 'desktop-pets')
+      await dir.ensureDir(handle, 'interviews')
 
       // 写入简历文件（content 已是格式化 JSON 字符串，直接传给 writeJsonFile）
       // 同时提取照片为独立文件
@@ -588,11 +594,11 @@ export const useSettingsStore = defineStore('settings', () => {
 
         // 写入照片文件
         for (const photo of photos) {
-          await writeDataUrlFile(handle, photo.relativePath, photo.dataUrl)
+          await dir.writeDataUrlFile(handle, photo.relativePath, photo.dataUrl)
         }
 
         // 写入 JSON（含照片引用路径）
-        await writeJsonFile(handle, `resumes/${file.filename}`, refResume)
+        await dir.writeJsonFile(handle, `resumes/${file.filename}`, refResume)
         updateProgress(
           `正在写入简历 ${i + 1}/${result.resumeFiles.length}`,
           50 + Math.round(((i + 1) / result.resumeFiles.length) * 30),
@@ -602,47 +608,47 @@ export const useSettingsStore = defineStore('settings', () => {
       // 写入 AI 配置文件（同理）
       for (let i = 0; i < result.aiConfigFiles.length; i++) {
         const file = result.aiConfigFiles[i]
-        await writeJsonFile(handle, `ai-configs/${file.filename}`, file.content)
+        await dir.writeJsonFile(handle, `ai-configs/${file.filename}`, file.content)
       }
 
       // 写入自定义桌宠文件（从 IndexedDB 迁移到目录）
       // ponytail: 目录已有同 id 的自定义桌宠优先保留（跨设备目录共享场景），
       //           仅把 IndexedDB 独有的写入目录，避免静默覆盖目录版。与 desktopPetId 的目录优先策略一致。
-      const dirCustomPets = await readAllJsonFiles<CustomDesktopPet>(handle, 'desktop-pets')
+      const dirCustomPets = await dir.readAllJsonFiles<CustomDesktopPet>(handle, 'desktop-pets')
       const dirCustomPetIds = new Set(dirCustomPets.map(p => p.id))
       const idbCustomPets = await idb.getAllDesktopPets()
       for (const pet of idbCustomPets) {
         if (dirCustomPetIds.has(pet.id)) continue
-        await writeJsonFile(handle, `desktop-pets/${pet.id}.json`, idb.toPlain(pet))
+        await dir.writeJsonFile(handle, `desktop-pets/${pet.id}.json`, idb.toPlain(pet))
       }
 
       // 写入桌宠回收站文件（从 IndexedDB 迁移到目录，每条独立存储）
       // ponytail: 同 customPets 策略，目录已有的不重写，仅写 IndexedDB 独有的
-      await ensureDir(handle, 'trash-pets')
+      await dir.ensureDir(handle, 'trash-pets')
       for (const pet of (idbTrashPets ?? [])) {
         if (dirTrashPetIds.has(pet.id)) continue
-        await writeJsonFile(handle, `trash-pets/${pet.id}.json`, idb.toPlain(pet))
+        await dir.writeJsonFile(handle, `trash-pets/${pet.id}.json`, idb.toPlain(pet))
       }
 
       // 写入面试记录文件（从 IndexedDB 迁移到目录）
       // ponytail: 同 customPets 策略，目录已有的不重写，仅写 IndexedDB 独有的
-      const dirInterviews = await readAllJsonFiles<Interview>(handle, 'interviews')
+      const dirInterviews = await dir.readAllJsonFiles<Interview>(handle, 'interviews')
       const dirInterviewIds = new Set(dirInterviews.map(i => i.id))
       for (const iv of idbInterviews) {
         if (dirInterviewIds.has(iv.id)) continue
-        await writeJsonFile(handle, `interviews/${iv.id}.json`, idb.toPlain(iv))
+        await dir.writeJsonFile(handle, `interviews/${iv.id}.json`, idb.toPlain(iv))
       }
 
       // 写入咨询会话文件（从 IndexedDB 迁移到目录，按 id 去重，目录已有的不重写）
-      const dirConsultSessions = await readAllJsonFiles<ConsultSession>(handle, 'consult-sessions')
+      const dirConsultSessions = await dir.readAllJsonFiles<ConsultSession>(handle, 'consult-sessions')
       const dirConsultIds = new Set(dirConsultSessions.map(s => s.id))
       for (const s of idbConsultSessions) {
         if (dirConsultIds.has(s.id)) continue
-        await writeJsonFile(handle, `consult-sessions/${s.id}.json`, idb.toPlain(s))
+        await dir.writeJsonFile(handle, `consult-sessions/${s.id}.json`, idb.toPlain(s))
       }
 
       // 写入 meta.json（metaContent 已是 JSON 字符串）
-      await writeJsonFile(handle, 'meta.json', result.metaContent)
+      await dir.writeJsonFile(handle, 'meta.json', result.metaContent)
 
       updateProgress('正在清理旧数据...', 90)
 
@@ -713,7 +719,7 @@ export const useSettingsStore = defineStore('settings', () => {
         petStore.setInterviewHintEnabled(interviewBannerEnabled.value)
       } catch { /* petStore 未初始化，忽略 */ }
 
-      naiveMessage.success(`已绑定目录「${handle.name}」，数据同步完成`)
+      naiveMessage.success(`已绑定目录「${directoryName.value}」，数据同步完成`)
     } catch (e) {
       console.error('[settingsStore] 绑定目录失败:', e)
       // 回滚：不设置 isDirectoryMode，IndexedDB 数据保持不变
@@ -743,8 +749,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 1. 从目录读取全部数据
       const resumes = await adapter.getAllResumes()
-      const aiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
-      const metaJson = await readJsonFile<Record<string, string>>(handle, 'meta.json')
+      const aiConfigs = await dir.readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
+      const metaJson = await dir.readJsonFile<Record<string, string>>(handle, 'meta.json')
 
       // 2. 根据用户选择决定是否写回 IndexedDB
       updateProgress('正在写入 IndexedDB...', 30)
@@ -857,9 +863,9 @@ export const useSettingsStore = defineStore('settings', () => {
       } catch { /* petStore 未初始化，忽略 */ }
 
       if (copyToBrowser) {
-        naiveMessage.success('已解绑目录，数据已复制到浏览器存储')
+        naiveMessage.success('已解绑目录，数据已复制到应用内置存储')
       } else {
-        naiveMessage.success('已解绑目录，应用已切换到浏览器存储模式')
+        naiveMessage.success('已解绑目录，应用已切换到内置存储模式')
       }
     } catch (e) {
       console.error('[settingsStore] 解绑目录失败:', e)
@@ -875,7 +881,7 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!directoryHandle.value) return
 
     try {
-      const perm = await requestPermission(directoryHandle.value)
+      const perm = await dir.requestPermission(directoryHandle.value)
       permissionStatus.value = perm
 
       if (perm === 'granted') {
@@ -1199,9 +1205,9 @@ export const useSettingsStore = defineStore('settings', () => {
     }
 
     // 验证权限
-    const perm = await queryPermission(directoryHandle.value)
+    const perm = await dir.queryPermission(directoryHandle.value)
     if (perm !== 'granted') {
-      const newPerm = await requestPermission(directoryHandle.value)
+      const newPerm = await dir.requestPermission(directoryHandle.value)
       permissionStatus.value = newPerm
       if (newPerm !== 'granted') {
         naiveMessage.warning('需要目录读写权限才能重新同步')
@@ -1217,8 +1223,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 1. 从目录读取全部数据
       const resumes = await adapter.getAllResumes()
-      const aiConfigs = await readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
-      const metaJson = await readJsonFile<Record<string, string>>(handle, 'meta.json')
+      const aiConfigs = await dir.readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
+      const metaJson = await dir.readJsonFile<Record<string, string>>(handle, 'meta.json')
 
       updateProgress('正在写入 IndexedDB...', 30)
 

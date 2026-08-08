@@ -12,11 +12,18 @@ import type { AIServiceConfig } from '@/types/aiConfig'
 import type { ConsultSession } from '@/types/consult'
 import type { Interview } from '@/types/interview'
 import * as idb from './storage'
-import * as dir from './directoryStorage'
+import * as dirWeb from './directoryStorage'
+import * as dirElectron from './directoryStorageElectron'
+import { isElectron } from '@/utils/runtime'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { DEFAULT_PET_ID } from '@/config/desktopPets'
 import type { CustomDesktopPet } from '@/config/desktopPets'
 import { extractPhotos, injectPhotos, isPhotoRef, parsePhotoRef } from './photoFileRef'
+
+// ponytail: 运行时分发目录后端——isElectron 在进程内恒定，web 走 File System Access API，
+// 桌面走 IPC。两模块函数签名形态一一对应，handle 参数类型不同（web=DirectoryHandle, electron=string），
+// 故 dir 用 any 接收，调用处直接传 getHandle()。运行时安全，TS 不安全。
+const dir: typeof dirWeb = isElectron ? (dirElectron as unknown as typeof dirWeb) : dirWeb
 
 // ========== 工具函数 ==========
 
@@ -31,8 +38,12 @@ function isDirectoryMode(): boolean {
   }
 }
 
-/** 获取当前目录句柄（目录模式下保证非 null） */
-function getHandle(): FileSystemDirectoryHandle {
+/**
+ * 获取当前目录句柄（目录模式下保证非 null）。
+ * web 端返回 FileSystemDirectoryHandle，桌面端返回路径字符串；联合类型放宽。
+ * ponytail: 返回 any 让 dir 调用处免 cast——isElectron 恒定，handle 类型与 dir 实现运行时必匹配
+ */
+function getHandle(): any {
   const settings = useSettingsStore()
   const handle = settings.directoryHandle
   if (!handle) throw new Error('[storageAdapter] directoryHandle is null in directory mode')
@@ -736,7 +747,7 @@ export async function saveDesktopPet(pet: CustomDesktopPet): Promise<void> {
 export async function deleteDesktopPet(id: string): Promise<void> {
   if (isDirectoryMode()) {
     try {
-      const petsDir = await getHandle().getDirectoryHandle('desktop-pets')
+      const petsDir = await dir.ensureDir(getHandle(), 'desktop-pets')
       await dir.deleteFile(petsDir, `${id}.json`)
     } catch { /* 目录或文件不存在，忽略 */ }
   } else {
@@ -768,7 +779,7 @@ export async function saveTrashPet(pet: CustomDesktopPet): Promise<void> {
 export async function deleteTrashPet(id: string): Promise<void> {
   if (isDirectoryMode()) {
     try {
-      const trashDir = await getHandle().getDirectoryHandle('trash-pets')
+      const trashDir = await dir.ensureDir(getHandle(), 'trash-pets')
       await dir.deleteFile(trashDir, `${id}.json`)
     } catch { /* 目录或文件不存在，忽略 */ }
   } else {
@@ -779,16 +790,8 @@ export async function deleteTrashPet(id: string): Promise<void> {
 /** 清空桌宠回收站（emptyTrashPets 用） */
 export async function clearAllTrashPets(): Promise<void> {
   if (isDirectoryMode()) {
-    try {
-      const trashDir = await getHandle().getDirectoryHandle('trash-pets')
-      // ponytail: lib.dom 的 FileSystemDirectoryHandle 无 values() 类型，断言补上（与 directoryStorage.ts 一致）
-      const iterable = trashDir as unknown as { values(): AsyncIterableIterator<FileSystemHandle> }
-      for await (const entry of iterable.values()) {
-        if (entry.kind === 'file') {
-          try { await trashDir.removeEntry(entry.name) } catch { /* 忽略单个文件删除失败 */ }
-        }
-      }
-    } catch { /* 目录不存在，忽略 */ }
+    await dir.ensureDir(getHandle(), 'trash-pets')
+    await dir.clearDir(getHandle(), 'trash-pets')
   } else {
     await idb.clearTrashPetsStore()
   }

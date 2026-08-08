@@ -19,19 +19,13 @@
       </h3>
       <p class="settings-section__desc">
         绑定本地目录后，简历数据将以 JSON 文件形式存储在指定文件夹中，方便备份和版本管理。
-        未绑定时，数据默认存储在浏览器 IndexedDB 中。
+        未绑定时，数据默认存储在应用内置 IndexedDB 中。
       </p>
 
-      <!-- 桌面端（阶段 1 暂未实现目录模式） -->
-      <div v-if="isElectron" class="settings-section__unsupported">
-        <Icon icon="mdi:clock-outline" :width="16" />
-        <span>桌面端目录模式将在下个版本支持，当前使用本地数据库存储</span>
-      </div>
-
       <!-- 浏览器不支持 -->
-      <div v-else-if="!settingsStore.isSupported" class="settings-section__unsupported">
+      <div v-if="!settingsStore.isSupported" class="settings-section__unsupported">
         <Icon icon="mdi:alert-circle-outline" :width="16" />
-        <span>当前浏览器不支持本地目录功能，请使用 Chrome 或 Edge 浏览器</span>
+        <span>当前环境不支持本地目录功能，请使用桌面端或 Chrome / Edge 浏览器</span>
       </div>
 
       <!-- 未绑定 -->
@@ -45,7 +39,7 @@
           绑定目录
         </button>
         <p class="settings-section__hint">
-          点击后选择一个本地文件夹，数据将自动从浏览器同步到该目录
+          点击后选择一个本地文件夹，数据将自动从应用同步到该目录
         </p>
       </div>
 
@@ -75,7 +69,7 @@
           </button>
         </div>
         <p class="settings-section__hint">
-          点击「重新同步」将目录中的最新数据读取到应用中；解绑后数据将恢复到浏览器 IndexedDB 存储
+          点击「重新同步」将目录中的最新数据读取到应用中；解绑后数据将恢复到应用内置存储
         </p>
       </div>
 
@@ -95,7 +89,7 @@
           重新授权
         </button>
         <p class="settings-section__hint settings-section__hint--warn">
-          浏览器权限已过期，需要重新授权才能访问目录中的数据
+          目录访问权限已过期，需要重新授权才能访问目录中的数据
         </p>
       </div>
     </div>
@@ -363,7 +357,7 @@
         />
       </div>
       <p class="settings-section__desc settings-section__desc--hint">
-        Key 与安全密钥以明文存储于本地浏览器或本地目录，未加密。JS API 2.0 强制要求安全密钥，不配则地点搜索等服务无法使用。请使用个人 Key 并在高德控制台配置域名白名单。
+        Key 与安全密钥以明文存储于本机（应用内置存储或本地目录），未加密。JS API 2.0 强制要求安全密钥，不配则地点搜索等服务无法使用。请使用个人 Key 并在高德控制台配置域名白名单。
       </p>
     </div>
 
@@ -495,12 +489,12 @@
       preset="dialog"
       title="确认解绑目录"
       :auto-focus="false"
-      :content="`解绑后目录「${settingsStore.directoryName}」中的文件默认保留，应用将切换回浏览器存储。`"
+      :content="`解绑后目录「${settingsStore.directoryName}」中的文件默认保留，应用将切换回内置存储。`"
       @update:show="v => { if (!v) showUnbindConfirm = false }"
     >
       <div class="unbind-copy-option">
         <NCheckbox v-model:checked="copyToBrowser">
-          同时将目录数据复制到浏览器存储
+          同时将目录数据复制到应用内置存储
         </NCheckbox>
       </div>
       <template #action>
@@ -529,7 +523,6 @@ import { DESKTOP_PETS } from '@/config/desktopPets'
 import { parsePetFile, type ParsedPet } from '@/utils/petUpload'
 import { message as naiveMessage } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
-import { isElectron } from '@/utils/runtime'
 
 const settingsStore = useSettingsStore()
 const resumeStore = useResumeStore()
