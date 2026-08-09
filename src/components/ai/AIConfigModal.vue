@@ -30,7 +30,7 @@
               </template>
               <div class="hint-content">
                 <template v-if="!selectedProvider?.corsFriendly">
-                  <template v-if="useProxy && devProxyEndpoint">
+                  <template v-if="useWebDevProxy && devProxyEndpoint">
                     开发环境对官方 API 已自动使用代理地址，无需额外配置
                   </template>
                   <template v-else>
@@ -104,6 +104,26 @@
                 </p>
               </div>
             </n-popover>
+            <template v-if="isElectron">
+              <span class="endpoint-switch__divider" />
+              <n-switch v-model:value="formData.useProxy" size="small" />
+              <span class="endpoint-switch__label">代理转发</span>
+              <n-popover trigger="hover" placement="top" :width="280">
+                <template #trigger>
+                  <span class="hint-icon endpoint-switch__hint-icon">
+                    <Icon icon="mdi:information-outline" :width="14" />
+                  </span>
+                </template>
+                <div class="hint-content">
+                  <p>
+                    <strong>开</strong>：通过应用内置的本地代理转发请求，可解决中转站不支持 CORS（浏览器跨域拦截）的问题。仅支持 <strong>HTTPS 公网地址</strong>。
+                  </p>
+                  <p>
+                    <strong>关（默认）</strong>：浏览器直连你填的地址，中转站需自行配置 CORS 放行。
+                  </p>
+                </div>
+              </n-popover>
+            </template>
           </div>
         </template>
       </n-form-item>
@@ -140,8 +160,9 @@ const emit = defineEmits<{
 }>()
 
 const isDev = import.meta.env.MODE === 'development'
-// dev 走 Vite sseProxy，桌面走主进程内置代理，两者都需展示代理 endpoint 提示
-const useProxy = isDev || isElectron
+// web dev 走 Vite sseProxy（固定 provider 路由），桌面端走主进程动态代理（endpoint 填真实地址，代理改写在 aiService）。
+// 仅 web dev 需要把 endpoint 填成 Vite 代理路径并展示代理 endpoint 提示。
+const useWebDevProxy = isDev && !isElectron
 const isEdit = computed(() => !!props.config)
 // ponytail: 保存按钮 spin，覆盖表单校验期间，防连点；emit 后父立即关弹窗销毁本组件
 const saving = ref(false)
@@ -155,6 +176,7 @@ const formData = ref({
   apiKey: '',
   endpoint: '',
   endpointComplete: false,
+  useProxy: false,
 })
 
 const providerOptions = AI_PROVIDERS.map(p => ({
@@ -165,15 +187,15 @@ const providerOptions = AI_PROVIDERS.map(p => ({
 const selectedProvider = computed(() => getProviderInfo(formData.value.provider))
 
 const devProxyEndpoint = computed(() => {
-  if (!useProxy || !selectedProvider.value) return ''
+  if (!useWebDevProxy || !selectedProvider.value) return ''
   return getDevProxyEndpoint(formData.value.provider, selectedProvider.value.defaultEndpoint)
 })
 
 // 共用校验逻辑：返回错误消息字符串，无错误返回空串
 function validateEndpoint(value: string): string {
   if (!value) return ''
-  // 代理模式下允许 /api/ 开头的代理路径（dev 相对路径）
-  if (useProxy && value.startsWith('/api/')) return ''
+  // web dev 代理模式下允许 /api/ 开头的代理路径（Vite 相对路径）
+  if (useWebDevProxy && value.startsWith('/api/')) return ''
   // 纯客户端请求，用户自管 API，仅做基本 URL 格式校验，不强制 https
   try {
     new URL(value)
@@ -214,6 +236,7 @@ watch(() => props.visible, (val) => {
         apiKey: props.config.apiKey,
         endpoint: props.config.endpoint,
         endpointComplete: props.config.endpointComplete ?? false,
+        useProxy: props.config.useProxy ?? false,
       }
     } else {
       // 新增模式：使用 DeepSeek 作为默认
@@ -223,8 +246,11 @@ watch(() => props.visible, (val) => {
         provider: defaultProvider.id,
         modelId: defaultProvider.defaultModel,
         apiKey: '',
-        endpoint: defaultProvider.defaultEndpoint,
+        endpoint: useWebDevProxy
+          ? getDevProxyEndpoint(defaultProvider.id, defaultProvider.defaultEndpoint)
+          : defaultProvider.defaultEndpoint,
         endpointComplete: false,
+        useProxy: false,
       }
     }
   }
@@ -234,8 +260,8 @@ const onProviderChange = (providerId: AIProvider) => {
   const info = getProviderInfo(providerId)
   if (info) {
     formData.value.modelId = info.defaultModel
-    // 代理模式下自动使用代理地址（dev 走 Vite，桌面走主进程内置代理）
-    formData.value.endpoint = useProxy
+    // web dev 填 Vite 代理路径；桌面端/生产 web 填服务商真实地址（桌面端代理改写在 aiService，按 useProxy 开关）
+    formData.value.endpoint = useWebDevProxy
       ? getDevProxyEndpoint(providerId, info.defaultEndpoint)
       : info.defaultEndpoint
     // 切换服务商填的是需系统补全的基础路径，与「完整 URL」模式互斥
@@ -329,6 +355,13 @@ const handleSave = async () => {
     font-weight: 500;
     color: $text-primary;
     white-space: nowrap;
+  }
+
+  &__divider {
+    width: 1px;
+    height: 14px;
+    margin: 0 4px;
+    background: $border-color;
   }
 }
 </style>

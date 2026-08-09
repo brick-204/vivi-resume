@@ -31,6 +31,13 @@ export interface AIServiceConfig {
    * true = 完全信任用户输入，原样使用，不做任何补全
    */
   endpointComplete?: boolean
+  /**
+   * 是否通过主进程动态代理转发请求（仅桌面端生效）。
+   * true = 该配置的请求改写到 http://127.0.0.1:port/api/ai/dynamic/{id}/... 由主进程代发，
+   *        解决中转站不支持 CORS 的问题。仅支持 HTTPS 公网地址。
+   * false（默认）= 渲染端直连 endpoint。
+   */
+  useProxy?: boolean
   createdAt: string
   updatedAt: string
   /** 软删除时间戳（进回收站时打上，恢复时移除；与 Resume.deletedAt/Interview.deletedAt 同义） */

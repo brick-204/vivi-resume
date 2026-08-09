@@ -8,6 +8,7 @@ import { setupRainyNightEasterEggShortcut } from '@/services/rainyNightEffect'
 import { setupSnowEasterEggShortcut } from '@/services/snowEffect'
 import { setupOfferEasterEggShortcut } from '@/services/offerEffect'
 import { setupEnvelopeEasterEggShortcut } from '@/services/envelopeEffect'
+import { isElectron } from '@/utils/runtime'
 // ponytail: 纯副作用 import——模块顶层注册内置彩蛋（雨夜/下雪/offer），不导出任何东西
 import '@/services/builtinEasterEggs'
 
@@ -27,9 +28,10 @@ setupOfferEasterEggShortcut()
 // 信封 offer 彩蛋快捷键（H→I→R→E）：开发和生产环境均默认开启（env 可覆盖）
 setupEnvelopeEasterEggShortcut()
 
-// Cloudflare Web Analytics：仅生产模式加载，token 从 .env 读取（不进版本库）
+// Cloudflare Web Analytics：仅 web 生产模式加载（桌面端打包也是 production，但不该注入统计脚本，
+// 会被 CSP 拦报错）。token 从 .env 读取（不进版本库）。
 const cfToken = import.meta.env.VITE_CF_TOKEN
-if (import.meta.env.MODE === 'production' && cfToken) {
+if (import.meta.env.MODE === 'production' && cfToken && !isElectron) {
   const s = document.createElement('script')
   s.defer = true
   s.src = 'https://static.cloudflareinsights.com/beacon.min.js'

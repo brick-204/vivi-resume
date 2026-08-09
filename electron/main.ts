@@ -7,7 +7,7 @@ import { app, BrowserWindow, protocol, net, Menu, session, shell, ipcMain, dialo
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { pathToFileURL } from 'node:url'
-import { startAiProxy } from './aiProxy'
+import { startAiProxy, registerProxy, unregisterProxy, clearProxies } from './aiProxy'
 import type {
   EnsureDirArgs,
   ListJsonArgs,
@@ -316,6 +316,13 @@ if (!gotLock) {
   })
 }
 
+// 把 app:// 声明为特权协议：standard（有标准 origin，localStorage/IndexedDB 可用）、
+// secure（https 等价，storage API 不被拒）、supportFetchAPI（fetch 可用）、corsEnabled。
+// 必须在 app.whenReady 之前调用，否则不生效——这是 app:// 下 localStorage Access is denied 的根因。
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
+])
+
 app.whenReady().then(async () => {
   // 去掉默认菜单栏：默认菜单含 View→Reload/Force Reload，会重载页面丢未保存的编辑数据。
   // 桌面应用按需自定义菜单，不用 Electron 默认那一套。
@@ -341,10 +348,14 @@ app.whenReady().then(async () => {
       }
       const csp = [
         "default-src 'self' app:",
-        "script-src 'self' https://*.amap.com",
-        "style-src 'self' 'unsafe-inline'",
+        // app: 必补——'self' 对 app:// 脚本/样式的判定不稳，会拦掉 ./assets/* 导致加载失败。
+        // unsafe-eval：高德 JS SDK 2.0 内部用 eval 动态执行插件代码，必须放行（web 端同理）。
+        "script-src 'self' app: 'unsafe-eval' https://*.amap.com",
+        "style-src 'self' 'unsafe-inline' app:",
         "img-src 'self' app: data: blob: https:",
         "font-src 'self' app: data:",
+        // worker-src blob:：高德地图用 blob worker 渲染，未设则 fallback 到 script-src 拦截
+        "worker-src 'self' blob:",
         "connect-src 'self' http://127.0.0.1:* https:",
         "frame-ancestors 'none'",
       ].join('; ')
@@ -367,16 +378,43 @@ app.whenReady().then(async () => {
     console.error('[main] startAiProxy failed, AI proxy unavailable:', e)
   }
 
-  await createWindow(proxyBase)
+  // proxyBase 通过同步 IPC 暴露给 preload（sendSync）。用同步而非 invoke：
+  // preload 需在 contextBridge 暴露静态 aiProxyBase（渲染层 aiService 同步读取），
+  // invoke 是异步的拿不到静态值；sendSync 同步返回，preload 可直接赋值。
+  // 不走 URL query 是因 app:// 自定义协议下 query 会破坏相对路径解析。
+  ipcMain.on('get-proxy-base', (e) => { e.returnValue = proxyBase })
+
+  // 动态代理路由注册：渲染进程把 useProxy=true 的 AI 配置报给主进程，主进程校验 endpoint 后加入路由表。
+  // 校验失败（非 HTTPS / 内网地址）返回 {ok:false, error} 供渲染端提示用户。
+  // target 由主进程校验掌控，渲染端无法让代理请求任意地址（防 SSRF）。
+  ipcMain.handle('ai:registerProxy', async (_e, args: { id: string; endpoint: string }) => {
+    try {
+      registerProxy(args.id, args.endpoint)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : '注册失败' }
+    }
+  })
+  ipcMain.handle('ai:unregisterProxy', async (_e, id: string) => {
+    unregisterProxy(id)
+    return { ok: true }
+  })
+  // 清空全部动态路由（目录模式切换 reloadFromStorage 前全量重同步用）
+  ipcMain.handle('ai:clearProxies', async () => {
+    clearProxies()
+    return { ok: true }
+  })
+
+  await createWindow()
 }).catch((e) => {
   console.error('[main] startup failed:', e)
 })
 
 /**
- * 创建主窗口。proxyBase 通过 URL query 注入 preload（sandbox 下 preload 无 process.env，
- * 改走 location.search 解析）。app 级配置（协议/CSP/IPC）不在此函数内。
+ * 创建主窗口。proxyBase 由 preload 通过 IPC（get-proxy-base）向主进程取，不经 URL query。
+ * app 级配置（协议/CSP/IPC）不在此函数内。
  */
-async function createWindow(proxyBase: string): Promise<BrowserWindow> {
+async function createWindow(): Promise<BrowserWindow> {
   const win = new BrowserWindow({
     title: 'Vivi Resume',
     width: 1280,
@@ -415,21 +453,21 @@ async function createWindow(proxyBase: string): Promise<BrowserWindow> {
   })
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL
-  // proxyBase 拼 URL query 注入 preload（sandbox 下 preload 无 process.env，从 location.search 解析）。
-  // dev 下 aiService 走 Vite sseProxy 相对路径不读此值，但统一拼接消除分支差异。
-  const query = proxyBase ? `?proxyBase=${encodeURIComponent(proxyBase)}` : ''
+  // proxyBase 不再拼 URL query——app:// 自定义协议下 query 会破坏相对路径解析，
+  // 导致 ./assets/*.js 解析成 app://index.html?query/assets/*.js 加载失败。
+  // 改由 preload 通过 IPC（get-proxy-base）向主进程取。
   if (devServerUrl) {
-    await win.loadURL(devServerUrl + query).catch((e) => console.error('[main] load dev URL failed:', e))
+    await win.loadURL(devServerUrl).catch((e) => console.error('[main] load dev URL failed:', e))
   } else {
-    await win.loadURL(`app://index.html${query}`).catch((e) => {
+    await win.loadURL('app://index.html').catch((e) => {
       console.error('[main] load app:// failed:', e)
       win.loadURL('data:text/html;charset=utf-8,<h1>加载失败</h1><p>请重新安装应用</p>')
     })
   }
 
-  // F12 开关 DevTools，仅 dev 生效（默认菜单已删，accelerator 跟着没了，dev 手动补）。
+  // F12 开关 DevTools。默认菜单已删（accelerator 跟着没了），手动补。
   // ponytail: 用 before-input-event 页面级拦截而非 globalShortcut——只 app 聚焦时生效，
-  //           不抢占系统快捷键、不与其他程序 F12 冲突；prod 不带
+  //           不抢占系统快捷键、不与其他程序 F12 冲突。仅 dev 生效。
   if (devServerUrl) {
     win.webContents.on('before-input-event', (e, input) => {
       if (input.key === 'F12') {
@@ -445,9 +483,9 @@ async function createWindow(proxyBase: string): Promise<BrowserWindow> {
 // 无此 handler 则关窗后 app 残留无界面，只能强杀进程。
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    // 重建时 proxyBase 已随上次 startAiProxy 启动的代理进程仍在（单例代理不随窗口销毁）；
+    // 重建时 proxyBase 由 preload 经 IPC 自取（get-proxy-base handler 仍注册着，返回上次启动的值）；
     // 若代理进程已退出则 aiService 会降级，这里不再重启代理（重建窗口是低频路径，保持简单）。
-    createWindow('')
+    createWindow()
   }
 })
 

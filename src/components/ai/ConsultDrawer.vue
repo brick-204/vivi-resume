@@ -770,10 +770,14 @@ const attachedResumeLabels = (msg: ConsultMessage): string => {
 };
 
 // ========== 自动滚动到底部 ==========
+// ponytail: nextTick 后再补一帧 rAF，等抽屉过渡动画把容器高度撑开，
+// 否则打开瞬间 scrollHeight 还是 0，scrollTop=scrollHeight 落空
 const scrollToBottom = () => {
   nextTick(() => {
-    const el = messagesRef.value;
-    if (el) el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      const el = messagesRef.value;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
   });
 };
 
@@ -884,6 +888,8 @@ watch(
     if (v && openTabs.value.length === 0 && !isStreaming.value) {
       createSession();
     }
+    // 打开抽屉时滚到最新消息（常驻态 FAB 展开同样经此分支）
+    if (v) scrollToBottom();
   },
 );
 </script>

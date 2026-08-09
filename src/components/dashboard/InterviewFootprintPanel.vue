@@ -609,9 +609,9 @@ async function plotMarkers(backfill = true) {
 /** marker 自定义 DOM 图标 */
 function markerContent(color: string, isPoi: boolean): string {
   // ponytail: marker content 由高德注入外部 DOM，scoped 样式作用不到，故全用 inline style + 全局 keyframes（amap-marker-pulse）
-  // isPoi=true（POI 搜索定位）绿描边表示准确；false（geocode 兜底）白描边表示近似
-  const borderColor = isPoi ? '#67c23a' : '#fff'
-  return `<div class="amap-footprint-pin" style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};transform:rotate(-45deg);border:3px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,.45);animation:amap-marker-pulse 2s ease-out infinite;"></div>`
+  // 无描边；来源准确度（POI/地址解析）改由 InfoWindow 文字标注区分
+  void isPoi
+  return `<div class="amap-footprint-pin" style="width:28px;height:28px;border-radius:50% 50% 50% 0;background:${color};transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,.45);animation:amap-marker-pulse 2s ease-out infinite;"></div>`
 }
 
 /** InfoWindow 摘要 HTML */

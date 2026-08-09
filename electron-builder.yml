@@ -5,6 +5,10 @@ directories:
 files:
   - dist/**/*
   - dist-electron/**/*
+  - package.json
+  # 主进程/preload 只用 node: 内置模块，无第三方依赖；前端依赖已由 vite 打进 dist/assets。
+  # 排除 node_modules 避免 asar 虚胖（233MB→几 MB）
+  - '!**/node_modules/**'
 win:
   target: nsis
   icon: public/favicon.ico

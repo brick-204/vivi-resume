@@ -8,13 +8,16 @@ import { buildMessages, type FullAIOperation } from '@/services/aiPrompts'
 import { announceToScreenReader } from '@/composables/useAriaLive'
 import { isElectron } from '@/utils/runtime'
 
-// ========== 开发代理支持 ==========
+// ========== 代理支持 ==========
 
 /** 是否为开发环境（按 mode 判断，与 main.ts 的生产判断同基准） */
 const isDev = import.meta.env.MODE === 'development'
 
-/** 是否需要走代理：dev 模式走 Vite sseProxy，桌面模式走主进程内置代理 */
-const useProxy = isDev || isElectron
+/**
+ * 是否走 web dev 的 Vite sseProxy（仅浏览器开发环境）。
+ * 桌面端（dev+prod 统一）走主进程动态代理，不走 Vite。
+ */
+const useWebDevProxy = isDev && !isElectron
 
 /**
  * extraBody 安全透传：原样返回，dev 模式下若检测到覆盖核心字段（model/messages/stream 等）则 warn。
@@ -35,18 +38,38 @@ function __extraBodySafe(extra: Record<string, unknown> | undefined): Record<str
  * 获取请求 URL
  * - endpointComplete=true：完全信任用户输入，原样返回，不做任何补全
  * - 否则：确保 endpoint 以 /v1（或 /v4 智谱）结尾，再拼接 /chat/completions
+ *
+ * 桌面端动态代理：若 config.useProxy=true，把算出的完整 URL 的 origin 替换为主进程代理前缀，
+ * path+query 原样保留挂到 /api/ai/dynamic/{id} 之后。代理只换 origin，path 语义不变。
  */
 export function _getRequestUrl(config: AIServiceConfig): string {
+  let fullUrl: string
   if (config.endpointComplete) {
-    return config.endpoint
+    fullUrl = config.endpoint
+  } else {
+    let base = config.endpoint.replace(/\/+$/, '')
+    // 仅当路径不以 /v1 或 /v4 结尾时自动补充 /v1
+    // 精确匹配路径末尾，避免误判 URL 中间含 /v1/ 的情况
+    if (!/\/v[14]\/?$/.test(base)) {
+      base += '/v1'
+    }
+    fullUrl = `${base}/chat/completions`
   }
-  let base = config.endpoint.replace(/\/+$/, '')
-  // 仅当路径不以 /v1 或 /v4 结尾时自动补充 /v1
-  // 精确匹配路径末尾，避免误判 URL 中间含 /v1/ 的情况
-  if (!/\/v[14]\/?$/.test(base)) {
-    base += '/v1'
+
+  // 桌面端动态代理改写：origin → 代理前缀 + /api/ai/dynamic/{id}，path+query 保留
+  if (isElectron && config.useProxy) {
+    const base = (window as { electronAPI?: { aiProxyBase?: string } }).electronAPI?.aiProxyBase
+    if (base) {
+      let pathQuery = fullUrl
+      try {
+        const u = new URL(fullUrl)
+        pathQuery = u.pathname + u.search
+      } catch { /* 非 URL 形态，原样作为 path */ }
+      return `${base}/api/ai/dynamic/${config.id}${pathQuery}`
+    }
+    // proxyBase 缺失（代理启动失败）：降级直连，让请求自然失败暴露问题
   }
-  return `${base}/chat/completions`
+  return fullUrl
 }
 
 // ========== 错误类型 ==========
@@ -509,13 +532,12 @@ export async function performAIOperation(
 }
 
 /**
- * 开发代理辅助：为不支持 CORS 的服务商生成代理 endpoint
- * - dev 模式：返回 /api/ai/{provider} 相对路径，走 Vite sseProxy
- * - 桌面模式：返回主进程内置代理的完整地址 http://127.0.0.1:port/api/ai/{provider}
- * - 生产 web：原样返回
+ * web dev 代理辅助：为不支持 CORS 的服务商生成 Vite sseProxy endpoint。
+ * 仅浏览器开发环境使用（useWebDevProxy）。桌面端走主进程动态代理（_getRequestUrl 内改写），不调用本函数。
+ * 生产 web：原样返回（无代理后端，直连）。
  */
 export function getDevProxyEndpoint(provider: string, originalEndpoint: string): string {
-  if (!useProxy) return originalEndpoint
+  if (!useWebDevProxy) return originalEndpoint
   // CORS 友好的服务商无需代理
   const proxyMap: Record<string, string> = {
     openai: '/api/ai/openai/v1',
@@ -527,12 +549,5 @@ export function getDevProxyEndpoint(provider: string, originalEndpoint: string):
   }
   const relative = proxyMap[provider]
   if (!relative) return originalEndpoint
-  // dev 模式：相对路径走 Vite dev server 的 sseProxy（dev 下即便在 Electron 里也走 Vite）
-  if (isDev) return relative
-  // 桌面模式：前缀主进程代理 base（preload 注入）；base 缺失回落相对路径（代理不可用时降级）
-  if (isElectron) {
-    const base = (window as { electronAPI?: { aiProxyBase?: string } }).electronAPI?.aiProxyBase
-    return base ? `${base}${relative}` : relative
-  }
   return relative
 }

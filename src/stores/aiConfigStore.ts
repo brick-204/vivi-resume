@@ -25,6 +25,29 @@ import {
   getTrashRetentionDays,
 } from '@/utils/storageAdapter'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+import { isElectron } from '@/utils/runtime'
+
+/**
+ * 桌面端动态代理同步：把单个 useProxy=true 的配置注册到主进程。
+ * useProxy=false 或非桌面端：注销（确保关闭代理后路由不残留）。
+ * 校验失败（非 HTTPS/内网）弹提示，不阻断保存——用户改地址后重存即可重新注册。
+ */
+async function syncProxyForConfig(config: AIServiceConfig): Promise<void> {
+  if (!isElectron) return
+  const api = (window as { electronAPI?: { ai?: { registerProxy: (a: { id: string; endpoint: string }) => Promise<{ ok: boolean; error?: string }>; unregisterProxy: (id: string) => Promise<unknown> } } }).electronAPI?.ai
+  if (!api) return
+  if (config.useProxy) {
+    const res = await api.registerProxy({ id: config.id, endpoint: config.endpoint })
+    if (!res.ok) {
+      // 校验失败：主进程未写入新路由，但可能残留旧路由（endpoint 从合法改成非法时）。
+      // 主动注销，避免"提示无效却仍在用旧地址转发"的不一致。
+      await api.unregisterProxy(config.id)
+      naiveMessage.warning(`「${config.name}」代理地址无效：${res.error ?? '仅支持 HTTPS 公网地址'}，已关闭代理转发`)
+    }
+  } else {
+    await api.unregisterProxy(config.id)
+  }
+}
 
 // ponytail: 用量按「配置 × 日期 × 功能」分桶存储，能算今日/总计/按功能拆分/平均响应时间
 export type UsageFeature = 'consult' | 'resume' | 'interview' | 'pet'
@@ -272,6 +295,13 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
       _readyResolve()
     }
 
+    // 桌面端：把已持久化的 useProxy=true 配置重新注册到主进程动态路由表
+    if (isElectron) {
+      for (const c of configs.value) {
+        if (c.useProxy) void syncProxyForConfig(c)
+      }
+    }
+
     // 加载历史用量（跟随缓存策略：目录模式走 meta.json，否则 IndexedDB）
     try {
       const saved = await getAIUsage<unknown>()
@@ -319,6 +349,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     }
     // ponytail: 先入内存让 UI 立即响应，持久化后台执行（与 deleteConfig 一致，避免 IDB/文件写入阻塞弹窗）
     configs.value.push(config)
+    // 桌面端：注册动态代理路由（useProxy=true 时）
+    void syncProxyForConfig(config)
 
     const persist = async () => {
       await saveAIConfig(config)
@@ -348,6 +380,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     }
     // ponytail: 先更新内存让 UI 立即响应，持久化后台执行
     configs.value[index] = updated
+    // 桌面端：useProxy/endpoint 变更后重新同步代理路由（注册或注销）
+    void syncProxyForConfig(updated)
 
     const persist = async () => {
       await saveAIConfig(updated)
@@ -375,6 +409,10 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     // ponytail: 先改内存让 UI 立即响应（popconfirm/dialog 立即关闭），落盘后台执行
     configs.value = configs.value.filter(c => c.id !== id)
     trash.value = [...trash.value, deleted]
+    // 桌面端：注销动态代理路由
+    if (isElectron) {
+      void (window as { electronAPI?: { ai?: { unregisterProxy: (id: string) => Promise<unknown> } } }).electronAPI?.ai?.unregisterProxy(id)
+    }
 
     const persist = async () => {
       await Promise.all([
@@ -413,6 +451,11 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     // ponytail: 先改内存让 UI 立即响应，落盘后台执行
     configs.value = configs.value.filter(c => !idSet.has(c.id))
     trash.value = [...trash.value, ...deleted]
+    // 桌面端：批量注销动态代理路由
+    if (isElectron) {
+      const api = (window as { electronAPI?: { ai?: { unregisterProxy: (id: string) => Promise<unknown> } } }).electronAPI?.ai
+      if (api) for (const id of ids) void api.unregisterProxy(id)
+    }
 
     const persist = async () => {
       await Promise.all([
@@ -442,6 +485,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     // ponytail: 先改内存让 UI 立即响应，落盘后台执行（避免 dialog onPositiveClick 等落盘卡住）
     trash.value = trash.value.filter(c => c.id !== id)
     configs.value = [...configs.value, restored]
+    // 桌面端：恢复的配置若 useProxy=true 重新注册代理路由
+    void syncProxyForConfig(restored)
     trackPending(Promise.all([
       saveAIConfig(restored),
       saveAIConfigTrash(trash.value),
@@ -506,6 +551,8 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
     }
     // 先入内存让 UI 立即响应，持久化后台执行（与 deleteConfig 一致，避免文件系统/IDB 写入阻塞）
     configs.value.push(duplicated)
+    // 桌面端：复制的配置若 useProxy=true 用新 id 注册代理路由
+    void syncProxyForConfig(duplicated)
 
     const persist = async () => {
       await saveAIConfig(duplicated)
@@ -838,6 +885,17 @@ export const useAIConfigStore = defineStore('aiConfig', () => {
         }
       } catch {
         // 用量加载失败不影响主流程
+      }
+      // 桌面端：目录切换后配置集合可能变化，先清空主进程路由再按新 configs 全量重注册。
+      // await 全部注册完成再放开，避免目录切换后立即发 AI 请求撞上路由未就绪的 404 窗口。
+      if (isElectron) {
+        const api = (window as { electronAPI?: { ai?: { clearProxies: () => Promise<unknown> } } }).electronAPI?.ai
+        if (api) {
+          await api.clearProxies()
+          await Promise.all(
+            configs.value.filter(c => c.useProxy).map(c => syncProxyForConfig(c)),
+          )
+        }
       }
     } catch (e) {
       console.error('[aiConfigStore] reloadFromStorage 失败:', e)

@@ -7,7 +7,12 @@ release/
 src/generated/
 
 # 测试文件
-test_*.py
+# test/ 下为手动自检/临时验证脚本（如动态代理自检），不入版本库
+# 根目录扁平 test-*.py / test_*.ts 同为手动自检脚本，一并忽略
+# src/**/*.test.ts 是 vitest 正式单测，仍入版本库
+test/
+test-*.py
+test_*.ts
 test_screenshots/
 
 .claude/
