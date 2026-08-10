@@ -465,6 +465,13 @@ async function createWindow(): Promise<BrowserWindow> {
     })
   }
 
+  // 桌面端隐藏所有滚动条（保留滚动能力）。web 端不跑 main.ts，滚动条照常显示。
+  // 用 webContents.insertCSS 而非 preload 操作 DOM——sandbox 模式下 preload 访问 documentElement 不可靠。
+  // !important 盖过各组件 @include scrollbar 的 width 规则。
+  win.webContents.insertCSS(
+    '::-webkit-scrollbar { display: none !important; }'
+  ).catch((e) => console.warn('[main] insertCSS failed:', e))
+
   // F12 开关 DevTools。默认菜单已删（accelerator 跟着没了），手动补。
   // ponytail: 用 before-input-event 页面级拦截而非 globalShortcut——只 app 聚焦时生效，
   //           不抢占系统快捷键、不与其他程序 F12 冲突。仅 dev 生效。
