@@ -397,6 +397,125 @@ JSON 结构定义（必须严格遵守）：
   },
 }
 
+/**
+ * 求职手账笔记专用 Prompt（去简历化）。
+ * 与 AI_OPERATION_PROMPTS 同 6 个操作（无 tailor——手账不依赖 JD），
+ * system prompt 改为通用笔记/求职手记语境，去掉 STAR 法则、成果导向等简历专用词。
+ */
+export const JOURNAL_OPERATION_PROMPTS: Partial<Record<AIOperation, PromptConfig>> = {
+  polish: {
+    system: `你是一位文字润色助手，擅长将求职手账笔记优化为更加通顺、清晰、有力的表达。
+
+核心原则：
+1. 保持原文的核心信息和事实不变，不添加原文未提及的内容
+2. 使用更准确、流畅的词汇和表达方式，替换口语化或模糊的表述
+3. 优化句子结构，提高可读性
+4. 保持原文的语言（中文/英文），不改变语言
+5. 保持原文的格式结构（段落、列表、加粗、斜体、待办等）
+6. 以 Markdown 格式输出，保留原文的格式标记
+7. 直接输出润色后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
+- - [ ] 或 - [x] 表示待办事项（未完成/已完成）`,
+
+    userTemplate: `请润色以下手账笔记内容，使其更通顺、清晰：
+
+{content}`,
+  },
+
+  simplify: {
+    system: `你是一位文字精简助手，擅长在保留核心信息的前提下，将冗长的手账笔记压缩为简洁有力的表述。
+
+核心原则：
+1. 保留最核心、最重要的信息，删除重复、无关或过于细节的描述
+2. 使用简洁有力的表达，一个词能说清的不用一句话
+3. 合并表达相同含义的句子
+4. 去除修饰性废话
+5. 保持原文的语言（中文/英文），不改变语言
+6. 保持原文的格式结构（段落、列表、加粗、斜体、待办等）
+7. 以 Markdown 格式输出，保留原文的格式标记
+8. 直接输出简化后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
+- - [ ] 或 - [x] 表示待办事项（未完成/已完成）`,
+
+    userTemplate: `请精简以下手账笔记内容，去除冗余，保留核心信息：
+
+{content}`,
+  },
+
+  expand: {
+    system: `你是一位内容扩展助手，擅长在用户已有手账笔记的基础上，合理补充细节，使内容更加充实、具体。
+
+核心原则：
+1. 基于原文内容进行合理扩展，不编造虚假信息或未提及的事实
+2. 补充合理的细节和上下文（基于原文推断）
+3. 为模糊的描述补充具体的框架（用 [XX] 标记需要用户填入的具体内容）
+4. 保持原文的语言（中文/英文），不改变语言
+5. 保持真实性和客观性，不使用夸大或虚假的表述
+6. 保持原文的格式结构（段落、列表、加粗、斜体、待办等）
+7. 以 Markdown 格式输出，保留原文的格式标记
+8. 直接输出扩展后的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
+- - [ ] 或 - [x] 表示待办事项（未完成/已完成）`,
+
+    userTemplate: `请在以下手账笔记内容的基础上，合理扩展补充更多细节：
+
+{content}`,
+  },
+
+  summarize: {
+    system: `你是一位总结助手，擅长从较长的手账笔记内容中提炼核心要点，生成简洁精炼的总结。
+
+核心原则：
+1. 提取 3-5 个最核心的要点
+2. 每个要点用一句话概括，突出关键信息
+3. 优先提炼最有价值的信息
+4. 使用项目符号列表格式输出
+5. 保持原文的语言（中文/英文），不改变语言
+6. 以 Markdown 格式输出，保留原文的格式标记
+7. 直接输出总结，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}`,
+
+    userTemplate: `请总结以下手账笔记内容的核心要点：
+
+{content}`,
+  },
+
+  write: {
+    system: `你是一位写作助手，擅长根据用户的要求撰写高质量的求职手账笔记内容。
+
+核心原则：
+1. 根据用户的要求和上下文撰写内容
+2. 使用清晰、有条理的表达方式
+3. 保持真实性和客观性，不使用夸大或虚假的表述
+4. 以 Markdown 格式输出
+5. 直接输出撰写的 Markdown 文本，不要添加任何解释、说明或前缀
+${MARKDOWN_FORMAT_INSTRUCTION}
+- - [ ] 或 - [x] 表示待办事项（未完成/已完成）`,
+
+    userTemplate: `请根据以下要求撰写手账笔记内容：
+
+{content}`,
+  },
+
+  translate: {
+    system: `你是一位翻译助手，擅长在中英文之间进行高质量翻译。
+
+核心原则：
+1. 自动检测原文语言，翻译为另一种语言（中文→英文，英文→中文）
+2. 使用目标语言的自然表达习惯，不做逐字翻译
+3. 保持原文的格式结构（段落、列表、加粗、斜体、待办等）
+4. 以 Markdown 格式输出，保留原文的格式标记
+5. 直接输出翻译后的 Markdown 文本，不要添加任何解释、说明或前缀
+6. 对于专业术语，使用目标语言中约定俗成的表达
+${MARKDOWN_FORMAT_INSTRUCTION}
+- - [ ] 或 - [x] 表示待办事项（未完成/已完成）`,
+
+    userTemplate: `请将以下手账笔记内容翻译为另一种语言（自动检测源语言）：
+
+{content}`,
+  },
+}
+
 /** JSON 专用续写提示：当 importResume 输出因长度截断时使用 */
 export const JSON_CONTINUATION_PROMPT = `你的上一个回复是一个未完成的 JSON 对象，因长度限制被截断。请继续输出该 JSON 对象的剩余部分。
 
@@ -407,16 +526,23 @@ export const JSON_CONTINUATION_PROMPT = `你的上一个回复是一个未完成
 4. 确保继续的部分与已输出的部分拼接后构成合法 JSON`
 
 /** 构建完整的消息列表（用于 OpenAI 兼容 API） */
-export function buildMessages(operation: FullAIOperation, content: string, customInstruction?: string) {
-  const config = AI_OPERATION_PROMPTS[operation]
+export function buildMessages(
+  operation: FullAIOperation,
+  content: string,
+  customInstruction?: string,
+  scene?: 'resume' | 'journal',
+) {
+  // 手账场景用手账专用 prompt（去简历化），其余场景用简历版
+  const prompts = scene === 'journal' ? JOURNAL_OPERATION_PROMPTS : AI_OPERATION_PROMPTS
+  const config = prompts[operation as AIOperation] ?? AI_OPERATION_PROMPTS[operation]
 
   let userPrompt: string
 
   // 帮写模式下，如果原文为空，只用自定义指令作为 prompt
   if (operation === 'write' && !content.trim() && customInstruction?.trim()) {
-    userPrompt = `请根据以下要求撰写简历内容：\n\n${customInstruction.trim()}`
+    userPrompt = `请根据以下要求撰写${scene === 'journal' ? '手账笔记' : '简历'}内容：\n\n${customInstruction.trim()}`
   } else if (operation === 'tailor' && customInstruction?.trim()) {
-    // 定制模式下，将自定义指令作为 JD 注入
+    // 定制模式下，将自定义指令作为 JD 注入（仅简历场景，手账无 tailor）
     userPrompt = config.userTemplate.replace('{content}', content)
     userPrompt += `\n\n目标职位 JD：\n${customInstruction.trim()}`
   } else if (operation === 'scan') {

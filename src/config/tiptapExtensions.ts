@@ -11,6 +11,8 @@ import Link from '@tiptap/extension-link'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 
 /**
  * 核心 Tiptap 扩展列表（不含 Placeholder 等仅 UI 相关的扩展）
@@ -37,4 +39,6 @@ export const CORE_TIPTAP_EXTENSIONS = [
   TextStyle,
   Color,
   Highlight.configure({ multicolor: true }),
+  TaskList,
+  TaskItem.configure({ nested: true }),
 ]

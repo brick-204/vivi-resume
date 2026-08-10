@@ -89,6 +89,8 @@ export interface Interview {
   lastJdScan?: InterviewJdScanResult
   // AI 择业推荐反查标记：该面试曾被 AI 择业推荐为最优选择（清旧加新，任意时刻最多一场为 true）
   careerChoiceRecommended?: boolean
+  // 是否永久展示在面试足迹（true=无视 N 个月屏蔽规则，始终显示；默认 false，旧数据无此字段视为 false）
+  footprintAlwaysShow?: boolean
   // 软删除标记：移入回收站时写入，恢复时置 undefined（与 Resume.deletedAt 同名同义）
   deletedAt?: string
   createdAt: string
@@ -150,6 +152,7 @@ export function createEmptyInterview(): Interview {
     interviewLocation: '',
     benefits: '',
     rounds: [],
+    footprintAlwaysShow: false,
     createdAt: now,
     updatedAt: now,
   }

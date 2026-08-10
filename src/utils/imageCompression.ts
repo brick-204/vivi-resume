@@ -30,31 +30,33 @@ function loadImageElement(src: string): Promise<HTMLImageElement> {
 }
 
 /**
- * 对上传的原始图片做压缩（用于 photoOriginal）
+ * 对上传的原始图片做压缩（用于 photoOriginal / 笔记插图）
  * 先按最大尺寸缩放，若仍超阈值则逐步降低质量
  *
  * @param dataUrl 原始 data URL
  * @param resizeImage Worker 的 resizeImage 方法
  * @param threshold 大小阈值（字节）
  * @param maxDimension 最大边长（像素）
+ * @param mimeType 输出格式，默认 jpeg（笔记插图传 webp 体积更小）
  */
 export async function compressUploadedImage(
   dataUrl: string,
-  resizeImage: (source: HTMLImageElement, maxDim: number, mimeType: 'image/jpeg', quality: number) => Promise<string>,
+  resizeImage: (source: HTMLImageElement, maxDim: number, mimeType: 'image/jpeg' | 'image/webp', quality: number) => Promise<string>,
   threshold: number = DEFAULT_SIZE_THRESHOLD,
   maxDimension: number = 800,
+  mimeType: 'image/jpeg' | 'image/webp' = 'image/jpeg',
 ): Promise<string> {
   // 加载图片
   const image = await loadImageElement(dataUrl)
 
   // 第一步：按最大尺寸缩放 + 初始质量编码
-  let result = await resizeImage(image, maxDimension, 'image/jpeg', 0.85)
+  let result = await resizeImage(image, maxDimension, mimeType, 0.85)
 
   // 第二步：如果仍超阈值，逐步降低质量
   if (dataUrlSize(result) > threshold) {
     const qualitySteps = [0.7, 0.55, 0.4, 0.3, 0.2]
     for (const quality of qualitySteps) {
-      result = await resizeImage(image, maxDimension, 'image/jpeg', quality)
+      result = await resizeImage(image, maxDimension, mimeType, quality)
       if (dataUrlSize(result) <= threshold) break
     }
   }

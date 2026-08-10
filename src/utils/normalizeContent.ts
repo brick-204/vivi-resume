@@ -7,7 +7,7 @@
  * - Ensures empty paragraphs display correctly in resume output
  */
 
-const HTML_TAG_RE = /<(p|b|strong|i|em|s|strike|ul|ol|li|br)\b[^>]*>/i
+const HTML_TAG_RE = /<(p|b|strong|i|em|s|strike|ul|ol|li|br|img)\b[^>]*>/i
 
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

@@ -14,6 +14,9 @@
             v-for="item in legendItems"
             :key="item.status"
             class="footprint-legend__item"
+            :class="{ 'is-hidden': hiddenStatuses.has(item.status) }"
+            :title="hiddenStatuses.has(item.status) ? `显示「${item.label}」` : `隐藏「${item.label}」`"
+            @click="toggleStatus(item.status)"
           >
             <span class="footprint-legend__dot" :style="{ background: item.color }" />
             {{ item.label }}
@@ -210,7 +213,9 @@
               </div>
             </div>
             <p v-if="sortedList.length === 0" class="footprint-list__empty">
-              没有已填{{ locationMode === 'work' ? '工作地点' : '面试地点' }}的面试
+              {{ markerItems.length === 0
+                ? `没有已填${locationMode === 'work' ? '工作地点' : '面试地点'}的面试`
+                : '当前筛选下没有面试，点击上方图例恢复显示' }}
             </p>
           </div>
         </aside>
@@ -287,7 +292,23 @@ const hasKey = computed(() => !!settingsStore.amapKey)
 const amapEnabled = computed(() => settingsStore.amapEnabled)
 // 地图可初始化的统一前置：开关开 + Key 已配置
 const mapReadyToInit = computed(() => amapEnabled.value && hasKey.value)
-const interviews = computed(() => interviewStore.interviews)
+const interviews = computed(() => {
+  const months = settingsStore.footprintHideMonths
+  if (months === 0) return interviewStore.interviews // 不屏蔽
+  // ponytail: 用日历月计算边界（setMonth 自动处理跨年/月末溢出），与「N 个月」文案一致，非 30 天近似
+  const cutoffDate = new Date()
+  cutoffDate.setMonth(cutoffDate.getMonth() - months)
+  const cutoff = cutoffDate.getTime()
+  return interviewStore.interviews.filter((iv) => {
+    if (iv.footprintAlwaysShow) return true // 永久展示
+    // 取最近轮次时间（含待面，最大 scheduledAt）；全空则不屏蔽防丢数据
+    const ts = iv.rounds
+      .map((r) => (r.scheduledAt ? new Date(r.scheduledAt).getTime() : -Infinity))
+    const latest = ts.length ? Math.max(...ts) : -Infinity
+    if (latest === -Infinity) return true
+    return latest >= cutoff // 最近轮次在窗口内或在未来
+  })
+})
 
 // 搜索位置弹窗
 const showPoiSearch = ref(false)
@@ -324,10 +345,18 @@ const legendItems = [
   { status: 'offer' as InterviewStatus, color: STATUS_COLOR.offer, label: 'Offer' },
   { status: 'rejected' as InterviewStatus, color: STATUS_COLOR.rejected, label: '未通过' },
 ]
+// echarts legend 风格筛选：点击图例项 toggle 该状态可见性，地图 marker + 列表 + 连线同步过滤
+const hiddenStatuses = ref<Set<InterviewStatus>>(new Set())
+function toggleStatus(status: InterviewStatus) {
+  const next = new Set(hiddenStatuses.value)
+  if (next.has(status)) next.delete(status)
+  else next.add(status)
+  hiddenStatuses.value = next
+}
 
 // 列表排序：公司名字典序（中文用 localeCompare）或离我远近（dist）；升降序切换
 const sortedList = computed<MarkerItem[]>(() => {
-  const items = [...markerItems.value]
+  const items = markerItems.value.filter((it) => !hiddenStatuses.value.has(it.iv.status))
   const dir = sortAsc.value ? 1 : -1
   if (sortMode.value === 'company') {
     items.sort((a, b) => dir * (a.iv.company || '').localeCompare(b.iv.company || '', 'zh'))
@@ -768,6 +797,19 @@ watch(showLines, (v) => {
   }
 })
 
+/** 图例筛选变化：同步地图 marker 显隐（不重 plot，省 geocode 配额），连线按可见 marker 重画 */
+watch(hiddenStatuses, () => {
+  if (!map) return
+  for (const m of markers) {
+    const hidden = hiddenStatuses.value.has(m.iv.status)
+    if (hidden) m.marker.hide()
+    else m.marker.show()
+  }
+  // 连线只画可见 marker 的；未开连线时 clearLines 无副作用
+  if (showLines.value && myPosition.value) drawLines()
+  else clearLines()
+})
+
 function clearLines() {
   polylines.forEach((p) => map.remove(p))
   distanceLabels.forEach((l) => map.remove(l))
@@ -781,6 +823,8 @@ function drawLines() {
   const AMap = (window as any).AMap
   const me = myPosition.value
   for (const m of markers) {
+    // 图例筛选隐藏的状态不画连线（与 marker 显隐同步）
+    if (hiddenStatuses.value.has(m.iv.status)) continue
     const line = new AMap.Polyline({
       path: [[me.lng, me.lat], [m.pos.lng, m.pos.lat]],
       strokeColor: '#1989fa',
@@ -1105,6 +1149,19 @@ function refreshInfoWindows() {
     display: flex;
     align-items: center;
     gap: 3px;
+    cursor: pointer;
+    user-select: none;
+    transition: opacity $transition-base;
+
+    &:hover {
+      opacity: 0.7;
+    }
+
+    // echarts legend 风格：隐藏态置灰 + 删除线
+    &.is-hidden {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
   }
 
   &__dot {

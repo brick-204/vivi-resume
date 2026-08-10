@@ -16,10 +16,11 @@ import {
   clearAIConfigsStore,
   clearInterviewsStore,
   clearConsultSessionsStore,
+  clearJournalsStore,
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type MapLocationItem } from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getFootprintHideMonths, setFootprintHideMonths, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type MapLocationItem } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import * as dirWeb from '@/utils/directoryStorage'
 import * as dirElectron from '@/utils/directoryStorageElectron'
@@ -32,6 +33,7 @@ import { generateId } from '@/types/resume'
 import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import type { Interview } from '@/types/interview'
+import type { JournalEntry } from '@/types/journal'
 import type { ConsultSession } from '@/types/consult'
 import { getProviderInfo } from '@/types/aiConfig'
 import { extractPhotos} from '@/utils/photoFileRef'
@@ -94,6 +96,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const myLocation = ref('')
   // 地图功能总开关：默认关，用户在设置面板主动开启后才启用地图相关功能
   const amapEnabled = ref(false)
+  // 面试足迹屏蔽月数：超过 N 个月的面试不在足迹地图显示，0=不屏蔽，默认 3
+  const footprintHideMonths = ref(3)
   // 搜索位置历史（LRU，最多 20 条）——面试足迹 tab 搜过的位置，点击即用
   const mapLocationHistory = ref<MapLocationItem[]>([])
 
@@ -167,6 +171,7 @@ export const useSettingsStore = defineStore('settings', () => {
         amapSecurityCode.value = await getAmapSecurityCode()
         myLocation.value = await getMyLocation()
         amapEnabled.value = await getAmapEnabled()
+        footprintHideMonths.value = await getFootprintHideMonths()
         mapLocationHistory.value = await getMapLocationHistory()
       } catch (e) {
         console.error('[settingsStore] 读取高德地图设置失败:', e)
@@ -236,21 +241,22 @@ export const useSettingsStore = defineStore('settings', () => {
       acquireLock('正在准备同步数据...')
 
       // 4. 从 IndexedDB 读取全部业务数据（直接用 storage.ts，不走 adapter）
-      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId, idbInterviews, idbConsultSessions] = await Promise.all([
+      const [idbResumes, idbAIConfigs, currentId, activeAIConfigId, idbInterviews, idbConsultSessions, idbJournals] = await Promise.all([
         idb.getAllResumes(),
         idb.getAllAIConfigs(),
         idb.getCurrentId(),
         idb.getActiveAIConfigId(),
         idb.getAllInterviews(),
         idb.getAllConsultSessions(),
+        idb.getAllJournals(),
       ])
       // IndexedDB 的回收站设置 + 桌宠偏好（meta store），需一并迁移到目录 meta.json
       const [
         idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets, idbUsageRaw,
-        idbInterviewTrash, idbAiConfigTrash,
+        idbInterviewTrash, idbAiConfigTrash, idbJournalTrash,
         idbRestReminderEnabled, idbRestReminderInterval, idbPetAIChatEnabled, idbIdleAiEnabled, idbIdleIntervalMinutes,
         idbInterviewBannerEnabled, idbInterviewBannerPosition,
-        idbAmapKey, idbAmapSecurityCode, idbMyLocation, idbAmapEnabled, idbMapLocationHistory,
+        idbAmapKey, idbAmapSecurityCode, idbMyLocation, idbAmapEnabled, idbFootprintHideMonths, idbMapLocationHistory,
       ] = await Promise.all([
         idb.getMeta<Resume[]>('trash'),
         idb.getMeta<number>('trashRetentionDays'),
@@ -259,6 +265,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getMeta<unknown>('aiUsageByConfig'),
         idb.getMeta<Interview[]>('interviewTrash'),
         idb.getMeta<AIServiceConfig[]>('aiConfigTrash'),
+        idb.getMeta<JournalEntry[]>('journalTrash'),
         idb.getMeta<boolean>('restReminderEnabled'),
         idb.getMeta<number>('restReminderInterval'),
         idb.getMeta<boolean>('petAIChatEnabled'),
@@ -270,6 +277,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getMeta<string>('amapSecurityCode'),
         idb.getMeta<string>('myLocation'),
         idb.getMeta<boolean>('amapEnabled'),
+        idb.getMeta<number>('footprintHideMonths'),
         idb.getMeta<MapLocationItem[]>('mapLocationHistory'),
       ])
 
@@ -286,6 +294,7 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirDesktopPetId: string | null = null
       let dirUsageRaw: unknown = undefined
       let dirInterviewTrash: Interview[] = []
+      let dirJournalTrash: JournalEntry[] = []
       let dirAiConfigTrash: AIServiceConfig[] = []
       // 桌宠偏好标量：目录优先，目录无值（undefined）才用 IndexedDB
       let dirRestReminderEnabled: boolean | undefined
@@ -299,6 +308,7 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirAmapSecurityCode: string | undefined
       let dirMyLocation: string | undefined
       let dirAmapEnabled: boolean | undefined
+      let dirFootprintHideMonths: number | undefined
       let dirMapLocationHistory: MapLocationItem[] | undefined
       try {
         const dirMeta = await dir.readJsonFile<Record<string, unknown>>(handle, 'meta.json')
@@ -311,6 +321,7 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.desktopPetId === 'string') dirDesktopPetId = dirMeta.desktopPetId
           dirUsageRaw = dirMeta.aiUsageByConfig
           dirInterviewTrash = (dirMeta.interviewTrash as Interview[]) ?? []
+          dirJournalTrash = (dirMeta.journalTrash as JournalEntry[]) ?? []
           dirAiConfigTrash = (dirMeta.aiConfigTrash as AIServiceConfig[]) ?? []
           if (typeof dirMeta.restReminderEnabled === 'boolean') dirRestReminderEnabled = dirMeta.restReminderEnabled
           if (typeof dirMeta.restReminderInterval === 'number') dirRestReminderInterval = dirMeta.restReminderInterval
@@ -323,6 +334,7 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.amapSecurityCode === 'string') dirAmapSecurityCode = dirMeta.amapSecurityCode
           if (typeof dirMeta.myLocation === 'string') dirMyLocation = dirMeta.myLocation
           if (typeof dirMeta.amapEnabled === 'boolean') dirAmapEnabled = dirMeta.amapEnabled
+          if (typeof dirMeta.footprintHideMonths === 'number') dirFootprintHideMonths = dirMeta.footprintHideMonths
           if (Array.isArray(dirMeta.mapLocationHistory)) dirMapLocationHistory = dirMeta.mapLocationHistory as MapLocationItem[]
         }
       } catch { /* meta.json 不存在或解析失败，用默认值 */ }
@@ -526,6 +538,7 @@ export const useSettingsStore = defineStore('settings', () => {
         return merged
       }
       const mergedInterviewTrash = mergeTrashById(dirInterviewTrash, idbInterviewTrash)
+      const mergedJournalTrash = mergeTrashById(dirJournalTrash, idbJournalTrash)
       const mergedAiConfigTrash = mergeTrashById(dirAiConfigTrash, idbAiConfigTrash)
       // 桌宠偏好标量：目录优先，目录无值（undefined）才回退 IndexedDB
       const mergedMeta = {
@@ -537,6 +550,7 @@ export const useSettingsStore = defineStore('settings', () => {
         desktopPetId: dirDesktopPetId ?? currentPetId.value,
         aiUsageByConfig: mergedUsage,
         interviewTrash: mergedInterviewTrash,
+        journalTrash: mergedJournalTrash,
         aiConfigTrash: mergedAiConfigTrash,
         restReminderEnabled: dirRestReminderEnabled ?? idbRestReminderEnabled ?? true,
         restReminderInterval: dirRestReminderInterval ?? idbRestReminderInterval ?? 25,
@@ -549,6 +563,7 @@ export const useSettingsStore = defineStore('settings', () => {
         amapSecurityCode: dirAmapSecurityCode ?? idbAmapSecurityCode ?? '',
         myLocation: dirMyLocation ?? idbMyLocation ?? '',
         amapEnabled: dirAmapEnabled ?? idbAmapEnabled ?? false,
+        footprintHideMonths: dirFootprintHideMonths ?? idbFootprintHideMonths ?? 3,
         // 搜索历史合并：目录优先，IndexedDB 独有的追加（按经纬度去重，截断 20 条）
         mapLocationHistory: mergeMapLocationHistory(dirMapLocationHistory, idbMapLocationHistory),
       }
@@ -639,6 +654,14 @@ export const useSettingsStore = defineStore('settings', () => {
         await dir.writeJsonFile(handle, `interviews/${iv.id}.json`, idb.toPlain(iv))
       }
 
+      // 写入手账条目文件（从 IndexedDB 迁移到目录）
+      const dirJournals = await dir.readAllJsonFiles<JournalEntry>(handle, 'journals')
+      const dirJournalIds = new Set(dirJournals.map(j => j.id))
+      for (const j of idbJournals) {
+        if (dirJournalIds.has(j.id)) continue
+        await dir.writeJsonFile(handle, `journals/${j.id}.json`, idb.toPlain(j))
+      }
+
       // 写入咨询会话文件（从 IndexedDB 迁移到目录，按 id 去重，目录已有的不重写）
       const dirConsultSessions = await dir.readAllJsonFiles<ConsultSession>(handle, 'consult-sessions')
       const dirConsultIds = new Set(dirConsultSessions.map(s => s.id))
@@ -666,10 +689,12 @@ export const useSettingsStore = defineStore('settings', () => {
       await idb.clearTrashPetsStore()
       await clearInterviewsStore()
       await clearConsultSessionsStore()
+      await clearJournalsStore()
       // 以下数据已合并进目录 meta.json，清空 IndexedDB meta 缓存（置 null，下次无目录模式从空开始）
       await idb.setMeta('aiUsageByConfig', null)
       await idb.setMeta('trash', null)
       await idb.setMeta('interviewTrash', null)
+      await idb.setMeta('journalTrash', null)
       await idb.setMeta('aiConfigTrash', null)
       await idb.setMeta('restReminderEnabled', null)
       await idb.setMeta('restReminderInterval', null)
@@ -682,6 +707,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await idb.setMeta('amapSecurityCode', null)
       await idb.setMeta('myLocation', null)
       await idb.setMeta('amapEnabled', null)
+      await idb.setMeta('footprintHideMonths', null)
       await idb.setMeta('mapLocationHistory', null)
 
       updateProgress('同步完成！', 100)
@@ -706,6 +732,7 @@ export const useSettingsStore = defineStore('settings', () => {
       amapSecurityCode.value = mergedMeta.amapSecurityCode
       myLocation.value = mergedMeta.myLocation
       amapEnabled.value = mergedMeta.amapEnabled
+      footprintHideMonths.value = mergedMeta.footprintHideMonths
       mapLocationHistory.value = mergedMeta.mapLocationHistory
       // 同步到 petStore（与 init 末尾一致）
       try {
@@ -787,6 +814,12 @@ export const useSettingsStore = defineStore('settings', () => {
         for (const iv of dirInterviews) {
           await idb.saveInterview(iv)
         }
+        // 手账条目：从目录 journals/ 读取，以目录为权威刷新 IndexedDB（先清后写）
+        const dirJournals = await adapter.getAllJournals()
+        await clearJournalsStore()
+        for (const j of dirJournals) {
+          await idb.saveJournal(j)
+        }
         // 用量：目录为准写回 IndexedDB（目录文件保留，解绑后目录用量仍在，下次重绑可恢复）
         const dirUsage = (metaJson as Record<string, unknown> | null)?.aiUsageByConfig
         await idb.setMeta('aiUsageByConfig', dirUsage ?? null)
@@ -800,6 +833,7 @@ export const useSettingsStore = defineStore('settings', () => {
         const metaAny = metaJson as Record<string, unknown> | null
         await idb.setMeta('trash', (metaAny?.trash as Resume[]) ?? null)
         await idb.setMeta('interviewTrash', (metaAny?.interviewTrash as Interview[]) ?? null)
+        await idb.setMeta('journalTrash', (metaAny?.journalTrash as JournalEntry[]) ?? null)
         await idb.setMeta('aiConfigTrash', (metaAny?.aiConfigTrash as AIServiceConfig[]) ?? null)
         if (typeof metaAny?.trashRetentionDays === 'number') await idb.setMeta('trashRetentionDays', metaAny.trashRetentionDays)
         if (typeof metaAny?.trashBinRetentionDays === 'number') await idb.setMeta('trashBinRetentionDays', metaAny.trashBinRetentionDays)
@@ -814,6 +848,7 @@ export const useSettingsStore = defineStore('settings', () => {
         if (typeof metaAny?.amapSecurityCode === 'string') await idb.setMeta('amapSecurityCode', metaAny.amapSecurityCode)
         if (typeof metaAny?.myLocation === 'string') await idb.setMeta('myLocation', metaAny.myLocation)
         if (typeof metaAny?.amapEnabled === 'boolean') await idb.setMeta('amapEnabled', metaAny.amapEnabled)
+        if (typeof metaAny?.footprintHideMonths === 'number') await idb.setMeta('footprintHideMonths', metaAny.footprintHideMonths)
         if (Array.isArray(metaAny?.mapLocationHistory)) await idb.setMeta('mapLocationHistory', metaAny.mapLocationHistory)
       }
 
@@ -850,6 +885,7 @@ export const useSettingsStore = defineStore('settings', () => {
       amapSecurityCode.value = await getAmapSecurityCode()
       myLocation.value = await getMyLocation()
       amapEnabled.value = await getAmapEnabled()
+      footprintHideMonths.value = await getFootprintHideMonths()
       mapLocationHistory.value = await getMapLocationHistory()
       try {
         const { usePetStore } = await import('@/stores/petStore')
@@ -1039,6 +1075,12 @@ export const useSettingsStore = defineStore('settings', () => {
       void petStore.sayCategory(enabled ? 'mapOn' : 'mapOff', petStore.petName)
     }
     trackPending(setAmapEnabled(enabled)).catch(e => console.error('[settingsStore] 地图开关写盘失败:', e))
+  }
+
+  /** 修改面试足迹屏蔽月数：持久化（fire-and-forget） */
+  const updateFootprintHideMonths = async (months: number) => {
+    footprintHideMonths.value = months
+    trackPending(setFootprintHideMonths(months)).catch(e => console.error('[settingsStore] 足迹屏蔽月数写盘失败:', e))
   }
 
   /**
@@ -1263,6 +1305,12 @@ export const useSettingsStore = defineStore('settings', () => {
       for (const iv of dirInterviews) {
         await idb.saveInterview(iv)
       }
+      // 手账条目：从目录 journals/ 读取，以目录为权威刷新 IndexedDB（先清后写）
+      const resyncJournals = await adapter.getAllJournals()
+      await clearJournalsStore()
+      for (const j of resyncJournals) {
+        await idb.saveJournal(j)
+      }
       // 用量：目录为权威刷新 IndexedDB（先置 null 再写目录值，与面试/桌宠回收站「先清后写」对齐）
       const resyncUsage = (metaJson as Record<string, unknown> | null)?.aiUsageByConfig
       await idb.setMeta('aiUsageByConfig', null)
@@ -1279,6 +1327,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const rMeta = metaJson as Record<string, unknown> | null
       await idb.setMeta('trash', (rMeta?.trash as Resume[]) ?? null)
       await idb.setMeta('interviewTrash', (rMeta?.interviewTrash as Interview[]) ?? null)
+      await idb.setMeta('journalTrash', (rMeta?.journalTrash as JournalEntry[]) ?? null)
       await idb.setMeta('aiConfigTrash', (rMeta?.aiConfigTrash as AIServiceConfig[]) ?? null)
       if (typeof rMeta?.trashRetentionDays === 'number') await idb.setMeta('trashRetentionDays', rMeta.trashRetentionDays)
       if (typeof rMeta?.trashBinRetentionDays === 'number') await idb.setMeta('trashBinRetentionDays', rMeta.trashBinRetentionDays)
@@ -1293,6 +1342,7 @@ export const useSettingsStore = defineStore('settings', () => {
       if (typeof rMeta?.amapSecurityCode === 'string') await idb.setMeta('amapSecurityCode', rMeta.amapSecurityCode)
       if (typeof rMeta?.myLocation === 'string') await idb.setMeta('myLocation', rMeta.myLocation)
       if (typeof rMeta?.amapEnabled === 'boolean') await idb.setMeta('amapEnabled', rMeta.amapEnabled)
+      if (typeof rMeta?.footprintHideMonths === 'number') await idb.setMeta('footprintHideMonths', rMeta.footprintHideMonths)
       if (Array.isArray(rMeta?.mapLocationHistory)) await idb.setMeta('mapLocationHistory', rMeta.mapLocationHistory)
 
       updateProgress('正在刷新数据...', 80)
@@ -1312,6 +1362,7 @@ export const useSettingsStore = defineStore('settings', () => {
       amapSecurityCode.value = await getAmapSecurityCode()
       myLocation.value = await getMyLocation()
       amapEnabled.value = await getAmapEnabled()
+      footprintHideMonths.value = await getFootprintHideMonths()
       mapLocationHistory.value = await getMapLocationHistory()
       try {
         const { usePetStore } = await import('@/stores/petStore')
@@ -1346,11 +1397,13 @@ export const useSettingsStore = defineStore('settings', () => {
     const { useAIConfigStore } = await import('@/stores/aiConfigStore')
     const { useConsultStore } = await import('@/stores/consultStore')
     const { useInterviewStore } = await import('@/stores/interviewStore')
+    const { useJournalStore } = await import('@/stores/journalStore')
 
     const resumeStore = useResumeStore()
     const aiConfigStore = useAIConfigStore()
     const consultStore = useConsultStore()
     const interviewStore = useInterviewStore()
+    const journalStore = useJournalStore()
 
     // 各 store 独立 reload，一个失败不影响另一个
     await Promise.allSettled([
@@ -1358,6 +1411,7 @@ export const useSettingsStore = defineStore('settings', () => {
       aiConfigStore.reloadFromStorage?.(),
       consultStore.reloadFromStorage?.(),
       interviewStore.reloadFromStorage?.(),
+      journalStore.reloadFromStorage?.(),
     ])
   }
 
@@ -1403,11 +1457,13 @@ export const useSettingsStore = defineStore('settings', () => {
     amapSecurityCode,
     myLocation,
     amapEnabled,
+    footprintHideMonths,
     mapLocationHistory,
     updateAmapKey,
     updateAmapSecurityCode,
     updateMyLocation,
     updateAmapEnabled,
+    updateFootprintHideMonths,
     addMapLocationHistory,
     removeMapLocationHistory,
     clearMapLocationHistory,

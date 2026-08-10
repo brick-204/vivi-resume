@@ -218,7 +218,7 @@ watch(() => props.show, (val) => {
     font-size: $font-size-xs;
     font-family: $font-family;
     color: $text-primary;
-    background: $editor-bg;
+    background: var(--editor-bg);
     border: 1px solid $border-glass;
     border-radius: $radius-md;
     outline: none;

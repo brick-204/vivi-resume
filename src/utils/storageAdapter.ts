@@ -11,6 +11,7 @@ import type { Resume } from '@/types/resume'
 import type { AIServiceConfig } from '@/types/aiConfig'
 import type { ConsultSession } from '@/types/consult'
 import type { Interview } from '@/types/interview'
+import type { JournalEntry } from '@/types/journal'
 import * as idb from './storage'
 import * as dirWeb from './directoryStorage'
 import * as dirElectron from './directoryStorageElectron'
@@ -315,6 +316,54 @@ export async function saveInterviewTrash(trash: Interview[]): Promise<void> {
     })
   } else {
     await idb.setMeta('interviewTrash', plain)
+  }
+}
+
+// ========== 「求职手账」操作 ==========
+
+export async function getAllJournals(): Promise<JournalEntry[]> {
+  if (isDirectoryMode()) {
+    return dir.readAllJsonFiles<JournalEntry>(getHandle(), 'journals')
+  }
+  return idb.getAllJournals()
+}
+
+export async function saveJournal(entry: JournalEntry): Promise<void> {
+  if (isDirectoryMode()) {
+    const journalsDir = await dir.ensureDir(getHandle(), 'journals')
+    await dir.writeJsonFile(journalsDir, `${entry.id}.json`, idb.toPlain(entry))
+  } else {
+    return idb.saveJournal(entry)
+  }
+}
+
+export async function deleteJournal(id: string): Promise<void> {
+  if (isDirectoryMode()) {
+    const journalsDir = await dir.ensureDir(getHandle(), 'journals')
+    await dir.deleteFile(journalsDir, `${id}.json`)
+  } else {
+    return idb.deleteJournal(id)
+  }
+}
+
+/** 读取手账回收站列表（meta.json / meta store，与面试回收站同存储模式） */
+export async function getJournalTrash(): Promise<JournalEntry[]> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.journalTrash as JournalEntry[]) ?? []
+  }
+  return (await idb.getMeta<JournalEntry[]>('journalTrash')) ?? []
+}
+
+/** 写入手账回收站列表 */
+export async function saveJournalTrash(trash: JournalEntry[]): Promise<void> {
+  const plain = idb.toPlain(trash)
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.journalTrash = plain
+    })
+  } else {
+    await idb.setMeta('journalTrash', plain)
   }
 }
 
@@ -658,6 +707,26 @@ export async function setAmapEnabled(enabled: boolean): Promise<void> {
     })
   } else {
     await idb.setMeta('amapEnabled', enabled)
+  }
+}
+
+/** 读取面试足迹屏蔽月数（超过 N 个月的面试不在足迹显示，0=不屏蔽，默认 3） */
+export async function getFootprintHideMonths(): Promise<number> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return (meta?.footprintHideMonths as number) ?? 3
+  }
+  return (await idb.getMeta<number>('footprintHideMonths')) ?? 3
+}
+
+/** 写入面试足迹屏蔽月数 */
+export async function setFootprintHideMonths(months: number): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.footprintHideMonths = months
+    })
+  } else {
+    await idb.setMeta('footprintHideMonths', months)
   }
 }
 

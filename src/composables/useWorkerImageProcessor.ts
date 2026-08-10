@@ -98,7 +98,7 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
   const fallbackResize = (
     source: CanvasImageSource,
     maxDim: number,
-    mimeType: 'image/jpeg',
+    mimeType: 'image/jpeg' | 'image/webp',
     quality: number
   ): string => {
     const srcWidth = 'width' in source ? (source.width as number) : 0
@@ -160,7 +160,7 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
           if (message.type === 'process') {
             resolve(fallbackProcess(message.imageBitmap as CanvasImageSource, message.options as ImageProcessOptions))
           } else if (message.type === 'resize') {
-            resolve(fallbackResize(message.imageBitmap as CanvasImageSource, message.maxDim as number, message.mimeType as 'image/jpeg', message.quality as number))
+            resolve(fallbackResize(message.imageBitmap as CanvasImageSource, message.maxDim as number, message.mimeType as 'image/jpeg' | 'image/webp', message.quality as number))
           } else {
             // encode
             resolve(fallbackEncode(message.imageBitmap as HTMLCanvasElement | ImageBitmap, message.mimeType as 'image/png' | 'image/jpeg', message.quality as number | undefined))
@@ -236,7 +236,7 @@ export function useWorkerImageProcessor(options?: UseWorkerImageProcessorOptions
   const resizeImage = async (
     source: HTMLCanvasElement | HTMLImageElement | ImageBitmap,
     maxDim: number,
-    mimeType: 'image/jpeg' = 'image/jpeg',
+    mimeType: 'image/jpeg' | 'image/webp' = 'image/jpeg',
     quality: number = 0.85
   ): Promise<string> => {
     const w = getWorker()

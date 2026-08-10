@@ -337,6 +337,24 @@
         <span class="settings-section__hint">关闭后面试足迹与地点搜索的地图功能将不可用</span>
       </div>
       <div class="settings-section__row">
+        <span class="settings-section__label settings-section__label--with-info">
+          面试足迹显示时间范围
+          <NPopover trigger="hover" placement="top" :width="260">
+            <template #trigger>
+              <Icon class="settings-section__info-icon" icon="mdi:information-outline" :width="14" />
+            </template>
+            <div class="settings-section__popover">
+              超过 N 个月的面试不在足迹地图显示；单场面试可在「我的面试」编辑页设为永久展示
+            </div>
+          </NPopover>
+        </span>
+        <NSelect
+          v-model:value="footprintHideMonths"
+          :options="footprintHideMonthsOptions"
+          style="width: 180px"
+        />
+      </div>
+      <div class="settings-section__row">
         <span class="settings-section__label">高德地图 Key</span>
         <NInput
           v-model:value="amapKey"
@@ -664,6 +682,14 @@ const amapEnabled = computed({
   get: () => settingsStore.amapEnabled,
   set: (val: boolean) => { settingsStore.updateAmapEnabled(val) },
 })
+const footprintHideMonths = computed({
+  get: () => settingsStore.footprintHideMonths,
+  set: (val: number) => { settingsStore.updateFootprintHideMonths(val) },
+})
+const footprintHideMonthsOptions = [
+  { label: '不屏蔽', value: 0 },
+  ...Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1} 个月`, value: i + 1 })),
+]
 const bannerPositionOptions: { label: string; value: InterviewBannerPosition }[] = [
   { label: '左下角', value: 'bottom-left' },
   { label: '右下角', value: 'bottom-right' },
@@ -1141,6 +1167,24 @@ const handleResync = () => {
   &__label {
     font-size: $font-size-sm;
     color: $text-secondary;
+
+    &--with-info {
+      position: relative;
+      padding-right: 18px;
+    }
+  }
+
+  &__info-icon {
+    position: absolute;
+    top: -2px;
+    right: 0;
+    color: $text-light;
+    cursor: help;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: $primary-light;
+    }
   }
 }
 

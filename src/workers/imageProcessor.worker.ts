@@ -32,7 +32,7 @@ self.onmessage = async (e: MessageEvent<ImageWorkerMessage>) => {
         id: number
         imageBitmap: ImageBitmap
         maxDim: number
-        mimeType: 'image/jpeg'
+        mimeType: 'image/jpeg' | 'image/webp'
         quality: number
       }
       const dataUrl = await resizeImage(imageBitmap, maxDim, mimeType, quality)
@@ -100,7 +100,7 @@ async function processImage(
 async function resizeImage(
   imageBitmap: ImageBitmap,
   maxDim: number,
-  mimeType: 'image/jpeg',
+  mimeType: 'image/jpeg' | 'image/webp',
   quality: number
 ): Promise<string> {
   let width = imageBitmap.width

@@ -25,7 +25,7 @@
         <Icon icon="mdi:delete-off-outline" :width="64" />
       </div>
       <p class="empty__text">回收站是空的</p>
-      <p class="empty__hint">删除的简历、面试记录和桌宠会在这里保留 {{ store.trashRetentionDays }} 天</p>
+      <p class="empty__hint">删除的简历、面试记录、手账和桌宠会在这里保留 {{ store.trashRetentionDays }} 天</p>
     </div>
 
     <!-- 回收站列表 -->
@@ -156,6 +156,40 @@
           </div>
         </div>
       </div>
+
+      <!-- 手账分区（记事本 + 单独删的笔记；随记事本连带删的笔记不单独显示，恢复记事本连带恢复） -->
+      <div v-if="journalCount > 0" class="trash-section">
+        <h3 class="trash-section__title">
+          <Icon icon="mdi:notebook-outline" :width="18" />
+          手账（{{ journalCount }}）
+        </h3>
+        <div
+          v-for="journal in trashJournalsWithRemainingDays"
+          :key="journal.id"
+          class="trash-item"
+        >
+          <div class="trash-item__info">
+            <h3 class="trash-item__title">
+              <Icon :icon="journal.type === 'notebook' ? 'mdi:folder-outline' : 'mdi:note-outline'" :width="16" style="margin-right: 4px; vertical-align: -2px;" />
+              {{ journal.title }}
+            </h3>
+            <p class="trash-item__meta">
+              删除于 {{ formatDate(journal.deletedAt) }}
+              <span class="trash-item__remaining">剩余 {{ journal.remainingDays }} 天</span>
+            </p>
+          </div>
+          <div class="trash-item__actions">
+            <button class="trash-item__btn trash-item__btn--restore" @click="handleRestoreJournal(journal.id)">
+              <Icon icon="mdi:restore" :width="18" />
+              恢复
+            </button>
+            <button class="trash-item__btn trash-item__btn--delete" @click="handlePermanentDeleteJournal(journal.id)">
+              <Icon icon="mdi:delete-forever" :width="18" />
+              永久删除
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 恢复桌宠弹窗 -->
@@ -208,7 +242,7 @@
       preset="dialog"
       title="清空回收站"
       :auto-focus="false"
-      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历、${interviewCount} 个面试记录、${aiConfigCount} 个 AI 服务和 ${petCount} 个桌宠，此操作不可撤销。`"
+      :content="`确定要清空回收站吗？这将永久删除 ${trashCount} 个简历、${interviewCount} 个面试记录、${aiConfigCount} 个 AI 服务、${journalCount} 个手账和 ${petCount} 个桌宠，此操作不可撤销。`"
       @update:show="v => { if (!v) showEmptyTrashModal = false }"
     >
       <template #action>
@@ -234,6 +268,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useInterviewStore } from '@/stores/interviewStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
+import { useJournalStore } from '@/stores/journalStore'
 import { dialog } from '@/plugins/naive-ui'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
@@ -241,6 +276,7 @@ const store = useResumeStore()
 const settingsStore = useSettingsStore()
 const interviewStore = useInterviewStore()
 const aiConfigStore = useAIConfigStore()
+const journalStore = useJournalStore()
 
 // ponytail: dialog 按钮顺序：操作(positive)靠左、取消(negative)靠右，整体居中
 // naive UI 默认 DOM 顺序 [negative, positive]，row-reverse 反转视觉 + center 居中 + gap 补间距
@@ -251,7 +287,21 @@ const trashCount = computed(() => store.trash.length)
 const petCount = computed(() => settingsStore.trashPets.length)
 const interviewCount = computed(() => interviewStore.trash.length)
 const aiConfigCount = computed(() => aiConfigStore.trash.length)
-const totalCount = computed(() => trashCount.value + petCount.value + interviewCount.value + aiConfigCount.value)
+// 手账回收站可见条目：记事本全部显示；笔记仅显示「单独删的」——
+// 随记事本连带删的笔记（parentId 指向某 trash 记事本且 deletedAt 与之相同）不单独显示，
+// 恢复记事本时连带恢复。先删笔记后删记事本时，笔记 deletedAt 与记事本不同，仍单独显示。
+const visibleJournalTrash = computed(() => {
+  const trashedNotebooks = journalStore.trash.filter(e => e.type === 'notebook')
+  return journalStore.trash.filter(e => {
+    if (e.type === 'notebook') return true
+    // note：排除随记事本连带删的
+    const parentDeletedWith = trashedNotebooks.find(n => n.id === e.parentId)
+    if (parentDeletedWith && parentDeletedWith.deletedAt === e.deletedAt) return false
+    return true
+  })
+})
+const journalCount = computed(() => visibleJournalTrash.value.length)
+const totalCount = computed(() => trashCount.value + petCount.value + interviewCount.value + aiConfigCount.value + journalCount.value)
 
 // 计算剩余天数
 const trashWithRemainingDays = computed(() => {
@@ -294,6 +344,18 @@ const trashAIConfigsWithRemainingDays = computed(() => {
     const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
     return { ...config, remainingDays }
   })
+})
+
+// 手账回收站剩余天数（可见条目；复用 journalStore 保留天数配置）
+const trashJournalsWithRemainingDays = computed(() => {
+  return visibleJournalTrash.value
+    .map(journal => {
+      const deletedAt = journal.deletedAt ? new Date(journal.deletedAt).getTime() : Date.now()
+      const cutoff = Date.now() + journalStore.trashRetentionDays * 24 * 60 * 60 * 1000
+      const remainingMs = cutoff - deletedAt
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000)))
+      return { ...journal, remainingDays }
+    })
 })
 
 // 格式化日期
@@ -399,6 +461,42 @@ const handlePermanentDeleteAIConfig = (id: string) => {
   })
 }
 
+// 恢复手账条目（记事本连带恢复其下子笔记；独立笔记单独恢复）
+const handleRestoreJournal = (id: string) => {
+  const entry = journalStore.trash.find(e => e.id === id)
+  const isNotebook = entry?.type === 'notebook'
+  dialog.success({
+    title: '恢复手账',
+    content: isNotebook
+      ? `确定要恢复记事本「${entry?.title || '未命名'}」吗？其中的笔记会一并恢复。`
+      : `确定要恢复笔记「${entry?.title || '未命名'}」吗？`,
+    positiveText: '恢复',
+    negativeText: '取消',
+    actionStyle: REVERSE_ACTION,
+    onPositiveClick: () => {
+      journalStore.restoreEntry(id).catch(e => console.error('[TrashPanel] restoreEntry:', e))
+    },
+  })
+}
+
+// 永久删除手账条目（记事本连同 trash 中其子笔记的 meta 记录；独立笔记单删）
+const handlePermanentDeleteJournal = (id: string) => {
+  const entry = journalStore.trash.find(e => e.id === id)
+  const isNotebook = entry?.type === 'notebook'
+  dialog.warning({
+    title: '永久删除',
+    content: isNotebook
+      ? `确定要永久删除记事本「${entry?.title || '未命名'}」吗？其中的笔记将一并清除，此操作不可撤销。`
+      : `确定要永久删除笔记「${entry?.title || '未命名'}」吗？此操作不可撤销。`,
+    positiveText: '删除',
+    negativeText: '取消',
+    actionStyle: REVERSE_ACTION,
+    onPositiveClick: () => {
+      journalStore.permanentDeleteEntry(id).catch(e => console.error('[TrashPanel] permanentDeleteEntry:', e))
+    },
+  })
+}
+
 // ========== 桌宠弹窗状态（自定义 spin 按钮，主线程阻塞期 spin 由合成线程驱动仍可转） ==========
 const showRestorePetModal = ref(false)
 const restoringPetId = ref<string | null>(null)
@@ -463,6 +561,7 @@ const confirmEmptyTrash = () => {
   settingsStore.emptyTrashPets()
   interviewStore.emptyTrash()
   aiConfigStore.emptyTrash()
+  journalStore.emptyTrash()
   showEmptyTrashModal.value = false
 }
 </script>

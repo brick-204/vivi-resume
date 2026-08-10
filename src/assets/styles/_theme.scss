@@ -61,6 +61,7 @@
   --focus-ring: rgba(0, 102, 204, 0.25);  // Action Blue focus
   --input-focus-bg: #2a2a2c;
   --input-disabled-bg: #252527;
+  --editor-bg: #2b2925;            // 富文本编辑区背景：深色下微暖深色（非浅黄），浅色见 [data-theme="light"]
 
   // Diff 高亮
   --diff-added-line-bg: rgba(52, 211, 153, 0.15);
@@ -140,6 +141,7 @@
   --focus-ring: rgba(0, 102, 204, 0.2);   // Action Blue focus
   --input-focus-bg: #ffffff;
   --input-disabled-bg: #f5f5f7;
+  --editor-bg: #fefce8;            // 富文本编辑区背景：浅色纸质浅黄
 
   // Diff 高亮
   --diff-added-line-bg: rgba(52, 211, 153, 0.18);

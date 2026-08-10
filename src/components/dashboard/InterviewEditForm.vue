@@ -129,6 +129,11 @@
           </NCheckbox>
         </div>
 
+        <div class="form-field form-field--switch">
+          <label>面试足迹展示 <NSwitch :value="!!form.footprintAlwaysShow" @update:value="onFieldUpdate('footprintAlwaysShow', $event)" /></label>
+          <span class="field-hint-inline">开启后无视「超过 N 个月不显示」规则，始终展示在面试足迹</span>
+        </div>
+
         <PoiSearchModal
           :visible="poiModalVisible"
           @close="poiModalVisible = false"
@@ -246,7 +251,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NInput, NSelect, NButton, NCheckbox, NTooltip } from 'naive-ui'
+import { NInput, NSelect, NButton, NCheckbox, NTooltip, NSwitch } from 'naive-ui'
 import draggable from 'vuedraggable'
 import type { SelectOption } from 'naive-ui'
 import type { Interview, InterviewStatus } from '@/types/interview'
@@ -692,6 +697,25 @@ defineExpose({ save, isDirty })
   margin-top: 6px;
   font-weight: 400;
   font-size: 12px;
+}
+
+.field-hint-inline {
+  margin-left: 8px;
+  font-size: 12px;
+  color: $text-light;
+}
+
+// ponytail: 开关紧跟 label 文字旁边
+.form-field--switch {
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+  }
+
+  .field-hint-inline {
+    margin-left: 0;
+  }
 }
 
 .poi-tag {

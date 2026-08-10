@@ -6,8 +6,8 @@
     - shimmer 用 opacity 动画（composite-only），与 EditorSkeleton 一致，避免 background-position repaint
   -->
   <div class="dashboard-skeleton">
-    <!-- ========== resumes: header + toolbar + 卡片网格 ========== -->
-    <template v-if="variant === 'resumes'">
+    <!-- ========== resumes / journal: header + toolbar + 卡片网格 ========== -->
+    <template v-if="variant === 'resumes' || variant === 'journal'">
       <div class="dashboard-skeleton__header">
         <div class="dashboard-skeleton__title-wrap">
           <div class="sk-bar sk-bar--lg" style="width: 160px; height: 28px;" />
@@ -181,7 +181,7 @@
 <script setup lang="ts">
 // ponytail: variant prop 区分 6 种面板布局，默认 resumes
 withDefaults(defineProps<{
-  variant?: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings' | 'interviews'
+  variant?: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings' | 'interviews' | 'journal'
 }>(), {
   variant: 'resumes'
 })

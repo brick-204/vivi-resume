@@ -13,9 +13,10 @@ import type { AIServiceConfig } from '@/types/aiConfig'
 import type { ConsultSession } from '@/types/consult'
 import type { CustomDesktopPet } from '@/config/desktopPets'
 import type { Interview } from '@/types/interview'
+import type { JournalEntry } from '@/types/journal'
 
 const DB_NAME = 'vivi-resume-db'
-const DB_VERSION = 8
+const DB_VERSION = 10
 const RESUMES_STORE = 'resumes'
 const META_STORE = 'meta'
 const AI_CONFIGS_STORE = 'aiConfigs'
@@ -23,6 +24,7 @@ const CONSULT_SESSIONS_STORE = 'consultSessions'
 const DESKTOP_PETS_STORE = 'desktopPets'
 const TRASH_PETS_STORE = 'trashPets'
 const INTERVIEWS_STORE = 'interviews'
+const JOURNALS_STORE = 'journals'
 
 // localStorage 旧 key（用于迁移检测）
 const LEGACY_LIST_KEY = 'vivi-resume-list'
@@ -74,6 +76,10 @@ async function getDB(): Promise<IDBPDatabase> {
       // v8: 新增「我的面试」记录 store
       if (oldVersion < 8 && !db.objectStoreNames.contains(INTERVIEWS_STORE)) {
         db.createObjectStore(INTERVIEWS_STORE, { keyPath: 'id' })
+      }
+      // v10: 新增「求职手账」store（v9 为预留版本号，未建 store）
+      if (oldVersion < 10 && !db.objectStoreNames.contains(JOURNALS_STORE)) {
+        db.createObjectStore(JOURNALS_STORE, { keyPath: 'id' })
       }
     },
   })
@@ -346,6 +352,27 @@ export async function deleteInterview(id: string): Promise<void> {
   await db.delete(INTERVIEWS_STORE, id)
 }
 
+// ========== 「求职手账」CRUD ==========
+
+/** 获取所有手账条目（记事本 + 笔记） */
+export async function getAllJournals(): Promise<JournalEntry[]> {
+  const db = await getDB()
+  return db.getAll(JOURNALS_STORE) as Promise<JournalEntry[]>
+}
+
+/** 保存单个手账条目（新增或更新） */
+export async function saveJournal(entry: JournalEntry): Promise<void> {
+  const db = await getDB()
+  const plain = toPlain(entry)
+  await db.put(JOURNALS_STORE, plain)
+}
+
+/** 删除单个手账条目 */
+export async function deleteJournal(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete(JOURNALS_STORE, id)
+}
+
 // ========== 通用 Meta 读写 ==========
 
 /** 获取 meta store 中的值 */
@@ -433,6 +460,12 @@ export async function clearTrashPetsStore(): Promise<void> {
 export async function clearInterviewsStore(): Promise<void> {
   const db = await getDB()
   await db.clear(INTERVIEWS_STORE)
+}
+
+/** 清空「求职手账」store（resync 用） */
+export async function clearJournalsStore(): Promise<void> {
+  const db = await getDB()
+  await db.clear(JOURNALS_STORE)
 }
 
 /** 清空咨询会话 store（bind 迁移后清缓存用） */

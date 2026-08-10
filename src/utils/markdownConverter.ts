@@ -41,6 +41,21 @@ turndownService.addRule('strikethrough', {
   replacement: (content) => `~~${content}~~`,
 })
 
+// 待办清单：<ul data-type="taskList"><li data-checked> → - [ ] / - [x]
+// Tiptap TaskList 输出此结构，转 markdown 给 AI 时需保留勾选状态
+turndownService.addRule('taskList', {
+  filter: (node) =>
+    node.nodeName === 'UL' && (node as HTMLElement).getAttribute('data-type') === 'taskList',
+  replacement: (_content, node) => {
+    const items = Array.from(node.querySelectorAll(':scope > li'))
+    return items.map(li => {
+      const checked = (li as HTMLElement).getAttribute('data-checked') === 'true'
+      const text = (li as HTMLElement).textContent?.trim() || ''
+      return `- [${checked ? 'x' : ' '}] ${text}`
+    }).join('\n')
+  },
+})
+
 /** 将 HTML 转为 Markdown（供 AI 处理） */
 export function htmlToMarkdown(html: string): string {
   if (!html) return ''
@@ -60,11 +75,27 @@ const markedInstance = new Marked({
 // __text__ → <u>text</u>
 // ==text== → <mark>text</mark>
 // ~~text~~ → <s>text</s>
+// - [ ] / - [x] → <ul data-type="taskList"><li data-checked>（连续行合并为一个 ul）
 function preprocessMarkdown(md: string): string {
   return md
     .replace(/__(.+?)__/g, '<u>$1</u>')
     .replace(/==(.+?)==/g, '<mark>$1</mark>')
     .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    // 待办清单：把连续的 - [ ] / - [x] 行合并为 Tiptap task list HTML
+    // marked 不认此语法会当普通 list，必须在 marked 之前预转
+    .replace(/(?:^|\n)((?:- \[[ x]\] .*(?:\n|$))+)/g, (block) => {
+      const lines = block.trim().split('\n')
+      const items = lines.map(line => {
+        const m = line.match(/^- \[([ x])\] (.*)$/)
+        if (!m) return ''
+        const checked = m[1] === 'x'
+        // ponytail: li 文本先经 marked 行内解析（**粗体**/*斜体*/[链接] 等），
+        // 否则 marked 把整个 <ul> 当 HTML 块透传不解析内部，星号会变字面量
+        const text = markedInstance.parseInline(m[2])
+        return `<li data-type="taskItem" data-checked="${checked}">${text}</li>`
+      }).filter(Boolean)
+      return `\n<ul data-type="taskList">${items.join('')}</ul>\n`
+    })
 }
 
 // 后处理：将 marked 输出中 TipTap 不支持的标签清理掉

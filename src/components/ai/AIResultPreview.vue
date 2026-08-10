@@ -217,6 +217,8 @@ const props = defineProps<{
   operation: AIOperation | null
   originalText: string
   prefilledInstruction?: string
+  /** 场景：resume 简历（默认）/ journal 求职手账（去简历化 prompt，操作选择器隐藏 tailor） */
+  scene?: 'resume' | 'journal'
 }>()
 
 const emit = defineEmits<{
@@ -224,7 +226,10 @@ const emit = defineEmits<{
   apply: [html: string]
 }>()
 
-const operations = AI_OPERATIONS
+// 手账场景过滤掉 tailor（手账无 JD 依赖）
+const operations = computed(() =>
+  props.scene === 'journal' ? AI_OPERATIONS.filter(op => op.id !== 'tailor') : AI_OPERATIONS,
+)
 const resultText = ref('')
 const isStreaming = ref(false)
 const isConnected = ref(false)  // 首个 chunk 是否已到达
@@ -405,6 +410,7 @@ const startGenerate = async () => {
       {
         signal: abortController.signal,
         customInstruction: localCustomInstruction.value,
+        scene: props.scene,
         onConnected: () => {
           isConnected.value = true
         },
@@ -422,7 +428,7 @@ const startGenerate = async () => {
 
     // 生成完成后，构建对话历史，开启追问输入
     if (resultText.value) {
-      const initialMessages = buildMessages(selectedOperation.value, props.originalText, localCustomInstruction.value)
+      const initialMessages = buildMessages(selectedOperation.value, props.originalText, localCustomInstruction.value, props.scene)
       conversationHistory.value = [
         ...initialMessages,
         { role: 'assistant', content: resultText.value },

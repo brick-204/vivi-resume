@@ -35,6 +35,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useInterviewStore } from '@/stores/interviewStore'
+import { useJournalStore } from '@/stores/journalStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePetStore } from '@/stores/petStore'
 import type { QuoteCategory } from '@/data/petQuotes'
@@ -47,7 +48,7 @@ import UpcomingInterviewBanner from '@/components/dashboard/UpcomingInterviewBan
 // ponytail: 面板懒加载，首屏只加载当前 tab 对应面板，切换时按需加载
 // defineAsyncComponent 的 loadingComponent 在组件首次加载时显示
 // ponytail: 每个面板用不同 variant 的骨架屏，与实际布局匹配
-const skeletonFor = (variant: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings' | 'interviews') =>
+const skeletonFor = (variant: 'resumes' | 'templates' | 'ai' | 'trash' | 'settings' | 'interviews' | 'journal') =>
   defineComponent({ render: () => h(DashboardSkeleton, { variant }) })
 
 const ResumeListPanel = defineAsyncComponent({
@@ -68,6 +69,11 @@ const InterviewPanel = defineAsyncComponent({
 const InterviewFootprintPanel = defineAsyncComponent({
   loader: () => import('@/components/dashboard/InterviewFootprintPanel.vue'),
   loadingComponent: skeletonFor('interviews'),
+  delay: 0,
+})
+const JournalPanel = defineAsyncComponent({
+  loader: () => import('@/components/dashboard/JournalPanel.vue'),
+  loadingComponent: skeletonFor('journal'),
   delay: 0,
 })
 const AISettingsPanel = defineAsyncComponent({
@@ -92,6 +98,7 @@ const panelMap: Record<string, Component> = {
   templates: TemplateMarketPanel,
   interviews: InterviewPanel,
   interviewFootprint: InterviewFootprintPanel,
+  journal: JournalPanel,
   ai: AISettingsPanel,
   trash: TrashPanel,
   settings: SettingsPanel,
@@ -100,12 +107,13 @@ const panelMap: Record<string, Component> = {
 const store = useResumeStore()
 const aiConfigStore = useAIConfigStore()
 const interviewStore = useInterviewStore()
+const journalStore = useJournalStore()
 const settingsStore = useSettingsStore()
 const petStore = usePetStore()
 const route = useRoute()
 const router = useRouter()
 
-const activeTab = ref<'resumes' | 'templates' | 'interviews' | 'interviewFootprint' | 'ai' | 'trash' | 'settings'>('resumes')
+const activeTab = ref<'resumes' | 'templates' | 'interviews' | 'interviewFootprint' | 'journal' | 'ai' | 'trash' | 'settings'>('resumes')
 const storesReady = ref(false)
 // 面试提示横幅位置（决定挂载点：top-bar / nav-top / corner）
 const bannerPosition = computed(() => settingsStore.interviewBannerPosition)
@@ -116,13 +124,14 @@ const tabQuoteCategory: Record<typeof activeTab.value, QuoteCategory> = {
   templates: 'enterTemplates',
   interviews: 'enterInterviews',
   interviewFootprint: 'enterInterviewFootprint',
+  journal: 'enterJournal',
   ai: 'enterAi',
   trash: 'enterTrash',
   settings: 'enterSettings',
 }
 
 // ponytail: URL ↔ activeTab 双向同步，isRouteChange 防循环
-const validTabs = ['resumes', 'templates', 'interviews', 'interviewFootprint', 'ai', 'trash', 'settings'] as const
+const validTabs = ['resumes', 'templates', 'interviews', 'interviewFootprint', 'journal', 'ai', 'trash', 'settings'] as const
 let isRouteChange = false
 
 // URL → activeTab（处理 router.push 从子组件来的导航）
@@ -159,6 +168,7 @@ onMounted(async () => {
     store.ready,
     aiConfigStore.ready,
     interviewStore.ready,
+    journalStore.ready,
   ])
   storesReady.value = true
   // 无简历且无 query tab 时默认显示模版市场

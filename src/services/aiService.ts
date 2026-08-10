@@ -509,6 +509,8 @@ export async function streamChat(
 export interface PerformAIOperationOptions extends StreamChatOptions {
   /** 自定义指令（帮写/定制模式） */
   customInstruction?: string
+  /** 场景：resume 简历（默认）/ journal 求职手账（去简历化 prompt，无 tailor） */
+  scene?: 'resume' | 'journal'
 }
 
 /**
@@ -526,8 +528,8 @@ export async function performAIOperation(
   onChunk: (text: string) => void,
   options: PerformAIOperationOptions = {},
 ): Promise<StreamChatResult> {
-  const { customInstruction, ...streamOptions } = options
-  const messages = buildMessages(operation, content, customInstruction)
+  const { customInstruction, scene, ...streamOptions } = options
+  const messages = buildMessages(operation, content, customInstruction, scene)
   return await streamChat(config, messages, onChunk, streamOptions)
 }
 

@@ -540,6 +540,7 @@ const handleParsedJd = (fields: { company: string; position: string; salary: str
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     grid-auto-rows: min-content;
+    align-items: start; // 卡片顶对齐、保留各自内容高度，不被同行最高的卡片撑高（倒计时段只在部分卡片出现）
     gap: $spacing-xl;
   }
 }
