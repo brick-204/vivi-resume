@@ -411,14 +411,16 @@
       </div>
       <div class="settings-section__row">
         <span class="settings-section__label">检查更新</span>
-        <NButton
-          size="small"
-          :loading="checkingUpdate"
-          :disabled="checkingUpdate"
-          @click="handleCheckUpdate"
-        >
-          检查更新
-        </NButton>
+        <NBadge :show="hasUpdateDot" dot type="error" :offset="[-4, 4]">
+          <NButton
+            size="small"
+            :loading="checkingUpdate"
+            :disabled="checkingUpdate"
+            @click="handleCheckUpdate"
+          >
+            检查更新
+          </NButton>
+        </NBadge>
       </div>
       <p class="settings-section__desc settings-section__desc--hint">
         检查到新版本后会跳转到 GitHub Releases 页面，需手动下载安装包覆盖安装（数据不会丢失）。
@@ -439,6 +441,7 @@
       >
         <Icon :icon="item.icon" :width="16" />
         <span class="settings-toc__label">{{ item.label }}</span>
+        <span v-if="item.id === 'about' && hasUpdateDot" class="settings-toc__dot" />
       </button>
     </nav>
   </div>
@@ -579,7 +582,7 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber, NPopover, NButton } from 'naive-ui'
+import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber, NPopover, NButton, NBadge } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import type { InterviewBannerPosition, CloseBehavior } from '@/utils/storageAdapter'
@@ -764,12 +767,17 @@ const closeBehaviorOptions: { label: string; value: CloseBehavior }[] = [
 // 关于 / 检查更新（仅桌面端）
 const appVersion = ref('')
 const checkingUpdate = ref(false)
+// 新版红点：进入设置面板时静默检测一次，有新版则点亮；用户点击检查后清除（已知会）
+const hasUpdateDot = ref(false)
+const runCheckUpdate = async (): Promise<{ hasUpdate: boolean; currentVersion: string; latestVersion: string; releaseUrl: string; error?: string } | undefined> => {
+  return (window as unknown as { electronAPI?: { app?: { checkUpdate: () => Promise<{ hasUpdate: boolean; currentVersion: string; latestVersion: string; releaseUrl: string; error?: string }> } } })
+    .electronAPI?.app?.checkUpdate()
+}
 const handleCheckUpdate = async () => {
   if (checkingUpdate.value) return
   checkingUpdate.value = true
   try {
-    const result = await (window as unknown as { electronAPI?: { app?: { checkUpdate: () => Promise<{ hasUpdate: boolean; currentVersion: string; latestVersion: string; releaseUrl: string; error?: string }> } } })
-      .electronAPI?.app?.checkUpdate()
+    const result = await runCheckUpdate()
     if (!result) return
     if (result.error) {
       naiveMessage.error(`检查更新失败：${result.error}`)
@@ -792,12 +800,18 @@ const handleCheckUpdate = async () => {
     naiveMessage.error(`检查更新失败：${e instanceof Error ? e.message : '未知错误'}`)
   } finally {
     checkingUpdate.value = false
+    // 用户已主动查看结果，清红点
+    hasUpdateDot.value = false
   }
 }
 // 桌面端：挂载后取当前版本号展示
 if (isElectron) {
   ;(window as unknown as { electronAPI?: { app?: { getVersion: () => Promise<string> } } })
     .electronAPI?.app?.getVersion().then(v => { appVersion.value = v }).catch(() => {})
+  // 进入设置面板静默检测一次，有新版则点亮红点（不弹消息，避免打扰）
+  runCheckUpdate().then(result => {
+    if (result && result.hasUpdate) hasUpdateDot.value = true
+  }).catch(() => {})
 }
 
 const isCustomPet = (id: string) => id.startsWith('custom-')
@@ -1036,6 +1050,15 @@ const handleResync = () => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: auto;
+    background: $error-color;
+    flex-shrink: 0;
   }
 }
 

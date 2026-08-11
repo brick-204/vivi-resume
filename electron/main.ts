@@ -487,7 +487,20 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:getVersion', () => app.getVersion())
 
   // 检查更新：fetch GitHub Releases API 比对版本号，仅返回信息不自动下载
-  ipcMain.handle('app:checkUpdate', async () => checkUpdate())
+  // 会话级缓存 + 并发 Promise 复用（见 checkUpdate 上方注释）
+  ipcMain.handle('app:checkUpdate', async () => {
+    // 命中缓存窗口：直接返回，不再打 GitHub
+    if (updateCache && Date.now() - updateCache.ts < UPDATE_CACHE_TTL) {
+      return updateCache.result
+    }
+    // 进行中请求复用：静默检测与用户立刻点检查同时触发时只发一个请求
+    if (updateInflight) return updateInflight
+    updateInflight = checkUpdate().finally(() => { updateInflight = null })
+    const result = await updateInflight
+    // 仅缓存成功结果（无 error）；失败不缓存，让用户重试有机会真正打到 API
+    if (!result.error) updateCache = { result, ts: Date.now() }
+    return result
+  })
 
   // 启动时读上次记住的关闭行为（userData 配置），渲染进程 ready 后会推送覆盖
   await loadCloseBehavior()
@@ -501,8 +514,16 @@ app.whenReady().then(async () => {
  * 检查更新：请求 GitHub Releases API 拿最新 release，与本地版本 semver 比对。
  * 用 net.fetch（Electron 的，走系统代理）而非 node fetch。GitHub API 要求 User-Agent header。
  * 仅检查版本号 + 返回 release 页地址，不自动下载安装（半自动：用户手动去下载）。
+ *
+ * 会话级节流：GitHub 未认证限流 60次/小时/IP，进设置面板静默检测 + 用户点按钮检测
+ * 会快速耗尽额度。缓存最近一次结果 1 小时，窗口内重复调用直接返回缓存；进行中的请求
+ * 复用同一 Promise，挡住并发（静默检测与立刻点检查同时触发的场景）。重启应用清空缓存。
  */
 const REPO = 'brick-204/vivi-resume'
+const UPDATE_CACHE_TTL = 60 * 60 * 1000 // 1 小时，对齐 GitHub 限流窗口
+let updateCache: { result: Awaited<ReturnType<typeof checkUpdate>>; ts: number } | null = null
+let updateInflight: Promise<Awaited<ReturnType<typeof checkUpdate>>> | null = null
+
 async function checkUpdate(): Promise<{
   hasUpdate: boolean
   currentVersion: string
