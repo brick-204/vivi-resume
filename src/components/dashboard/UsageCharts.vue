@@ -235,6 +235,10 @@ const TREND_FEATURES: { key: UsageFeature; label: string }[] = [
   { key: 'pet', label: '桌宠功能' },
 ]
 
+// ponytail: 固定色板，避免 echarts 默认调色板把总量线/桌宠/Token 全染成蓝系糊在一起。
+// 顺序对齐 [总量, ...TREND_FEATURES]：总量用主色蓝突出主指标，桌宠用粉色与蓝拉开最大距离。
+const TREND_COLORS = ['#5B8FF9', '#5AD8A6', '#F6BD16', '#9270CA', '#F08BB4']
+
 const fmtNum = (n: number) => n.toLocaleString()
 
 // ===== tooltip HTML 样式（四个图共用）=====
@@ -360,6 +364,8 @@ const buildTrendOption = (metric: 'count' | 'total', totalLabel: string, axisNam
       type: chartType,
       data: seriesData[i],
       smooth: true,
+      itemStyle: { color: TREND_COLORS[i] },
+      lineStyle: chartType === 'line' ? { color: TREND_COLORS[i] } : undefined,
     })),
   }
 }
