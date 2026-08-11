@@ -399,6 +399,32 @@
       </p>
     </div>
 
+    <!-- 关于（仅桌面端） -->
+    <div v-if="isElectron" class="settings-section" data-toc="about">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:information-outline" :width="20" />
+        关于
+      </h3>
+      <div class="settings-section__row">
+        <span class="settings-section__label">当前版本</span>
+        <span class="settings-section__static">v{{ appVersion }}</span>
+      </div>
+      <div class="settings-section__row">
+        <span class="settings-section__label">检查更新</span>
+        <NButton
+          size="small"
+          :loading="checkingUpdate"
+          :disabled="checkingUpdate"
+          @click="handleCheckUpdate"
+        >
+          检查更新
+        </NButton>
+      </div>
+      <p class="settings-section__desc settings-section__desc--hint">
+        检查到新版本后会跳转到 GitHub Releases 页面，需手动下载安装包覆盖安装（数据不会丢失）。
+      </p>
+    </div>
+
     </div>
 
     <!-- 小目录（TOC）：宽屏右侧 sticky 竖排，窄屏折成顶部横向条 -->
@@ -553,13 +579,13 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber, NPopover } from 'naive-ui'
+import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber, NPopover, NButton } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import type { InterviewBannerPosition, CloseBehavior } from '@/utils/storageAdapter'
 import { DESKTOP_PETS } from '@/config/desktopPets'
 import { parsePetFile, type ParsedPet } from '@/utils/petUpload'
-import { message as naiveMessage } from '@/plugins/naive-ui'
+import { message as naiveMessage, dialog as naiveDialog } from '@/plugins/naive-ui'
 import { isElectron } from '@/utils/runtime'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
@@ -582,6 +608,7 @@ const tocItems = computed(() => {
   ]
   if (isElectron) {
     base.splice(4, 0, { id: 'close', label: '关闭行为', icon: 'mdi:window-close' })
+    base.push({ id: 'about', label: '关于', icon: 'mdi:information-outline' })
   }
   return base
 })
@@ -733,6 +760,45 @@ const closeBehaviorOptions: { label: string; value: CloseBehavior }[] = [
   { label: '最小化到托盘', value: 'tray' },
   { label: '直接关闭', value: 'quit' },
 ]
+
+// 关于 / 检查更新（仅桌面端）
+const appVersion = ref('')
+const checkingUpdate = ref(false)
+const handleCheckUpdate = async () => {
+  if (checkingUpdate.value) return
+  checkingUpdate.value = true
+  try {
+    const result = await (window as unknown as { electronAPI?: { app?: { checkUpdate: () => Promise<{ hasUpdate: boolean; currentVersion: string; latestVersion: string; releaseUrl: string; error?: string }> } } })
+      .electronAPI?.app?.checkUpdate()
+    if (!result) return
+    if (result.error) {
+      naiveMessage.error(`检查更新失败：${result.error}`)
+    } else if (result.hasUpdate) {
+      // 有新版：弹对话框，确认后打开 release 页面
+      naiveDialog.info({
+        title: '发现新版本',
+        content: `当前版本 v${result.currentVersion}，最新版本 v${result.latestVersion}。点击「去下载」将打开下载页面。`,
+        positiveText: '去下载',
+        negativeText: '稍后',
+        actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;',
+        onPositiveClick: () => {
+          if (result.releaseUrl) window.open(result.releaseUrl, '_blank')
+        },
+      })
+    } else {
+      naiveMessage.success(`已是最新版本（v${result.currentVersion}）`)
+    }
+  } catch (e) {
+    naiveMessage.error(`检查更新失败：${e instanceof Error ? e.message : '未知错误'}`)
+  } finally {
+    checkingUpdate.value = false
+  }
+}
+// 桌面端：挂载后取当前版本号展示
+if (isElectron) {
+  ;(window as unknown as { electronAPI?: { app?: { getVersion: () => Promise<string> } } })
+    .electronAPI?.app?.getVersion().then(v => { appVersion.value = v }).catch(() => {})
+}
 
 const isCustomPet = (id: string) => id.startsWith('custom-')
 
@@ -1209,6 +1275,11 @@ const handleResync = () => {
       position: relative;
       padding-right: 18px;
     }
+  }
+
+  &__static {
+    font-size: $font-size-sm;
+    color: $text-light;
   }
 
   &__info-icon {

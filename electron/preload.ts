@@ -60,4 +60,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // （否则 send 后立即 destroy 会销毁 webContents，回写来不及执行）。
     ackCloseBehaviorChanged: () => ipcRenderer.invoke('win:closeBehaviorAck') as Promise<void>,
   },
+  app: {
+    // 当前应用版本号（app.getVersion()，与打包版本一致）
+    getVersion: () => ipcRenderer.invoke('app:getVersion') as Promise<string>,
+    // 检查更新：主进程 fetch GitHub Releases API 比对版本号
+    checkUpdate: () => ipcRenderer.invoke('app:checkUpdate') as Promise<{
+      hasUpdate: boolean
+      currentVersion: string
+      latestVersion: string
+      releaseUrl: string
+      error?: string
+    }>,
+  },
 })

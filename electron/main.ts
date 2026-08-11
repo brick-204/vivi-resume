@@ -483,6 +483,12 @@ app.whenReady().then(async () => {
     return undefined
   })
 
+  // 应用版本号（设置面板「关于」展示）
+  ipcMain.handle('app:getVersion', () => app.getVersion())
+
+  // 检查更新：fetch GitHub Releases API 比对版本号，仅返回信息不自动下载
+  ipcMain.handle('app:checkUpdate', async () => checkUpdate())
+
   // 启动时读上次记住的关闭行为（userData 配置），渲染进程 ready 后会推送覆盖
   await loadCloseBehavior()
 
@@ -490,6 +496,74 @@ app.whenReady().then(async () => {
 }).catch((e) => {
   console.error('[main] startup failed:', e)
 })
+
+/**
+ * 检查更新：请求 GitHub Releases API 拿最新 release，与本地版本 semver 比对。
+ * 用 net.fetch（Electron 的，走系统代理）而非 node fetch。GitHub API 要求 User-Agent header。
+ * 仅检查版本号 + 返回 release 页地址，不自动下载安装（半自动：用户手动去下载）。
+ */
+const REPO = 'brick-204/vivi-resume'
+async function checkUpdate(): Promise<{
+  hasUpdate: boolean
+  currentVersion: string
+  latestVersion: string
+  releaseUrl: string
+  error?: string
+}> {
+  const currentVersion = app.getVersion()
+  // ponytail: AbortController + 10s 超时——net.fetch 无默认超时，网络挂起会让按钮永久 loading。
+  //           对齐项目 aiService 的 AbortController 取消模式。
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10000)
+  try {
+    const resp = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { 'User-Agent': 'Vivi-Resume-Updater' },
+      signal: controller.signal,
+    })
+    if (!resp.ok) {
+      // 403 通常是未认证限流（60次/小时/IP），给友好文案
+      const error = resp.status === 403
+        ? '检查过于频繁，请稍后再试'
+        : `GitHub 返回 ${resp.status}`
+      return { hasUpdate: false, currentVersion, latestVersion: '', releaseUrl: '', error }
+    }
+    const data = await resp.json() as { tag_name?: string; html_url?: string }
+    // tag_name 通常 'v1.0.1' 或 '1.0.1'，去前导 v
+    const tag = (data.tag_name ?? '').replace(/^v/i, '')
+    const releaseUrl = data.html_url ?? `https://github.com/${REPO}/releases/latest`
+    if (!tag) {
+      return { hasUpdate: false, currentVersion, latestVersion: '', releaseUrl, error: '未解析到版本号' }
+    }
+    return {
+      hasUpdate: compareVersion(currentVersion, tag) < 0,
+      currentVersion,
+      latestVersion: tag,
+      releaseUrl,
+    }
+  } catch (e) {
+    // abort 抛 AbortError，统一归为超时/网络错误
+    return { hasUpdate: false, currentVersion, latestVersion: '', releaseUrl: '', error: '请求超时或网络错误' }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * semver 三段数字比较：a<b 返回 -1，a=b 返回 0，a>b 返回 1。
+ * ponytail: 不支持预发布版本号——'1.0.0-beta' 的 '0-beta' 段 parseInt 得 0，与 '1.0.0' 判等。
+ *           项目用纯数字版本号，beta/rc 场景若需区分再升级。
+ */
+function compareVersion(a: string, b: string): number {
+  const pa = a.replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0)
+  const pb = b.replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0)
+  const len = Math.max(pa.length, pb.length)
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] ?? 0
+    const db = pb[i] ?? 0
+    if (da !== db) return da < db ? -1 : 1
+  }
+  return 0
+}
 
 /**
  * 创建托盘图标 + 菜单。复用 favicon.ico（多分辨率 ICO，Tray 自动选尺寸）。
