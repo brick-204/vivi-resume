@@ -415,7 +415,9 @@ export const useConsultStore = defineStore('consult', () => {
       role: 'user',
       kind: 'user-question',
       content: userContent,
-      attachments: hasAttachments ? pendingAttachments.value : undefined,
+      // 剥离 reactive Proxy：pendingAttachments 是 ref<[]>，数组元素被 Vue 深层代理，
+      // 直接赋值会让 session.messages[n].attachments 持有 Proxy，toPlain 的 structuredClone 会抛 DataCloneError
+      attachments: hasAttachments ? pendingAttachments.value.map(a => ({ ...a })) : undefined,
       timestamp: Date.now(),
     }
     session.messages.push(userMsg)

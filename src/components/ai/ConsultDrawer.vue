@@ -272,7 +272,32 @@
             v-else-if="msg.kind === 'user-question'"
             class="consult-bubble consult-bubble--user"
           >
-            {{ msg.content }}
+            {{ userMessageText(msg) }}
+            <div
+              v-if="msg.attachments?.length"
+              class="consult-bubble__attachments"
+            >
+              <template v-for="(a, idx) in msg.attachments" :key="idx">
+                <NImage
+                  v-if="a.kind === 'image'"
+                  :src="a.dataUrl"
+                  :alt="a.name"
+                  :width="120"
+                  :height="120"
+                  object-fit="cover"
+                  class="consult-bubble__thumb"
+                  :preview-src="a.dataUrl"
+                />
+                <span
+                  v-else
+                  class="consult-bubble__file"
+                  :title="a.name"
+                >
+                  <Icon icon="mdi:file-document-outline" :width="12" />
+                  <span class="consult-bubble__filename">{{ a.name }}</span>
+                </span>
+              </template>
+            </div>
           </div>
 
           <!-- AI 回复：左对齐 + Markdown 渲染 -->
@@ -309,7 +334,8 @@
       <div class="consult-resume-bar">
         <n-upload
           :show-file-list="false"
-          :before-upload="onPickFile"
+          :custom-request="noopCustomRequest"
+          @before-upload="onPickFile"
           accept="image/*,.txt,.md,.markdown,.docx,.pdf,.json,.csv,.log,.xml,.html,.js,.ts,.py"
           multiple
         >
@@ -392,27 +418,42 @@
               @click="togglePendingResume(id)"
             />
           </span>
-          <span
-            v-for="a in pendingAttachments"
-            :key="a.name"
-            class="consult-resume-bar__chip consult-resume-bar__chip--file"
-            :title="a.name"
-          >
-            <Icon
-              :icon="
-                a.kind === 'image'
-                  ? 'mdi:image-outline'
-                  : 'mdi:file-document-outline'
-              "
-              :width="12"
-            />
-            <span class="consult-resume-bar__filename">{{ a.name }}</span>
-            <Icon
-              icon="mdi:close"
-              :width="12"
-              @click="removePendingAttachment(a.name)"
-            />
-          </span>
+          <template v-for="a in pendingAttachments" :key="a.name">
+            <div
+              v-if="a.kind === 'image'"
+              class="consult-resume-bar__thumb-wrap"
+              :title="a.name"
+            >
+              <NImage
+                :src="a.dataUrl"
+                :alt="a.name"
+                :width="44"
+                :height="44"
+                object-fit="cover"
+                class="consult-resume-bar__thumb"
+                :preview-src="a.dataUrl"
+              />
+              <Icon
+                icon="mdi:close"
+                :width="14"
+                class="consult-resume-bar__thumb-del"
+                @click="removePendingAttachment(a.name)"
+              />
+            </div>
+            <span
+              v-else
+              class="consult-resume-bar__chip consult-resume-bar__chip--file"
+              :title="a.name"
+            >
+              <Icon icon="mdi:file-document-outline" :width="12" />
+              <span class="consult-resume-bar__filename">{{ a.name }}</span>
+              <Icon
+                icon="mdi:close"
+                :width="12"
+                @click="removePendingAttachment(a.name)"
+              />
+            </span>
+          </template>
         </div>
       </div>
 
@@ -473,8 +514,10 @@ import {
   NInput,
   NPopover,
   NUpload,
+  NImage,
 } from "naive-ui";
 import type { ConsultMessage } from "@/types/consult";
+import type { ContentPart } from "@/services/aiService";
 import { useConsultStore } from "@/stores/consultStore";
 import { useResumeStore } from "@/stores/resumeStore";
 import { useAIConfigStore } from "@/stores/aiConfigStore";
@@ -482,6 +525,7 @@ import { markdownToHtml } from "@/utils/markdownConverter";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { blobToBase64 } from "@/utils/storage";
 import { parseFile, getSupportedFileType } from "@/utils/fileParser";
+import { useWorkerImageProcessor } from "@/composables/useWorkerImageProcessor";
 import { message as naiveMessage } from "@/plugins/naive-ui";
 
 const props = defineProps<{
@@ -534,6 +578,9 @@ const {
   removePendingAttachment,
 } = consultStore;
 
+// 图片压缩：长边 1024 + JPEG 0.8，落盘前缩小附件体积（worker 内画白底，PNG 透明不转黑）
+const { processImage } = useWorkerImageProcessor();
+
 // resumeStore 的属性访问直接用 store 实例（模板和 computed 里自动响应式）
 const resumeList = computed(() => resumeStore.resumeList);
 
@@ -567,17 +614,50 @@ const TEXT_EXTS = [
   ".py",
 ];
 
+/**
+ * n-upload 空上传器：naive-ui 在无 action/custom-request 时不会触发 before-upload，
+ * 给个 no-op 让上传流程启动，before-upload（onPickFile）才被调用，再 return false 阻止真正上传。
+ */
+const noopCustomRequest = () => {};
+
 /** 上传文件：图片转 Base64 data URL 走多模态，文本提取内容注入消息文本 */
+const MAX_IMAGE_DIM = 1024;
+
+/** 图片压缩：长边缩到 1024px + JPEG 0.8，worker 内画白底（PNG 透明不转黑）。
+ *  createImageBitmap / worker 失败时 fallback 到原图 base64，保证不丢用户文件。 */
+const compressImage = async (file: File): Promise<string> => {
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+    if (width > MAX_IMAGE_DIM || height > MAX_IMAGE_DIM) {
+      const ratio = Math.min(MAX_IMAGE_DIM / width, MAX_IMAGE_DIM / height);
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+    }
+    return await processImage(bitmap, {
+      width,
+      height,
+      shape: "rectangle",
+      mimeType: "image/jpeg",
+      quality: 0.8,
+    });
+  } catch {
+    // 损坏图 / worker 不可用：退回原图，不阻断上传
+    return blobToBase64(file);
+  }
+};
+
 const onPickFile = async ({
   file,
 }: {
-  file: { file?: File; name: string };
+  file: { file: File | null; name: string };
+  fileList: unknown[];
 }) => {
   const f = file.file;
   if (!f) return false;
   try {
     if (f.type.startsWith("image/")) {
-      const dataUrl = await blobToBase64(f);
+      const dataUrl = await compressImage(f);
       addPendingAttachment({ name: f.name, dataUrl, kind: "image" });
     } else {
       let text: string;
@@ -757,6 +837,18 @@ const renderMarkdown = (md: string): string => {
   const html = sanitizeHtml(markdownToHtml(md));
   renderCache.set(md, html);
   return html;
+};
+
+/** 提取 user-question 的纯文本：content 可能是 string（纯文本）或 ContentPart[]（带附件多模态） */
+const userMessageText = (msg: ConsultMessage): string => {
+  const c = msg.content;
+  if (typeof c === "string") return c;
+  // 多模态：拼接所有 text part（类型守卫收窄后 text 必非空，无需 ! 断言）
+  type TextPart = Extract<ContentPart, { type: "text" }>;
+  return (c as ContentPart[])
+    .filter((p): p is TextPart => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
 };
 
 const resumeTitle = (id: string): string => {
@@ -1292,6 +1384,34 @@ watch(
   &__cursor {
     animation: consult-blink 1s steps(2) infinite;
   }
+  // 用户气泡内附件区：图片缩略图 + 文本文件 chip
+  &__attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  &__thumb {
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: zoom-in;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  &__file {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 180px;
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+  &__filename {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 @keyframes consult-blink {
@@ -1368,6 +1488,33 @@ watch(
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  // pending 图片附件：缩略图 + 右上角删除角标
+  &__thumb-wrap {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    :deep(.n-image) {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+  }
+  &__thumb-del {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    cursor: pointer;
+    background: var(--n-color, #fff);
+    border-radius: 50%;
+    padding: 1px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    color: var(--n-text-color-2, #555);
+    &:hover {
+      color: var(--n-error-color, #d03050);
+    }
   }
 }
 
