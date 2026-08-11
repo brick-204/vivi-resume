@@ -809,9 +809,16 @@ if (isElectron) {
   ;(window as unknown as { electronAPI?: { app?: { getVersion: () => Promise<string> } } })
     .electronAPI?.app?.getVersion().then(v => { appVersion.value = v }).catch(() => {})
   // 进入设置面板静默检测一次，有新版则点亮红点（不弹消息，避免打扰）
-  runCheckUpdate().then(result => {
-    if (result && result.hasUpdate) hasUpdateDot.value = true
-  }).catch(() => {})
+  // 10 分钟内不重复静默检测——反复进出面板密集打 GitHub 会触发 abuse detection 临时 403。
+  // 用 localStorage 记上次检测时间，跨会话生效；主进程缓存是另一层兜底。
+  const SILENT_INTERVAL = 10 * 60 * 1000
+  const lastSilent = Number(localStorage.getItem('vivi-update-last-silent') ?? '0')
+  if (Date.now() - lastSilent >= SILENT_INTERVAL) {
+    localStorage.setItem('vivi-update-last-silent', String(Date.now()))
+    runCheckUpdate().then(result => {
+      if (result && result.hasUpdate) hasUpdateDot.value = true
+    }).catch(() => {})
+  }
 }
 
 const isCustomPet = (id: string) => id.startsWith('custom-')

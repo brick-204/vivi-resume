@@ -489,16 +489,18 @@ app.whenReady().then(async () => {
   // 检查更新：fetch GitHub Releases API 比对版本号，仅返回信息不自动下载
   // 会话级缓存 + 并发 Promise 复用（见 checkUpdate 上方注释）
   ipcMain.handle('app:checkUpdate', async () => {
-    // 命中缓存窗口：直接返回，不再打 GitHub
-    if (updateCache && Date.now() - updateCache.ts < UPDATE_CACHE_TTL) {
-      return updateCache.result
+    // 命中缓存窗口：成功 1h / 失败 5min，直接返回不再打 GitHub。
+    // 失败也短期缓存——GitHub abuse detection 是临时拦截，5min 内重打只会继续 403，
+    // 缓存能给 GitHub 时间放开，也避免用户反复点击反复告警。
+    if (updateCache) {
+      const ttl = updateCache.result.error ? UPDATE_FAIL_TTL : UPDATE_CACHE_TTL
+      if (Date.now() - updateCache.ts < ttl) return updateCache.result
     }
     // 进行中请求复用：静默检测与用户立刻点检查同时触发时只发一个请求
     if (updateInflight) return updateInflight
     updateInflight = checkUpdate().finally(() => { updateInflight = null })
     const result = await updateInflight
-    // 仅缓存成功结果（无 error）；失败不缓存，让用户重试有机会真正打到 API
-    if (!result.error) updateCache = { result, ts: Date.now() }
+    updateCache = { result, ts: Date.now() }
     return result
   })
 
@@ -521,6 +523,7 @@ app.whenReady().then(async () => {
  */
 const REPO = 'brick-204/vivi-resume'
 const UPDATE_CACHE_TTL = 60 * 60 * 1000 // 1 小时，对齐 GitHub 限流窗口
+const UPDATE_FAIL_TTL = 5 * 60 * 1000 // 失败短期缓存 5 分钟，避免 abuse detection 期间反复打
 let updateCache: { result: Awaited<ReturnType<typeof checkUpdate>>; ts: number } | null = null
 let updateInflight: Promise<Awaited<ReturnType<typeof checkUpdate>>> | null = null
 
@@ -542,7 +545,7 @@ async function checkUpdate(): Promise<{
       signal: controller.signal,
     })
     if (!resp.ok) {
-      // 403 通常是未认证限流（60次/小时/IP），给友好文案
+      // 403 通常是未认证限流（60次/小时/IP）或 abuse detection 临时拦截，给友好文案
       const error = resp.status === 403
         ? '检查过于频繁，请稍后再试'
         : `GitHub 返回 ${resp.status}`
