@@ -22,14 +22,18 @@ app.use(router)
 // web 端不受影响。localStorage 同步读，守卫在挂载前注册，首屏即可判定，无闪烁。
 // ponytail: 标志在首次访问 / 时即置位（不看是否点按钮）——首次展示 HomeView，之后重启一律跳 /dashboard；
 //           清应用数据会清掉 localStorage，回到首次态。
+// 仅拦截应用启动后的初始导航一次；之后用户主动点「首页」回 / 不再被拦，能正常看 HomeView。
 if (isElectron) {
   const LAUNCHED_KEY = 'hasLaunched'
+  let initialRouteHandled = false
   router.beforeEach((to) => {
-    if (to.path !== '/') return true
-    if (localStorage.getItem(LAUNCHED_KEY)) {
-      return { path: '/dashboard' }
+    if (!initialRouteHandled && to.path === '/') {
+      initialRouteHandled = true
+      if (localStorage.getItem(LAUNCHED_KEY)) {
+        return { path: '/dashboard' }
+      }
+      localStorage.setItem(LAUNCHED_KEY, '1')
     }
-    localStorage.setItem(LAUNCHED_KEY, '1')
     return true
   })
 }
