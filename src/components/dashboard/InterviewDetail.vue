@@ -116,7 +116,24 @@
           <Icon icon="mdi:gift-outline" :width="16" />
           福利待遇
         </h3>
-        <div class="detail-jd" :class="{ 'is-empty': !interview.benefits }">{{ interview.benefits || '未填写福利待遇' }}</div>
+        <div class="detail-jd" :class="{ 'is-empty': !interview.benefits && !interview.benefitsImages?.length }">
+          <template v-if="interview.benefits">{{ interview.benefits }}</template>
+          <template v-else-if="!interview.benefitsImages?.length">未填写福利待遇</template>
+        </div>
+        <div v-if="interview.benefitsImages?.length" class="detail-jd-images">
+          <NImageGroup>
+            <NImage
+              v-for="(img, i) in interview.benefitsImages"
+              :key="i"
+              :src="img"
+              :width="80"
+              :height="80"
+              object-fit="cover"
+              class="detail-jd-images__thumb"
+              :preview-src="img"
+            />
+          </NImageGroup>
+        </div>
       </section>
 
       <!-- JD 区（空也显示占位） -->
@@ -125,7 +142,24 @@
           <Icon icon="mdi:text-box-outline" :width="16" />
           JD / 职位描述
         </h3>
-        <div class="detail-jd" :class="{ 'is-empty': !interview.jd }">{{ interview.jd || '未填写职位描述' }}</div>
+        <div class="detail-jd" :class="{ 'is-empty': !interview.jd && !interview.jdImages?.length }">
+          <template v-if="interview.jd">{{ interview.jd }}</template>
+          <template v-else-if="!interview.jdImages?.length">未填写职位描述</template>
+        </div>
+        <div v-if="interview.jdImages?.length" class="detail-jd-images">
+          <NImageGroup>
+            <NImage
+              v-for="(img, i) in interview.jdImages"
+              :key="i"
+              :src="img"
+              :width="80"
+              :height="80"
+              object-fit="cover"
+              class="detail-jd-images__thumb"
+              :preview-src="img"
+            />
+          </NImageGroup>
+        </div>
       </section>
 
       <!-- 联系人区（空也显示占位） -->
@@ -241,6 +275,7 @@ import { useResumeStore } from '@/stores/resumeStore'
 import { dialog } from '@/plugins/naive-ui'
 import { extractMeetingUrl } from '@/utils/url'
 import { Icon } from '@iconify/vue'
+import { NImage, NImageGroup } from 'naive-ui'
 import InterviewEditForm from './InterviewEditForm.vue'
 
 const props = withDefaults(defineProps<{
@@ -657,6 +692,19 @@ const formatDateTime = (iso: string): string => {
     color: $text-light;
     font-style: italic;
     opacity: 0.5;
+  }
+}
+
+.detail-jd-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: $spacing-sm;
+
+  &__thumb {
+    cursor: zoom-in;
+    border-radius: $radius-sm;
+    overflow: hidden;
   }
 }
 

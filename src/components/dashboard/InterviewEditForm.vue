@@ -189,7 +189,62 @@
             :autosize="{ minRows: 2, maxRows: 6 }"
             placeholder="如 13薪 / 补充医疗 / 免费三餐 / 弹性工时"
             @update:value="onFieldUpdate('benefits', $event)"
+            @paste="onImagePaste($event, 'benefitsImages')"
           />
+          <!-- 福利待遇截图区：点击上传 / 拖拽 / 粘贴 均走 addImages -->
+          <div
+            class="img-attachments"
+            :class="{ 'img-attachments--dragover': benefitsDragover }"
+            @dragover.prevent="benefitsDragover = true"
+            @dragleave.prevent="benefitsDragover = false"
+            @drop.prevent="onImageDrop($event, 'benefitsImages')"
+          >
+            <div class="img-attachments__list">
+              <div v-for="(img, i) in form.benefitsImages" :key="i" class="img-attachments__item">
+                <NImage
+                  :src="img"
+                  :width="72"
+                  :height="72"
+                  object-fit="cover"
+                  class="img-attachments__thumb"
+                  :preview-src="img"
+                />
+                <button
+                  type="button"
+                  class="img-attachments__remove"
+                  title="删除"
+                  @click="removeImage('benefitsImages', i)"
+                >
+                  <Icon icon="mdi:close" :width="14" />
+                </button>
+              </div>
+              <button
+                type="button"
+                class="img-attachments__add"
+                @click="triggerFileInput('benefitsImages')"
+              >
+                <Icon icon="mdi:image-plus-outline" :width="22" />
+                <span>上传截图</span>
+              </button>
+            </div>
+            <div class="img-attachments__bar">
+              <NButton size="small" quaternary @click="triggerFileInput('benefitsImages')">
+                <template #icon>
+                  <Icon icon="mdi:image-plus-outline" :width="16" />
+                </template>
+                添加图片
+              </NButton>
+              <span class="img-attachments__hint">{{ form.benefitsImages?.length ?? 0 }} 张 · 可粘贴/拖拽截图</span>
+            </div>
+            <input
+              ref="benefitsFileInputRef"
+              type="file"
+              accept="image/*"
+              multiple
+              class="img-attachments__file-input"
+              @change="onImageFileChange($event, 'benefitsImages')"
+            />
+          </div>
         </div>
 
         <div class="form-field form-field--full">
@@ -198,9 +253,64 @@
             :value="form.jd"
             type="textarea"
             :autosize="{ minRows: 3, maxRows: 8 }"
-            placeholder="粘贴 JD，便于面试准备"
+            placeholder="粘贴 JD 文本，或下方上传 JD 截图"
             @update:value="onFieldUpdate('jd', $event)"
+            @paste="onImagePaste($event, 'jdImages')"
           />
+          <!-- JD 截图区：点击上传 / 拖拽 / 粘贴 均走 addImages -->
+          <div
+            class="img-attachments"
+            :class="{ 'img-attachments--dragover': jdDragover }"
+            @dragover.prevent="jdDragover = true"
+            @dragleave.prevent="jdDragover = false"
+            @drop.prevent="onImageDrop($event, 'jdImages')"
+          >
+            <div class="img-attachments__list">
+              <div v-for="(img, i) in form.jdImages" :key="i" class="img-attachments__item">
+                <NImage
+                  :src="img"
+                  :width="72"
+                  :height="72"
+                  object-fit="cover"
+                  class="img-attachments__thumb"
+                  :preview-src="img"
+                />
+                <button
+                  type="button"
+                  class="img-attachments__remove"
+                  title="删除"
+                  @click="removeImage('jdImages', i)"
+                >
+                  <Icon icon="mdi:close" :width="14" />
+                </button>
+              </div>
+              <button
+                type="button"
+                class="img-attachments__add"
+                @click="triggerFileInput('jdImages')"
+              >
+                <Icon icon="mdi:image-plus-outline" :width="22" />
+                <span>上传截图</span>
+              </button>
+            </div>
+            <div class="img-attachments__bar">
+              <NButton size="small" quaternary @click="triggerFileInput('jdImages')">
+                <template #icon>
+                  <Icon icon="mdi:image-plus-outline" :width="16" />
+                </template>
+                添加图片
+              </NButton>
+              <span class="img-attachments__hint">{{ form.jdImages?.length ?? 0 }} 张 · 可粘贴/拖拽截图</span>
+            </div>
+            <input
+              ref="jdFileInputRef"
+              type="file"
+              accept="image/*"
+              multiple
+              class="img-attachments__file-input"
+              @change="onImageFileChange($event, 'jdImages')"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -251,7 +361,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
-import { NInput, NSelect, NButton, NCheckbox, NTooltip, NSwitch } from 'naive-ui'
+import { NInput, NSelect, NButton, NCheckbox, NTooltip, NSwitch, NImage } from 'naive-ui'
 import draggable from 'vuedraggable'
 import type { SelectOption } from 'naive-ui'
 import type { Interview, InterviewStatus } from '@/types/interview'
@@ -266,6 +376,7 @@ import InterviewRoundEditor from './InterviewRoundEditor.vue'
 import PoiSearchModal from './PoiSearchModal.vue'
 import type { PoiResult } from '@/services/amapService'
 import { geocode } from '@/services/amapService'
+import { useWorkerImageProcessor } from '@/composables/useWorkerImageProcessor'
 
 const props = defineProps<{ interview: Interview }>()
 
@@ -278,6 +389,20 @@ const interviewStore = useInterviewStore()
 const resumeStore = useResumeStore()
 const settingsStore = useSettingsStore()
 const router = useRouter()
+
+// 截图处理：复用全局图片 Worker 压缩编码（1600px / jpeg 0.85），JD/福利待遇共用
+const { resizeImage } = useWorkerImageProcessor()
+const jdFileInputRef = ref<HTMLInputElement | null>(null)
+const benefitsFileInputRef = ref<HTMLInputElement | null>(null)
+const jdDragover = ref(false)
+const benefitsDragover = ref(false)
+// 单一处理锁——同时只跑一批压缩，避免并发写同一字段
+const imageProcessing = ref(false)
+// 字段名 → 对应的隐藏 file input ref（triggerFileInput 用）
+const fileInputRefs = {
+  jdImages: jdFileInputRef,
+  benefitsImages: benefitsFileInputRef,
+} as const
 
 // 地图功能可用：开关开 + Key 已配置
 const mapAvailable = computed(() => settingsStore.amapEnabled && !!settingsStore.amapKey)
@@ -368,7 +493,102 @@ function onFieldUpdate<K extends keyof Interview>(key: K, value: Interview[K]) {
   form.value = next
 }
 
-/** 打开 POI 搜索弹窗，记录当前编辑目标；地图功能未启用时弹提示并提供跳设置入口 */
+// ===== 截图附件处理（JD / 福利待遇共用） =====
+
+type ImageField = 'jdImages' | 'benefitsImages'
+
+/** 触发对应字段的隐藏 file input 点击 */
+function triggerFileInput(field: ImageField) {
+  fileInputRefs[field].value?.click()
+}
+
+/** file input change：取 files 走 addImages，完后清空 value 允许重复选同一文件 */
+function onImageFileChange(e: Event, field: ImageField) {
+  const input = e.target as HTMLInputElement
+  if (input.files?.length) {
+    addImages(Array.from(input.files), field)
+  }
+  input.value = ''
+}
+
+/** 拖拽 drop：取图片文件走 addImages */
+function onImageDrop(e: DragEvent, field: ImageField) {
+  if (field === 'jdImages') jdDragover.value = false
+  else benefitsDragover.value = false
+  const files = Array.from(e.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'))
+  if (files.length) addImages(files, field)
+}
+
+/** textarea paste：从剪贴板取图片走 addImages（文本粘贴交给 n-input 默认行为） */
+function onImagePaste(e: ClipboardEvent, field: ImageField) {
+  const files = Array.from(e.clipboardData?.items ?? [])
+    .filter(item => item.type.startsWith('image/'))
+    .map(item => item.getAsFile())
+    .filter((f): f is File => !!f)
+  if (files.length) {
+    e.preventDefault()
+    addImages(files, field)
+  }
+}
+
+/**
+ * 批量添加图片：每个 File → 加载成 HTMLImageElement → Worker 压缩成 data URL → push 进对应字段。
+ * 压缩参数 1600px / jpeg 0.85（截图字多，保留足够清晰度）。
+ */
+async function addImages(files: File[], field: ImageField) {
+  if (imageProcessing.value) return
+  imageProcessing.value = true
+  try {
+    const results: string[] = []
+    for (const file of files) {
+      try {
+        const dataUrl = await compressImage(file)
+        results.push(dataUrl)
+      } catch (err) {
+        console.warn('[截图附件] 压缩失败，跳过', err)
+      }
+    }
+    if (results.length) {
+      const prev = form.value[field] ?? []
+      form.value = { ...form.value, [field]: [...prev, ...results] }
+      naiveMessage.success(`已添加 ${results.length} 张图片`)
+    } else {
+      naiveMessage.warning('图片添加失败，请重试')
+    }
+  } finally {
+    imageProcessing.value = false
+  }
+}
+
+/** 单张图片：File → objectURL → HTMLImageElement → resizeImage 压缩 → data URL */
+function compressImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = async () => {
+      try {
+        const dataUrl = await resizeImage(img, 1600, 'image/jpeg', 0.85)
+        resolve(dataUrl)
+      } catch (err) {
+        reject(err)
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('图片加载失败'))
+    }
+    img.src = url
+  })
+}
+
+/** 删除某张图片 */
+function removeImage(field: ImageField, index: number) {
+  const prev = form.value[field] ?? []
+  form.value = { ...form.value, [field]: prev.filter((_, i) => i !== index) }
+}
+
 function openPoiSearch(target: 'interviewLocation' | 'location') {
   if (target === 'location' && locationSameAsInterview.value) return
   // 地图功能未启用或未配 Key → 弹提示 + 跳设置入口（不打开搜索弹窗）
@@ -762,5 +982,107 @@ defineExpose({ save, isDirty })
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+// 截图附件区（JD / 福利待遇共用）
+.img-attachments {
+  margin-top: 6px;
+  border: 1px dashed $border-glass;
+  border-radius: $radius-md;
+  padding: 8px;
+  transition: border-color $transition-base, background $transition-base;
+
+  &--dragover {
+    border-color: $primary-color;
+    background: var(--bg-secondary, rgba(0, 0, 0, 0.02));
+  }
+
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  &__item {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    border-radius: $radius-sm;
+    overflow: visible; // 删除按钮要溢出右上角
+
+    :deep(.n-image) {
+      width: 72px;
+      height: 72px;
+      border-radius: $radius-sm;
+      overflow: hidden;
+    }
+  }
+
+  &__thumb {
+    cursor: zoom-in;
+  }
+
+  &__remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-primary);
+    color: $text-light;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    z-index: 2;
+    transition: color $transition-base, background $transition-base;
+
+    &:hover {
+      color: $error-color;
+      background: var(--bg-primary);
+    }
+  }
+
+  &__add {
+    width: 72px;
+    height: 72px;
+    border: 1px dashed $border-glass;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $text-light;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: border-color $transition-base, color $transition-base;
+
+    &:hover {
+      border-color: $primary-color;
+      color: $primary-color;
+    }
+  }
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  &__hint {
+    font-size: 11px;
+    color: $text-light;
+  }
+
+  &__file-input {
+    display: none;
+  }
 }
 </style>

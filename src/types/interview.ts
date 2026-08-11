@@ -58,6 +58,8 @@ export interface Interview {
   position: string
   status: InterviewStatus
   jd: string
+  // JD 截图（压缩后的 data URL 数组，可选——旧数据无此字段视为空数组）
+  jdImages?: string[]
   salary: string
   location: string
   // 高德 POI 经纬度（面试足迹 tab 标点用，可选——旧数据无此字段时地图侧 geocode 兜底）
@@ -82,6 +84,8 @@ export interface Interview {
   // 面试地点 geocode 是否失败（同 locationGeocodeFailed）
   interviewLocationGeocodeFailed?: boolean
   benefits: string             // 福利待遇（多行文本）
+  // 福利待遇截图（压缩后的 data URL 数组，可选——旧数据无此字段视为空数组）
+  benefitsImages?: string[]
   rounds: InterviewRound[]
   // AI 结果缓存（可选，各功能最新一次）
   lastMockInterview?: MockInterviewResult
@@ -143,6 +147,7 @@ export function createEmptyInterview(): Interview {
     position: '',
     status: 'drafting',
     jd: '',
+    jdImages: [],
     salary: '',
     location: '',
     channel: '',
@@ -151,6 +156,7 @@ export function createEmptyInterview(): Interview {
     contactInfo: '',
     interviewLocation: '',
     benefits: '',
+    benefitsImages: [],
     rounds: [],
     footprintAlwaysShow: false,
     createdAt: now,
