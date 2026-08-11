@@ -213,6 +213,10 @@ const _discreteApi = ref(createDiscreteApi(
       theme: darkTheme,
       themeOverrides: darkThemeOverrides,
     },
+    // ponytail: 鼠标悬停 message 气泡时暂停倒计时，移开继续。Naive UI 此项默认 false，需显式开启
+    messageProviderProps: {
+      keepAliveOnHover: true,
+    },
   }
 ))
 
@@ -230,6 +234,9 @@ export function rebuildDiscreteApi(resolvedTheme: 'light' | 'dark') {
       configProviderProps: {
         theme: getNaiveTheme(resolvedTheme),
         themeOverrides: getNaiveThemeOverrides(resolvedTheme),
+      },
+      messageProviderProps: {
+        keepAliveOnHover: true,
       },
     }
   )
