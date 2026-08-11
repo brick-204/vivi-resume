@@ -15,6 +15,11 @@
  */
 import { contextBridge, ipcRenderer } from 'electron'
 
+// CloseBehavior 单一真相源：主进程 main.ts / 渲染进程 storageAdapter.ts 复制此定义，
+// 改动时三处同步（主进程/渲染进程编译独立，无法直接共享类型）。
+const CLOSE_BEHAVIORS = ['ask', 'tray', 'quit'] as const
+type CloseBehavior = typeof CLOSE_BEHAVIORS[number]
+
 // 同步向主进程取 proxyBase（sendSync），赋值给静态 aiProxyBase 供渲染层同步读取
 const proxyBase = ipcRenderer.sendSync('get-proxy-base') as string ?? ''
 
@@ -41,5 +46,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readDataUrl: (args: { root: string; path: string; mimeType: string }) => ipcRenderer.invoke('dir:readDataUrl', args),
     writeDataUrl: (args: { root: string; path: string; dataUrl: string }) => ipcRenderer.invoke('dir:writeDataUrl', args),
     clearDir: (args: { root: string; subdir: string }) => ipcRenderer.invoke('dir:clearDir', args),
+  },
+  window: {
+    setCloseBehavior: (behavior: CloseBehavior) =>
+      ipcRenderer.invoke('win:setCloseBehavior', behavior) as Promise<{ ok: boolean }>,
+    // 主进程「记住选择」改值后通知渲染进程回写 store（保持双源一致）。返回取消订阅函数。
+    onCloseBehaviorChanged: (cb: (behavior: CloseBehavior) => void) => {
+      const listener = (_e: unknown, behavior: CloseBehavior) => cb(behavior)
+      ipcRenderer.on('close-behavior-changed', listener)
+      return () => ipcRenderer.removeListener('close-behavior-changed', listener)
+    },
+    // 渲染进程回写 store 完成后回 ack，主进程「直接关闭+记住」路径收到 ack 才 destroy
+    // （否则 send 后立即 destroy 会销毁 webContents，回写来不及执行）。
+    ackCloseBehaviorChanged: () => ipcRenderer.invoke('win:closeBehaviorAck') as Promise<void>,
   },
 })

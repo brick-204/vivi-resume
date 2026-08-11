@@ -302,6 +302,26 @@
       </div>
     </div>
 
+    <!-- 关闭行为（仅桌面端） -->
+    <div v-if="isElectron" class="settings-section" data-toc="close">
+      <h3 class="settings-section__title">
+        <Icon icon="mdi:window-close" :width="20" />
+        关闭行为
+      </h3>
+      <p class="settings-section__desc">
+        点击窗口关闭按钮时的行为。最小化到托盘后，应用仍在后台运行，可从托盘图标重新打开。
+      </p>
+      <div class="settings-section__row">
+        <span class="settings-section__label">关闭按钮行为</span>
+        <NSelect
+          v-model:value="closeBehaviorValue"
+          :options="closeBehaviorOptions"
+          size="small"
+          style="width: 180px"
+        />
+      </div>
+    </div>
+
     <!-- 地图设置 -->
     <div class="settings-section" data-toc="map">
       <h3 class="settings-section__title">
@@ -536,10 +556,11 @@ import { Icon } from '@iconify/vue'
 import { NModal, NSelect, NCheckbox, NInput, NSwitch, NInputNumber, NPopover } from 'naive-ui'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useResumeStore } from '@/stores/resumeStore'
-import type { InterviewBannerPosition } from '@/utils/storageAdapter'
+import type { InterviewBannerPosition, CloseBehavior } from '@/utils/storageAdapter'
 import { DESKTOP_PETS } from '@/config/desktopPets'
 import { parsePetFile, type ParsedPet } from '@/utils/petUpload'
 import { message as naiveMessage } from '@/plugins/naive-ui'
+import { isElectron } from '@/utils/runtime'
 import PetPreview from '@/components/ai/PetPreview.vue'
 
 const settingsStore = useSettingsStore()
@@ -549,14 +570,21 @@ const allPets = computed(() => [...DESKTOP_PETS, ...settingsStore.customPets])
 const showUnbindConfirm = ref(false)
 const copyToBrowser = ref(false)
 
-// 设置小目录（TOC）：4 个分区，点击平滑滚动，IntersectionObserver 高亮当前
-const tocItems = [
-  { id: 'directory', label: '本地目录', icon: 'mdi:folder-outline' },
-  { id: 'recycle', label: '回收设置', icon: 'mdi:delete-clock-outline' },
-  { id: 'pet', label: '桌宠设置', icon: 'mdi:cat' },
-  { id: 'interview', label: '面试提示', icon: 'mdi:briefcase-clock-outline' },
-  { id: 'map', label: '地图设置', icon: 'mdi:map-marker-outline' },
-] as const
+// 设置小目录（TOC）：宽屏右侧 sticky 竖排，窄屏折成顶部横向条
+// 「关闭行为」仅桌面端显示
+const tocItems = computed(() => {
+  const base = [
+    { id: 'directory', label: '本地目录', icon: 'mdi:folder-outline' },
+    { id: 'recycle', label: '回收设置', icon: 'mdi:delete-clock-outline' },
+    { id: 'pet', label: '桌宠设置', icon: 'mdi:cat' },
+    { id: 'interview', label: '面试提示', icon: 'mdi:briefcase-clock-outline' },
+    { id: 'map', label: '地图设置', icon: 'mdi:map-marker-outline' },
+  ]
+  if (isElectron) {
+    base.splice(4, 0, { id: 'close', label: '关闭行为', icon: 'mdi:window-close' })
+  }
+  return base
+})
 const activeToc = ref<string>('directory')
 let tocObserver: IntersectionObserver | null = null
 // ponytail: 点击 TOC 跳转时锁定，滚动动画期间忽略 observer 回调，避免高亮在路径上的 section 间乱跳
@@ -695,6 +723,15 @@ const bannerPositionOptions: { label: string; value: InterviewBannerPosition }[]
   { label: '右下角', value: 'bottom-right' },
   { label: '顶部横幅', value: 'top-bar' },
   { label: '侧边栏顶部', value: 'nav-top' },
+]
+const closeBehaviorValue = computed({
+  get: () => settingsStore.closeBehavior,
+  set: (val: CloseBehavior) => { settingsStore.updateCloseBehavior(val) },
+})
+const closeBehaviorOptions: { label: string; value: CloseBehavior }[] = [
+  { label: '每次询问', value: 'ask' },
+  { label: '最小化到托盘', value: 'tray' },
+  { label: '直接关闭', value: 'quit' },
 ]
 
 const isCustomPet = (id: string) => id.startsWith('custom-')

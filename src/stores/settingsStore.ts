@@ -20,7 +20,7 @@ import {
 } from '@/utils/storage'
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
-import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getFootprintHideMonths, setFootprintHideMonths, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type MapLocationItem } from '@/utils/storageAdapter'
+import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getCloseBehavior, setCloseBehavior, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getFootprintHideMonths, setFootprintHideMonths, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type CloseBehavior, type MapLocationItem } from '@/utils/storageAdapter'
 import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import * as dirWeb from '@/utils/directoryStorage'
 import * as dirElectron from '@/utils/directoryStorageElectron'
@@ -88,6 +88,8 @@ export const useSettingsStore = defineStore('settings', () => {
   // 面试提示横幅：默认开，默认左下角
   const interviewBannerEnabled = ref(true)
   const interviewBannerPosition = ref<InterviewBannerPosition>('bottom-left')
+  // 窗口关闭行为：默认每次询问（仅桌面端生效）
+  const closeBehavior = ref<CloseBehavior>('ask')
   // 高德地图：Key + 安全密钥（面试足迹 tab 用，默认空，用户在设置面板填）
   // 注：JS API 2.0 强制 scode，不配则 PlaceSearch 等服务接口返回 INVALID_USER_SCODE
   const amapKey = ref('')
@@ -165,6 +167,11 @@ export const useSettingsStore = defineStore('settings', () => {
         interviewBannerPosition.value = await getInterviewBannerPosition()
       } catch (e) {
         console.error('[settingsStore] 读取面试提示设置失败:', e)
+      }
+      try {
+        closeBehavior.value = await getCloseBehavior()
+      } catch (e) {
+        console.error('[settingsStore] 读取关闭行为设置失败:', e)
       }
       try {
         amapKey.value = await getAmapKey()
@@ -256,6 +263,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idbInterviewTrash, idbAiConfigTrash, idbJournalTrash,
         idbRestReminderEnabled, idbRestReminderInterval, idbPetAIChatEnabled, idbIdleAiEnabled, idbIdleIntervalMinutes,
         idbInterviewBannerEnabled, idbInterviewBannerPosition,
+        idbCloseBehavior,
         idbAmapKey, idbAmapSecurityCode, idbMyLocation, idbAmapEnabled, idbFootprintHideMonths, idbMapLocationHistory,
       ] = await Promise.all([
         idb.getMeta<Resume[]>('trash'),
@@ -273,6 +281,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getMeta<number>('idleIntervalMinutes'),
         idb.getMeta<boolean>('interviewBannerEnabled'),
         idb.getMeta<InterviewBannerPosition>('interviewBannerPosition'),
+        idb.getMeta<CloseBehavior>('closeBehavior'),
         idb.getMeta<string>('amapKey'),
         idb.getMeta<string>('amapSecurityCode'),
         idb.getMeta<string>('myLocation'),
@@ -304,6 +313,7 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirIdleIntervalMinutes: number | undefined
       let dirInterviewBannerEnabled: boolean | undefined
       let dirInterviewBannerPosition: InterviewBannerPosition | undefined
+      let dirCloseBehavior: CloseBehavior | undefined
       let dirAmapKey: string | undefined
       let dirAmapSecurityCode: string | undefined
       let dirMyLocation: string | undefined
@@ -330,6 +340,7 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.idleIntervalMinutes === 'number') dirIdleIntervalMinutes = dirMeta.idleIntervalMinutes
           if (typeof dirMeta.interviewBannerEnabled === 'boolean') dirInterviewBannerEnabled = dirMeta.interviewBannerEnabled
           if (typeof dirMeta.interviewBannerPosition === 'string') dirInterviewBannerPosition = dirMeta.interviewBannerPosition as InterviewBannerPosition
+          if (typeof dirMeta.closeBehavior === 'string') dirCloseBehavior = dirMeta.closeBehavior as CloseBehavior
           if (typeof dirMeta.amapKey === 'string') dirAmapKey = dirMeta.amapKey
           if (typeof dirMeta.amapSecurityCode === 'string') dirAmapSecurityCode = dirMeta.amapSecurityCode
           if (typeof dirMeta.myLocation === 'string') dirMyLocation = dirMeta.myLocation
@@ -559,6 +570,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idleIntervalMinutes: dirIdleIntervalMinutes ?? idbIdleIntervalMinutes ?? 1,
         interviewBannerEnabled: dirInterviewBannerEnabled ?? idbInterviewBannerEnabled ?? true,
         interviewBannerPosition: dirInterviewBannerPosition ?? idbInterviewBannerPosition ?? 'bottom-left',
+        closeBehavior: dirCloseBehavior ?? idbCloseBehavior ?? 'ask',
         amapKey: dirAmapKey ?? idbAmapKey ?? '',
         amapSecurityCode: dirAmapSecurityCode ?? idbAmapSecurityCode ?? '',
         myLocation: dirMyLocation ?? idbMyLocation ?? '',
@@ -703,6 +715,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await idb.setMeta('idleIntervalMinutes', null)
       await idb.setMeta('interviewBannerEnabled', null)
       await idb.setMeta('interviewBannerPosition', null)
+      await idb.setMeta('closeBehavior', null)
       await idb.setMeta('amapKey', null)
       await idb.setMeta('amapSecurityCode', null)
       await idb.setMeta('myLocation', null)
@@ -728,6 +741,7 @@ export const useSettingsStore = defineStore('settings', () => {
       idleIntervalMinutes.value = mergedMeta.idleIntervalMinutes
       interviewBannerEnabled.value = mergedMeta.interviewBannerEnabled
       interviewBannerPosition.value = mergedMeta.interviewBannerPosition
+      closeBehavior.value = mergedMeta.closeBehavior
       amapKey.value = mergedMeta.amapKey
       amapSecurityCode.value = mergedMeta.amapSecurityCode
       myLocation.value = mergedMeta.myLocation
@@ -844,6 +858,7 @@ export const useSettingsStore = defineStore('settings', () => {
         if (typeof metaAny?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', metaAny.idleIntervalMinutes)
         if (typeof metaAny?.interviewBannerEnabled === 'boolean') await idb.setMeta('interviewBannerEnabled', metaAny.interviewBannerEnabled)
         if (typeof metaAny?.interviewBannerPosition === 'string') await idb.setMeta('interviewBannerPosition', metaAny.interviewBannerPosition)
+        if (typeof metaAny?.closeBehavior === 'string') await idb.setMeta('closeBehavior', metaAny.closeBehavior)
         if (typeof metaAny?.amapKey === 'string') await idb.setMeta('amapKey', metaAny.amapKey)
         if (typeof metaAny?.amapSecurityCode === 'string') await idb.setMeta('amapSecurityCode', metaAny.amapSecurityCode)
         if (typeof metaAny?.myLocation === 'string') await idb.setMeta('myLocation', metaAny.myLocation)
@@ -881,6 +896,7 @@ export const useSettingsStore = defineStore('settings', () => {
       idleIntervalMinutes.value = await getIdleIntervalMinutes()
       interviewBannerEnabled.value = await getInterviewBannerEnabled()
       interviewBannerPosition.value = await getInterviewBannerPosition()
+      closeBehavior.value = await getCloseBehavior()
       amapKey.value = await getAmapKey()
       amapSecurityCode.value = await getAmapSecurityCode()
       myLocation.value = await getMyLocation()
@@ -1043,6 +1059,29 @@ export const useSettingsStore = defineStore('settings', () => {
   const updateInterviewBannerPosition = async (position: InterviewBannerPosition) => {
     interviewBannerPosition.value = position
     trackPending(setInterviewBannerPosition(position)).catch(e => console.error('[settingsStore] 面试提示位置写盘失败:', e))
+  }
+
+  /** 修改窗口关闭行为：持久化 + 同步推送给主进程（fire-and-forget 写盘） */
+  const updateCloseBehavior = async (behavior: CloseBehavior) => {
+    closeBehavior.value = behavior
+    trackPending(setCloseBehavior(behavior)).catch(e => console.error('[settingsStore] 关闭行为写盘失败:', e))
+    // 同步给主进程，close 事件即时生效
+    if (isElectron) {
+      try {
+        await (window as unknown as { electronAPI?: { window?: { setCloseBehavior: (b: CloseBehavior) => Promise<unknown> } } })
+          .electronAPI?.window?.setCloseBehavior(behavior)
+      } catch { /* 主进程未就绪，忽略；init 后会再推一次 */ }
+    }
+  }
+
+  /**
+   * 主进程「记住选择」改值后回写本 store（仅本地持久化 + 更新 ref，不再推送主进程，避免循环）。
+   * 由 App.vue 订阅 close-behavior-changed 事件后调用。
+   * async + await 写盘：调用方（App.vue）需等写盘完成再向主进程回 ack，主进程收到 ack 才 destroy。
+   */
+  const syncCloseBehaviorFromMain = async (behavior: CloseBehavior) => {
+    closeBehavior.value = behavior
+    await setCloseBehavior(behavior)
   }
 
   /** 修改高德地图 Key：持久化（fire-and-forget） */
@@ -1338,6 +1377,7 @@ export const useSettingsStore = defineStore('settings', () => {
       if (typeof rMeta?.idleIntervalMinutes === 'number') await idb.setMeta('idleIntervalMinutes', rMeta.idleIntervalMinutes)
       if (typeof rMeta?.interviewBannerEnabled === 'boolean') await idb.setMeta('interviewBannerEnabled', rMeta.interviewBannerEnabled)
       if (typeof rMeta?.interviewBannerPosition === 'string') await idb.setMeta('interviewBannerPosition', rMeta.interviewBannerPosition)
+      if (typeof rMeta?.closeBehavior === 'string') await idb.setMeta('closeBehavior', rMeta.closeBehavior)
       if (typeof rMeta?.amapKey === 'string') await idb.setMeta('amapKey', rMeta.amapKey)
       if (typeof rMeta?.amapSecurityCode === 'string') await idb.setMeta('amapSecurityCode', rMeta.amapSecurityCode)
       if (typeof rMeta?.myLocation === 'string') await idb.setMeta('myLocation', rMeta.myLocation)
@@ -1358,6 +1398,7 @@ export const useSettingsStore = defineStore('settings', () => {
       idleIntervalMinutes.value = await getIdleIntervalMinutes()
       interviewBannerEnabled.value = await getInterviewBannerEnabled()
       interviewBannerPosition.value = await getInterviewBannerPosition()
+      closeBehavior.value = await getCloseBehavior()
       amapKey.value = await getAmapKey()
       amapSecurityCode.value = await getAmapSecurityCode()
       myLocation.value = await getMyLocation()
@@ -1453,6 +1494,9 @@ export const useSettingsStore = defineStore('settings', () => {
     interviewBannerPosition,
     updateInterviewBannerEnabled,
     updateInterviewBannerPosition,
+    closeBehavior,
+    updateCloseBehavior,
+    syncCloseBehaviorFromMain,
     amapKey,
     amapSecurityCode,
     myLocation,

@@ -38,6 +38,7 @@ import SaveGuardOverlay from '@/components/common/SaveGuardOverlay.vue'
 import { useFlushGuard } from '@/composables/useFlushGuard'
 import ConsultDrawer from '@/components/ai/ConsultDrawer.vue'
 import DesktopPet from '@/components/ai/DesktopPet.vue'
+import { isElectron } from '@/utils/runtime'
 
 const { resolvedTheme } = useTheme()
 const settingsStore = useSettingsStore()
@@ -51,6 +52,27 @@ const isFlushing = computed(() => flushGuard.isFlushing.value)
 //           避免启动瞬间用默认桌宠渲染、ready 后再切换造成的闪烁
 const petReady = ref(false)
 settingsStore.ready.then(() => { petReady.value = true })
+
+// 桌面端：settingsStore ready 后把关闭行为推给主进程（close 事件即时生效）。
+// store 是权威源，覆盖主进程启动时读的 userData 配置。
+// 同时订阅主进程「记住选择」回写——用户在关闭询问框勾「记住」后，主进程改值并通知这里，
+// 调 syncCloseBehaviorFromMain 回写 store（仅本地写，不再推主进程，避免循环）。
+if (isElectron) {
+  settingsStore.ready.then(() => {
+    void (window as unknown as { electronAPI?: { window?: { setCloseBehavior: (b: 'ask' | 'tray' | 'quit') => Promise<unknown> } } })
+      .electronAPI?.window?.setCloseBehavior(settingsStore.closeBehavior)
+  })
+  ;(window as unknown as { electronAPI?: { window?: { onCloseBehaviorChanged: (cb: (b: 'ask' | 'tray' | 'quit') => void) => () => void; ackCloseBehaviorChanged: () => Promise<void> } } })
+    .electronAPI?.window?.onCloseBehaviorChanged(async (b) => {
+      await settingsStore.syncCloseBehaviorFromMain(b)
+      // 回写完成回 ack：主进程「直接关闭+记住」路径等此 ack 再 destroy，
+      // 否则 destroy 销毁 webContents 会导致回写来不及执行。
+      try {
+        await (window as unknown as { electronAPI?: { window?: { ackCloseBehaviorChanged: () => Promise<void> } } })
+          .electronAPI?.window?.ackCloseBehaviorChanged()
+      } catch { /* 主进程已退出等场景，忽略 */ }
+    })
+}
 
 const naiveTheme = computed(() => getNaiveTheme(resolvedTheme.value))
 const naiveThemeOverrides = computed(() => getNaiveThemeOverrides(resolvedTheme.value))

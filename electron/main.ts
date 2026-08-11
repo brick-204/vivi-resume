@@ -3,7 +3,7 @@
  * 职责：注册 app:// 协议加载 dist 产物、启动内置 AI 代理、创建主窗口、
  * 注册目录模式 IPC（主进程 Node fs 替代 web 端 File System Access API）。
  */
-import { app, BrowserWindow, protocol, net, Menu, session, shell, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, protocol, net, Menu, session, shell, ipcMain, dialog, Tray, nativeImage } from 'electron'
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 import { pathToFileURL } from 'node:url'
@@ -64,6 +64,68 @@ function registerAppProtocol(): void {
  * app 重启后为 null，由渲染进程 init 时调 dir:rebind(path) 恢复（路径字符串持久化在 IndexedDB meta）。
  */
 let boundRoot: string | null = null
+
+// ========== 窗口关闭行为（托盘） ==========
+// CloseBehavior 单一真相源在 preload.ts（as const 派生），此处与 storageAdapter.ts 复制同一字面量联合，
+// 改动时三处同步（主进程/渲染进程编译独立，无法直接共享类型）。
+type CloseBehavior = 'ask' | 'tray' | 'quit'
+
+/**
+ * 当前关闭行为。主进程在 win 'close' 事件读取此值决定 hide/quit/弹询问框。
+ * 双源：启动时从 userData/close-behavior.json 读初始值；渲染进程 settingsStore ready 后
+ * 通过 win:setCloseBehavior IPC 推送覆盖（store 是权威源——设置面板改的值在那）。
+ * 主进程「记住选择」改值后，通过 close-behavior-changed 事件回写渲染进程 store，
+ * 保证双源一致（见 handleClose）。两者值一致，谁先谁后不冲突。
+ */
+let closeBehavior: CloseBehavior = 'ask'
+
+/**
+ * 用户已明确「退出」意图（托盘菜单「退出」/未来文件菜单退出）。
+ * handleClose 开头检查此标志：为 true 则放行关闭，不再拦截。
+ * 解决托盘「退出」在 tray 模式被 preventDefault 卡住、在 ask 模式弹询问框的问题。
+ */
+let isQuitting = false
+
+const closeBehaviorPath = () => path.join(app.getPath('userData'), 'close-behavior.json')
+
+async function loadCloseBehavior(): Promise<void> {
+  try {
+    const text = await fs.readFile(closeBehaviorPath(), 'utf8')
+    const v = JSON.parse(text)?.behavior
+    if (v === 'ask' || v === 'tray' || v === 'quit') closeBehavior = v
+  } catch { /* 不存在或损坏，用默认 'ask' */ }
+}
+
+async function saveCloseBehavior(behavior: CloseBehavior): Promise<void> {
+  try {
+    await fs.writeFile(closeBehaviorPath(), JSON.stringify({ behavior }), 'utf8')
+  } catch (e) {
+    console.error('[main] saveCloseBehavior failed:', e)
+  }
+}
+
+/**
+ * 渲染进程回写 store 完成的 ack resolver。
+ * 「直接关闭+记住」路径 send 后等此 ack 再 destroy——否则 destroy 销毁 webContents，
+ * 回写来不及执行，重启后 store 仍是旧值。超时兜底防卡死。
+ */
+let ackResolver: (() => void) | null = null
+
+function waitForCloseBehaviorAck(timeoutMs: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(() => {
+      ackResolver = null
+      resolve() // 超时也放行，避免关不掉
+    }, timeoutMs)
+    ackResolver = () => {
+      clearTimeout(timer)
+      ackResolver = null
+      resolve()
+    }
+  })
+}
+
+let tray: Tray | null = null
 
 /**
  * 用户曾通过 dir:pick 选过的路径白名单（持久化在 userData/dir-whitelist.json）。
@@ -405,10 +467,111 @@ app.whenReady().then(async () => {
     return { ok: true }
   })
 
+  // 渲染进程推送关闭行为设置（settingsStore ready 后 + 设置面板改动时）。
+  // 主进程 close 事件读此内存值，store 是权威源，覆盖启动时读的 userData 配置。
+  ipcMain.handle('win:setCloseBehavior', async (_e, behavior: CloseBehavior) => {
+    if (behavior === 'ask' || behavior === 'tray' || behavior === 'quit') {
+      closeBehavior = behavior
+      await saveCloseBehavior(behavior)
+    }
+    return { ok: true }
+  })
+
+  // 渲染进程回写 store 完成后回 ack，「直接关闭+记住」路径等此 ack 再 destroy
+  ipcMain.handle('win:closeBehaviorAck', async () => {
+    ackResolver?.()
+    return undefined
+  })
+
+  // 启动时读上次记住的关闭行为（userData 配置），渲染进程 ready 后会推送覆盖
+  await loadCloseBehavior()
+
   await createWindow()
 }).catch((e) => {
   console.error('[main] startup failed:', e)
 })
+
+/**
+ * 创建托盘图标 + 菜单。复用 favicon.ico（多分辨率 ICO，Tray 自动选尺寸）。
+ * 点击托盘 = 显示窗口；菜单含「显示窗口」「退出」。
+ */
+function createTray(win: BrowserWindow): Tray {
+  const iconPath = path.join(__dirname, '../dist/favicon.ico')
+  // nativeImage 包一层：dev 下 dist 可能无 favicon.ico，nativeImage.createFromPath
+  // 找不到文件返回空 image，Tray 降级默认图标不崩。打包后 dist/favicon.ico 必存在。
+  const image = nativeImage.createFromPath(iconPath)
+  const t = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image)
+  t.setToolTip('Vivi Resume')
+  t.setContextMenu(Menu.buildFromTemplate([
+    {
+      label: '显示窗口',
+      click: () => { win.show(); win.focus() },
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => { isQuitting = true; app.quit() },
+    },
+  ]))
+  // 单击托盘图标显示窗口（macOS 已由 setContextMenu 处理，这里覆盖 win/linux）
+  t.on('click', () => { win.show(); win.focus() })
+  return t
+}
+
+/**
+ * 处理窗口关闭：根据 closeBehavior 决定 最小化到托盘 / 直接关闭 / 弹询问框。
+ * 在 win 'close' 事件里调用，需 preventDefault 才能阻止默认关闭。
+ */
+async function handleClose(win: BrowserWindow, e: Electron.Event): Promise<void> {
+  // 用户已明确退出意图（托盘「退出」等）：放行，不再拦截
+  if (isQuitting) return
+  if (closeBehavior === 'tray') {
+    e.preventDefault()
+    win.hide()
+    return
+  }
+  if (closeBehavior === 'quit') {
+    // 放行默认关闭
+    return
+  }
+  // 'ask'：弹原生询问框（三选一 + 记住勾选）
+  e.preventDefault()
+  const result = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: '关闭窗口',
+    message: '要怎么关闭 Vivi Resume？',
+    detail: '最小化到托盘后应用仍在后台运行，可从托盘图标重新打开。',
+    buttons: ['最小化到托盘', '直接关闭', '取消'],
+    defaultId: 0,
+    cancelId: 2,
+    checkboxLabel: '记住我的选择（以后不再询问，可在设置中修改）',
+    checkboxChecked: false,
+  })
+  const { response, checkboxChecked } = result
+  if (response === 2) return // 取消：什么都不做，窗口保持
+  if (response === 0) {
+    // 最小化到托盘
+    if (checkboxChecked) {
+      closeBehavior = 'tray'
+      await saveCloseBehavior('tray')
+      // 回写渲染进程 store（权威源），否则重启后 store 的旧值会覆盖主进程
+      win.webContents.send('close-behavior-changed', 'tray')
+    }
+    win.hide()
+    return
+  }
+  // response === 1：直接关闭
+  if (checkboxChecked) {
+    closeBehavior = 'quit'
+    await saveCloseBehavior('quit')
+    win.webContents.send('close-behavior-changed', 'quit')
+    // 等渲染进程回写 store 完成的 ack 再 destroy：destroy 会销毁 webContents，
+    // 不等的话 send 投递的回写来不及执行，重启后 store 仍是旧值。超时兜底防卡死。
+    await waitForCloseBehaviorAck(2000)
+  }
+  // 放行关闭：destroy 跳过 close 事件，不会被本函数再次拦截，也不误伤其他 close 监听器
+  win.destroy()
+}
 
 /**
  * 创建主窗口。proxyBase 由 preload 通过 IPC（get-proxy-base）向主进程取，不经 URL query。
@@ -483,6 +646,16 @@ async function createWindow(): Promise<BrowserWindow> {
       }
     })
   }
+
+  // 关闭行为拦截：tray 隐藏、quit 放行、ask 弹询问框。见 handleClose。
+  // macOS 关窗进 dock 是系统默认行为，不拦截。
+  if (process.platform !== 'darwin') {
+    win.on('close', (e) => { void handleClose(win, e) })
+  }
+
+  // 托盘：仅创建一次（单实例 + 单窗口，重建窗口路径复用已有 tray）。macOS 无需托盘。
+  if (!tray && process.platform !== 'darwin') tray = createTray(win)
+
   return win
 }
 

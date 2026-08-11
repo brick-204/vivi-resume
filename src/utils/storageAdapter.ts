@@ -622,6 +622,34 @@ export async function setInterviewBannerPosition(position: InterviewBannerPositi
   }
 }
 
+/**
+ * 窗口关闭行为：每次询问 / 最小化到托盘 / 直接关闭。
+ * 单一真相源在 electron/preload.ts（as const 派生），此处与 main.ts 复制同一字面量联合，
+ * 改动时三处同步（主进程/渲染进程编译独立，无法直接共享类型）。
+ */
+export type CloseBehavior = 'ask' | 'tray' | 'quit'
+
+/** 读取窗口关闭行为（默认每次询问） */
+export async function getCloseBehavior(): Promise<CloseBehavior> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    const v = meta?.closeBehavior as CloseBehavior | undefined
+    return v ?? 'ask'
+  }
+  return (await idb.getMeta<CloseBehavior>('closeBehavior')) ?? 'ask'
+}
+
+/** 写入窗口关闭行为 */
+export async function setCloseBehavior(behavior: CloseBehavior): Promise<void> {
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.closeBehavior = behavior
+    })
+  } else {
+    await idb.setMeta('closeBehavior', behavior)
+  }
+}
+
 /** 读取高德地图 Key（默认空） */
 export async function getAmapKey(): Promise<string> {
   if (isDirectoryMode()) {
