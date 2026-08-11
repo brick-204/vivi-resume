@@ -68,6 +68,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   open: []
+  ocr: []
   'update:placement': [v: 'left' | 'right']
 }>()
 
@@ -79,6 +80,7 @@ const actionsOpen = ref(false)
 /** action 列：v-for 渲染，后续加项往数组里加即可 */
 const actions = [
   { key: 'consult', icon: 'mdi:comment-question-outline', label: 'AI 咨询', run: () => emit('open') },
+  { key: 'ocr', icon: 'mdi:image-search-outline', label: 'AI 识图', run: () => emit('ocr') },
   { key: 'surprise', icon: 'mdi:dice-multiple', label: '洗洗屏幕', run: () => {
     const egg = triggerRandomEasterEgg()
     // internalSay 的彩蛋（如信封）trigger 内部已带变量说话，不重复 sayCategory

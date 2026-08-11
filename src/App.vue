@@ -14,11 +14,13 @@
         :drawer-open="consultVisible"
         :pet-id="settingsStore.currentPetId"
         @open="consultVisible = true"
+        @ocr="ocrVisible = true"
       />
       <ConsultDrawer
         v-model:show="consultVisible"
         v-model:placement="consultPlacement"
       />
+      <ImageOcrModal v-if="ocrVisible" :visible="ocrVisible" @close="ocrVisible = false" />
       <!-- ponytail: 落盘兜底遮罩 — beforeunload/flush 期间显示，引导用户等待落盘完成 -->
       <SaveGuardOverlay :visible="isFlushing" />
     </n-message-provider>
@@ -37,6 +39,7 @@ import RouteSkeletonOverlay from '@/components/common/RouteSkeletonOverlay.vue'
 import SaveGuardOverlay from '@/components/common/SaveGuardOverlay.vue'
 import { useFlushGuard } from '@/composables/useFlushGuard'
 import ConsultDrawer from '@/components/ai/ConsultDrawer.vue'
+import ImageOcrModal from '@/components/ai/ImageOcrModal.vue'
 import DesktopPet from '@/components/ai/DesktopPet.vue'
 import { isElectron } from '@/utils/runtime'
 
@@ -78,6 +81,7 @@ const naiveTheme = computed(() => getNaiveTheme(resolvedTheme.value))
 const naiveThemeOverrides = computed(() => getNaiveThemeOverrides(resolvedTheme.value))
 
 const consultVisible = ref(false)
+const ocrVisible = ref(false)
 
 // AI 咨询抽屉方向：靠左/靠右，所有态都生效，桌宠吸附侧即此值。localStorage 单一写入点。
 const consultPlacement = ref<'left' | 'right'>(
