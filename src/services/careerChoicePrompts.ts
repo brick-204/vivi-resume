@@ -9,7 +9,7 @@
  * 告知模型是否可联网搜索公司背景辅助判断。
  */
 
-import type { ChatMessage } from './aiService'
+import type { ChatMessage, ContentPart } from './aiService'
 
 /** 单条面试的核心字段子集（已剥离敏感字段，序列化后发往大模型） */
 export interface CareerChoiceInterviewInput {
@@ -19,6 +19,10 @@ export interface CareerChoiceInterviewInput {
   location: string
   jd: string
   benefits: string
+  /** JD 截图（压缩后 data URL，可选）。有图时随该面试文本块一起发 */
+  jdImages?: string[]
+  /** 福利待遇截图（压缩后 data URL，可选） */
+  benefitsImages?: string[]
   /** 状态中文 label（调用方转换，如「面试中」「Offer」） */
   status: string
   /** 轮次摘要，如「共 3 轮，最后一面：HR面」 */
@@ -89,7 +93,7 @@ const SYSTEM_PROMPT_WITH_SEARCH = `你是一位资深职业选择顾问，擅长
 - 搜索到的外部信息需与用户资料区分，标注为外部信息
 - 直接输出，不要加「好的」「我来分析」等前缀或解释`
 
-/** 将单条面试序列化为带编号的文本块 */
+/** 将单条面试序列化为带编号的文本块（不含图片） */
 function serializeInterview(iv: CareerChoiceInterviewInput, idx: number): string {
   const lines = [
     `【机会 ${idx}】`,
@@ -105,19 +109,62 @@ function serializeInterview(iv: CareerChoiceInterviewInput, idx: number): string
   return lines.join('\n')
 }
 
+/** 单条面试是否有有效图片（过滤空字符串 data URL） */
+function hasInterviewImages(iv: CareerChoiceInterviewInput): boolean {
+  return (iv.jdImages?.filter(u => !!u).length ?? 0) > 0 ||
+    (iv.benefitsImages?.filter(u => !!u).length ?? 0) > 0
+}
+
+/**
+ * 单条面试的图片 parts：JD 截图 + 福利截图，各自带引导文本 part，插在该面试文本块之后。
+ * 无图返回空数组。
+ */
+function interviewImageParts(iv: CareerChoiceInterviewInput, idx: number): ContentPart[] {
+  const parts: ContentPart[] = []
+  const jdImgs = iv.jdImages?.filter(u => !!u) ?? []
+  if (jdImgs.length) {
+    parts.push({ type: 'text', text: `以下是【机会 ${idx}】的 JD 截图：` })
+    for (const url of jdImgs) parts.push({ type: 'image_url', image_url: { url } })
+  }
+  const benImgs = iv.benefitsImages?.filter(u => !!u) ?? []
+  if (benImgs.length) {
+    parts.push({ type: 'text', text: `以下是【机会 ${idx}】的福利待遇截图：` })
+    for (const url of benImgs) parts.push({ type: 'image_url', image_url: { url } })
+  }
+  return parts
+}
+
 export function buildCareerChoiceMessages(input: CareerChoiceInput): ChatMessage[] {
   const system = input.webSearchEnabled ? SYSTEM_PROMPT_WITH_SEARCH : SYSTEM_PROMPT
-  const body = input.interviews
-    .map((iv, idx) => serializeInterview(iv, idx + 1))
-    .join('\n\n')
-  let user = `请对以下 ${input.interviews.length} 个面试/offer 机会做横向对比评估，给出推荐项（含置信度）与 Markdown 报告：\n\n${body}\n\n请严格按系统提示的输出格式输出。`
+  const intro = `请对以下 ${input.interviews.length} 个面试/offer 机会做横向对比评估，给出推荐项（含置信度）与 Markdown 报告：\n\n`
   // 用户自定义要求：非空才追加，提示模型在评估时重点考虑
   const extra = input.userPrompt?.trim()
-  if (extra) {
-    user += `\n\n以下是用户的额外要求，请在评估与推荐时重点考虑：\n${extra}`
+  const outroTail = extra
+    ? `\n\n以下是用户的额外要求，请在评估与推荐时重点考虑：\n${extra}\n\n请严格按系统提示的输出格式输出。`
+    : '\n\n请严格按系统提示的输出格式输出。'
+
+  // 任一面试有有效图 → 整体走多模态 ContentPart[]，图片按归属插在各自文本块后
+  const anyImage = input.interviews.some(hasInterviewImages)
+
+  if (!anyImage) {
+    // 全无图：保持原 string 路径，存量行为零变化
+    const body = input.interviews
+      .map((iv, idx) => serializeInterview(iv, idx + 1))
+      .join('\n\n')
+    return [
+      { role: 'system', content: system },
+      { role: 'user', content: `${intro}${body}${outroTail}` },
+    ]
   }
+
+  const parts: ContentPart[] = [{ type: 'text', text: intro }]
+  input.interviews.forEach((iv, idx) => {
+    parts.push({ type: 'text', text: serializeInterview(iv, idx + 1) + '\n\n' })
+    parts.push(...interviewImageParts(iv, idx + 1))
+  })
+  parts.push({ type: 'text', text: outroTail })
   return [
     { role: 'system', content: system },
-    { role: 'user', content: user },
+    { role: 'user', content: parts },
   ]
 }

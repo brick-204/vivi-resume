@@ -8,7 +8,7 @@
  * 这里是 interview tab 专用，独立维护，与 consultPrompts 同思路。
  */
 
-import type { ChatMessage } from './aiService'
+import type { ChatMessage, ContentPart } from './aiService'
 
 // ========== a. 模拟面试 ==========
 
@@ -39,6 +39,8 @@ export interface MockInterviewInput {
   position: string
   jd: string
   resumeText?: string
+  /** JD 截图（压缩后 data URL，可选）。有图时 user 消息走多模态 ContentPart[] */
+  jdImages?: string[]
 }
 
 export function buildMockInterviewMessages(input: MockInterviewInput): ChatMessage[] {
@@ -48,7 +50,7 @@ export function buildMockInterviewMessages(input: MockInterviewInput): ChatMessa
   const user = `岗位：${input.position}\nJD：${input.jd}${resumePart}\n请生成 8-12 道面试题。`
   return [
     { role: 'system', content: MOCK_INTERVIEW_PROMPT },
-    { role: 'user', content: user },
+    { role: 'user', content: withJdImages(user, input.jdImages, '请结合下方 JD 截图与文本理解岗位要求') },
   ]
 }
 
@@ -83,13 +85,29 @@ export interface InterviewReviewInput {
   jd: string
   questions: string
   answers: string
+  /** JD 截图（压缩后 data URL，可选）。有图时 user 消息走多模态 ContentPart[] */
+  jdImages?: string[]
 }
 
 export function buildInterviewReviewMessages(input: InterviewReviewInput): ChatMessage[] {
   const user = `岗位：${input.position}\nJD：${input.jd}\n面试问题：\n${input.questions}\n我的回答：\n${input.answers}\n请复盘。`
   return [
     { role: 'system', content: INTERVIEW_REVIEW_PROMPT },
-    { role: 'user', content: user },
+    { role: 'user', content: withJdImages(user, input.jdImages, '请结合下方 JD 截图与文本理解岗位要求与面试问题') },
+  ]
+}
+
+/**
+ * 把纯文本 user 文案 + 可选 JD 截图拼成 user content。
+ * 无图：返回原 string（存量行为零变化，与 OCR 一致）。
+ * 有图：返回 ContentPart[]——文本 part 追加图文引导句 + 每个 data URL 一个 image_url part。
+ */
+function withJdImages(text: string, images: string[] | undefined, hint: string): string | ContentPart[] {
+  const imgs = images?.filter(u => !!u) ?? []
+  if (imgs.length === 0) return text
+  return [
+    { type: 'text', text: `${text}\n${hint}：` },
+    ...imgs.map<ContentPart>(url => ({ type: 'image_url', image_url: { url } })),
   ]
 }
 

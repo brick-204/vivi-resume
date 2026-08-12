@@ -413,6 +413,8 @@ const handleStart = async () => {
       location: i.location,
       jd: i.jd,
       benefits: i.benefits,
+      jdImages: i.jdImages ?? [],
+      benefitsImages: i.benefitsImages ?? [],
       status: statusLabel(i.status),
       roundsSummary: roundsSummary(i.rounds),
     }))

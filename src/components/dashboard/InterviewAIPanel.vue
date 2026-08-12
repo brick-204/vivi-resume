@@ -302,7 +302,7 @@ import { Icon } from '@iconify/vue'
 import { NModal, NButton, NInput, NSelect, NTabs, NTabPane } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
-import type { ChatMessage } from '@/services/aiService'
+import type { ChatMessage, ContentPart } from '@/services/aiService'
 import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useResumeStore } from '@/stores/resumeStore'
 import { useInterviewStore } from '@/stores/interviewStore'
@@ -510,13 +510,15 @@ const missingHint = computed(() => {
   if (activeMode.value === 'parseJd') return ''  // parseJd 走自己的 jdText 校验
   if (!targetInterview.value) return '未关联面试记录'
   const m = activeMode.value
+  const hasJdImages = !!targetInterview.value.jdImages?.length
   if (m === 'mockInterview' || m === 'review') {
     if (!mockPosition.value.trim()) return '请回到面试补充「岗位名称」后再使用'
-    if (!mockJd.value.trim()) return '请回到面试补充「目标职位 JD」后再使用'
+    // JD 文本和截图至少一个非空即放行
+    if (!mockJd.value.trim() && !hasJdImages) return '请回到面试补充「目标职位 JD」或上传 JD 截图后再使用'
     if (!resumeTitle.value) return '请回到面试关联简历后再使用'
   }
   if (m === 'jdScan') {
-    if (!scanJd.value.trim()) return '请回到面试补充「目标职位 JD」后再使用'
+    if (!scanJd.value.trim() && !hasJdImages) return '请回到面试补充「目标职位 JD」或上传 JD 截图后再使用'
     if (!resumeTitle.value) return '请回到面试关联简历后再使用'
   }
   if (m === 'review') {
@@ -613,11 +615,13 @@ const onModeChange = () => {
 
 // ========== 构造消息 ==========
 const buildMessagesForMode = (): ChatMessage[] => {
+  const jdImages = targetInterview.value?.jdImages
   if (activeMode.value === 'mockInterview') {
     return buildMockInterviewMessages({
       position: mockPosition.value.trim(),
       jd: mockJd.value.trim(),
       resumeText: resumeText.value || undefined,
+      jdImages,
     })
   }
   if (activeMode.value === 'review') {
@@ -626,13 +630,46 @@ const buildMessagesForMode = (): ChatMessage[] => {
       jd: reviewJd.value.trim(),
       questions: reviewQuestions.value.trim(),
       answers: reviewAnswers.value.trim(),
+      jdImages,
     })
   }
   if (activeMode.value === 'jdScan') {
     // 复用简历编辑页 JD 扫描：content=简历文本，customInstruction=JD
-    return buildMessages('scan', resumeText.value, scanJd.value.trim())
+    const messages = buildMessages('scan', resumeText.value, scanJd.value.trim())
+    // 共享 buildMessages 不带图，有 JD 截图时在组件层把图追加进 user 消息
+    return appendJdImages(messages, jdImages, '请结合下方 JD 截图与文本分析简历与岗位的匹配度')
   }
   return buildParseJdMessages({ jdText: jdText.value.trim() })
+}
+
+/**
+ * jdScan 专用：把 buildMessages('scan') 产出的纯文本 user 消息追加 JD 截图。
+ * 无图原样返回；有图把最后一条 user 的 string content 转成 ContentPart[]。
+ */
+function appendJdImages(messages: ChatMessage[], images: string[] | undefined, hint: string): ChatMessage[] {
+  const imgs = images?.filter(u => !!u) ?? []
+  if (imgs.length === 0) return messages
+  // 找最后一条 user 消息（scan 产出的 user 一定在末尾）
+  // ponytail: 隐式依赖 buildMessages('scan') 产出 string user 消息；若未来改多模态
+  // 返回 ContentPart[]，这里匹配不到会静默丢图，故 warn 兜底（升级时改走合并逻辑）
+  let appended = false
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user' && typeof messages[i].content === 'string') {
+      messages[i] = {
+        ...messages[i],
+        content: [
+          { type: 'text', text: `${messages[i].content as string}\n${hint}：` },
+          ...imgs.map<ContentPart>(url => ({ type: 'image_url', image_url: { url } })),
+        ],
+      }
+      appended = true
+      break
+    }
+  }
+  if (!appended) {
+    console.warn('[appendJdImages] 未找到 string 类型的 user 消息，JD 截图未追加——检查 buildMessages 是否已改为多模态输出')
+  }
+  return messages
 }
 
 // ========== 校验输入 ==========
