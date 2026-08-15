@@ -166,7 +166,7 @@ export const isEnvelopeEffectActive = service.isActive
  * 触发信封彩蛋。内部算收件人/firstname/company → 传组件渲染 + 调桌宠话术。
  * 外部可传 options 覆盖 recipientName/company（测试用）。
  */
-export const showEnvelopeEffect = (options?: EnvelopeEffectOptions, bypassLock = false): boolean => {
+export const showEnvelopeEffect = (options?: EnvelopeEffectOptions) => {
   // 现场算内容（pinia 此时已初始化，快捷键触发时 store 必然 ready）
   let recipientName = options?.recipientName ?? ''
   let firstname = ''
@@ -189,15 +189,11 @@ export const showEnvelopeEffect = (options?: EnvelopeEffectOptions, bypassLock =
       : ''
   }
 
-  // 桌宠话术：传变量供 {firstname}/{company} 插值。混合彩蛋由调用方统一说稀有话术，bypassLock 时不重复说。
+  // 桌宠话术：传变量供 {firstname}/{company} 插值
   const vars: QuoteVars = { name: recipientName, firstname, company }
+  try { usePetStore().sayCategory('envelope', vars) } catch { /* pinia 未就绪，静默 */ }
 
-  // 被全局彩蛋互斥锁拦住 → 不挂特效也不说话（键盘快捷键静默；桌宠点击路径由调用方说 eggBusy）
-  if (!service.show({ ...options, recipientName, company }, bypassLock)) return false
-  if (!bypassLock) {
-    try { usePetStore().sayCategory('envelope', vars) } catch { /* pinia 未就绪，静默 */ }
-  }
-  return true
+  service.show({ ...options, recipientName, company })
 }
 
 export const hideEnvelopeEffect = service.hide

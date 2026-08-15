@@ -47,11 +47,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     writeDataUrl: (args: { root: string; path: string; dataUrl: string }) => ipcRenderer.invoke('dir:writeDataUrl', args),
     clearDir: (args: { root: string; subdir: string }) => ipcRenderer.invoke('dir:clearDir', args),
   },
-  // 导出文件保存（图片/JSON/DOCX）+ PDF 导出，走主进程 showSaveDialog/printToPDF
-  saveFile: (args: { defaultName: string; filters: { name: string; extensions: string[] }[]; content: string; encoding: 'base64' | 'utf8' }) =>
-    ipcRenderer.invoke('fs:saveFile', args) as Promise<{ saved: boolean; error?: string }>,
-  exportPdf: (args: { html: string; defaultName: string }) =>
-    ipcRenderer.invoke('pdf:export', args) as Promise<{ saved: boolean; error?: string }>,
   window: {
     setCloseBehavior: (behavior: CloseBehavior) =>
       ipcRenderer.invoke('win:setCloseBehavior', behavior) as Promise<{ ok: boolean }>,

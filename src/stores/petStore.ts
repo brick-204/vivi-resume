@@ -17,10 +17,6 @@ const IDLE_INTERVAL = 60_000 // 定时随机冒泡间隔（默认 1 分钟，可
 const SAY_TTL = 5000 // 单句话显示时长（静态话术）
 const AI_SAY_MS_PER_CHAR = 120 // AI 话术每字阅读时长
 const AI_SAY_BASE_MS = 2000 // AI 话术基础时长
-const AI_THROTTLE_MS = 1000 // AI 请求节流窗口（连点桌宠 1s 内只发一次 AI）
-const AI_HARD_TIMEOUT_MS = 12_000 // AI 硬超时兜底（streamChat SSE 挂起时强制走 catch，避免 sayCategory 永久卡住）
-// ponytail: 彩蛋分类豁免节流——低频高光时刻，触发即说 AI 话术，不被 2s 节流扫兴
-const EGG_CATEGORIES = new Set<QuoteCategory>(['rainy', 'snowy', 'offer', 'envelope', 'eggRare'])
 
 /** AI 话术时长：字数 × 120ms + 2s 底，不低于静态 TTL */
 const computeAiTtl = (text: string) => Math.max(SAY_TTL, text.length * AI_SAY_MS_PER_CHAR + AI_SAY_BASE_MS)
@@ -61,12 +57,12 @@ export const usePetStore = defineStore('pet', () => {
 
   // ----- 桌宠 AI 动态话术（settingsStore 注入） -----
   // ponytail: 注入式（与 restEnabled 同模式），保持 petStore 不依赖 settingsStore。
-  //   防串台靠 genToken：AI 回来时若 token 已变（期间有新调用）则丢弃结果，
+  //   AI 生成中 generating=true，新调用直接回退静态（不排队不串台，最简）。
+  //   genToken 标记每次发起的 AI 生成；AI 回来时若 token 已变（期间有新调用）则丢弃结果，
   //   避免 dragStart 的 AI 结果延迟回来覆盖已显示的 dragEnd 静态话术。
-  //   防连点费 token 靠 lastAiSentAt 节流（2s 内只发一次 AI）。
   let petAIChatEnabled = false
+  let generating = false
   let genToken = 0
-  let lastAiSentAt = 0 // 最近一次发起 AI 请求的时间戳（节流用）
   // idle/rest 也走 AI 子开关（依赖 petAIChatEnabled，settingsStore 注入）
   let idleAiEnabled = false
   // 空闲冒泡间隔毫秒（settingsStore 注入，覆盖默认 IDLE_INTERVAL）
@@ -92,9 +88,11 @@ export const usePetStore = defineStore('pet', () => {
 
   /** 按话术分类说一句（随机取一条），vars 替换占位符 {name}/{firstname}/{company}。
    *  第二参兼容 string（当 name）与 QuoteVars 对象（信封彩蛋传 firstname/company）。
-   *  aiError 永远静态（AI 不可用时）；其余场景开关开且未在节流窗口内时调 AI，失败回退静态。
+   *  aiError 永远静态（AI 不可用时）；其余场景开关开且未生成中时调 AI，失败回退静态。
    *  idle 的静态回退用 pickIdleQuote（过滤简历话术），其余用 pickQuote。 */
   const sayCategory = async (category: QuoteCategory, vars?: string | QuoteVars) => {
+    // 每次调用递增 token：后续若有 AI 结果延迟回来，对比 token 即知是否已被新调用取代
+    const myToken = ++genToken
     // ponytail: AI 路径只用 name；从 vars 取出 name（string 直接用，对象取 .name）
     const nameStr = typeof vars === 'string' ? vars : vars?.name
     // aiError 永远静态（AI 不可用时本就不该走 AI）
@@ -102,34 +100,18 @@ export const usePetStore = defineStore('pet', () => {
       say(pickQuote(category, vars))
       return
     }
-    // AI 场景：开关关 → 静态回退
-    if (!petAIChatEnabled) {
+    // AI 场景：开关关 或 正在生成中 → 静态回退
+    if (!petAIChatEnabled || generating) {
       say(fallbackText(category, vars))
       return
     }
-    // ponytail: 节流——距上次发起 AI 请求 < AI_THROTTLE_MS 时走静态，防连点桌宠费 token。
-    //   所有分类都节流（含 hover/click），彩蛋分类豁免：低频高光时刻，该说就说，不扫兴。
-    //   节流命中走静态，不递增 genToken——不抢正在飞的 AI 结果（已花 token 的请求能正常回来显示）。
-    if (!EGG_CATEGORIES.has(category) && Date.now() - lastAiSentAt < AI_THROTTLE_MS) {
-      say(fallbackText(category, vars))
-      return
-    }
-    // 真正发起 AI 请求才递增 token：节流/静态分支不抢 token，避免误废弃在飞的 AI 结果
-    const myToken = ++genToken
-    lastAiSentAt = Date.now()
+    generating = true
     try {
-      // ponytail: 硬超时兜底——streamChat 的 reader.read() 在某些服务商 SSE 挂起时不响应 abort，
-      //   会导致 await 永久挂起。Promise.race 强制超时走 catch，避免 sayCategory 永久卡住。
-      const text = await Promise.race([
-        generatePetQuote(category, {
-          name: nameStr ?? petName.value,
-          inEditor: inEditor.value,
-          period: getTimePeriod(new Date().getHours()),
-        }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('AI_HARD_TIMEOUT')), AI_HARD_TIMEOUT_MS),
-        ),
-      ])
+      const text = await generatePetQuote(category, {
+        name: nameStr ?? petName.value,
+        inEditor: inEditor.value,
+        period: getTimePeriod(new Date().getHours()),
+      })
       // 期间有新调用（如拖拽松手的 dragEnd 静态）取代了本次 → 丢弃 AI 结果，不覆盖当前气泡
       if (myToken !== genToken) return
       say(text, computeAiTtl(text))
@@ -138,6 +120,8 @@ export const usePetStore = defineStore('pet', () => {
       if (myToken !== genToken) return
       // 无配置/超时/失败 → 静态回退，气泡不空
       say(fallbackText(category, vars))
+    } finally {
+      generating = false
     }
   }
 

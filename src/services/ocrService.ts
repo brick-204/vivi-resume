@@ -7,9 +7,6 @@
  * 约定标识符：提示词要求 AI 在「无法识别/没能力/识别失败」时在最前面输出
  *   【OCR:UNSUPPORTED】（模型不支持图片）或 【OCR:FAILED】（支持但识别失败）。
  * 代码据此分流，避免靠关键词猜中英文自述。
- *
- * 兜底处理：部分思考型模型（glm-z1、kimi-k2.6 等）可能把思考内容混入 content 首段，
- * 在检查标识符之前先剔除可能的 thinking 前缀，避免误判。
  */
 
 import { streamChat, AIServiceError, AI_ERROR_MESSAGES } from '@/services/aiService'
@@ -22,33 +19,10 @@ const MAX_TOKENS = 4096
 const TAG_UNSUPPORTED = '【OCR:UNSUPPORTED】'
 const TAG_FAILED = '【OCR:FAILED】'
 
-/** 思考型模型可能返回的 thinking 前缀（如 "嗯，用户发了一张图片…"），
- * 先剔除这段再检查 OCR 标识符。 */
-const THINKING_STOP = '【OCR:'
-
 /** 流式期间检测：累积文本是否已确定为错误标识符（用于阻止往结果框写入） */
 export function isOcrErrorPrefix(accumulated: string): boolean {
   const t = accumulated.trim()
-  // 先剔除 thinking 前缀再检测
-  const afterThinking = _stripThinkingPrefix(t)
-  return afterThinking.startsWith(TAG_UNSUPPORTED) || afterThinking.startsWith(TAG_FAILED)
-}
-
-/**
- * 剔除 AI 思考内容前缀。部分模型在正式回答前先输出一段思考内容，
- * 以口语化"嗯"/"好的"/"好的，用户"等开头，跟 OCR 标识符无关。
- * 只做首段剔除，不影响正文。
- */
-function _stripThinkingPrefix(text: string): string {
-  // 如果文本已经以 OCR 标识符开头，不需要剔除
-  if (text.startsWith(TAG_UNSUPPORTED) || text.startsWith(TAG_FAILED)) return text
-  // 找第一个 OCR 标识符出现的位置
-  const idx = text.indexOf(THINKING_STOP)
-  if (idx > 0) {
-    // 有 thinking 前缀 + OCR 标识符 → 截掉 thinking 保留标识符
-    return text.slice(idx)
-  }
-  return text
+  return t.startsWith(TAG_UNSUPPORTED) || t.startsWith(TAG_FAILED)
 }
 
 /**
@@ -101,12 +75,10 @@ export async function ocrImage(
   const text = (result.finalText || '').trim()
   if (!text) throw new Error('EMPTY_RESPONSE')
 
-  // 约定标识符分流：AI 在最前面输出标识符声明失败类型。
-  // 先剔除可能混入的 thinking 前缀再检查，避免 thinking 挡住了标识符。
-  const clean = _stripThinkingPrefix(text).trim()
-  if (clean.startsWith(TAG_UNSUPPORTED)) throw new Error('UNSUPPORTED_VISION')
-  if (clean.startsWith(TAG_FAILED)) throw new Error('OCR_FAILED')
-  return clean
+  // 约定标识符分流：AI 在最前面输出标识符声明失败类型
+  if (text.startsWith(TAG_UNSUPPORTED)) throw new Error('UNSUPPORTED_VISION')
+  if (text.startsWith(TAG_FAILED)) throw new Error('OCR_FAILED')
+  return text
 }
 
 const SYSTEM_PROMPT =

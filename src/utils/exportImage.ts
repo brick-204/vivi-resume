@@ -8,7 +8,6 @@
 import { domToBlob } from 'modern-screenshot'
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
 import { formatTimestamp } from '@/utils/timestamp'
-import { saveBlob } from '@/utils/download'
 
 /** 浏览器 Canvas 单边最大像素限制 */
 const MAX_CANVAS_DIMENSION = 16384
@@ -86,7 +85,7 @@ export async function exportAsImage(
   element: HTMLElement,
   filename: string = 'resume',
   _margin: number = DEFAULT_PAGE_PADDING,
-): Promise<boolean> {
+): Promise<void> {
   // 1. 捕获前：强制 content-visibility: visible
   //    modern-screenshot 从原始 DOM 读取计算样式，需确保布局完整
   const cvElements = element.querySelectorAll(CV_SELECTORS)
@@ -160,12 +159,15 @@ export async function exportAsImage(
       throw new Error('图片生成失败：domToBlob 返回空数据')
     }
 
-    // 3. 保存（桌面端弹保存框选位置，web 端浏览器下载；用户取消返回 false）
-    return await saveBlob(
-      blob,
-      `${filename}_vivi-resume_${formatTimestamp()}.png`,
-      [{ name: 'PNG', extensions: ['png'] }],
-    )
+    // 3. 下载（文件名格式：简历名称_vivi-resume_时间戳.png）
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}_vivi-resume_${formatTimestamp()}.png`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   } finally {
     // 4. 恢复原始元素的样式
     cvElements.forEach((el, i) => {

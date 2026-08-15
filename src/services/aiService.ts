@@ -399,10 +399,7 @@ export async function streamChat(
             try {
               const parsed = JSON.parse(jsonStr)
               const choice = parsed?.choices?.[0]
-              const delta = choice?.delta ?? {}
-              // 只消费真正的内容。部分思考型模型（glm-z1、kimi-k2.6 等）会把思考链放在
-              // reasoning_content 字段单独返回——那不是最终输出，直接忽略，避免 thinking 混进正文。
-              const content = delta.content
+              const content = choice?.delta?.content
               if (content) {
                 accumulatedText += content
                 onChunk(content)
@@ -411,9 +408,6 @@ export async function streamChat(
                   onConnected?.()
                 }
               }
-              // 首段 content 前的 thinking 也会以纯文本形式混入 content；
-              // 捕获到的 reasoning 文本不该算输出，这里把混入的 thinking 排除在最终文本之外。
-              // （见 ocrService 的 thinking 前缀剔除，此处是通用层兜底）
               // 提取 finish_reason（最后一个 chunk 携带）
               if (choice?.finish_reason) {
                 finishReason = choice.finish_reason

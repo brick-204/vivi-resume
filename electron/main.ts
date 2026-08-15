@@ -19,9 +19,6 @@ import type {
   ReadDataUrlArgs,
   WriteDataUrlArgs,
   ClearDirArgs,
-  SaveFileArgs,
-  SaveFileResult,
-  ExportPdfArgs,
 } from './ipcTypes'
 
 /** dist 产物目录（主进程编译后位于 dist-electron/，dist 在上一级） */
@@ -365,66 +362,21 @@ function registerDirIpc(): void {
   })
 }
 
-// ========== 导出 IPC ==========
-// 桌面端导出文件走主进程 showSaveDialog（替代 web 端 <a download> 静默下载到下载目录）。
-// 图片/JSON/DOCX：渲染进程已有数据 → base64/utf8 传主进程写盘。
-// PDF：渲染进程传完整简历 HTML → 主进程开隐藏窗口渲染 → webContents.printToPDF → 写盘。
-
-/** 弹保存框，附到当前聚焦窗口（无窗口时退化为非模态） */
-function showSave(options: Electron.SaveDialogOptions): Promise<Electron.SaveDialogReturnValue> {
-  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-  return parent ? dialog.showSaveDialog(parent, options) : dialog.showSaveDialog(options)
-}
-
-function registerExportIpc(): void {
-  ipcMain.handle('fs:saveFile', async (_e, { defaultName, filters, content, encoding }: SaveFileArgs): Promise<SaveFileResult> => {
-    const result = await showSave({ defaultPath: defaultName, filters })
-    if (result.canceled || !result.filePath) return { saved: false }
-    try {
-      const data = encoding === 'base64' ? Buffer.from(content, 'base64') : content
-      await fs.writeFile(result.filePath, data)
-      return { saved: true }
-    } catch (err) {
-      return { saved: false, error: err instanceof Error ? err.message : '写入失败' }
-    }
-  })
-
-  ipcMain.handle('pdf:export', async (_e, { html, defaultName }: ExportPdfArgs): Promise<SaveFileResult> => {
-    // 隐藏窗口渲染简历 HTML → printToPDF。
-    // webSecurity:false：data-URL 文档 origin 为 null，需放开跨域才能加载 app:// 下的
-    // 字体/图片资源（内容来自应用自身生成的简历 HTML，非外部不可信输入，安全可接受）。
-    const exportWin = new BrowserWindow({
-      show: false,
-      webPreferences: { webSecurity: false, contextIsolation: true, sandbox: true },
-    })
-    try {
-      await exportWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-      // 等字体 + 图片加载完成，避免 printToPDF 截到未渲染内容
-      await exportWin.webContents.executeJavaScript(
-        'Promise.all([document.fonts.ready, ...Array.from(document.images).map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res }))])'
-      )
-      // preferCSSPageSize: 让 HTML 内 @page { size: A4; margin: 0 } 生效（print.ts 已注入）
-      const pdf = await exportWin.webContents.printToPDF({ preferCSSPageSize: true, printBackground: true })
-      const result = await showSave({
-        defaultPath: defaultName,
-        filters: [{ name: 'PDF', extensions: ['pdf'] }],
-      })
-      if (result.canceled || !result.filePath) return { saved: false }
-      await fs.writeFile(result.filePath, pdf)
-      return { saved: true }
-    } catch (err) {
-      return { saved: false, error: err instanceof Error ? err.message : 'PDF 生成失败' }
-    } finally {
-      exportWin.destroy()
-    }
-  })
-}
 
 // 单实例锁：防止多开导致 IndexedDB/目录数据写冲突。第二个实例直接聚焦已有窗口并退出。
-// ponytail: app 在 ELECTRON_RUN_AS_NODE 被外部设置为 1 时（Node 模式运行）会是字符串路径而非
-// API 对象。正常桌面启动必有 app；此处兜底仅为避免该环境变量被误设时崩溃，让 electron 以纯
-// Node 模式正常退出。Electron 内部对 ELECTRON_RUN_AS_NODE=1 时进程语义变了，应用本身不受影响。
-const gotLock = typeof app !== 'string' && app.requestSingleInstanceLock ? app.requestSingleInstanceLock() : false
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    // 用户再次启动：聚焦已有窗口而非开新实例
+    const wins = BrowserWindow.getAllWindows()
+    if (wins[0]) {
+      if (wins[0].isMinimized()) wins[0].restore()
+      wins[0].focus()
+    }
+  })
+}
 
 // 把 app:// 声明为特权协议：standard（有标准 origin，localStorage/IndexedDB 可用）、
 // secure（https 等价，storage API 不被拒）、supportFetchAPI（fetch 可用）、corsEnabled。
@@ -442,7 +394,6 @@ app.whenReady().then(async () => {
   // 加载目录白名单 + 注册目录模式 IPC（须在窗口加载页面前就位，避免渲染进程首次调用时 handler 未注册）
   await loadWhitelist()
   registerDirIpc()
-  registerExportIpc()
 
   // CSP：仅 prod 注入（dev 模式注入会拦 Vite HMR 的 ws://localhost，开发态无威胁模型收益）。
   // app:// 本地资源为 self；AI 代理走 127.0.0.1 动态端口需放开 connect-src；

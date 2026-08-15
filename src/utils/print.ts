@@ -97,27 +97,6 @@ export async function printViaIframe(options: PrintOptions): Promise<void> {
 }
 
 /**
- * 构建简历打印/导出用的完整 HTML 文档字符串。
- * 桌面端 PDF（主进程隐藏窗口 printToPDF）复用此串：同一样式收集 + 同一打印覆盖样式，
- * 保证导出 PDF 与 web 端打印预览视觉一致。
- * <base href> 让 data-URL 文档（桌面端隐藏窗口 origin=null）能解析 app:// 下相对资源。
- */
-export async function buildResumePrintHtml(
-  target: HTMLElement,
-  margin: number = DEFAULT_PAGE_PADDING,
-  filename?: string,
-): Promise<string> {
-  const allCSS = await collectAllStyles()
-  const clone = target.cloneNode(true) as HTMLElement
-  const title = filename ? `${filename}_vivi-resume_${formatTimestamp()}` : 'resume'
-  return (
-    `<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="${location.href}"><title>${title}</title>` +
-    `<style>${allCSS.join('\n')}</style><style>${generatePrintOverrides(margin)}</style>` +
-    `</head><body>${clone.outerHTML}</body></html>`
-  )
-}
-
-/**
  * 收集当前页面所有样式表内容
  *
  * 开发模式：Vite 通过 <style> 标签注入
