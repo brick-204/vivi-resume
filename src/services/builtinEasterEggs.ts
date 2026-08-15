@@ -6,23 +6,23 @@ import { showLightRainEffect } from '@/services/rainyNightEffect'
 import { showSnowEffect } from '@/services/snowEffect'
 import { showOfferEffect } from '@/services/offerEffect'
 import { showEnvelopeEffect } from '@/services/envelopeEffect'
-import { registerEasterEgg } from '@/services/easterEggRegistry'
+import { registerEasterEgg, type TriggerOpts } from '@/services/easterEggRegistry'
 
 registerEasterEgg({
   id: 'rainy-night',
-  trigger: () => showLightRainEffect(),
+  trigger: (opts?: TriggerOpts) => showLightRainEffect(undefined, opts?.bypassLock),
   quoteCategory: 'rainy',
 })
 
 registerEasterEgg({
   id: 'snow',
-  trigger: () => showSnowEffect(),
+  trigger: (opts?: TriggerOpts) => showSnowEffect(undefined, opts?.bypassLock),
   quoteCategory: 'snowy',
 })
 
 registerEasterEgg({
   id: 'offer',
-  trigger: () => showOfferEffect(),
+  trigger: (opts?: TriggerOpts) => showOfferEffect(undefined, opts?.bypassLock),
   quoteCategory: 'offer',
   // showOfferEffect 内部已调 sayCategory（与快捷键 onMatch 路径一致），防止重复
   internalSay: true,
@@ -30,7 +30,7 @@ registerEasterEgg({
 
 registerEasterEgg({
   id: 'envelope',
-  trigger: () => showEnvelopeEffect(),
+  trigger: (opts?: TriggerOpts) => showEnvelopeEffect(undefined, opts?.bypassLock),
   // 信封话术带 firstname/company 变量，由 showEnvelopeEffect 内部调 sayCategory，
   // internalSay=true 防止桌宠随机触发后再重复 sayCategory（无变量）
   quoteCategory: 'envelope',

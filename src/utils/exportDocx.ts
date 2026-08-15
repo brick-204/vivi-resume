@@ -37,6 +37,7 @@ import {
 } from '@/utils/colorUtils'
 import { htmlToDocxParagraphs, numbering } from '@/utils/htmlToDocx'
 import { formatTimestamp } from '@/utils/timestamp'
+import { saveBlob } from '@/utils/download'
 
 // ========== 工具函数 ==========
 
@@ -1186,7 +1187,7 @@ async function buildSidebarHeader(resume: Resume, ctx: DocxStyleContext): Promis
  * 导出简历为 DOCX 文件
  * 文件名格式：简历名称_vivi-resume_时间戳.docx
  */
-export async function exportDocx(resume: Resume, filename?: string): Promise<void> {
+export async function exportDocx(resume: Resume, filename?: string): Promise<boolean> {
   const ctx = buildStyleContext(resume)
   const timestamp = formatTimestamp()
   const title = resume.title || filename || 'resume'
@@ -1214,7 +1215,7 @@ export async function exportDocx(resume: Resume, filename?: string): Promise<voi
   })
 
   const blob = await Packer.toBlob(doc)
-  downloadBlob(blob, finalFilename)
+  return await downloadBlob(blob, finalFilename)
 }
 
 /** 构建普通模板的 Document sections */
@@ -1473,13 +1474,6 @@ async function buildSidebarSections(resume: Resume, ctx: DocxStyleContext, pageM
 
 // ========== 下载工具 ==========
 
-function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 5000)
+async function downloadBlob(blob: Blob, filename: string): Promise<boolean> {
+  return saveBlob(blob, filename, [{ name: 'Word', extensions: ['docx'] }])
 }

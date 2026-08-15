@@ -57,7 +57,7 @@ import { Icon } from '@iconify/vue'
 import { usePetStore } from '@/stores/petStore'
 import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
-import { triggerRandomEasterEgg } from '@/services/easterEggRegistry'
+import { triggerRandomEasterEgg, triggerMixedEasterEgg, isAnyEffectActive } from '@/services/easterEggRegistry'
 
 const props = defineProps<{
   placement: 'left' | 'right'
@@ -82,9 +82,29 @@ const actions = [
   { key: 'consult', icon: 'mdi:comment-question-outline', label: 'AI 咨询', run: () => emit('open') },
   { key: 'ocr', icon: 'mdi:image-search-outline', label: 'AI 识图', run: () => emit('ocr') },
   { key: 'surprise', icon: 'mdi:dice-multiple', label: '洗洗屏幕', run: () => {
-    const egg = triggerRandomEasterEgg()
+    // 已有彩蛋在跑 → 提示正忙，不触发（混合彩蛋也尊重互斥锁）
+    if (isAnyEffectActive()) {
+      petStore.sayCategory('eggBusy')
+      return
+    }
+    // 混合彩蛋概率 = 单彩蛋 × 1/4，即 单:混 = 4:1 → 20% 走混合
+    if (Math.random() < 0.2) {
+      const mixed = triggerMixedEasterEgg()
+      if (mixed) {
+        // 稀有话术优先说，trigger 内部 bypassLock 下不重复 sayCategory
+        petStore.sayCategory('eggRare')
+        return
+      }
+    }
+    const result = triggerRandomEasterEgg()
+    if (!result) return
+    // 极端：抽中的单彩蛋被锁（混合触发失败回退到这里时锁可能已占）→ 提示正忙
+    if (!result.actuallyTriggered) {
+      petStore.sayCategory('eggBusy')
+      return
+    }
     // internalSay 的彩蛋（如信封）trigger 内部已带变量说话，不重复 sayCategory
-    if (egg && !egg.internalSay) petStore.sayCategory(egg.quoteCategory)
+    if (!result.egg.internalSay) petStore.sayCategory(result.egg.quoteCategory)
   } },
 ] as const
 

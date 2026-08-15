@@ -118,12 +118,27 @@ export interface EffectServiceConfig {
 
 export interface EffectService {
   active: ReturnType<typeof shallowRef<boolean>>
-  show: (options?: any) => void
+  /** 挂载特效；返回是否真正挂载（被全局彩蛋互斥锁拦住时返回 false）。
+   *  bypassLock=true 时旁路互斥锁，仅供混合彩蛋内部叠加调用。 */
+  show: (options?: any, bypassLock?: boolean) => boolean
   hide: () => void
   isActive: () => boolean
   teardown: () => void
   /** 注册键盘序列，返回 cleanup */
   setupShortcut: (enabled: () => boolean) => () => void
+}
+
+/**
+ * 全局彩蛋互斥锁：所有 createEffectService 创建的 service 在此登记，
+ * show() 时若已有任一彩蛋在跑则拒绝挂载（连自己也拦，纯互斥不排队）。
+ * ponytail: 复用各 service 已有的 active 状态汇总，不另设锁变量；
+ *   锁随特效 onFinished→teardown→active=false 自动释放，无需手动 unlock。
+ */
+const registeredServices: EffectService[] = []
+
+/** 是否有任一彩蛋特效正在播放 */
+export function isAnyEffectActive(): boolean {
+  return registeredServices.some(s => s.isActive())
 }
 
 /**
@@ -154,11 +169,16 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
     active.value = false
   }
 
-  const show = (options?: any) => {
+  const show = (options?: any, bypassLock = false): boolean => {
     // SSR 守卫
-    if (typeof document === 'undefined' || typeof window === 'undefined') return
+    if (typeof document === 'undefined' || typeof window === 'undefined') return false
 
-    // 同步清理旧实例（若有）：保证不会短暂叠加、DOM 残留或多个 rAF 同时运行
+    // 全局彩蛋互斥锁：已有任一彩蛋在跑 → 拒绝挂载（连自己也拦，同彩蛋重复触发也忽略）。
+    // bypassLock=true 时旁路，仅供混合彩蛋内部叠加调用。
+    if (!bypassLock && isAnyEffectActive()) return false
+
+    // 同步清理旧实例（若有）：保证不会短暂叠加、DOM 残留或多个 rAF 同时运行。
+    // 混合模式下两个不同 service 各自独立，互不影响。
     teardown()
 
     const opts = normalize(options) as Record<string, any>
@@ -185,6 +205,7 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
     const inst = app.mount(hostEl)
     componentInstance = inst as unknown as { requestLeave: () => void }
     active.value = true
+    return true
   }
 
   const hide = () => {
@@ -206,10 +227,12 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
         // 自定义触发：service 自己负责 show + 话术（如信封需先算收件人/公司名）
         config.onMatch()
       } else {
-        if (triggerOnMatch) show()
-        // 快捷键触发也让桌宠说一句对应话术（pinia 此时已初始化，事件回调内取 store 安全）
-        if (quoteCategory) {
-          try { usePetStore().sayCategory(quoteCategory as any) } catch { /* pinia 未就绪，静默 */ }
+        // 被全局彩蛋互斥锁拦住 → 不挂特效也不说话（键盘快捷键静默忽略）
+        if (triggerOnMatch && show()) {
+          // 快捷键触发也让桌宠说一句对应话术（pinia 此时已初始化，事件回调内取 store 安全）
+          if (quoteCategory) {
+            try { usePetStore().sayCategory(quoteCategory as any) } catch { /* pinia 未就绪，静默 */ }
+          }
         }
       }
     }, seqTimeout)
@@ -228,5 +251,7 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
     })
   }
 
-  return { active, show, hide, isActive, teardown, setupShortcut }
+  const serviceObj: EffectService = { active, show, hide, isActive, teardown, setupShortcut }
+  registeredServices.push(serviceObj)
+  return serviceObj
 }

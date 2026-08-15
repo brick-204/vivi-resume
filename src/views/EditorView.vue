@@ -133,6 +133,8 @@ import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { usePetStore } from '@/stores/petStore'
 import { downloadJSON } from '@/utils/export'
+import { isElectron } from '@/utils/runtime'
+import { formatTimestamp } from '@/utils/timestamp'
 // ponytail: 导出工具动态导入 — docx/modern-screenshot 等重库移出 EditorView 静态依赖图，
 // 让路由组件加载更快、编辑器骨架屏尽早显示；导出按钮点击时才拉取对应 chunk
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
@@ -226,11 +228,20 @@ const goToTemplates = () => {
   }
 }
 
-const exportJSON = () => {
+const exportJSON = async () => {
   const json = store.exportToJSON()
-  if (json) {
-    downloadJSON(json, store.currentResume?.title || 'resume')
+  if (!json) return
+  try {
+    const saved = await downloadJSON(json, store.currentResume?.title || 'resume')
+    if (saved) {
+      naiveMessage.success('JSON 导出成功')
+      announceToScreenReader('导出成功')
+    }
     petStore.sayCategory('export')
+  } catch (e) {
+    console.error('[exportJSON] 导出失败:', e)
+    naiveMessage.error('JSON 导出失败，请重试')
+    announceToScreenReader('导出失败')
   }
 }
 
@@ -247,14 +258,42 @@ const exportPDF = async () => {
     console.warn('[exportPDF] 预览元素未就绪')
     return
   }
-  // ponytail: 动态加载 print 模块，不阻塞编辑器首屏
-  const { printViaIframe } = await import('@/utils/print')
-  await printViaIframe({
-    target: el,
-    margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
-    filename: store.currentResume?.title || 'resume',
-  })
-  petStore.sayCategory('export')
+  const margin = store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING
+  const filename = store.currentResume?.title || 'resume'
+  try {
+    // ponytail: 动态加载 print 模块，不阻塞编辑器首屏
+    const { buildResumePrintHtml, printViaIframe } = await import('@/utils/print')
+    if (isElectron) {
+      // 桌面端：系统打印框无「另存为PDF」，走主进程隐藏窗口 printToPDF + 保存框
+      const html = await buildResumePrintHtml(el, margin, filename)
+      const res = await (
+        window as unknown as {
+          electronAPI: {
+            exportPdf: (a: { html: string; defaultName: string }) => Promise<{ saved: boolean; error?: string }>
+          }
+        }
+      ).electronAPI.exportPdf({
+        html,
+        defaultName: `${filename}_vivi-resume_${formatTimestamp()}.pdf`,
+      })
+      if (res.saved) {
+        naiveMessage.success('PDF 导出成功')
+        announceToScreenReader('导出成功')
+        petStore.sayCategory('export')
+      } else if (res.error) {
+        naiveMessage.error(`PDF 导出失败：${res.error}`)
+        announceToScreenReader('导出失败')
+      }
+    } else {
+      // web 端：浏览器打印预览自带「另存为 PDF」
+      await printViaIframe({ target: el, margin, filename })
+      petStore.sayCategory('export')
+    }
+  } catch (e) {
+    console.error('[exportPDF] 导出失败:', e)
+    naiveMessage.error('PDF 导出失败，请重试')
+    announceToScreenReader('导出失败')
+  }
 }
 
 const exportImage = async () => {
@@ -266,11 +305,15 @@ const exportImage = async () => {
   try {
     // ponytail: 动态加载 modern-screenshot，不阻塞编辑器首屏
     const { exportAsImage } = await import('@/utils/exportImage')
-    await exportAsImage(
+    const saved = await exportAsImage(
       el,
       store.currentResume?.title || 'resume',
       store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
     )
+    if (saved) {
+      naiveMessage.success('图片导出成功')
+      announceToScreenReader('导出成功')
+    }
     petStore.sayCategory('export')
   } catch (e) {
     console.error('[exportImage] 导出图片失败:', e)
@@ -284,9 +327,11 @@ const exportDOCX = async () => {
   try {
     // ponytail: 动态加载 docx 库，不阻塞编辑器首屏
     const { exportDocx } = await import('@/utils/exportDocx')
-    await exportDocx(store.currentResume, store.currentResume.title || 'resume')
-    naiveMessage.success('DOCX 导出成功')
-    announceToScreenReader('导出成功')
+    const saved = await exportDocx(store.currentResume, store.currentResume.title || 'resume')
+    if (saved) {
+      naiveMessage.success('DOCX 导出成功')
+      announceToScreenReader('导出成功')
+    }
     petStore.sayCategory('export')
   } catch (e) {
     console.error('[exportDOCX] 导出 DOCX 失败:', e)
