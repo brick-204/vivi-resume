@@ -259,11 +259,14 @@ watch(() => props.visible, (val) => {
 const onProviderChange = (providerId: AIProvider) => {
   const info = getProviderInfo(providerId)
   if (info) {
-    formData.value.modelId = info.defaultModel
-    // web dev 填 Vite 代理路径；桌面端/生产 web 填服务商真实地址（桌面端代理改写在 aiService，按 useProxy 开关）
-    formData.value.endpoint = useWebDevProxy
-      ? getDevProxyEndpoint(providerId, info.defaultEndpoint)
-      : info.defaultEndpoint
+    // 用户已手填过 modelId/endpoint 则不覆盖，仅当为空时用预设默认值补全
+    if (!formData.value.modelId) formData.value.modelId = info.defaultModel
+    if (!formData.value.endpoint) {
+      // web dev 填 Vite 代理路径；桌面端/生产 web 填服务商真实地址（桌面端代理改写在 aiService，按 useProxy 开关）
+      formData.value.endpoint = useWebDevProxy
+        ? getDevProxyEndpoint(providerId, info.defaultEndpoint)
+        : info.defaultEndpoint
+    }
     // 切换服务商填的是需系统补全的基础路径，与「完整 URL」模式互斥
     formData.value.endpointComplete = false
   }
