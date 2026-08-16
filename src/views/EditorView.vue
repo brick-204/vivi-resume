@@ -133,6 +133,8 @@ import { useAIConfigStore } from '@/stores/aiConfigStore'
 import { useEditorLayoutStore } from '@/stores/editorLayoutStore'
 import { usePetStore } from '@/stores/petStore'
 import { downloadJSON } from '@/utils/export'
+import { formatTimestamp } from '@/utils/timestamp'
+import { isElectron } from '@/utils/runtime'
 // ponytail: 导出工具动态导入 — docx/modern-screenshot 等重库移出 EditorView 静态依赖图，
 // 让路由组件加载更快、编辑器骨架屏尽早显示；导出按钮点击时才拉取对应 chunk
 import { DEFAULT_PAGE_PADDING } from '@/types/resume'
@@ -226,11 +228,37 @@ const goToTemplates = () => {
   }
 }
 
-const exportJSON = () => {
-  const json = store.exportToJSON()
-  if (json) {
+const exportJSON = async () => {
+  try {
+    const json = store.exportToJSON()
+    if (!json) return
+    if (isElectron) {
+      // 桌面端：主进程 showSaveDialog 确认后再写盘，避免提前提示
+      // 桌面端 isElectron 分支内 electronAPI 必存在（preload contextBridge 注入）
+      const res = await window.electronAPI!.saveFile({
+        defaultName: `${store.currentResume?.title || 'resume'}_vivi-resume_${formatTimestamp()}.json`,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        content: json,
+        encoding: 'utf8',
+      })
+      if (res.saved) {
+        naiveMessage.success('JSON 导出成功')
+        announceToScreenReader('导出成功')
+        petStore.sayCategory('export')
+      } else if (res.error) {
+        naiveMessage.error('JSON 导出失败，请重试')
+        announceToScreenReader('导出失败')
+      }
+      return
+    }
     downloadJSON(json, store.currentResume?.title || 'resume')
+    naiveMessage.success('JSON 导出成功')
+    announceToScreenReader('导出成功')
     petStore.sayCategory('export')
+  } catch (e) {
+    console.error('[exportJSON] 导出 JSON 失败:', e)
+    naiveMessage.error('JSON 导出失败，请重试')
+    announceToScreenReader('导出失败')
   }
 }
 
@@ -247,14 +275,53 @@ const exportPDF = async () => {
     console.warn('[exportPDF] 预览元素未就绪')
     return
   }
+  if (isElectron) {
+    // 桌面端：主进程 printToPDF + showSaveDialog（Electron 打印对话框无「另存为 PDF」）
+    const { buildResumePrintHtml } = await import('@/utils/print')
+    try {
+      const html = await buildResumePrintHtml(
+        el,
+        store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+        store.currentResume?.title || 'resume',
+      )
+      const res = await window.electronAPI!.exportPdf({
+        html,
+        defaultName: `${store.currentResume?.title || 'resume'}.pdf`,
+      })
+      if (res.saved) {
+        naiveMessage.success('PDF 导出成功')
+        announceToScreenReader('导出成功')
+        petStore.sayCategory('export')
+      } else if (!res.error) {
+        // 用户取消保存框
+        return
+      } else {
+        naiveMessage.error('PDF 导出失败，请重试')
+        announceToScreenReader('导出失败')
+      }
+    } catch (e) {
+      console.error('[exportPDF] 导出 PDF 失败:', e)
+      naiveMessage.error('PDF 导出失败，请重试')
+      announceToScreenReader('导出失败')
+    }
+    return
+  }
+  // Web 端：iframe 打印方案（浏览器打印对话框自带「另存为 PDF」）
   // ponytail: 动态加载 print 模块，不阻塞编辑器首屏
-  const { printViaIframe } = await import('@/utils/print')
-  await printViaIframe({
-    target: el,
-    margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
-    filename: store.currentResume?.title || 'resume',
-  })
-  petStore.sayCategory('export')
+  try {
+    const { printViaIframe } = await import('@/utils/print')
+    await printViaIframe({
+      target: el,
+      margin: store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+      filename: store.currentResume?.title || 'resume',
+    })
+    naiveMessage.success('PDF 导出成功')
+    petStore.sayCategory('export')
+  } catch (e) {
+    console.error('[exportPDF] 导出 PDF 失败:', e)
+    naiveMessage.error('PDF 导出失败，请重试')
+    announceToScreenReader('导出失败')
+  }
 }
 
 const exportImage = async () => {
@@ -266,15 +333,49 @@ const exportImage = async () => {
   try {
     // ponytail: 动态加载 modern-screenshot，不阻塞编辑器首屏
     const { exportAsImage } = await import('@/utils/exportImage')
+    if (isElectron) {
+      // 桌面端：exportAsImage returnBlob → 走 IPC showSaveDialog
+      const blob = await exportAsImage(
+        el,
+        store.currentResume?.title || 'resume',
+        store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
+        true,
+      )
+      if (!blob) return
+      // ponytail: 用 FileReader.readAsDataURL 替代 btoa 循环拼接，大 blob 内存友好
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(blob)
+      })
+      const res = await window.electronAPI!.saveFile({
+        defaultName: `${store.currentResume?.title || 'resume'}_vivi-resume_${formatTimestamp()}.png`,
+        filters: [{ name: 'PNG', extensions: ['png'] }],
+        content: base64,
+        encoding: 'base64',
+      })
+      if (res.saved) {
+        naiveMessage.success('图片导出成功')
+        announceToScreenReader('导出成功')
+        petStore.sayCategory('export')
+      } else if (res.error) {
+        naiveMessage.error('图片导出失败，请重试')
+        announceToScreenReader('导出失败')
+      }
+      return
+    }
     await exportAsImage(
       el,
       store.currentResume?.title || 'resume',
       store.currentResume?.pagePadding ?? DEFAULT_PAGE_PADDING,
     )
+    naiveMessage.success('图片导出成功')
+    announceToScreenReader('导出成功')
     petStore.sayCategory('export')
   } catch (e) {
     console.error('[exportImage] 导出图片失败:', e)
-    naiveMessage.error('导出图片失败，请重试')
+    naiveMessage.error('图片导出失败，请重试')
     announceToScreenReader('导出失败')
   }
 }
@@ -284,13 +385,40 @@ const exportDOCX = async () => {
   try {
     // ponytail: 动态加载 docx 库，不阻塞编辑器首屏
     const { exportDocx } = await import('@/utils/exportDocx')
+    if (isElectron) {
+      // 桌面端：exportDocx 返回 blob → 走 IPC showSaveDialog，用户确认后再提示
+      const blob = await exportDocx(store.currentResume, store.currentResume.title || 'resume')
+      if (!blob) return
+      // ponytail: 用 FileReader.readAsDataURL 替代 btoa 循环拼接，大 blob 内存友好
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(blob)
+      })
+      const res = await window.electronAPI!.saveFile({
+        defaultName: `${store.currentResume?.title || 'resume'}_vivi-resume_${formatTimestamp()}.docx`,
+        filters: [{ name: 'DOCX', extensions: ['docx'] }],
+        content: base64,
+        encoding: 'base64',
+      })
+      if (res.saved) {
+        naiveMessage.success('DOCX 导出成功')
+        announceToScreenReader('导出成功')
+        petStore.sayCategory('export')
+      } else if (res.error) {
+        naiveMessage.error('DOCX 导出失败，请重试')
+        announceToScreenReader('导出失败')
+      }
+      return
+    }
     await exportDocx(store.currentResume, store.currentResume.title || 'resume')
     naiveMessage.success('DOCX 导出成功')
     announceToScreenReader('导出成功')
     petStore.sayCategory('export')
   } catch (e) {
     console.error('[exportDOCX] 导出 DOCX 失败:', e)
-    naiveMessage.error('导出 DOCX 失败，请重试')
+    naiveMessage.error('DOCX 导出失败，请重试')
     announceToScreenReader('导出失败')
   }
 }

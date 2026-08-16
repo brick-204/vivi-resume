@@ -1186,7 +1186,7 @@ async function buildSidebarHeader(resume: Resume, ctx: DocxStyleContext): Promis
  * 导出简历为 DOCX 文件
  * 文件名格式：简历名称_vivi-resume_时间戳.docx
  */
-export async function exportDocx(resume: Resume, filename?: string): Promise<void> {
+export async function exportDocx(resume: Resume, filename?: string): Promise<Blob | void> {
   const ctx = buildStyleContext(resume)
   const timestamp = formatTimestamp()
   const title = resume.title || filename || 'resume'
@@ -1215,6 +1215,7 @@ export async function exportDocx(resume: Resume, filename?: string): Promise<voi
 
   const blob = await Packer.toBlob(doc)
   downloadBlob(blob, finalFilename)
+  return blob
 }
 
 /** 构建普通模板的 Document sections */

@@ -85,7 +85,8 @@ export async function exportAsImage(
   element: HTMLElement,
   filename: string = 'resume',
   _margin: number = DEFAULT_PAGE_PADDING,
-): Promise<void> {
+  returnBlob = false,
+): Promise<Blob | void> {
   // 1. 捕获前：强制 content-visibility: visible
   //    modern-screenshot 从原始 DOM 读取计算样式，需确保布局完整
   const cvElements = element.querySelectorAll(CV_SELECTORS)
@@ -160,6 +161,7 @@ export async function exportAsImage(
     }
 
     // 3. 下载（文件名格式：简历名称_vivi-resume_时间戳.png）
+    if (returnBlob) return blob
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url

@@ -56,3 +56,14 @@ export interface ClearDirArgs {
   root: string
   subdir: string
 }
+
+// ========== 导出 IPC ==========
+// 桌面端 PDF 导出：渲染进程把完整简历 HTML（含样式 + <base>）传主进程，主进程开隐藏窗口渲染后
+// printToPDF 生成 PDF buffer，showSaveDialog 写盘。无需渲染进程传数据，主进程内完成。
+
+export interface ExportPdfArgs {
+  /** 完整 HTML 文档字符串（含内联样式与 <base href>） */
+  html: string
+  /** 默认文件名（含 .pdf） */
+  defaultName: string
+}
