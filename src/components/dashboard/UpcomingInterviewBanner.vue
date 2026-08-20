@@ -84,13 +84,7 @@ const { interviewBannerEnabled, interviewBannerPosition } = storeToRefs(settings
 const position = computed<InterviewBannerPosition>(() => interviewBannerPosition.value)
 const isCorner = computed(() => position.value === 'bottom-left' || position.value === 'bottom-right')
 
-/**
- * 「最近的待面」= 进行中段第一条（store 已按下一面紧迫度升序排好）。
- * 仅当该条确有未来 scheduledAt 轮次且 ≤3 天时才显示——
- * composable 的 urgencyLevel 为 null 时 shouldShow 为 false，三种模板均不渲染。
- */
-const interview = computed(() => ongoingInterviews.value[0] ?? null)
-const { nextRound, countdownText, urgencyLevel } = useNextRoundCountdown(() => interview.value)
+const { nextRound, interview, countdownText, urgencyLevel } = useNextRoundCountdown(() => ongoingInterviews.value)
 
 /** 具体面试时间「MM-DD 周X HH:MM」——复用 formatInterviewDate，与卡片一致 */
 const scheduledText = computed(() => formatInterviewDate(nextRound.value?.scheduledAt, true))

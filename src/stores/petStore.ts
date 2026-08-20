@@ -393,6 +393,11 @@ export const usePetStore = defineStore('pet', () => {
   /** 注入下一面时间戳 getter（interviewStore 调用）：返回最近待面面试的 ms，无则 Infinity */
   const setInterviewTsGetter = (getter: (() => number) | null) => {
     nextInterviewTsGetter = getter
+    // ponytail: 注入时立即检查一次，避免初始化时序窗口（timer 先启动、getter 后注入）
+    //           导致 timer 空转、错过窗口期
+    if (getter && interviewHintEnabled) {
+      checkInterviewSoon()
+    }
   }
 
   /** 切换桌宠时的即时招呼：强制走静态时段招呼（绕开 AI 异步），
