@@ -772,8 +772,8 @@ const handleStart = async () => {
   tab.abortController = new AbortController()
 
   const messages = buildMessagesForMode()
-  // ponytail: jdScan 结果较长（含逐条匹配分析），与 JDScanModal 一致用 4096；其余 2048
-  const maxTokens = mode === 'jdScan' ? 4096 : 2048
+  // ponytail: jdScan/mockInterview 结果都较长（mockInterview 是 8-12 道题+考察点），统一 4096 降低续写触发概率
+  const maxTokens = mode === 'review' ? 2048 : 4096
 
   try {
     const t0 = performance.now()
@@ -797,6 +797,11 @@ const handleStart = async () => {
           })
         },
         maxTokens,
+        // ponytail: mockInterview 是带编号的结构化列表，续写时模型极易整段重列已输出题号，造成语义级重复。
+        // 用面试题专用续写指令，明确"只接下半句、不要重列题号"，降低重复概率
+        continuationPrompt: mode === 'mockInterview'
+          ? '请继续输出尚未结束的内容，仅接着上一段中断处继续，不要重复任何已输出的题目、题号或考察点。'
+          : undefined,
       },
     )
     tab.wasTruncated = result.wasTruncated

@@ -130,7 +130,7 @@
         </div>
 
         <div class="form-field form-field--switch">
-          <label>面试足迹展示 <NSwitch :value="!!form.footprintAlwaysShow" @update:value="onFieldUpdate('footprintAlwaysShow', $event)" /></label>
+          <label>面试足迹一直展示 <NSwitch :value="!!form.footprintAlwaysShow" @update:value="onFieldUpdate('footprintAlwaysShow', $event)" /></label>
           <span class="field-hint-inline">开启后无视「超过 N 个月不显示」规则，始终展示在面试足迹</span>
         </div>
 
