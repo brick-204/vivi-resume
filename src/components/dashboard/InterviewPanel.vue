@@ -13,13 +13,13 @@
     />
 
     <!-- 列表视图 -->
-    <div v-show="!selectedId">
+    <div v-show="!selectedId && !showArchiveBox">
     <!-- 顶部标题 + 操作按钮 -->
     <div class="interview-panel__header">
       <h2 class="interview-panel__title">
         <Icon icon="mdi:briefcase-outline" :width="24" />
         我的面试
-        <span v-if="interviews.length > 0" class="interview-panel__count">{{ interviews.length }}</span>
+        <span v-if="activeCount > 0" class="interview-panel__count">{{ activeCount }}</span>
       </h2>
 
       <!-- 筛选区：公司/岗位搜索 + 关联简历筛选 -->
@@ -61,6 +61,13 @@
           AI 择业
         </button>
         <button
+          class="action-btn action-btn--secondary"
+          @click="openArchiveBox"
+        >
+          <Icon icon="mdi:archive-outline" :width="18" />
+          归档箱
+        </button>
+        <button
           v-if="interviews.length > 0"
           class="action-btn action-btn--secondary"
           @click="enterBatchMode"
@@ -88,8 +95,8 @@
       </div>
     </div>
 
-    <!-- 空状态 -->
-    <div v-if="interviews.length === 0" class="interview-panel__empty">
+    <!-- 空状态（仅当无活跃未归档面试时） -->
+    <div v-if="activeCount === 0" class="interview-panel__empty">
       <div class="empty__icon">
         <Icon icon="mdi:briefcase-plus-outline" :width="64" />
       </div>
@@ -119,6 +126,7 @@
             @view="onView(i.id)"
             @copy="onCopy(i.id)"
             @delete="onDelete(i.id)"
+            @archive="onArchive(i.id)"
             @ai="openAIPanel(i.id, 'mockInterview')"
             @toggle-select="toggleSelect(i.id)"
           />
@@ -146,6 +154,7 @@
             @view="onView(i.id)"
             @copy="onCopy(i.id)"
             @delete="onDelete(i.id)"
+            @archive="onArchive(i.id)"
             @ai="openAIPanel(i.id, 'mockInterview')"
             @toggle-select="toggleSelect(i.id)"
           />
@@ -173,6 +182,7 @@
             @view="onView(i.id)"
             @copy="onCopy(i.id)"
             @delete="onDelete(i.id)"
+            @archive="onArchive(i.id)"
             @ai="openAIPanel(i.id, 'mockInterview')"
             @toggle-select="toggleSelect(i.id)"
           />
@@ -188,6 +198,12 @@
       </div>
     </template>
     </div>
+
+    <!-- 归档箱视图 -->
+    <InterviewArchivePanel
+      v-show="showArchiveBox"
+      @back="showArchiveBox = false"
+    />
 
     <!-- 新建方式选择 -->
     <InterviewCreateModal
@@ -225,11 +241,15 @@ import InterviewCard from '@/components/dashboard/InterviewCard.vue'
 import InterviewDetail from '@/components/dashboard/InterviewDetail.vue'
 import InterviewCreateModal from '@/components/dashboard/InterviewCreateModal.vue'
 import InterviewAIPanel from '@/components/dashboard/InterviewAIPanel.vue'
+import InterviewArchivePanel from '@/components/dashboard/InterviewArchivePanel.vue'
 import CareerChoiceModal from '@/components/dashboard/CareerChoiceModal.vue'
 
 const store = useInterviewStore()
 const { interviews } = storeToRefs(store)
 const resumeStore = useResumeStore()
+
+// 活跃（未归档）面试数量，用于标题旁计数
+const activeCount = computed(() => interviews.value.filter(i => !i.archived).length)
 
 // ponytail: 按关联简历筛选——本地 ref + computed 过滤三段分区，不动 store
 const filterResumeId = ref<string | null>(null)
@@ -267,6 +287,15 @@ const selectedInterview = computed(() =>
 // 本地模态框状态
 const showCreate = ref(false)
 const showCareerChoice = ref(false)
+
+// 归档箱视图
+const showArchiveBox = ref(false)
+// 进入归档箱时关闭详情视图（避免详情与归档箱同时显示）
+const openArchiveBox = () => {
+  selectedId.value = null
+  detailMode.value = 'view'
+  showArchiveBox.value = true
+}
 
 // 批量删除模式
 const batchMode = ref(false)
@@ -400,6 +429,24 @@ const onDelete = (id: string) => {
     onPositiveClick: () => {
       store.trashInterview(id)
       // 删除当前详情项时返回列表
+      if (selectedId.value === id) {
+        selectedId.value = null
+        detailMode.value = 'view'
+      }
+    },
+  })
+}
+
+const onArchive = (id: string) => {
+  dialog.success({
+    title: '归档面试',
+    content: '确定要归档这条面试记录吗？归档后将从卡片列表移除，可在归档箱查看',
+    positiveText: '归档',
+    negativeText: '取消',
+    actionStyle: 'flex-direction: row-reverse; justify-content: center; gap: 12px',
+    onPositiveClick: () => {
+      store.archiveInterview(id)
+      // 归档当前详情项时返回列表
       if (selectedId.value === id) {
         selectedId.value = null
         detailMode.value = 'view'

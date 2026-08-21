@@ -35,7 +35,7 @@
       <div class="interview-card__rounds">
         <Icon icon="mdi:format-list-numbered" :width="14" />
         <span v-if="interview.rounds.length === 0">尚未安排轮次</span>
-        <span v-else>共 {{ interview.rounds.length }} 轮 · 最后一面 · {{ lastRoundText }}</span>
+        <span v-else>共 {{ interview.rounds.length }} 轮 · 最后一轮 · {{ lastRoundType }}<span v-if="lastRoundStatus" class="card-round-status-badge" :style="roundStatusBadgeStyle">{{ lastRoundStatus }}</span></span>
       </div>
 
       <!-- 下一面倒计时（仅面试中 + 有未来待面轮次） -->
@@ -85,6 +85,9 @@
       <button class="interview-card__btn interview-card__btn--copy" title="复制" @click.stop="$emit('copy')">
         <Icon icon="mdi:content-copy" :width="16" />
       </button>
+      <button class="interview-card__btn interview-card__btn--archive" title="归档" @click.stop="$emit('archive')">
+        <Icon icon="mdi:archive-outline" :width="16" />
+      </button>
       <button class="interview-card__btn interview-card__btn--delete" title="删除" @click.stop="$emit('delete')">
         <Icon icon="mdi:trash-can-outline" :width="16" />
       </button>
@@ -112,6 +115,7 @@ defineEmits<{
   copy: []
   delete: []
   ai: []
+  archive: []
   'toggle-select': []
 }>()
 
@@ -137,13 +141,41 @@ const STATUS_STYLE: Record<InterviewStatus, { bg: string; color: string }> = {
 const statusLabel = computed(() => STATUS_LABEL[props.interview.status])
 const statusStyle = computed(() => STATUS_STYLE[props.interview.status])
 
-/** 最后一轮摘要：「轮次类型 · MM-DD 周X」（无 scheduledAt 则只显示类型） */
-const lastRoundText = computed(() => {
+/** 最后一轮摘要：「轮次类型 · MM-DD 周X」（无 scheduledAt 则只显示类型），不含状态 */
+const lastRoundType = computed(() => {
   const rounds = props.interview.rounds
   if (rounds.length === 0) return ''
   const last = rounds[rounds.length - 1]
   const dt = formatInterviewDate(last.scheduledAt)
   return dt ? `${last.roundType} · ${dt}` : last.roundType
+})
+
+/** 最后一轮状态文字 */
+const lastRoundStatus = computed(() => {
+  const last = props.interview.rounds[props.interview.rounds.length - 1]
+  return last ? ROUND_STATUS_LABEL[last.status] ?? '' : ''
+})
+
+/** 轮次状态中文映射 */
+const ROUND_STATUS_LABEL: Record<string, string> = {
+  pending: '待面',
+  done: '已面',
+  passed: '通过',
+  failed: '未通过',
+}
+/** 轮次状态颜色映射 */
+const ROUND_STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  pending: { bg: 'rgba(243, 156, 18, 0.15)', color: '#f39c12' },
+  done: { bg: 'rgba(120, 120, 120, 0.15)', color: '#999' },
+  passed: { bg: 'rgba(39, 174, 96, 0.15)', color: '#27ae60' },
+  failed: { bg: 'rgba(231, 76, 60, 0.15)', color: '#e74c3c' },
+}
+
+const roundStatusBadgeStyle = computed(() => {
+  const last = props.interview.rounds[props.interview.rounds.length - 1]
+  if (!last) return {}
+  const s = ROUND_STATUS_STYLE[last.status]
+  return s ? { background: s.bg, color: s.color } : {}
 })
 
 // 关联简历标题
@@ -316,6 +348,18 @@ const countdownBoxStyle = computed(() => ({
     color: $text-secondary;
   }
 
+  // 最后一轮状态 badge：行内胶囊，居中与文字对齐
+  .card-round-status-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: $radius-full;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
   // 下一面倒计时：背景/边框/文字色由内联 style 按紧迫度切（soon 蓝/near 橙/urgent 红），此处仅布局
   &__countdown {
     display: flex;
@@ -427,6 +471,14 @@ const countdownBoxStyle = computed(() => ({
       color: #fff;
 
       &:hover { background: rgba($primary-light, 1); }
+      &:active { transform: scale(0.95); }
+    }
+
+    &--archive {
+      background: rgba($secondary-color, 0.8);
+      color: #fff;
+
+      &:hover { background: rgba($secondary-light, 1); }
       &:active { transform: scale(0.95); }
     }
 

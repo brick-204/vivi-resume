@@ -54,6 +54,8 @@ const MAX_COMPANY_LEN = 12
  */
 export function filterEligibleInterviews(interviews: Interview[]): Interview[] {
   return interviews.filter(it => {
+    // 已归档的不参与 offer 雨/信封彩蛋
+    if (it.archived) return false
     const name = it.company?.trim()
     if (!name || name.length > MAX_COMPANY_LEN) return false
     // ended 段仅 offer 保留，rejected/closed 排除

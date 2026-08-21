@@ -408,10 +408,12 @@ const linkInterviewIds = ref<string[]>([])
 const linkResumeIds = ref<string[]>([])
 
 const interviewOptions = computed(() =>
-  interviewStore.interviews.map(i => ({
-    label: i.company || '未填写公司',
-    value: i.id,
-  })),
+  interviewStore.interviews
+    .filter(i => !i.archived)
+    .map(i => ({
+      label: i.company || '未填写公司',
+      value: i.id,
+    })),
 )
 
 const resumeOptions = computed(() =>

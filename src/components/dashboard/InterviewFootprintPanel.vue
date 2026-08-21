@@ -293,13 +293,15 @@ const amapEnabled = computed(() => settingsStore.amapEnabled)
 // 地图可初始化的统一前置：开关开 + Key 已配置
 const mapReadyToInit = computed(() => amapEnabled.value && hasKey.value)
 const interviews = computed(() => {
+  // 已归档的面试不出现在面试足迹，即使勾了 footprintAlwaysShow 也不行
+  const active = interviewStore.interviews.filter((i) => !i.archived)
   const months = settingsStore.footprintHideMonths
-  if (months === 0) return interviewStore.interviews // 不屏蔽
+  if (months === 0) return active // 不屏蔽
   // ponytail: 用日历月计算边界（setMonth 自动处理跨年/月末溢出），与「N 个月」文案一致，非 30 天近似
   const cutoffDate = new Date()
   cutoffDate.setMonth(cutoffDate.getMonth() - months)
   const cutoff = cutoffDate.getTime()
-  return interviewStore.interviews.filter((iv) => {
+  return active.filter((iv) => {
     if (iv.footprintAlwaysShow) return true // 永久展示
     // 取最近轮次时间（含待面，最大 scheduledAt）；全空则不屏蔽防丢数据
     const ts = iv.rounds

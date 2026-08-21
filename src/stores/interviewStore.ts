@@ -91,16 +91,19 @@ export const useInterviewStore = defineStore('interview', () => {
 
   // ========== Computed（三段分区，段内按 updatedAt 降序） ==========
 
+  // ponytail: 三段分区统一 filter 掉已归档，归档的面试不出现在卡片列表
+  const notArchived = (i: Interview) => !i.archived
+
   const upcomingInterviews = computed<Interview[]>(() =>
     interviews.value
-      .filter(i => inferInterviewSegment(i) === 'upcoming')
+      .filter(i => inferInterviewSegment(i) === 'upcoming' && notArchived(i))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   )
 
   const ongoingInterviews = computed<Interview[]>(() => {
     const now = Date.now()
     return interviews.value
-      .filter(i => inferInterviewSegment(i) === 'ongoing')
+      .filter(i => inferInterviewSegment(i) === 'ongoing' && notArchived(i))
       // ponytail: 按下一面紧急度升序（越近越靠前，无未来轮次 Infinity 垫底）；同紧急度按 updatedAt 降序兜底
       .sort((a, b) => {
         const da = nextScheduledTs(a, now), db = nextScheduledTs(b, now)
@@ -111,7 +114,14 @@ export const useInterviewStore = defineStore('interview', () => {
 
   const endedInterviews = computed<Interview[]>(() =>
     interviews.value
-      .filter(i => inferInterviewSegment(i) === 'ended')
+      .filter(i => inferInterviewSegment(i) === 'ended' && notArchived(i))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+  )
+
+  /** 已归档面试列表，按 updatedAt 降序 */
+  const archivedInterviews = computed<Interview[]>(() =>
+    interviews.value
+      .filter(i => i.archived)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   )
 
@@ -180,8 +190,8 @@ export const useInterviewStore = defineStore('interview', () => {
           const now = Date.now()
           let min = Infinity
           for (const i of interviews.value) {
-            // 仅对待面/进行中的面试提醒（已结束的不提醒）
-            if (inferInterviewSegment(i) === 'ended') continue
+            // 仅对待面/进行中的面试提醒（已结束/已归档的不提醒）
+            if (inferInterviewSegment(i) === 'ended' || i.archived) continue
             const ts = nextScheduledTs(i, now)
             if (ts < min) min = ts
           }
@@ -255,6 +265,24 @@ export const useInterviewStore = defineStore('interview', () => {
         persistInterview(next)
       }
     }
+  }
+
+  // ========== 归档 ==========
+
+  /** 归档面试：置 archived=true，从卡片列表/提醒/择业移除，仅归档箱可见 */
+  const archiveInterview = (id: string) => {
+    const interview = interviews.value.find(i => i.id === id)
+    if (!interview || interview.archived) return
+    const next = commitInterview({ ...interview, archived: true })
+    persistInterview(next)
+  }
+
+  /** 出档：archive=false，放回卡片列表 */
+  const unarchiveInterview = (id: string) => {
+    const interview = interviews.value.find(i => i.id === id && i.archived)
+    if (!interview) return
+    const next = commitInterview({ ...interview, archived: false })
+    persistInterview(next)
   }
 
   /**
@@ -388,7 +416,9 @@ export const useInterviewStore = defineStore('interview', () => {
     if (!interview) return
     const now = new Date().toISOString()
     const newRounds = [...interview.rounds, createEmptyRound()]
-    const next = commitInterview({ ...interview, rounds: newRounds, updatedAt: now })
+    // ponytail: 有轮次了 → 自动改为面试中（仅 drafting/submitted 时提升）
+    const nextStatus = ['drafting', 'submitted'].includes(interview.status) ? 'interviewing' : interview.status
+    const next = commitInterview({ ...interview, rounds: newRounds, status: nextStatus, updatedAt: now })
     persistInterview(next)
   }
 
@@ -493,6 +523,7 @@ export const useInterviewStore = defineStore('interview', () => {
     upcomingInterviews,
     ongoingInterviews,
     endedInterviews,
+    archivedInterviews,
     createInterview,
     updateInterview,
     trashInterview,
@@ -511,6 +542,8 @@ export const useInterviewStore = defineStore('interview', () => {
     saveJdScanResult,
     saveCareerChoiceResult,
     markCareerChoiceRecommended,
+    archiveInterview,
+    unarchiveInterview,
     reloadFromStorage,
   }
 })

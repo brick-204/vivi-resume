@@ -210,8 +210,8 @@ const webSearchEnabled = computed(() => {
   return !!p && buildWebSearchBody(p) !== null
 })
 
-// ========== 面试列表（全部未删除，不分状态） ==========
-const interviewList = computed(() => interviewStore.interviews)
+// ========== 面试列表（过滤掉已归档的） ==========
+const interviewList = computed(() => interviewStore.interviews.filter(i => !i.archived))
 
 // ponytail: 内建中文映射（与 InterviewCard 同值），不为复用 6 行常量重构导出
 const STATUS_LABEL: Record<InterviewStatus, string> = {

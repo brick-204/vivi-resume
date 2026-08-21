@@ -95,6 +95,8 @@ export interface Interview {
   careerChoiceRecommended?: boolean
   // 是否永久展示在面试足迹（true=无视 N 个月屏蔽规则，始终显示；默认 false，旧数据无此字段视为 false）
   footprintAlwaysShow?: boolean
+  // 是否已归档（true=归档箱展示，不再显示卡片列表/不参与 AI 择业与面试提醒；默认 false）
+  archived?: boolean
   // 软删除标记：移入回收站时写入，恢复时置 undefined（与 Resume.deletedAt 同名同义）
   deletedAt?: string
   createdAt: string
