@@ -91,19 +91,39 @@ const keyword = ref('')
 const page = ref(1)
 const pageSize = ref(10)
 
+// 搜索时重置到第一页
+watch(keyword, () => { page.value = 1 })
+
+/** 多字段模糊匹配：公司/岗位/状态/简历/薪资/轮数/面试地点/工作地点 */
+const matches = (i: Interview, kw: string): boolean => {
+  const q = kw.trim().toLowerCase()
+  if (!q) return true
+  const resumeTitle = i.resumeId
+    ? resumeStore.resumeList.find(r => r.id === i.resumeId)?.title ?? ''
+    : ''
+  const haystack = [
+    i.company,
+    i.position,
+    STATUS_LABEL[i.status],
+    resumeTitle,
+    i.salary,
+    `${i.rounds.length}轮`,
+    i.interviewLocation,
+    i.location,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(q)
+}
+
+// ponytail: filtered 必须在 paginatedData 之前声明——TDZ 否则 setup 阶段直接抛
+const filtered = computed(() => store.archivedInterviews.filter(i => matches(i, keyword.value)))
+
 // 当前页切片数据
 const paginatedData = computed(() => {
   const start = (page.value - 1) * pageSize.value
   return filtered.value.slice(start, start + pageSize.value)
-})
-
-// 搜索时重置到第一页
-watch(keyword, () => { page.value = 1 })
-
-// ponytail: 出档/删除/搜索后条目减少，页码可能越界 → 回退到合法页码（clamp 到 1..maxPage）
-watch(filtered, () => {
-  const maxPage = Math.max(1, Math.ceil(filtered.value.length / pageSize.value))
-  if (page.value > maxPage) page.value = maxPage
 })
 
 // 状态中文映射 + 徽章样式（与 InterviewCard 复用同名映射）
@@ -131,31 +151,6 @@ const fullDate = (iso: string): string => {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
-
-/** 多字段模糊匹配：公司/岗位/状态/简历/薪资/轮数/面试地点/工作地点 */
-const matches = (i: Interview, kw: string): boolean => {
-  const q = kw.trim().toLowerCase()
-  if (!q) return true
-  const resumeTitle = i.resumeId
-    ? resumeStore.resumeList.find(r => r.id === i.resumeId)?.title ?? ''
-    : ''
-  const haystack = [
-    i.company,
-    i.position,
-    STATUS_LABEL[i.status],
-    resumeTitle,
-    i.salary,
-    `${i.rounds.length}轮`,
-    i.interviewLocation,
-    i.location,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(q)
-}
-
-const filtered = computed(() => store.archivedInterviews.filter(i => matches(i, keyword.value)))
 
 /** 出档：放回卡片列表 */
 const handleUnarchive = (id: string) => {
