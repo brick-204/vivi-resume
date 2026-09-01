@@ -81,6 +81,12 @@
 - **SSE 流式 + 自动续写** — 兼容 OpenAI API 格式，10+ 服务商（DeepSeek、Moonshot、智谱、通义千问、SiliconFlow 等）；输出截断自动续写最多 3 次；1MB 缓冲上限
 - **Token 用量追踪** — 累计输入 / 输出 / 总计 token，5 秒防抖持久化
 
+<div align="center">
+  <img src="./public/readme/ai-settings.png" alt="AI 服务配置" width="90%" />
+  <br /><sub>AI 服务配置 · 11 个服务商预设 + Token 用量</sub>
+</div>
+
+
 ### 🐾 桌宠 v仔
 
 - **Lottie 桌宠** — 屏幕角落悬浮的 Lottie 动画，替代原 AI 咨询 FAB
@@ -101,6 +107,20 @@
 - **AI 择业** — 见上方 🤖
 - **批量删除与回收站** — 批量勾选删除，删除进回收站软删除，到期自动清理
 
+<div align="center">
+  <img src="./public/readme/interview-panel.png" alt="我的面试追踪" width="90%" />
+  <br /><sub>我的面试 · 三段分区 + 状态流转 + 归档箱</sub>
+</div>
+
+
+<br />
+
+<div align="center">
+  <img src="./public/readme/interview-footprint.png" alt="面试足迹地图" width="90%" />
+  <br /><sub>面试足迹 · 高德地图标注 + 连线测距</sub>
+</div>
+
+
 ### 📓 求职手账
 
 - **记事本 / 笔记二级结构** — 记事本作目录分类，笔记可在记事本内或根级；拖拽笔记到记事本上即可收入
@@ -110,6 +130,12 @@
 - **自动标题** — 退出编辑时标题为空则自动取正文第一行前 6 字；标题一旦填入永不自动覆盖
 - **AI 去简历化** — 手账内 AI 操作走独立 `journal` 场景 prompt，不注入简历上下文
 - **回收站 + 双后端** — 软删除 + 到期自动清理；IndexedDB / 目录模式同步
+
+<div align="center">
+  <img src="./public/readme/journal-panel.png" alt="求职手账" width="90%" />
+  <br /><sub>求职手账 · 笔记 + 关联面试与简历</sub>
+</div>
+
 
 ### 🗂️ Dashboard
 
