@@ -16,6 +16,9 @@ test_*.ts
 test_screenshots/
 
 .claude/
+
+AGENTS.md
+
 pnpm-lock.yaml
 
 repo-docs/
