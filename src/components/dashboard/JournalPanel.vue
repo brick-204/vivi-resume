@@ -11,6 +11,8 @@
           v-model="editingTitle"
           class="journal-edit__title-input"
           placeholder="笔记标题"
+          @blur="commitEditTitle"
+          @keydown.enter.prevent="(e: Event) => (e.target as HTMLInputElement).blur()"
         />
         <!-- ponytail: 编辑视图右上角三点菜单：移动 / 删除 -->
         <n-dropdown
@@ -40,7 +42,7 @@
             <Icon icon="mdi:briefcase-outline" :width="18" />
             <span class="journal-edit__link-label">关联面试</span>
             <n-select
-              v-model:value="linkInterviewIds"
+              :value="linkInterviewIds"
               multiple
               filterable
               clearable
@@ -48,14 +50,13 @@
               :options="interviewOptions"
               placeholder="选择关联的面试"
               class="journal-edit__link-select"
-              @update:value="onLinkInterviewsChange"
-            />
+              @update:value="onLinkInterviewsChange" />
           </div>
           <div class="journal-edit__link-row">
             <Icon icon="mdi:file-document-outline" :width="18" />
             <span class="journal-edit__link-label">关联简历</span>
             <n-select
-              v-model:value="linkResumeIds"
+              :value="linkResumeIds"
               multiple
               filterable
               clearable
@@ -80,7 +81,15 @@
         </button>
         <h2 class="journal-panel__title">
           <Icon icon="mdi:notebook-outline" :width="24" />
-          {{ currentNotebook ? currentNotebook.title : '求职手账' }}
+          <span
+            v-if="currentNotebook"
+            class="journal-panel__title-rename"
+            :title="'点击重命名：' + currentNotebook.title"
+            @click="openRename(currentNotebook)"
+          >
+            {{ currentNotebook.title }}
+          </span>
+          <span v-else>求职手账</span>
           <span v-if="displayEntries.length > 0" class="journal-panel__count">{{ displayEntries.length }}</span>
         </h2>
         <div class="journal-panel__actions">
@@ -171,7 +180,16 @@
                 <span class="journal-card__count">{{ journalStore.notebookCount(element.id) }}</span>
               </div>
               <div class="journal-card__info" @click="enterNotebook(element.id)">
-                <h3 class="journal-card__title">{{ element.title }}</h3>
+                <h3 class="journal-card__title">
+                  {{ element.title }}
+                  <button
+                    class="journal-card__rename-btn"
+                    title="重命名"
+                    @click.stop="openRename(element)"
+                  >
+                    <Icon icon="mdi:pencil-outline" :width="14" />
+                  </button>
+                </h3>
                 <p class="journal-card__meta">{{ formatDate(element.updatedAt) }}</p>
               </div>
             </template>
@@ -179,8 +197,17 @@
             <!-- 笔记卡片 -->
             <template v-else>
               <div class="journal-card__note-body" @click="enterEdit(element.id)">
-                <h3 class="journal-card__title">{{ element.title }}</h3>
-                <p class="journal-card__excerpt">{{ deriveExcerpt(element.content) }}</p>
+                <h3 class="journal-card__title">
+                  {{ element.title }}
+                  <button
+                    class="journal-card__rename-btn"
+                    title="重命名"
+                    @click.stop="openRename(element)"
+                  >
+                    <Icon icon="mdi:pencil-outline" :width="14" />
+                  </button>
+                </h3>
+                <TaskListExcerpt :html="element.content" />
                 <div v-if="element.interviewIds.length || element.resumeIds.length" class="journal-card__tags">
                   <span v-if="element.interviewIds.length" class="journal-card__tag journal-card__tag--interview">
                     <Icon icon="mdi:briefcase-outline" :width="12" />
@@ -216,16 +243,21 @@
       </draggable>
     </template>
 
-    <!-- 重命名记事本弹窗 -->
+    <!-- 重命名记事本/笔记弹窗 -->
     <n-modal
       :show="renamingId !== null"
       preset="card"
       :style="{ maxWidth: '420px', width: '90vw' }"
       :mask-closable="true"
-      title="重命名记事本"
+      :title="renamingEntryType === 'notebook' ? '重命名记事本' : '重命名笔记'"
       @update:show="(v: boolean) => { if (!v) renamingId = null }"
     >
-      <n-input v-model:value="renamingTitle" placeholder="记事本名称" @keydown.enter="confirmRename" />
+      <n-input
+        ref="renameInputRef"
+        v-model:value="renamingTitle"
+        :placeholder="renamingEntryType === 'notebook' ? '记事本名称' : '笔记标题'"
+        @keydown.enter="confirmRename"
+      />
       <template #footer>
         <div class="trash-modal-actions">
           <n-button size="small" type="primary" @click="confirmRename">确定</n-button>
@@ -302,7 +334,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onBeforeUnmount } from 'vue'
 import draggable from 'vuedraggable'
 import { useJournalStore } from '@/stores/journalStore'
 import { useInterviewStore } from '@/stores/interviewStore'
@@ -311,8 +343,9 @@ import { dialog } from '@/plugins/naive-ui'
 import { Icon } from '@iconify/vue'
 import { NInput, NSelect, NModal, NButton, NDropdown } from 'naive-ui'
 import RichTextEditor from '@/components/common/RichTextEditor.vue'
+import TaskListExcerpt from '@/components/dashboard/TaskListExcerpt.vue'
 import type { JournalEntry } from '@/types/journal'
-import { deriveNoteTitle } from '@/types/journal'
+import { deriveNoteTitle, extractPlainText } from '@/types/journal'
 
 // ponytail: 弹窗按钮规范——操作按钮在左、取消在右、整体居中（与 TrashPanel REVERSE_ACTION 同义）
 const REVERSE_ACTION = 'flex-direction: row-reverse; justify-content: center; gap: 12px !important;'
@@ -333,6 +366,22 @@ const sortOrder = ref<'asc' | 'desc'>('desc')
 
 const renamingId = ref<string | null>(null)
 const renamingTitle = ref('')
+const renameInputRef = ref<InstanceType<typeof NInput> | null>(null)
+
+/** 当前重命名对象的类型（用于动态标题/placeholder） */
+const renamingEntryType = computed<'notebook' | 'note' | null>(() => {
+  if (!renamingId.value) return null
+  return journalStore.entries.find(e => e.id === renamingId.value)?.type ?? null
+})
+
+const openRename = (entry: JournalEntry) => {
+  renamingId.value = entry.id
+  renamingTitle.value = entry.title
+  nextTick(() => {
+    renameInputRef.value?.focus()
+    renameInputRef.value?.select()
+  })
+}
 
 // ========== 新建弹窗状态 ==========
 const createModalOpen = ref(false)
@@ -367,7 +416,7 @@ const filteredEntries = computed<JournalEntry[]>(() => {
   return baseEntries.value.filter(e => {
     if (e.title.toLowerCase().includes(q)) return true
     if (e.type === 'note') {
-      const text = e.content.replace(/<[^>]+>/g, '').toLowerCase()
+      const text = extractPlainText(e.content).toLowerCase()
       if (text.includes(q)) return true
     }
     return false
@@ -442,11 +491,13 @@ const formatDate = (iso: string): string => {
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
-/** 笔记正文摘要：去标签取前 60 字。纯图片笔记（无文字）显示图片占位 */
-const deriveExcerpt = (content: string): string => {
-  const text = content.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
-  if (!text) return /<img\b/i.test(content) ? '[图片]' : '空笔记'
-  return text.length > 60 ? text.slice(0, 60) + '…' : text
+/** 笔记编辑页：标题 blur / Enter 时提交；空标题兜底由 exitEdit 处理 */
+const commitEditTitle = () => {
+  if (!editingEntry.value) return
+  const title = editingTitle.value.trim()
+  if (title === editingEntry.value.title) return // 无变化早退
+  // ponytail: 只写用户当前输入值，不做 fallback——避免空 fallback 与 exitEdit 的 deriveNoteTitle 重复写入两次
+  journalStore.updateEntry({ ...editingEntry.value, title: title || '' })
 }
 
 const sortOptions = [
@@ -512,10 +563,7 @@ const exitEdit = () => {
     // ponytail: 判空须把 <img 算作有内容——纯图片笔记去标签后 text 为空，
     // 否则会被当成空笔记物理删除（用户退出再重进发现笔记没了）
     const hasImage = /<img\b/i.test(editingEntry.value.content)
-    const contentText = editingEntry.value.content
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/g, ' ')
-      .trim()
+    const contentText = extractPlainText(editingEntry.value.content)
     // 标题空且正文也空：绑定了面试/简历则保留为「新笔记」，否则不创建（物理删除，不进回收站）
     if (!title && !contentText && !hasImage) {
       if (editingEntry.value.interviewIds.length || editingEntry.value.resumeIds.length) {
@@ -649,28 +697,33 @@ const onDelete = (entry: JournalEntry) => {
   })
 }
 
-// ========== 重命名记事本 ==========
+// ========== 重命名（记事本 + 笔记通用） ==========
 const confirmRename = () => {
   if (!renamingId.value) return
   const entry = journalStore.entries.find(e => e.id === renamingId.value)
   if (entry) {
-    journalStore.updateEntry({
-      ...entry,
-      title: renamingTitle.value.trim() || '新记事本',
-    })
+    const trimmed = renamingTitle.value.trim()
+    const fallback = entry.type === 'notebook' ? '新记事本' : '无标题'
+    // ponytail: 早退——避免空 trim 覆盖原标题（用户打开后直接关闭也保留旧值）
+    if (!trimmed || trimmed === entry.title) {
+      renamingId.value = null
+      return
+    }
+    journalStore.updateEntry({ ...entry, title: trimmed || fallback })
   }
   renamingId.value = null
 }
 
 // ========== 编辑视图：移动笔记 ==========
+const ROOT_ID = '__root__' as const
 const moveModalOpen = ref(false)
-const moveTargetId = ref<string | null>(null)
+const moveTargetId = ref<string | typeof ROOT_ID | null>(null)
 
 /** 移动目标选项：根目录 + 所有记事本（排除笔记当前所在记事本） */
 const moveTargetOptions = computed(() => {
   const currentParent = editingEntry.value?.parentId ?? null
   return [
-    { label: '根目录', value: '__root__' },
+    { label: '根目录', value: ROOT_ID },
     ...journalStore.notebooks
       .filter(n => n.id !== currentParent)
       .map(n => ({ label: n.title, value: n.id })),
@@ -684,7 +737,7 @@ const editMenuOptions = [
 
 const onEditMenuSelect = (key: string) => {
   if (key === 'move') {
-    moveTargetId.value = editingEntry.value?.parentId ?? '__root__'
+    moveTargetId.value = editingEntry.value?.parentId ?? ROOT_ID
     moveModalOpen.value = true
   } else if (key === 'delete') {
     const entry = editingEntry.value
@@ -708,7 +761,7 @@ const onEditMenuSelect = (key: string) => {
 
 const confirmMove = () => {
   if (!editingId.value) return
-  const target = moveTargetId.value === '__root__' ? null : moveTargetId.value
+  const target = moveTargetId.value === ROOT_ID ? null : moveTargetId.value
   journalStore.moveNote(editingId.value, target)
   moveModalOpen.value = false
 }
@@ -742,6 +795,15 @@ const confirmMove = () => {
     @include gradient-text;
     // ponytail: 标题紧贴左侧返回按钮，不居中；margin-right:auto 把它和右边的操作按钮分开
     margin-right: auto;
+  }
+
+  &__title-rename {
+    cursor: pointer;
+    transition: color $transition-base;
+
+    &:hover {
+      color: $primary-light;
+    }
   }
 
   &__count {
@@ -933,9 +995,39 @@ const confirmMove = () => {
     font-weight: 600;
     color: $text-primary;
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  // ponytail: hover 才显形的铅笔按钮——与 .journal-card__menu 同款机制，opacity 默认 0
+  &__rename-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: $radius-sm;
+    background: transparent;
+    color: $text-light;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      color: $primary-color;
+      background: rgba($primary-color, 0.1);
+    }
+  }
+
+  &:hover &__rename-btn {
+    opacity: 1;
   }
 
   &__excerpt {
@@ -943,10 +1035,7 @@ const confirmMove = () => {
     color: $text-secondary;
     line-height: 1.5;
     margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    // ponytail: TaskListExcerpt 接管渲染，自带高度——原 -webkit-line-clamp 在 3 li 时截断、勾选态粘连去掉
     min-height: 36px;
   }
 

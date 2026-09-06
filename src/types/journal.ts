@@ -63,16 +63,31 @@ export function createEmptyNote(parentId: string | null = null): JournalEntry {
  * 正文也为空时返回「无标题」。
  */
 export function deriveNoteTitle(content: string): string {
-  // ponytail: 粗暴去标签取纯文本——标题补全不要求精确，避免引入 DOMParser
-  const text = content
-    .replace(/<[^>]+>/g, '\n')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .trim()
+  const text = extractPlainText(content)
   if (!text) return '无标题'
   const firstLine = text.split('\n').map(s => s.trim()).find(Boolean) ?? ''
   if (!firstLine) return '无标题'
   return firstLine.length > 6 ? firstLine.slice(0, 6) : firstLine
+}
+
+/**
+ * 把富文本 HTML 转成纯文本：
+ * - 块级标签（br / p / li / h1-h6 / hr）末尾补 \n，其余标签整段剥空
+ * - HTML 实体 &nbsp;/&lt;/&gt;/&amp; 解码
+ * - 不引入 DOMParser——strip 后压缩空白足够，标题/摘要不要求精确结构
+ */
+export function extractPlainText(html: string): string {
+  if (!html) return ''
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>|<\/li>|<\/h[1-6]>|<\/hr>|<\/div>|<\/blockquote>/gi, '\n')
+    .replace(/<hr\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
 }
