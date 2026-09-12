@@ -9,6 +9,9 @@ import type { App, Component } from 'vue'
 import { usePetStore } from '@/stores/petStore'
 import { useEasterEggSound } from '@/composables/useEasterEggSound'
 
+// ponytail: 全部彩蛋共用一把锁；需要允许切换彩蛋时，再把这里改为替换当前实例。
+let globalActiveEffect: { teardown: () => void; isActive: () => boolean } | null = null
+
 // ========== 共享纯函数 ==========
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -113,12 +116,12 @@ export interface EffectServiceConfig {
    * 序列匹配时的自定义触发钩子。提供则替代默认的 show()+sayCategory()。
    * 用于需要在触发前算上下文（如信封彩蛋算收件人/公司名）的场景。
    */
-  onMatch?: () => void
+  onMatch?: () => boolean
 }
 
 export interface EffectService {
   active: ReturnType<typeof shallowRef<boolean>>
-  show: (options?: any) => void
+  show: (options?: any) => boolean
   hide: () => void
   isActive: () => boolean
   teardown: () => void
@@ -152,11 +155,16 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
     }
     componentInstance = null
     active.value = false
+    if (globalActiveEffect?.teardown === teardown) globalActiveEffect = null
   }
 
   const show = (options?: any) => {
     // SSR 守卫
-    if (typeof document === 'undefined' || typeof window === 'undefined') return
+    if (typeof document === 'undefined' || typeof window === 'undefined') return false
+    // 播放中的任意彩蛋均占用全局锁；连续触发直接忽略。
+    if (globalActiveEffect?.isActive()) return false
+    // 测试/HMR 可能已手动标记失活但未卸载，先清理过期实例。
+    globalActiveEffect?.teardown()
 
     // 同步清理旧实例（若有）：保证不会短暂叠加、DOM 残留或多个 rAF 同时运行
     teardown()
@@ -185,6 +193,8 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
     const inst = app.mount(hostEl)
     componentInstance = inst as unknown as { requestLeave: () => void }
     active.value = true
+    globalActiveEffect = { teardown, isActive }
+    return true
   }
 
   const hide = () => {
@@ -206,7 +216,7 @@ export function createEffectService(config: EffectServiceConfig): EffectService 
         // 自定义触发：service 自己负责 show + 话术（如信封需先算收件人/公司名）
         config.onMatch()
       } else {
-        if (triggerOnMatch) show()
+        if (triggerOnMatch && !show()) return
         // 快捷键触发也让桌宠说一句对应话术（pinia 此时已初始化，事件回调内取 store 安全）
         if (quoteCategory) {
           try { usePetStore().sayCategory(quoteCategory as any) } catch { /* pinia 未就绪，静默 */ }

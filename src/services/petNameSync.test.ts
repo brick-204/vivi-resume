@@ -11,6 +11,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { usePetStore } from '@/stores/petStore'
 import {
   getDesktopPetById,
+  getIdleLoopActions,
   setCustomPetsCache,
   DEFAULT_PET_ID,
   type CustomDesktopPet,
@@ -66,5 +67,20 @@ describe('切换桌宠时 petName 同步', () => {
     const petData = getDesktopPetById('not-exist')
     petStore.petName = petData?.name
     expect(petStore.petName).toBe('v仔')
+  })
+
+  it('早期空名称自定义桌宠补齐名称，不回退 v仔', () => {
+    setCustomPetsCache([{ id: 'custom-legacy', name: '  ', type: 'img', src: 'x' }])
+    expect(getDesktopPetById('custom-legacy').name).toBe('自定义桌宠')
+  })
+
+  it('空闲动作只轮播 sleep、thinking 和 idle', () => {
+    const lottie = { layers: [] }
+    expect(getIdleLoopActions({
+      idle: lottie,
+      thinking: lottie,
+      sleep: lottie,
+      'walk-left': lottie,
+    })).toEqual(['sleep', 'thinking', 'idle'])
   })
 })

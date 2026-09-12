@@ -93,16 +93,18 @@ export const usePetStore = defineStore('pet', () => {
   const sayCategory = async (category: QuoteCategory, vars?: string | QuoteVars) => {
     // 每次调用递增 token：后续若有 AI 结果延迟回来，对比 token 即知是否已被新调用取代
     const myToken = ++genToken
+    // 未传变量时使用当前桌宠名；静态和 AI 两条路径必须保持同一名称来源。
+    const resolvedVars = vars ?? petName.value
     // ponytail: AI 路径只用 name；从 vars 取出 name（string 直接用，对象取 .name）
-    const nameStr = typeof vars === 'string' ? vars : vars?.name
+    const nameStr = typeof resolvedVars === 'string' ? resolvedVars : resolvedVars?.name
     // aiError 永远静态（AI 不可用时本就不该走 AI）
     if (category === 'aiError') {
-      say(pickQuote(category, vars))
+      say(pickQuote(category, resolvedVars))
       return
     }
     // AI 场景：开关关 或 正在生成中 → 静态回退
     if (!petAIChatEnabled || generating) {
-      say(fallbackText(category, vars))
+      say(fallbackText(category, resolvedVars))
       return
     }
     generating = true
@@ -119,7 +121,7 @@ export const usePetStore = defineStore('pet', () => {
       // 期间有新调用取代 → 不再回退静态（避免覆盖当前气泡）
       if (myToken !== genToken) return
       // 无配置/超时/失败 → 静态回退，气泡不空
-      say(fallbackText(category, vars))
+      say(fallbackText(category, resolvedVars))
     } finally {
       generating = false
     }

@@ -916,3 +916,29 @@ export async function clearLegacyTrashPetsMeta(): Promise<void> {
     await idb.deleteMeta('trashPets')
   }
 }
+const DESKTOP_PET_SCALE_MIN = 1
+const DESKTOP_PET_SCALE_MAX = 2
+
+const clampDesktopPetScale = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(DESKTOP_PET_SCALE_MAX, Math.max(DESKTOP_PET_SCALE_MIN, value))
+    : DESKTOP_PET_SCALE_MIN
+
+export async function getDesktopPetScale(): Promise<number> {
+  if (isDirectoryMode()) {
+    const meta = await dir.readJsonFile<Record<string, unknown>>(getHandle(), 'meta.json')
+    return clampDesktopPetScale(meta?.desktopPetScale)
+  }
+  return clampDesktopPetScale(await idb.getMeta<unknown>('desktopPetScale'))
+}
+
+export async function setDesktopPetScale(scale: number): Promise<void> {
+  const value = clampDesktopPetScale(scale)
+  if (isDirectoryMode()) {
+    await updateMeta(meta => {
+      meta.desktopPetScale = value
+    })
+  } else {
+    await idb.setMeta('desktopPetScale', value)
+  }
+}

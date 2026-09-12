@@ -101,6 +101,16 @@ describe('petStore 切换桌宠后 AI 话术名字', () => {
     expect(sys).not.toContain('桌宠A')
   })
 
+  it('静态话术不传 name 时也用当前桌宠名', async () => {
+    const petStore = usePetStore()
+    petStore.petName = '小猫咪'
+
+    await petStore.sayCategory('greet')
+
+    expect(petStore.currentQuote).toContain('小猫咪')
+    expect(petStore.currentQuote).not.toContain('v仔')
+  })
+
   it('AI 生成中切换 petName，新调用走静态回退用新名字', async () => {
     const petStore = usePetStore()
     petStore.setAIChatEnabled(true)

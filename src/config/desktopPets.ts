@@ -9,6 +9,10 @@ export interface DesktopPetConfig {
   id: string
   name: string
   lottie?: unknown
+  /** dotLottie action map; absent means legacy single-animation playback. */
+  lottieAnimations?: Record<string, unknown>
+  /** Initial action declared by the dotLottie manifest. */
+  initialAnimation?: string
   /** 桌宠类型：lottie（JSON / .lottie 解析后）/ img（GIF/APNG/WebP/PNG/SVG）。缺省按 lottie 处理 */
   type?: 'lottie' | 'img'
   /** img 类型的 data URL（type=img 时有） */
@@ -40,11 +44,21 @@ export function getAllDesktopPetsSync(): DesktopPetConfig[] {
   return [...DESKTOP_PETS, ..._customPetsCache]
 }
 
-export const getDesktopPetById = (id: string): DesktopPetConfig =>
-  DESKTOP_PETS.find(p => p.id === id)
-  ?? _customPetsCache.find(p => p.id === id)
-  ?? DESKTOP_PETS[0]
+export const getDesktopPetById = (id: string): DesktopPetConfig => {
+  const pet = DESKTOP_PETS.find(p => p.id === id)
+    ?? _customPetsCache.find(p => p.id === id)
+    ?? DESKTOP_PETS[0]
+  // 兼容早期未保存名称的自定义桌宠，避免话术退回默认 v仔。
+  return typeof pet.name === 'string' && pet.name.trim() ? pet : { ...pet, name: '自定义桌宠' }
+}
 
+/** 空闲时可安全轮播的循环动作；走路和悬停必须由真实交互触发。 */
+export const getIdleLoopActions = (animations?: Record<string, unknown>) => {
+  const actions = ['sleep', 'thinking', 'idle'] as const
+  if (!animations) return ['idle'] as const
+  const available = actions.filter(action => isLikelyLottie(animations[action]))
+  return available.length ? available : (['idle'] as const)
+}
 /**
  * 最小 lottie 结构校验：必须是对象且含 layers 数组。
  * ponytail: 只挡明显非 lottie 的输入（{}、数组、字符串、缺 layers），不做完整 schema 校验。
@@ -53,3 +67,6 @@ export const getDesktopPetById = (id: string): DesktopPetConfig =>
 export function isLikelyLottie(data: unknown): data is Record<string, unknown> {
   return typeof data === 'object' && data !== null && Array.isArray((data as Record<string, unknown>).layers)
 }
+/** Pet size: 100% preserves the existing 64px baseline. */
+export const MIN_DESKTOP_PET_SCALE = 1
+export const MAX_DESKTOP_PET_SCALE = 2

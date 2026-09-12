@@ -9,6 +9,7 @@ import {
   setupRainyNightEasterEggShortcut,
   active,
 } from '@/services/rainyNightEffect'
+import { showSnowEffect, isSnowEffectActive } from '@/services/snowEffect'
 import { isRainShortcutEnabled } from '@/utils/easterEggEnv'
 
 // ========== jsdom 环境补丁：matchMedia + Canvas 2D getContext stub ==========
@@ -162,6 +163,15 @@ describe('showLightRainEffect 单例', () => {
     // show 后立即再 show：旧实例 onFinished 回调即便触发也不会 teardown 新实例
     showLightRainEffect()
     expect(isLightRainEffectActive()).toBe(true)
+    expect(document.querySelectorAll('canvas').length).toBe(1)
+  })
+
+  it('其他彩蛋播放时不会叠加新彩蛋', () => {
+    showLightRainEffect()
+    expect(showSnowEffect()).toBe(false)
+
+    expect(isLightRainEffectActive()).toBe(true)
+    expect(isSnowEffectActive()).toBe(false)
     expect(document.querySelectorAll('canvas').length).toBe(1)
   })
 

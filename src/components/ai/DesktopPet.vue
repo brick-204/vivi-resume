@@ -38,12 +38,13 @@
     <button
       class="desktop-pet"
       :class="{ 'is-dragging': dragging }"
-      aria-label="v仔菜单"
+      :aria-label="`${petData.name}菜单`"
       @mousedown="onDown"
       @mouseup="onUp"
       @touchstart="onDown"
       @touchend="onUp"
       @mouseenter="onHover"
+      @mouseleave="onLeave"
     >
       <img v-if="isImg" :src="imgSrc" class="desktop-pet__img" alt="" draggable="false" />
       <div v-else ref="containerRef" class="desktop-pet__anim" />
@@ -55,9 +56,11 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { usePetStore } from '@/stores/petStore'
-import { getDesktopPetById, DEFAULT_PET_ID } from '@/config/desktopPets'
+import { getDesktopPetById, getIdleLoopActions, DEFAULT_PET_ID } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
 import { triggerRandomEasterEgg } from '@/services/easterEggRegistry'
+import { isAIThinking } from '@/services/aiActivity'
+import { useSettingsStore } from '@/stores/settingsStore'
 
 const props = defineProps<{
   placement: 'left' | 'right'
@@ -72,7 +75,16 @@ const emit = defineEmits<{
   'update:placement': [v: 'left' | 'right']
 }>()
 
+const settingsStore = useSettingsStore()
 const petStore = usePetStore()
+const hovering = ref(false)
+const sleeping = ref(false)
+const SLEEP_AFTER_MS = 60_000
+const IDLE_ACTION_ROTATE_MS = 12_000
+let sleepTimer: ReturnType<typeof setTimeout> | null = null
+let idleActionTimer: ReturnType<typeof setInterval> | null = null
+let idleActionIndex = -1
+const idleAction = ref<'idle' | 'thinking' | 'sleep'>('idle')
 
 // ========== 桌宠 action 列（单击弹出，留扩展位） ==========
 const actionsOpen = ref(false)
@@ -89,7 +101,9 @@ const actions = [
 ] as const
 
 const onAction = (a: (typeof actions)[number]) => {
+  wakePet()
   actionsOpen.value = false
+  if (a.key === 'surprise') playTemporaryAction('happy')
   a.run()
 }
 
@@ -115,8 +129,17 @@ watch(
   () => props.drawerOpen,
   (open) => {
     petStore.setPaused(Boolean(open))
-    if (open) pauseLottie()
-    else playLottie()
+    if (open) {
+      cancelSleepTimer()
+      stopIdleActionCycle()
+      sleeping.value = false
+      pauseLottie()
+    }
+    else {
+      syncBaseAction()
+      scheduleSleep()
+      playLottie()
+    }
   },
 )
 
@@ -130,6 +153,8 @@ const {
   pauseLottie,
   playLottie,
   destroyLottie,
+  setBaseAction,
+  playTemporaryAction,
 } = usePetRenderer()
 
 // ponytail: petName 由 petData 派生同步——无论正常切换还是畸形回退，petData 变即同步名字，
@@ -161,12 +186,14 @@ onMounted(() => {
   // 启动定时随机冒泡；进页面时段招呼已交给各 view 的 onMounted（enterHome/enterEditor/切 tab）
   if (!props.drawerOpen) {
     petStore.start()
+    scheduleSleep()
   }
 })
 
 // ponytail: 切换桌宠时重建动画 + 打招呼（进页面走 onMounted 的 greet，这里只处理后续切换）
 watch(() => props.petId, (id) => {
   if (!id) return
+  wakePet()
   loadAnim(id)
   if (!props.drawerOpen) petStore.sayTimeGreet()
 })
@@ -177,7 +204,9 @@ const HOVER_THROTTLE = 4000
 
 /** 悬停说一句；拖拽中/抽屉开时/节流期内不打扰 */
 const onHover = () => {
+  wakePet()
   if (dragging.value || props.drawerOpen) return
+  hovering.value = true
   const now = Date.now()
   if (now - lastHoverAt < HOVER_THROTTLE) return
   lastHoverAt = now
@@ -185,8 +214,13 @@ const onHover = () => {
 }
 
 // ========== 长按拖拽吸附（从 App.vue 迁入，保持原行为） ==========
+const onLeave = () => {
+  hovering.value = false
+  scheduleSleep()
+}
 // 短按打开抽屉；长按 300ms 进入拖拽（fixed 跟手），松手按 x 吸附左/右下角并切换抽屉方向
 const dragging = ref(false)
+const draggingAction = ref<'walk-left' | 'walk-right' | null>(null)
 const pos = ref<{ left: number; top: number } | null>(null)
 let pressTimer: ReturnType<typeof setTimeout> | null = null
 let pointerX = 0
@@ -196,13 +230,85 @@ let downY = 0
 let moveRaf: number | null = null
 const DRAG_DELAY = 300
 const DRAG_THRESHOLD = 5
-const HALF = 32 // 按钮宽高 64 的一半，定位时光标居中
+const halfPetSize = computed(() => 32 * settingsStore.petScale)
 
+const syncBaseAction = () => {
+  if (props.drawerOpen) return
+  if (isAIThinking.value) sleeping.value = false
+  if (isAIThinking.value || dragging.value || hovering.value) {
+    cancelSleepTimer()
+    stopIdleActionCycle()
+  } else if (!sleeping.value) {
+    scheduleSleep()
+  }
+  const action = dragging.value
+    ? (draggingAction.value ?? 'idle')
+    : isAIThinking.value
+      ? 'thinking'
+      : hovering.value ? 'hover' : sleeping.value ? idleAction.value : 'idle'
+  setBaseAction(action)
+}
+
+const cancelSleepTimer = () => {
+  if (sleepTimer !== null) {
+    clearTimeout(sleepTimer)
+    sleepTimer = null
+  }
+}
+
+const stopIdleActionCycle = () => {
+  if (idleActionTimer !== null) {
+    clearInterval(idleActionTimer)
+    idleActionTimer = null
+  }
+  idleActionIndex = -1
+  idleAction.value = 'idle'
+}
+
+const rotateIdleAction = () => {
+  const actions = getIdleLoopActions(petData.value.lottieAnimations)
+  idleActionIndex = (idleActionIndex + 1) % actions.length
+  idleAction.value = actions[idleActionIndex]
+  syncBaseAction()
+}
+
+const startIdleActionCycle = () => {
+  stopIdleActionCycle()
+  rotateIdleAction()
+  if (getIdleLoopActions(petData.value.lottieAnimations).length > 1) {
+    idleActionTimer = setInterval(rotateIdleAction, IDLE_ACTION_ROTATE_MS)
+  }
+}
+
+const scheduleSleep = () => {
+  cancelSleepTimer()
+  if (props.drawerOpen || dragging.value || hovering.value || isAIThinking.value) return
+  sleepTimer = setTimeout(() => {
+    sleepTimer = null
+    if (props.drawerOpen || dragging.value || hovering.value || isAIThinking.value) {
+      scheduleSleep()
+      return
+    }
+    sleeping.value = true
+    startIdleActionCycle()
+  }, SLEEP_AFTER_MS)
+}
+
+const wakePet = () => {
+  const wasSleeping = sleeping.value
+  sleeping.value = false
+  stopIdleActionCycle()
+  scheduleSleep()
+  if (wasSleeping) syncBaseAction()
+}
+
+watch([isAIThinking, dragging, draggingAction, hovering, sleeping], syncBaseAction, { immediate: true })
 const dragStyle = computed(() =>
-  pos.value
+  ({ '--pet-size': `${halfPetSize.value * 2}px`,
+    ...(pos.value
     ? { left: pos.value.left + 'px', top: pos.value.top + 'px', right: 'auto', bottom: 'auto' }
-    : {},
-)
+    : {}),
+  }))
 
 const enterDragging = () => {
   if (pressTimer) {
@@ -211,7 +317,8 @@ const enterDragging = () => {
   }
   actionsOpen.value = false // 拖拽中收起 action 列
   dragging.value = true
-  pos.value = { left: pointerX - HALF, top: pointerY - HALF }
+  draggingAction.value = pointerX === downX ? null : pointerX < downX ? 'walk-left' : 'walk-right'
+  pos.value = { left: pointerX - halfPetSize.value, top: pointerY - halfPetSize.value }
   // ponytail: 进入拖拽说一句（开关开则 AI 现编，否则静态）
   petStore.sayCategory('dragStart')
 }
@@ -219,6 +326,7 @@ const enterDragging = () => {
 const pointerMove = (e: MouseEvent | TouchEvent) => {
   const x = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
   const y = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
+  const previousX = pointerX
   pointerX = x
   pointerY = y
   if (!dragging.value && pressTimer) {
@@ -228,11 +336,12 @@ const pointerMove = (e: MouseEvent | TouchEvent) => {
     return
   }
   if (dragging.value) {
+    if (x !== previousX) draggingAction.value = x < previousX ? 'walk-left' : 'walk-right'
     e.preventDefault()
     if (moveRaf === null) {
       moveRaf = requestAnimationFrame(() => {
         moveRaf = null
-        pos.value = { left: pointerX - HALF, top: pointerY - HALF }
+        pos.value = { left: pointerX - halfPetSize.value, top: pointerY - halfPetSize.value }
       })
     }
   }
@@ -261,19 +370,23 @@ const pointerUp = () => {
   if (wasDragging) {
     // 松手按 x 吸附：左半屏→左下，右半屏→右下；吸附即切换抽屉方向
     emit('update:placement', pointerX < window.innerWidth / 2 ? 'left' : 'right')
+    draggingAction.value = null
     dragging.value = false
     pos.value = null
     // ponytail: 拖拽松手吸附后说一句（开关开则 AI 现编，否则静态）
     petStore.sayCategory('dragEnd')
   } else {
     // 短按：toggle action 列（不直接开抽屉）；从关→开时说一句
+    playTemporaryAction('click')
     const willOpen = !actionsOpen.value
     actionsOpen.value = willOpen
     if (willOpen) petStore.sayCategory('click')
   }
+  scheduleSleep()
 }
 
 const onDown = (e: MouseEvent | TouchEvent) => {
+  wakePet()
   const x = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
   const y = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
   pointerX = x
@@ -299,6 +412,8 @@ const onUp = (e: MouseEvent | TouchEvent) => {
 
 onBeforeUnmount(() => {
   cleanupDrag() // 拖拽中途卸载也要移除 document 监听，避免泄漏
+  cancelSleepTimer()
+  stopIdleActionCycle()
   petStore.stop()
 })
 </script>
@@ -325,8 +440,8 @@ onBeforeUnmount(() => {
 }
 .desktop-pet {
   position: relative;
-  width: 64px;
-  height: 64px;
+  width: var(--pet-size, 64px);
+  height: var(--pet-size, 64px);
   border: none;
   cursor: pointer;
   display: flex;

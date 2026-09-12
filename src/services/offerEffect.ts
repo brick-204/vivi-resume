@@ -161,9 +161,10 @@ const resolveCompanies = (): string[] => {
 
 export const showOfferEffect = (options?: OfferEffectOptions) => {
   const companies = options?.companies ?? resolveCompanies()
-  service.show({ ...options, companies })
+  if (!service.show({ ...options, companies })) return false
   // 桌宠话术（pinia 未就绪静默）
   try { usePetStore().sayCategory('offer') } catch { /* pinia 未就绪，静默 */ }
+  return true
 }
 
 export function setupOfferEasterEggShortcut(): () => void {

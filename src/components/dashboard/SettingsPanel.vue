@@ -196,6 +196,16 @@
           </button>
         </button>
       </div>
+      <div class="settings-section__row pet-size-row">
+        <span class="settings-section__label">桌宠大小</span>
+        <div class="pet-size-control">
+          <input v-model.number="petScale" class="pet-size-slider" type="range" min="1" max="2" step="0.05" aria-label="桌宠大小" />
+          <output class="pet-size-value">{{ petScaleLabel }}</output>
+        </div>
+      </div>
+      <p class="settings-section__desc settings-section__desc--hint">
+        最小值保持当前大小，可向右拖动放大桌宠。
+      </p>
       <button class="action-btn action-btn--ghost pet-add-btn" @click="openAddPetModal">
         <Icon icon="mdi:plus" :width="18" />
         添加自定义桌宠
@@ -464,7 +474,7 @@
             @change="onPetFileChange"
           />
           <p class="add-pet-form__support">
-            支持 Lottie JSON / .lottie / GIF·APNG·WebP·PNG·SVG
+            支持 Lottie JSON / .lottie / GIF / APNG / WebP / PNG / SVG
           </p>
           <p v-if="newPetFile" class="add-pet-form__hint">
             已选择：{{ newPetFile.name }}
@@ -685,6 +695,11 @@ const handlePetChange = (petId: string) => {
   settingsStore.updateDesktopPetId(petId)
 }
 
+const petScale = computed({
+  get: () => settingsStore.petScale,
+  set: (val: number) => { settingsStore.updateDesktopPetScale(val) },
+})
+const petScaleLabel = computed(() => `${Math.round(petScale.value * 100)}%`)
 // 休息提醒开关与间隔（setter 内同步 petStore + 持久化 + 开关说话反馈）
 const restEnabled = computed({
   get: () => settingsStore.restReminderEnabled,
@@ -868,12 +883,15 @@ const confirmAddPet = async () => {
   await nextTick()
   try {
     const id = await settingsStore.addCustomPet(newPetName.value.trim(), newPetParsed.value)
-    await settingsStore.updateDesktopPetId(id)
     naiveMessage.success('已添加自定义桌宠')
     showAddPetModal.value = false
     newPetName.value = ''
     newPetFile.value = null
     newPetParsed.value = null
+    void settingsStore.updateDesktopPetId(id).catch(err => {
+      console.error('[SettingsPanel] 保存当前桌宠失败:', err)
+      naiveMessage.warning('桌宠已添加，但当前选择未保存')
+    })
   } catch (err) {
     console.error('[SettingsPanel] 添加自定义桌宠失败:', err)
     naiveMessage.error('添加失败，请重试')
@@ -1541,6 +1559,28 @@ const handleResync = () => {
   }
 }
 
+.pet-size-row {
+  align-items: center;
+}
+
+.pet-size-control {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  width: 220px;
+}
+.pet-size-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: $primary-color;
+  cursor: pointer;
+}
+.pet-size-value {
+  width: 44px;
+  color: $text-secondary;
+  font-size: $font-size-sm;
+  text-align: right;
+}
 .pet-add-btn {
   margin-top: $spacing-md;
 }

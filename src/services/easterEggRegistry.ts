@@ -9,7 +9,8 @@ export interface EasterEgg {
   /** 唯一标识 */
   id: string
   /** 触发该彩蛋的函数 */
-  trigger: () => void
+  /** 是否成功启动；彩蛋锁定时返回 false，调用方不得再播对应话术。 */
+  trigger: () => boolean
   /** 触发后桌宠说的话术分类（雨夜 'rainy'，未来下雪 'snowy' 等） */
   quoteCategory: QuoteCategory
   /**
@@ -27,12 +28,11 @@ export function registerEasterEgg(egg: EasterEgg): void {
   registry.push(egg)
 }
 
-/** 随机触发一个已注册彩蛋，返回该彩蛋（供调用方 sayCategory）；无注册彩蛋返回 null */
+/** 随机触发一个已注册彩蛋；未成功启动（如全局锁占用）时返回 null。 */
 export function triggerRandomEasterEgg(): EasterEgg | null {
   if (registry.length === 0) return null
   const egg = registry[Math.floor(Math.random() * registry.length)]
-  egg.trigger()
-  return egg
+  return egg.trigger() ? egg : null
 }
 
 /** 已注册彩蛋数量（测试用） */

@@ -8,6 +8,7 @@ import { buildMessages, type FullAIOperation } from '@/services/aiPrompts'
 import { announceToScreenReader } from '@/composables/useAriaLive'
 import { isElectron } from '@/utils/runtime'
 
+import { beginAIRequest } from '@/services/aiActivity'
 // ========== 代理支持 ==========
 
 /** 是否为开发环境（按 mode 判断，与 main.ts 的生产判断同基准） */
@@ -286,7 +287,22 @@ function estimatePromptTokens(messages: ChatMessage[]): number {
  * @param onChunk 每收到一段文本时的回调
  * @param options 可选参数（signal、onConnected、onUsage、maxTokens）
  */
+/** Keep the desktop pet in its thinking state for every streamed AI request. */
 export async function streamChat(
+  config: AIServiceConfig,
+  messages: ChatMessage[],
+  onChunk: (text: string) => void,
+  options: StreamChatOptions = {},
+): Promise<StreamChatResult> {
+  const endAIRequest = beginAIRequest()
+  try {
+    return await streamChatImpl(config, messages, onChunk, options)
+  } finally {
+    endAIRequest()
+  }
+}
+
+async function streamChatImpl(
   config: AIServiceConfig,
   messages: ChatMessage[],
   onChunk: (text: string) => void,

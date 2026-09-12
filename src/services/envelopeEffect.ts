@@ -189,11 +189,11 @@ export const showEnvelopeEffect = (options?: EnvelopeEffectOptions) => {
       : ''
   }
 
-  // 桌宠话术：传变量供 {firstname}/{company} 插值
   const vars: QuoteVars = { name: recipientName, firstname, company }
+  if (!service.show({ ...options, recipientName, company })) return false
+  // 桌宠话术：仅在彩蛋成功启动后发送，避免锁定时串台。
   try { usePetStore().sayCategory('envelope', vars) } catch { /* pinia 未就绪，静默 */ }
-
-  service.show({ ...options, recipientName, company })
+  return true
 }
 
 export const hideEnvelopeEffect = service.hide

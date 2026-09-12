@@ -21,7 +21,7 @@ import {
 import * as idb from '@/utils/storage'
 import * as adapter from '@/utils/storageAdapter'
 import { getDesktopPetId, setDesktopPetId, getAllDesktopPets, saveDesktopPet, deleteDesktopPet, getAllTrashPets, saveTrashPet, deleteTrashPet, clearAllTrashPets, getLegacyTrashPetsArray, clearLegacyTrashPetsMeta, getTrashRetentionDays, getRestReminderEnabled, setRestReminderEnabled, getRestReminderInterval, setRestReminderInterval, getPetAIChatEnabled, setPetAIChatEnabled, getIdleAiEnabled, setIdleAiEnabled, getIdleIntervalMinutes, setIdleIntervalMinutes, getInterviewBannerEnabled, setInterviewBannerEnabled, getInterviewBannerPosition, setInterviewBannerPosition, getCloseBehavior, setCloseBehavior, getAmapKey, setAmapKey, getAmapSecurityCode, setAmapSecurityCode, getMyLocation, setMyLocation, getAmapEnabled, setAmapEnabled, getFootprintHideMonths, setFootprintHideMonths, getMapLocationHistory, setMapLocationHistory, type InterviewBannerPosition, type CloseBehavior, type MapLocationItem } from '@/utils/storageAdapter'
-import { DEFAULT_PET_ID, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
+import { DEFAULT_PET_ID, getDesktopPetById, setCustomPetsCache, type CustomDesktopPet } from '@/config/desktopPets'
 import * as dirWeb from '@/utils/directoryStorage'
 import * as dirElectron from '@/utils/directoryStorageElectron'
 import { isElectron } from '@/utils/runtime'
@@ -73,6 +73,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 桌宠偏好
   const currentPetId = ref(DEFAULT_PET_ID)
+  const petScale = ref(1)
   const customPets = ref<CustomDesktopPet[]>([])
   // 桌宠回收站（复用简历回收站保留天数，到期自动清理）
   const trashPets = ref<CustomDesktopPet[]>([])
@@ -113,6 +114,12 @@ export const useSettingsStore = defineStore('settings', () => {
   // ========== 计算属性 ==========
   const isSupported = computed(() => dir.isFileSystemAccessSupported())
 
+  /** 业务话术不依赖桌宠组件挂载时机，切换偏好即同步名称。 */
+  const syncCurrentPetName = async () => {
+    const { usePetStore } = await import('@/stores/petStore')
+    usePetStore().petName = getDesktopPetById(currentPetId.value).name
+  }
+
   // ========== 初始化 ==========
   const init = async () => {
     try {
@@ -142,6 +149,7 @@ export const useSettingsStore = defineStore('settings', () => {
       // 桌宠偏好：两种存储模式都走 adapter 分发读取
       try {
         currentPetId.value = await getDesktopPetId()
+        petScale.value = await adapter.getDesktopPetScale()
       } catch (e) {
         console.error('[settingsStore] 读取桌宠偏好失败:', e)
       }
@@ -201,6 +209,7 @@ export const useSettingsStore = defineStore('settings', () => {
       try {
         const { usePetStore } = await import('@/stores/petStore')
         const petStore = usePetStore()
+        petStore.petName = getDesktopPetById(currentPetId.value).name
         petStore.setRestEnabled(restReminderEnabled.value)
         petStore.setRestIntervalMs(restReminderInterval.value * 60 * 1000)
         petStore.setAIChatEnabled(petAIChatEnabled.value)
@@ -261,6 +270,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const [
         idbTrash, trashRetentionDays, trashBinRetentionDays, idbTrashPets, idbUsageRaw,
         idbInterviewTrash, idbAiConfigTrash, idbJournalTrash,
+        idbPetScale,
         idbRestReminderEnabled, idbRestReminderInterval, idbPetAIChatEnabled, idbIdleAiEnabled, idbIdleIntervalMinutes,
         idbInterviewBannerEnabled, idbInterviewBannerPosition,
         idbCloseBehavior,
@@ -274,6 +284,7 @@ export const useSettingsStore = defineStore('settings', () => {
         idb.getMeta<Interview[]>('interviewTrash'),
         idb.getMeta<AIServiceConfig[]>('aiConfigTrash'),
         idb.getMeta<JournalEntry[]>('journalTrash'),
+        idb.getMeta<number>('desktopPetScale'),
         idb.getMeta<boolean>('restReminderEnabled'),
         idb.getMeta<number>('restReminderInterval'),
         idb.getMeta<boolean>('petAIChatEnabled'),
@@ -301,6 +312,7 @@ export const useSettingsStore = defineStore('settings', () => {
       let dirCurrentId: string | null = null
       let dirActiveAIConfigId: string | null = null
       let dirDesktopPetId: string | null = null
+      let dirPetScale: number | undefined
       let dirUsageRaw: unknown = undefined
       let dirInterviewTrash: Interview[] = []
       let dirJournalTrash: JournalEntry[] = []
@@ -329,6 +341,7 @@ export const useSettingsStore = defineStore('settings', () => {
           if (typeof dirMeta.currentId === 'string') dirCurrentId = dirMeta.currentId
           if (typeof dirMeta.activeAIConfigId === 'string') dirActiveAIConfigId = dirMeta.activeAIConfigId
           if (typeof dirMeta.desktopPetId === 'string') dirDesktopPetId = dirMeta.desktopPetId
+          if (typeof dirMeta.desktopPetScale === 'number') dirPetScale = dirMeta.desktopPetScale
           dirUsageRaw = dirMeta.aiUsageByConfig
           dirInterviewTrash = (dirMeta.interviewTrash as Interview[]) ?? []
           dirJournalTrash = (dirMeta.journalTrash as JournalEntry[]) ?? []
@@ -559,6 +572,7 @@ export const useSettingsStore = defineStore('settings', () => {
         trashRetentionDays: trashRetentionDays ?? dirTrashRetentionDays,
         trashBinRetentionDays: trashBinRetentionDays ?? dirTrashBinRetentionDays,
         desktopPetId: dirDesktopPetId ?? currentPetId.value,
+        desktopPetScale: dirPetScale ?? idbPetScale ?? petScale.value,
         aiUsageByConfig: mergedUsage,
         interviewTrash: mergedInterviewTrash,
         journalTrash: mergedJournalTrash,
@@ -730,6 +744,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 13. 同步桌宠偏好到内存（合并后值：目录优先，目录无值才用 IndexedDB）
       currentPetId.value = dirDesktopPetId ?? currentPetId.value
+      petScale.value = await adapter.getDesktopPetScale()
       customPets.value = await adapter.getAllDesktopPets()
       setCustomPetsCache(customPets.value)
       trashPets.value = await getAllTrashPets()
@@ -791,7 +806,7 @@ export const useSettingsStore = defineStore('settings', () => {
       // 1. 从目录读取全部数据
       const resumes = await adapter.getAllResumes()
       const aiConfigs = await dir.readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
-      const metaJson = await dir.readJsonFile<Record<string, string>>(handle, 'meta.json')
+      const metaJson = await dir.readJsonFile<Record<string, unknown>>(handle, 'meta.json')
 
       // 2. 根据用户选择决定是否写回 IndexedDB
       updateProgress('正在写入 IndexedDB...', 30)
@@ -803,14 +818,17 @@ export const useSettingsStore = defineStore('settings', () => {
           await idb.saveAIConfig(config)
         }
 
-        if (metaJson?.currentId) {
+        if (typeof metaJson?.currentId === 'string') {
           await idb.setCurrentId(metaJson.currentId)
         }
-        if (metaJson?.activeAIConfigId) {
+        if (typeof metaJson?.activeAIConfigId === 'string') {
           await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
         }
         if (typeof metaJson?.desktopPetId === 'string') {
           await idb.setMeta('desktopPetId', metaJson.desktopPetId)
+        }
+        if (typeof metaJson?.desktopPetScale === 'number') {
+          await idb.setMeta('desktopPetScale', metaJson.desktopPetScale)
         }
         // 自定义桌宠：从目录读取并写入 IndexedDB
         const dirCustomPets = await adapter.getAllDesktopPets()
@@ -886,6 +904,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
       // 6. 刷新桌宠偏好到内存（已切回 IndexedDB，从 adapter 重读）
       customPets.value = await adapter.getAllDesktopPets()
+      petScale.value = await adapter.getDesktopPetScale()
       setCustomPetsCache(customPets.value)
       trashPets.value = await getAllTrashPets()
       await cleanupTrashPets()
@@ -941,6 +960,7 @@ export const useSettingsStore = defineStore('settings', () => {
         await notifyStoresReload()
         // 权限恢复后重读桌宠偏好（目录内容可能在权限丢失期间被外部改动）
         currentPetId.value = await getDesktopPetId()
+        petScale.value = await adapter.getDesktopPetScale()
         customPets.value = await adapter.getAllDesktopPets()
         setCustomPetsCache(customPets.value)
         trashPets.value = await getAllTrashPets()
@@ -980,6 +1000,7 @@ export const useSettingsStore = defineStore('settings', () => {
   // ========== 更新桌宠偏好 ==========
   const updateDesktopPetId = async (petId: string) => {
     currentPetId.value = petId
+    await syncCurrentPetName()
     await setDesktopPetId(petId)
   }
 
@@ -1155,7 +1176,7 @@ export const useSettingsStore = defineStore('settings', () => {
   // ========== 自定义桌宠管理 ==========
   const addCustomPet = async (
     name: string,
-    data: { type?: 'lottie' | 'img'; lottie?: unknown; src?: string },
+    data: { type?: 'lottie' | 'img'; lottie?: unknown; lottieAnimations?: Record<string, unknown>; initialAnimation?: string; src?: string },
   ): Promise<string> => {
     // ponytail: 复用 generateId（已处理非安全上下文 crypto.randomUUID 缺失的降级），
     //           避免裸调 crypto.randomUUID 在 file:// 等环境返回 undefined 导致 id 重复
@@ -1206,7 +1227,8 @@ export const useSettingsStore = defineStore('settings', () => {
     const pet = customPets.value.find(p => p.id === id)
     if (!pet || pet.name === name) return
     // ponytail: 先更新内存 + 缓存（INP 友好），持久化 fire-and-forget（与 removeCustomPet 同策略）
-    const renamed: CustomDesktopPet = { ...pet, name }
+    // ponytail: 与新增/恢复路径一致，lottie 等嵌套对象可能仍是 Vue Proxy，写盘前彻底脱离。
+    const renamed: CustomDesktopPet = JSON.parse(JSON.stringify({ ...pet, name }))
     customPets.value = customPets.value.map(p => (p.id === id ? renamed : p))
     setCustomPetsCache(customPets.value)
     // 改的是当前选中桌宠 → 同步 petStore.petName，让 idle/rest 话术 {name} 用新名
@@ -1305,7 +1327,7 @@ export const useSettingsStore = defineStore('settings', () => {
       // 1. 从目录读取全部数据
       const resumes = await adapter.getAllResumes()
       const aiConfigs = await dir.readAllJsonFiles<AIServiceConfig>(handle, 'ai-configs')
-      const metaJson = await dir.readJsonFile<Record<string, string>>(handle, 'meta.json')
+      const metaJson = await dir.readJsonFile<Record<string, unknown>>(handle, 'meta.json')
 
       updateProgress('正在写入 IndexedDB...', 30)
 
@@ -1316,10 +1338,10 @@ export const useSettingsStore = defineStore('settings', () => {
         await idb.saveAIConfig(config)
       }
 
-      if (metaJson?.currentId) {
+      if (typeof metaJson?.currentId === 'string') {
         await idb.setCurrentId(metaJson.currentId)
       }
-      if (metaJson?.activeAIConfigId) {
+      if (typeof metaJson?.activeAIConfigId === 'string') {
         await idb.setActiveAIConfigId(metaJson.activeAIConfigId)
       }
       if (typeof metaJson?.desktopPetId === 'string') {
@@ -1370,6 +1392,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await idb.setMeta('aiConfigTrash', (rMeta?.aiConfigTrash as AIServiceConfig[]) ?? null)
       if (typeof rMeta?.trashRetentionDays === 'number') await idb.setMeta('trashRetentionDays', rMeta.trashRetentionDays)
       if (typeof rMeta?.trashBinRetentionDays === 'number') await idb.setMeta('trashBinRetentionDays', rMeta.trashBinRetentionDays)
+      if (typeof rMeta?.desktopPetScale === 'number') await idb.setMeta('desktopPetScale', rMeta.desktopPetScale)
       if (typeof rMeta?.restReminderEnabled === 'boolean') await idb.setMeta('restReminderEnabled', rMeta.restReminderEnabled)
       if (typeof rMeta?.restReminderInterval === 'number') await idb.setMeta('restReminderInterval', rMeta.restReminderInterval)
       if (typeof rMeta?.petAIChatEnabled === 'boolean') await idb.setMeta('petAIChatEnabled', rMeta.petAIChatEnabled)
@@ -1391,6 +1414,7 @@ export const useSettingsStore = defineStore('settings', () => {
       await notifyStoresReload()
 
       // 刷新桌宠偏好内存（目录为权威）
+      petScale.value = await adapter.getDesktopPetScale()
       restReminderEnabled.value = await getRestReminderEnabled()
       restReminderInterval.value = await getRestReminderInterval()
       petAIChatEnabled.value = await getPetAIChatEnabled()
@@ -1463,7 +1487,16 @@ export const useSettingsStore = defineStore('settings', () => {
   //           在途写入判定由 useFlushGuard 的 pendingWrites 统一管；刷新/关闭时先等在途写完
   registerFlush(() => false, () => {})
 
+  const updateDesktopPetScale = (scale: number) => {
+    const value = Math.min(2, Math.max(1, scale))
+    petScale.value = value
+    trackPending(adapter.setDesktopPetScale(value))
+      .catch(e => console.error('[settingsStore] 保存桌宠尺寸失败:', e))
+  }
+
   return {
+    petScale,
+    updateDesktopPetScale,
     isDirectoryMode,
     directoryHandle,
     directoryName,

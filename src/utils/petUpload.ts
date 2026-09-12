@@ -1,22 +1,32 @@
 /**
- * 自定义桌宠上传解析
+ * 自定义桌宠上传解析 v2
  *
- * 统一入口 parsePetFile，按扩展名/MIME 三路分流：
- * - .json        → Lottie JSON 对象
- * - .lottie      → zip 容器，fflate 解压 + 图片资源内联 → Lottie JSON 对象
- * - image/*      → data URL（GIF/APNG/WebP/PNG/SVG，浏览器自行区分动图/静态）
- *
- * 图片转 data URL 复用 storage.ts 的 blobToBase64。
- * .lottie 仅内联图片资源（assets 里的位图），字体/音频忽略（桌宠场景无）。
+ * 修复点：
+ * 1) .lottie 不再固定读取 manifest.animations[0]，优先遵循 manifest.initial.animation。
+ * 2) 兼容 animations/{id}.json / a/{id}.json / animation.json。
+ * 3) 向后兼容原调用：lottie 仍返回“初始动画”。
+ * 4) 额外返回 lottieAnimations + initialAnimation，供桌宠组件按 idle/click/hover/... 切换状态。
  */
+
 import { unzipSync, strFromU8 } from 'fflate'
 import { isLikelyLottie } from '@/config/desktopPets'
 import { blobToBase64 } from '@/utils/storage'
 
 export interface ParsedPet {
   type: 'lottie' | 'img'
+  /** 向后兼容：初始动画数据 */
   lottie?: unknown
+  /** dotLottie 多动画：id -> animationData */
+  lottieAnimations?: Record<string, unknown>
+  /** manifest.initial.animation，通常为 idle */
+  initialAnimation?: string
   src?: string
+}
+
+interface ParsedLottieBundle {
+  initialAnimation: string
+  initial: Record<string, unknown>
+  animations: Record<string, Record<string, unknown>>
 }
 
 /** 支持的图片扩展名（小写，含点） */
@@ -34,8 +44,13 @@ export async function parsePetFile(file: File): Promise<ParsedPet> {
 
   // 1. .lottie zip 容器
   if (ext === '.lottie') {
-    const lottie = await parseLottieZip(file)
-    return { type: 'lottie', lottie }
+    const bundle = await parseLottieZip(file)
+    return {
+      type: 'lottie',
+      lottie: bundle.initial,
+      lottieAnimations: bundle.animations,
+      initialAnimation: bundle.initialAnimation,
+    }
   }
 
   // 2. Lottie JSON
@@ -53,7 +68,7 @@ export async function parsePetFile(file: File): Promise<ParsedPet> {
     return { type: 'lottie', lottie: data }
   }
 
-  // 3. 图片（按 MIME 或扩展名判定）
+  // 3. 图片
   if (mime.startsWith('image/') || IMG_EXTS.includes(ext)) {
     const src = await blobToBase64(file)
     return { type: 'img', src }
@@ -62,21 +77,95 @@ export async function parsePetFile(file: File): Promise<ParsedPet> {
   throw new Error('不支持的文件类型（支持 .json / .lottie / gif / apng / webp / png / svg）')
 }
 
-/**
- * 解析 .lottie zip 容器：
- * 解压 → 读 manifest 找动画入口（无 manifest 直接找 animation.json）
- * → 遍历 assets 把图片资源（u+p 指向的 zip 内文件）转 data URL 内联
- * → 返回可喂给 lottie-web 的 animationData 对象
- */
-/** .lottie 解压上限：防 zip 炸弹导致主线程冻结/OOM。用户本地文件，但仍防不可控网络下载源 */
-const MAX_ZIP_RAW = 50 * 1024 * 1024   // 压缩包原始大小上限 50MB
-const MAX_ZIP_FILES = 500              // 解压后文件数上限
-const MAX_ZIP_TOTAL = 200 * 1024 * 1024 // 解压后总字节数上限 200MB
+/** .lottie 解压上限 */
+const MAX_ZIP_RAW = 50 * 1024 * 1024
+const MAX_ZIP_FILES = 500
+const MAX_ZIP_TOTAL = 200 * 1024 * 1024
 
-async function parseLottieZip(file: File): Promise<unknown> {
+type ManifestAnimation = {
+  id?: string
+  name?: string
+  path?: string
+}
+
+function normalizePath(path: string): string {
+  return path.replace(/^\.?\//, '')
+}
+
+function findAnimationBytes(
+  files: Record<string, Uint8Array>,
+  id: string,
+  declaredPath?: string,
+): Uint8Array | undefined {
+  const candidates: string[] = []
+
+  if (declaredPath) {
+    const p = normalizePath(declaredPath)
+    candidates.push(p)
+    if (p.startsWith('animations/')) {
+      candidates.push(p.replace(/^animations\//, 'a/'))
+    }
+  }
+
+  candidates.push(
+    `animations/${id}.json`,
+    `a/${id}.json`,
+    `${id}.json`,
+  )
+
+  for (const p of candidates) {
+    const bytes = files[p]
+    if (bytes) return bytes
+  }
+  return undefined
+}
+
+function inlineImageAssets(
+  animation: Record<string, unknown>,
+  files: Record<string, Uint8Array>,
+): void {
+  const assets = Array.isArray(animation.assets) ? animation.assets : []
+
+  for (const a of assets) {
+    if (!a || typeof a !== 'object') continue
+
+    const asset = a as Record<string, unknown>
+    const p = asset.p
+    const u = asset.u
+
+    if (typeof p !== 'string') continue
+    // 已经是 data URL，无需重复处理。
+    if (p.startsWith('data:')) {
+      asset.u = ''
+      asset.e = 1
+      continue
+    }
+
+    const relPath = (typeof u === 'string' ? u : '') + p
+    const zipPath = normalizePath(relPath)
+    const imgBytes = files[zipPath] ?? files[p]
+    if (!imgBytes) continue
+
+    const ext = extOf(p)
+    const mime =
+      ext === '.svg' ? 'image/svg+xml'
+      : ext === '.webp' ? 'image/webp'
+      : ext === '.gif' ? 'image/gif'
+      : ext === '.avif' ? 'image/avif'
+      : 'image/png'
+
+    const b64 = arrayBufferToBase64(imgBytes)
+    asset.p = `data:${mime};base64,${b64}`
+    asset.u = ''
+    asset.e = 1
+  }
+}
+
+async function parseLottieZip(file: File): Promise<ParsedLottieBundle> {
   if (file.size > MAX_ZIP_RAW) {
     throw new Error('.lottie 文件过大（超过 50MB），请使用更小的素材')
   }
+
   const buf = new Uint8Array(await file.arrayBuffer())
   let files: Record<string, Uint8Array>
   try {
@@ -85,73 +174,97 @@ async function parseLottieZip(file: File): Promise<unknown> {
     throw new Error('.lottie 解压失败，请检查文件是否为有效的 .lottie 包')
   }
 
-  // 文件数 + 解压后总字节数校验，防高压缩比 zip 炸弹
   const fileNames = Object.keys(files)
   if (fileNames.length > MAX_ZIP_FILES) {
     throw new Error('.lottie 内文件数过多，疑似异常文件')
   }
+
   let totalBytes = 0
   for (const name of fileNames) totalBytes += files[name].length
   if (totalBytes > MAX_ZIP_TOTAL) {
     throw new Error('.lottie 解压后体积过大，请使用更小的素材')
   }
 
-  // 找动画 JSON 入口，兼容多版 dotlottie 规范：
-  // - 旧版：manifest.animations[0].path 直接指向文件
-  // - 新版(@dotlottie/dotlottie-js@1.7+)：manifest.animations[0] 只有 id，文件在 animations/{id}.json
-  // - 无 manifest：回退 animation.json
-  let animPath = 'animation.json'
+  let manifest: Record<string, unknown> | undefined
   const manifestFile = files['manifest.json']
   if (manifestFile) {
     try {
-      const manifest = JSON.parse(strFromU8(manifestFile))
-      const anim0 = manifest?.animations?.[0]
-      const ref = anim0?.path
-        ?? (typeof anim0?.id === 'string' ? `animations/${anim0.id}.json` : null)
-        ?? manifest?.assets?.[0]?.path
-      if (typeof ref === 'string') animPath = ref.replace(/^\.?\//, '')
+      manifest = JSON.parse(strFromU8(manifestFile)) as Record<string, unknown>
     } catch {
-      // manifest 损坏，回退 animation.json
+      // manifest 损坏：下面回退 animation.json
     }
   }
-  const animBytes = files[animPath] ?? files['animation.json']
-  if (!animBytes) throw new Error('.lottie 内未找到动画文件')
-  let animation: Record<string, unknown>
-  try {
-    animation = JSON.parse(strFromU8(animBytes))
-  } catch {
-    throw new Error('.lottie 内动画 JSON 解析失败')
-  }
-  if (!isLikelyLottie(animation)) {
-    throw new Error('.lottie 内动画数据无效（缺少 layers）')
+
+  const animations: Record<string, Record<string, unknown>> = {}
+
+  const manifestAnimations = Array.isArray(manifest?.animations)
+    ? (manifest.animations as ManifestAnimation[])
+    : []
+
+  // manifest.initial.animation 才是 dotLottie 声明的初始动作。
+  const initialFromManifest =
+    manifest?.initial &&
+    typeof manifest.initial === 'object' &&
+    typeof (manifest.initial as Record<string, unknown>).animation === 'string'
+      ? String((manifest.initial as Record<string, unknown>).animation)
+      : undefined
+
+  if (manifestAnimations.length > 0) {
+    for (const ref of manifestAnimations) {
+      if (!ref || typeof ref.id !== 'string') continue
+
+      const bytes = findAnimationBytes(files, ref.id, ref.path)
+      if (!bytes) continue
+
+      let animation: Record<string, unknown>
+      try {
+        animation = JSON.parse(strFromU8(bytes))
+      } catch {
+        continue
+      }
+
+      if (!isLikelyLottie(animation)) continue
+
+      inlineImageAssets(animation, files)
+      animations[ref.id] = animation
+    }
   }
 
-  // 内联图片资源：assets 数组每项可能含 { p: 'image_0.png', u: 'images/', e: 1 }
-  const assets = Array.isArray(animation.assets) ? animation.assets : []
-  for (const a of assets) {
-    if (!a || typeof a !== 'object') continue
-    const p = (a as Record<string, unknown>).p
-    const u = (a as Record<string, unknown>).u
-    if (typeof p !== 'string') continue
-    // zip 内路径：u + p（去前导 ./）
-    const relPath = (typeof u === 'string' ? u : '') + p
-    const zipPath = relPath.replace(/^\.?\//, '')
-    const imgBytes = files[zipPath] ?? files[p]
-    if (!imgBytes) continue
-    // 推断 MIME
-    const ext = extOf(p)
-    const mime =
-      ext === '.svg' ? 'image/svg+xml'
-      : ext === '.webp' ? 'image/webp'
-      : ext === '.gif' ? 'image/gif'
-      : 'image/png' // 默认 png（.lottie 内位图多为 png）
-    const b64 = arrayBufferToBase64(imgBytes)
-    ;(a as Record<string, unknown>).p = `data:${mime};base64,${b64}`
-    ;(a as Record<string, unknown>).u = '' // 已内联，清空路径前缀
-    ;(a as Record<string, unknown>).e = 1  // 标记嵌入
+  // 无 manifest / manifest 不完整时，兼容单 animation.json。
+  if (Object.keys(animations).length === 0) {
+    const bytes = files['animation.json']
+    if (!bytes) throw new Error('.lottie 内未找到动画文件')
+
+    let animation: Record<string, unknown>
+    try {
+      animation = JSON.parse(strFromU8(bytes))
+    } catch {
+      throw new Error('.lottie 内动画 JSON 解析失败')
+    }
+
+    if (!isLikelyLottie(animation)) {
+      throw new Error('.lottie 内动画数据无效（缺少 layers）')
+    }
+
+    inlineImageAssets(animation, files)
+    animations.default = animation
   }
 
-  return animation
+  const ids = Object.keys(animations)
+  const initialAnimation =
+    (initialFromManifest && animations[initialFromManifest] ? initialFromManifest : undefined)
+    ?? ids[0]
+
+  const initial = animations[initialAnimation]
+  if (!initial) {
+    throw new Error('.lottie 内未找到可播放的初始动画')
+  }
+
+  return {
+    initialAnimation,
+    initial,
+    animations,
+  }
 }
 
 // ponytail: base64 编码 Uint8Array，分块避免 callstack 溢出（大图）
