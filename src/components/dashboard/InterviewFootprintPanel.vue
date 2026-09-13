@@ -121,15 +121,25 @@
           >
             <Icon :icon="isFullscreen ? 'mdi:fullscreen-exit' : 'mdi:fullscreen'" :width="16" />
           </NButton>
-          <!-- 提示条 -->
-          <p v-if="geocodeFailedCount > 0" class="footprint-hint footprint-hint--warn">
+          <!-- 提示条：定位失败优先引导设置「我的位置」，避免与地址解析提示重叠 -->
+          <div v-if="locateFailed" class="footprint-hint footprint-hint--locate-failed" role="alert">
+            <span class="footprint-hint__icon" aria-hidden="true">
+              <Icon icon="mdi:map-marker-alert" :width="20" />
+            </span>
+            <span class="footprint-hint__content">
+              <strong>无法自动定位</strong>
+              <span>网络未获取到当前位置</span>
+            </span>
+            <NButton size="tiny" type="warning" @click="showPoiSearch = true">
+              <Icon icon="mdi:map-search-outline" :width="15" />
+              搜索位置
+            </NButton>
+          </div>
+          <p v-else-if="geocodeFailedCount > 0" class="footprint-hint footprint-hint--warn">
             {{ geocodeFailedCount }} 条面试地址无法定位，建议在「我的面试」用搜索按钮重新选地点
           </p>
           <p v-else-if="myPosition && !showLines" class="footprint-hint">
             开启「连线」可查看各面试点与你的距离
-          </p>
-          <p v-if="locateFailed" class="footprint-hint footprint-hint--warn">
-            定位失败，请允许定位权限后重试
           </p>
         </div>
 
@@ -287,6 +297,11 @@ let markers: any[] = []
 let polylines: any[] = []
 let distanceLabels: any[] = []
 let myPositionMarker: any = null
+
+function showLocateFailed() {
+  locateFailed.value = true
+  naiveMessage.warning('网络定位未获取到当前位置，请点击上方「搜索位置」手动选择', { duration: 5000 })
+}
 
 const hasKey = computed(() => !!settingsStore.amapKey)
 const amapEnabled = computed(() => settingsStore.amapEnabled)
@@ -697,7 +712,7 @@ function applyMyPosition(pos: LngLat, name = '') {
   if (showLines.value) drawLines()
 }
 
-/** 进 tab 调用：有缓存位置直接用，无缓存才调浏览器定位并落盘（省重复定位） */
+/** 进 tab 调用：有缓存位置直接用，无缓存才调自动定位并落盘（省重复定位） */
 async function onLocate(): Promise<boolean> {
   if (!map) return false
   // 缓存优先
@@ -706,14 +721,14 @@ async function onLocate(): Promise<boolean> {
     applyMyPosition(cached)
     return true
   }
-  // 无缓存 → 浏览器定位 + 落盘
+  // 无缓存 → 自动定位 + 落盘
   locating.value = true
   locateFailed.value = false
   try {
     const pos = await getMyPosition(settingsStore.amapKey, settingsStore.amapSecurityCode)
     if (!map) return false
     if (!pos) {
-      locateFailed.value = true
+      showLocateFailed()
       return false
     }
     applyMyPosition(pos)
@@ -724,7 +739,7 @@ async function onLocate(): Promise<boolean> {
   }
 }
 
-/** 「刷新定位」按钮：强制重新调浏览器定位校准并落盘（进 tab 默认用缓存，此按钮才重新定位） */
+/** 「刷新定位」按钮：强制重新自动定位并落盘（进 tab 默认用缓存） */
 async function onRefreshLocation() {
   if (!map) return
   locating.value = true
@@ -733,14 +748,14 @@ async function onRefreshLocation() {
     const pos = await getMyPosition(settingsStore.amapKey, settingsStore.amapSecurityCode)
     if (!map) return
     if (!pos) {
-      locateFailed.value = true
+      showLocateFailed()
       return
     }
     applyMyPosition(pos)
     settingsStore.updateMyLocation(`${pos.lng},${pos.lat}`)
   } catch (e) {
     // ponytail: getMyPosition 内部 ensureAmap 可能 reject（Key 无效/SDK 加载失败），按钮直调无外层兜底，需置失败态给用户反馈
-    locateFailed.value = true
+    showLocateFailed()
     console.error('[footprint] 刷新定位失败:', e)
   } finally {
     locating.value = false
@@ -776,6 +791,7 @@ function onSelectPoi(poi: { name: string; address: string; lng: number; lat: num
   const item: MapLocationItem = { name: poi.name, address: poi.address, lng: poi.lng, lat: poi.lat }
   lastSearchedLocation.value = { lng: poi.lng, lat: poi.lat, name: poi.name }
   applyMyPosition({ lng: poi.lng, lat: poi.lat }, poi.name)
+  locateFailed.value = false
   settingsStore.addMapLocationHistory(item)
   naiveMessage.success(`已定位到「${poi.name}」`)
 }
@@ -1221,6 +1237,51 @@ function refreshInfoWindows() {
   &--warn {
     color: $warning-color;
     border-color: rgba($warning-color, 0.3);
+  }
+
+  &--locate-failed {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    min-width: 420px;
+    padding: 10px 12px 10px 10px;
+    color: $text-primary;
+    background: rgba(50, 35, 10, 0.96);
+    border: 1px solid rgba($warning-color, 0.9);
+    box-shadow: 0 10px 28px rgba(74, 49, 8, 0.42);
+    backdrop-filter: blur(14px);
+    white-space: normal;
+  }
+
+  &__icon {
+    display: grid;
+    flex: 0 0 34px;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    color: #3b2808;
+    background: $warning-color;
+    border-radius: $radius-sm;
+  }
+
+  &__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+    line-height: 1.25;
+
+    strong {
+      color: #fff8df;
+      font-size: $font-size-sm;
+      font-weight: 700;
+    }
+
+    span {
+      color: rgba(255, 248, 223, 0.8);
+      font-size: $font-size-xs;
+    }
   }
 }
 </style>

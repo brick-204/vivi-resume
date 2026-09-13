@@ -633,7 +633,7 @@ async function checkUpdate(): Promise<{
       latestVersion: tag,
       releaseUrl,
     }
-  } catch (e) {
+  } catch {
     // abort 抛 AbortError，统一归为超时/网络错误
     return { hasUpdate: false, currentVersion, latestVersion: '', releaseUrl: '', error: '请求超时或网络错误' }
   } finally {
@@ -758,6 +758,8 @@ async function createWindow(): Promise<BrowserWindow> {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // 生产包彻底禁用 DevTools；开发模式保留调试能力。
+      devTools: !!process.env.VITE_DEV_SERVER_URL,
       // sandbox:true —— 收紧 preload 能力（无 process/node），仅留 ipcRenderer/contextBridge。
       // proxyBase 改走 URL query 注入（sandbox 下 process.env 不可用），见 loadURL。
       sandbox: true,
@@ -802,9 +804,9 @@ async function createWindow(): Promise<BrowserWindow> {
     '::-webkit-scrollbar { display: none !important; }'
   ).catch((e) => console.warn('[main] insertCSS failed:', e))
 
-  // F12 开关 DevTools。默认菜单已删（accelerator 跟着没了），手动补。
+  // F12 开关 DevTools。默认菜单已删（accelerator 跟着没了），仅开发模式手动补。
   // ponytail: 用 before-input-event 页面级拦截而非 globalShortcut——只 app 聚焦时生效，
-  //           不抢占系统快捷键、不与其他程序 F12 冲突。仅 dev 生效。
+  //           不抢占系统快捷键、不与其他程序 F12 冲突。
   if (devServerUrl) {
     win.webContents.on('before-input-event', (e, input) => {
       if (input.key === 'F12') {

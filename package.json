@@ -14,7 +14,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "electron:dev": "pnpm generate-icons && concurrently -k -n vite,tsc,electron \"vite\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://localhost:5173 && tsc -p tsconfig.electron.json && node scripts/ensure-electron-pkg.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --watch-path=dist-electron .\"",
+    "electron:dev": "pnpm generate-icons && concurrently -k -n vite,tsc,electron \"vite --port 5173 --strictPort\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://localhost:5173 && tsc -p tsconfig.electron.json && node scripts/ensure-electron-pkg.cjs && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron --watch-path=dist-electron .\"",
     "electron:build": "pnpm generate-icons && vue-tsc && vite build && tsc -p tsconfig.electron.json && node scripts/ensure-electron-pkg.cjs && rimraf release && electron-builder --win"
   },
   "dependencies": {
@@ -77,10 +77,5 @@
     "vitest": "^3.2.7",
     "vue-tsc": "^2.0.6",
     "wait-on": "^8.0.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron"
-    ]
   }
 }

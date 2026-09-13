@@ -144,8 +144,9 @@ export async function geocode(address: string, key?: string, securityJsCode?: st
 }
 
 /**
- * 浏览器定位（面试足迹 tab 的「定位到我」）。
- * 失败返回 null（定位被拒/超时/不支持），由调用方处理降级。
+ * 当前位置（面试足迹 tab 的「定位到我」）。
+ * Electron 的 Chromium 网络定位需要额外的 Google API Key，桌面端禁用 H5 定位、仅用高德 PC IP 定位。
+ * 失败返回 null，由调用方提示使用「搜索位置」降级。
  */
 export async function getMyPosition(key?: string, securityJsCode?: string): Promise<LngLat | null> {
   const AMap = await ensureAmap(key, securityJsCode)
@@ -156,6 +157,8 @@ export async function getMyPosition(key?: string, securityJsCode?: string): Prom
         enableHighAccuracy: true,
         timeout: 10000,
         GeoLocationFirst: false,
+        // 2 = PC 端禁用浏览器原生定位；web 端仍保留浏览器定位能力。
+        noGeoLocation: window.electronAPI ? 2 : 0,
       })
       geolocation.getCurrentPosition((status: string, result: any) => {
         if (status === 'complete' && result?.position) {
