@@ -176,27 +176,42 @@
             <!-- 记事本卡片 -->
             <template v-if="element.type === 'notebook'">
               <div class="journal-card__cover" @click="enterNotebook(element.id)">
-                <Icon icon="mdi:folder-outline" :width="40" />
-                <span class="journal-card__count">{{ journalStore.notebookCount(element.id) }}</span>
-              </div>
-              <div class="journal-card__info" @click="enterNotebook(element.id)">
-                <h3 class="journal-card__title">
-                  {{ element.title }}
-                  <button
-                    class="journal-card__rename-btn"
-                    title="重命名"
-                    @click.stop="openRename(element)"
-                  >
-                    <Icon icon="mdi:pencil-outline" :width="14" />
-                  </button>
-                </h3>
-                <p class="journal-card__meta">{{ formatDate(element.updatedAt) }}</p>
+                <div class="journal-card__cover-header">
+                  <span class="journal-card__kind journal-card__kind--notebook">
+                    <Icon icon="mdi:folder-outline" :width="16" />
+                    记事本
+                  </span>
+                  <p class="journal-card__meta">{{ formatDate(element.updatedAt) }}</p>
+                </div>
+                <div class="journal-card__cover-content">
+                  <h3 class="journal-card__title journal-card__title--notebook">
+                    {{ element.title }}
+                    <button
+                      class="journal-card__rename-btn"
+                      title="重命名"
+                      @click.stop="openRename(element)"
+                    >
+                      <Icon icon="mdi:pencil-outline" :width="14" />
+                    </button>
+                  </h3>
+                  <div class="journal-card__stat">
+                    <span class="journal-card__stat-number">{{ formatNotebookCount(journalStore.notebookCount(element.id)) }}</span>
+                    <span class="journal-card__stat-label">篇笔记</span>
+                  </div>
+                </div>
               </div>
             </template>
 
             <!-- 笔记卡片 -->
             <template v-else>
               <div class="journal-card__note-body" @click="enterEdit(element.id)">
+                <div class="journal-card__note-header">
+                  <span class="journal-card__kind">
+                    <Icon icon="mdi:note-text-outline" :width="14" />
+                    笔记
+                  </span>
+                  <p class="journal-card__meta">{{ formatDate(element.updatedAt) }}</p>
+                </div>
                 <h3 class="journal-card__title">
                   {{ element.title }}
                   <button
@@ -207,7 +222,7 @@
                     <Icon icon="mdi:pencil-outline" :width="14" />
                   </button>
                 </h3>
-                <TaskListExcerpt :html="element.content" />
+                <TaskListExcerpt class="journal-card__excerpt" :html="element.content" />
                 <div v-if="element.interviewIds.length || element.resumeIds.length" class="journal-card__tags">
                   <span v-if="element.interviewIds.length" class="journal-card__tag journal-card__tag--interview">
                     <Icon icon="mdi:briefcase-outline" :width="12" />
@@ -218,7 +233,6 @@
                     {{ element.resumeIds.length }}
                   </span>
                 </div>
-                <p class="journal-card__meta">{{ formatDate(element.updatedAt) }}</p>
                 <!-- 移出按钮：仅笔记本内部显示，移到根级 -->
                 <button
                   v-if="currentNotebookId"
@@ -490,6 +504,8 @@ const formatDate = (iso: string): string => {
   if (diff < 7 * day) return `${Math.floor(diff / day)} 天前`
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
+
+const formatNotebookCount = (count: number): string => count.toString().padStart(2, '0')
 
 /** 笔记编辑页：标题 blur / Enter 时提交；空标题兜底由 exitEdit 处理 */
 const commitEditTitle = () => {
@@ -845,7 +861,7 @@ const confirmMove = () => {
   &__grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
     gap: $spacing-lg;
     align-content: start;
     align-items: start; // 笔记顶对齐、保留各自内容高度，不被同行最高的笔记撑高（内容长短不一）
@@ -881,20 +897,32 @@ const confirmMove = () => {
   }
 }
 
-// 卡片（对齐 InterviewCard：实色 bg-primary + 极细边框 + hover 边框变蓝，无阴影）
+// 编辑部档案卡片：完整描边 + 克制阴影；记事本用蓝色索引栏强化目录语义
 .journal-card {
   position: relative;
   display: flex;
   flex-direction: column;
   border-radius: $radius-lg;
   background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--border-bold);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   overflow: hidden;
-  transition: border-color 0.15s ease;
+  min-height: 196px;
+  transition: border-color $transition-fast, box-shadow $transition-fast, transform $transition-fast;
   cursor: pointer;
 
   &:hover {
     border-color: $primary-color;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &--notebook {
+    background: var(--bg-primary);
+    border-color: rgba($primary-color, 0.5);
   }
 
   &--ghost {
@@ -905,7 +933,8 @@ const confirmMove = () => {
   // 拖拽悬停的放置目标（记事本）：高亮 + 收入光标
   &--drop-target {
     border-color: $primary-color;
-    box-shadow: 0 0 0 2px rgba($primary-color, 0.4);
+    outline: 2px solid rgba($primary-color, 0.35);
+    outline-offset: 2px;
     cursor: copy;
   }
 
@@ -928,42 +957,90 @@ const confirmMove = () => {
     opacity: 0.5;
   }
 
-  // 记事本封面：橙色渐变背景 + 橙色文件夹 icon，与笔记卡片（紫色色条）冷暖区分
+  // 记事本封面：档案索引式信息层级，使用主题表面色而非装饰渐变
   &__cover {
-    height: 96px;
+    min-height: 196px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    position: relative;
+    background: var(--bg-primary);
+  }
+
+  &__cover-header {
     display: flex;
     align-items: center;
-    justify-content: center;
-    position: relative;
-    background: linear-gradient(135deg, rgba($yellow-dark, 0.22), rgba($yellow-color, 0.12));
-    color: $yellow-dark;
+    justify-content: space-between;
+    gap: $spacing-sm;
+    min-height: 48px;
+    padding: $spacing-sm 56px $spacing-sm $spacing-lg;
+    background: $primary-color;
+
+    .journal-card__meta {
+      color: rgba(255, 255, 255, 0.82);
+    }
   }
 
-  &__count {
-    position: absolute;
-    bottom: 8px;
-    right: 8px;
-    background: var(--bg-glass-active);
-    color: $text-secondary;
-    font-size: $font-size-xs;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: $radius-full;
-  }
-
-  &__info {
-    padding: $spacing-md $spacing-lg;
-    border-top: 1px solid var(--border-color);
-  }
-
-  &__note-body {
-    padding: $spacing-md $spacing-lg $spacing-md $spacing-lg;
-    // ponytail: 左侧紫色色条区分笔记（与橙色笔记本封面冷暖对比），border-left + 负 margin 让色条贴到卡片左缘
-    border-left: 3px solid rgba(124, 92, 252, 0.6);
+  &__cover-content {
     flex: 1;
     display: flex;
     flex-direction: column;
+    gap: $spacing-md;
+    padding: $spacing-md $spacing-lg $spacing-lg;
+  }
+
+  &__kind {
+    display: inline-flex;
+    align-items: center;
     gap: $spacing-xs;
+    color: $text-secondary;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    line-height: 1.3;
+
+    &--notebook {
+      color: #fff;
+    }
+  }
+
+  &__stat {
+    margin-top: auto;
+    display: flex;
+    align-items: flex-end;
+    gap: $spacing-sm;
+  }
+
+  &__stat-number {
+    color: $primary-color;
+    font-size: $font-size-2xl;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+  }
+
+  &__stat-label {
+    padding-bottom: 2px;
+    color: $text-secondary;
+    font-size: $font-size-xs;
+    font-weight: 400;
+    line-height: 1.3;
+  }
+
+  &__note-body {
+    min-height: 196px;
+    padding: $spacing-lg;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  &__note-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-sm;
   }
 
   // 移出按钮：钉在笔记卡片右下角，仅笔记本内部显示
@@ -991,8 +1068,10 @@ const confirmMove = () => {
   }
 
   &__title {
-    font-size: $font-size-sm;
+    font-size: $font-size-md;
     font-weight: 600;
+    line-height: 1.24;
+    letter-spacing: -0.02em;
     color: $text-primary;
     margin: 0;
     display: flex;
@@ -1001,6 +1080,12 @@ const confirmMove = () => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    &--notebook {
+      font-size: $font-size-lg;
+      line-height: 1.19;
+      letter-spacing: -0.028em;
+    }
   }
 
   // ponytail: hover 才显形的铅笔按钮——与 .journal-card__menu 同款机制，opacity 默认 0
@@ -1031,12 +1116,12 @@ const confirmMove = () => {
   }
 
   &__excerpt {
-    font-size: $font-size-xs;
+    font-size: $font-size-sm;
     color: $text-secondary;
-    line-height: 1.5;
+    line-height: 1.43;
     margin: 0;
     // ponytail: TaskListExcerpt 接管渲染，自带高度——原 -webkit-line-clamp 在 3 li 时截断、勾选态粘连去掉
-    min-height: 36px;
+    min-height: 40px;
   }
 
   &__tags {
@@ -1049,23 +1134,24 @@ const confirmMove = () => {
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    padding: 1px 6px;
+    padding: 3px 7px;
     border-radius: $radius-sm;
     font-size: 11px;
 
     &--interview {
-      background: rgba($secondary-color, 0.12);
-      color: $secondary-light;
+      background: var(--bg-tertiary);
+      color: $text-secondary;
     }
 
     &--resume {
-      background: rgba($primary-color, 0.12);
-      color: $primary-light;
+      background: var(--bg-tertiary);
+      color: $text-secondary;
     }
   }
 
   &__meta {
-    font-size: 11px;
+    font-size: $font-size-xs;
+    line-height: 1.3;
     color: $text-light;
     margin: 0;
   }
@@ -1087,7 +1173,7 @@ const confirmMove = () => {
     transform: translateY(0);
   }
 
-  // 操作按钮：对齐 InterviewCard，半透明主色/错误色，hover 加深
+  // 操作按钮保持中性，避免错误色抢走卡片内容的视觉焦点
   &__menu-btn {
     display: flex;
     align-items: center;
@@ -1096,13 +1182,28 @@ const confirmMove = () => {
     height: 30px;
     border: none;
     border-radius: $radius-sm;
-    background: rgba($error-color, 0.8);
-    color: #fff;
+    background: var(--bg-glass-active);
+    color: $text-secondary;
     cursor: pointer;
-    transition: background $transition-base;
+    transition: background $transition-fast, color $transition-fast, transform $transition-fast;
 
     &:hover {
-      background: $error-color;
+      background: var(--bg-tertiary);
+      color: $text-primary;
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  &--notebook &__menu-btn {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      color: #fff;
     }
   }
 }

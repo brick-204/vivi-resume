@@ -1,15 +1,15 @@
 <template>
-  <div class="pet-preview">
+  <div class="pet-preview" :style="previewStyle">
     <div v-if="failed" class="pet-preview__broken" title="lottie 文件无效">
       <Icon icon="mdi:image-broken-variant" :width="28" />
     </div>
     <img v-else-if="isImg" :src="imgSrc" class="pet-preview__img" alt="" />
-    <div v-else ref="containerRef" v-show="!failed" class="pet-preview__anim" />
+    <div v-else v-show="!failed" ref="containerRef" class="pet-preview__anim" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { getDesktopPetById, type DesktopPetConfig } from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
@@ -22,8 +22,11 @@ const props = defineProps<{
 
 const failed = ref(false)
 const { containerRef, petData, isImg, imgSrc, mountLottie, destroyLottie } = usePetRenderer()
+const previewStyle = computed(() => ({ '--pet-visual-scale': String(petData.value.visualScale ?? 1) }))
+let loadToken = 0
 
 const load = () => {
+  const token = ++loadToken
   destroyLottie()
   failed.value = false
   // ponytail: 优先用直传数据（回收站桌宠已移出缓存），否则按 id 查内置+缓存
@@ -33,8 +36,10 @@ const load = () => {
   if (isImg.value) return
 
   // lottie 类型：等容器渲染后挂载（静态预览，只渲染首帧，避免列表 N 个动画同跑卡顿）
-  requestAnimationFrame(() => {
-    if (containerRef.value && !mountLottie(containerRef.value, { autoplay: false })) {
+  requestAnimationFrame(async () => {
+    if (token !== loadToken || !containerRef.value) return
+    const result = await mountLottie(containerRef.value, { autoplay: false })
+    if (result === 'invalid' && token === loadToken) {
       failed.value = true
     }
   })
@@ -56,6 +61,8 @@ watch(() => props.petId, load)
   height: 100%;
   pointer-events: none;
   object-fit: contain;
+  transform: scale(var(--pet-visual-scale, 1));
+  transform-origin: center;
 }
 .pet-preview__broken {
   width: 100%;

@@ -9,7 +9,14 @@
  */
 import { ref, computed, onBeforeUnmount } from 'vue'
 import lottie from 'lottie-web'
-import { getDesktopPetById, DEFAULT_PET_ID, isLikelyLottie } from '@/config/desktopPets'
+import {
+  getDesktopPetById,
+  getDesktopPetAnimationKeys,
+  loadDesktopPetAnimation,
+  DEFAULT_PET_ID,
+} from '@/config/desktopPets'
+
+export type MountLottieResult = 'mounted' | 'cancelled' | 'invalid'
 
 export function usePetRenderer() {
   const containerRef = ref<HTMLElement | null>(null)
@@ -22,69 +29,101 @@ export function usePetRenderer() {
   const imgSrc = computed(() => (isImg.value ? petData.value.src! : ''))
   const lottieData = computed(() => petData.value.lottie)
 
-  type PetAction = 'idle' | 'hover' | 'click' | 'happy' | 'thinking' | 'walk-left' | 'walk-right' | 'sleep'
   type ResolvedAction = { action: string; data: Record<string, unknown>; loop: boolean }
-  const LOOP_ACTIONS = new Set<PetAction>(['idle', 'hover', 'thinking', 'walk-left', 'walk-right', 'sleep'])
+  const LOOP_ACTIONS = new Set<string>([
+    'idle',
+    'hover',
+    'look-around',
+    'wave',
+    'read',
+    'thinking',
+    'walk-left',
+    'walk-right',
+    'jump-up',
+    'jump-down',
+    'sleep',
+  ])
   let activeContainer: HTMLElement | null = null
   let mountedAction: string | null = null
   let actionToken = 0
+  let temporaryActionToken = 0
   const baseAction = ref<string>('idle')
   let temporaryAction: string | null = null
+  const completedBaseAction = ref<string | null>(null)
 
-  const resolveAction = (requestedAction: string): ResolvedAction | null => {
-    const animations = petData.value.lottieAnimations
-    if (animations && Object.keys(animations).length > 0) {
-      const selectedAction = [
-        requestedAction,
-        petData.value.initialAnimation,
-        'idle',
-        Object.keys(animations)[0],
-      ].find(action => typeof action === 'string' && isLikelyLottie(animations[action]))
-      if (selectedAction) {
+  const resolveAction = async (
+    requestedAction: string,
+    pet = petData.value,
+  ): Promise<ResolvedAction | null> => {
+    const candidates = [...new Set([
+      requestedAction,
+      pet.initialAnimation,
+      'idle',
+      ...getDesktopPetAnimationKeys(pet),
+    ].filter((action): action is string => typeof action === 'string'))]
+    for (const selectedAction of candidates) {
+      const data = await loadDesktopPetAnimation(pet, selectedAction)
+      if (data) {
         return {
           action: selectedAction,
-          data: animations[selectedAction] as Record<string, unknown>,
-          loop: selectedAction !== requestedAction || LOOP_ACTIONS.has(selectedAction as PetAction),
+          data,
+          loop: selectedAction !== requestedAction || LOOP_ACTIONS.has(selectedAction),
         }
       }
     }
-    return isLikelyLottie(petData.value.lottie)
-      ? { action: 'default', data: petData.value.lottie, loop: true }
-      : null
+    return null
   }
 
-  const setBaseAction = (action: string): boolean => {
+  const setBaseAction = (action: string) => {
     baseAction.value = action
-    return temporaryAction ? true : playPetAction(action)
+    if (!temporaryAction) void playPetAction(action)
   }
-  const playTemporaryAction = (action: string): boolean => {
-    const resolved = resolveAction(action)
-    if (!resolved || resolved.loop) return false
-    temporaryAction = action
-    return playPetAction(action, true)
+  const playTemporaryAction = (action: string) => {
+    void (async () => {
+      const pet = petData.value
+      const container = activeContainer
+      const token = ++temporaryActionToken
+      if (!container) return
+      const resolved = await resolveAction(action, pet)
+      if (
+        !resolved
+        || resolved.loop
+        || token !== temporaryActionToken
+        || petData.value !== pet
+        || activeContainer !== container
+      ) return
+      temporaryAction = action
+      await playPetAction(action, true, token)
+    })()
+  }
+  const cancelTemporaryAction = () => {
+    temporaryAction = null
+    temporaryActionToken += 1
   }
 
   /**
    * 挂载 lottie 动画到 container。
    * 调用方：img 类型直接渲染 <img> 不调此方法；lottie 类型在容器 ready 后调用。
-   * 数据畸形（非 lottie）返回 false，调用方自行回退。
+   * 返回 mounted / cancelled / invalid，只有 invalid 需要调用方回退。
    * @param opts.autoplay 是否自动播放循环动画；缺省 true。预览场景传 false 只渲染首帧（省 CPU，避免列表 N 个动画同跑）
    */
-  const mountLottie = (
+  const mountLottie = async (
     container: HTMLElement,
     opts: { autoplay?: boolean } = {},
-  ): boolean => {
+  ): Promise<MountLottieResult> => {
     const autoplay = opts.autoplay ?? true
-    const resolved = resolveAction(temporaryAction ?? baseAction.value)
-    const data = resolved?.data ?? petData.value.lottie
-    if (!isLikelyLottie(data)) return false
+    const pet = petData.value
+    const token = ++actionToken
+    const resolved = await resolveAction(temporaryAction ?? baseAction.value, pet)
+    if (token !== actionToken || petData.value !== pet) return 'cancelled'
+    if (!resolved) return 'invalid'
     try {
       anim = lottie.loadAnimation({
         container,
         renderer: 'svg',
         loop: autoplay && (resolved?.loop ?? true),
         autoplay,
-        animationData: data,
+        animationData: resolved.data,
       })
       activeContainer = container
       mountedAction = resolved?.action ?? 'default'
@@ -93,21 +132,31 @@ export function usePetRenderer() {
       if (!autoplay) {
         anim.goToAndStop(0, true)
       }
-      return true
+      return 'mounted'
     } catch (e) {
       console.error('[usePetRenderer] lottie 加载失败:', e)
-      return false
+      return 'invalid'
     }
   }
 
-  const playPetAction = (action: string, force = false): boolean => {
+  const playPetAction = async (
+    action: string,
+    force = false,
+    expectedTemporaryToken?: number,
+  ): Promise<boolean> => {
     if (!activeContainer) return false
-    const resolved = resolveAction(action)
-    if (!resolved) return false
+    const pet = petData.value
+    const token = ++actionToken
+    const resolved = await resolveAction(action, pet)
+    if (
+      !resolved
+      || token !== actionToken
+      || petData.value !== pet
+      || (expectedTemporaryToken !== undefined && expectedTemporaryToken !== temporaryActionToken)
+    ) return false
     if (!force && anim && mountedAction === resolved.action) return true
     anim?.destroy()
     anim = null
-    const token = ++actionToken
     try {
       anim = lottie.loadAnimation({
         container: activeContainer,
@@ -119,9 +168,13 @@ export function usePetRenderer() {
       mountedAction = resolved.action
       if (!resolved.loop) {
         anim.addEventListener('complete', () => {
-          if (token !== actionToken || temporaryAction !== action) return
-          temporaryAction = null
-          playPetAction(baseAction.value, true)
+          if (token !== actionToken) return
+          if (temporaryAction === action) {
+            temporaryAction = null
+            void playPetAction(baseAction.value, true)
+          } else if (!temporaryAction && baseAction.value === action) {
+            completedBaseAction.value = action
+          }
         })
       }
       return true
@@ -141,7 +194,9 @@ export function usePetRenderer() {
     activeContainer = null
     mountedAction = null
     temporaryAction = null
+    completedBaseAction.value = null
     actionToken += 1
+    temporaryActionToken += 1
   }
 
   onBeforeUnmount(destroyLottie)
@@ -158,6 +213,8 @@ export function usePetRenderer() {
     destroyLottie,
     setBaseAction,
     playTemporaryAction,
+    cancelTemporaryAction,
     playPetAction,
+    completedBaseAction,
   }
 }

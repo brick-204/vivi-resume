@@ -11,7 +11,11 @@ import { setActivePinia, createPinia } from 'pinia'
 import { usePetStore } from '@/stores/petStore'
 import {
   getDesktopPetById,
+  getDesktopPetAnimationKeys,
+  getDesktopPetDragAction,
+  getDesktopPetRunFacing,
   getIdleLoopActions,
+  loadDesktopPetAnimation,
   setCustomPetsCache,
   DEFAULT_PET_ID,
   type CustomDesktopPet,
@@ -74,13 +78,54 @@ describe('切换桌宠时 petName 同步', () => {
     expect(getDesktopPetById('custom-legacy').name).toBe('自定义桌宠')
   })
 
-  it('空闲动作只轮播 sleep、thinking 和 idle', () => {
+  it('空闲动作按设定顺序轮播，并让打哈欠紧接伸懒腰', () => {
     const lottie = { layers: [] }
     expect(getIdleLoopActions({
       idle: lottie,
+      'look-around': lottie,
+      wave: lottie,
       thinking: lottie,
+      read: lottie,
+      yawn: lottie,
+      stretch: lottie,
       sleep: lottie,
       'walk-left': lottie,
-    })).toEqual(['sleep', 'thinking', 'idle'])
+    })).toEqual(['idle', 'look-around', 'wave', 'thinking', 'read', 'yawn', 'stretch', 'sleep'])
+  })
+
+  it('v仔内置创作主题的交互、空闲和拖拽动作', () => {
+    expect(getDesktopPetAnimationKeys(getDesktopPetById('v-za'))).toEqual([
+      'click', 'happy', 'hover', 'idle', 'jump-down', 'jump-up', 'look-around',
+      'read', 'sleep', 'thinking', 'walk-left', 'walk-right', 'wave',
+    ])
+  })
+
+  it('内置桌宠仅在动作需要时加载对应资源', async () => {
+    const vzai = getDesktopPetById('v-za')
+    const xiaoyin = getDesktopPetById('xiao-yin')
+
+    expect(await loadDesktopPetAnimation(vzai, 'idle')).toMatchObject({ layers: expect.any(Array) })
+    expect(vzai.lottieAnimations?.idle).toMatchObject({ layers: expect.any(Array) })
+    expect(vzai.lottieAnimations?.happy).toBeUndefined()
+    expect(xiaoyin.lottieAnimations).toBeUndefined()
+  })
+
+  it('拖拽锁定跑跳类别，但允许同类动作反向', () => {
+    expect(getDesktopPetDragAction(8, 2)).toBe('walk-right')
+    expect(getDesktopPetDragAction(-8, 2)).toBe('walk-left')
+    expect(getDesktopPetDragAction(-8, -8)).toBe('walk-left')
+    expect(getDesktopPetDragAction(-8, 8)).toBe('walk-left')
+    expect(getDesktopPetDragAction(8, -8)).toBe('walk-right')
+    expect(getDesktopPetDragAction(8, 8)).toBe('walk-right')
+    expect(getDesktopPetDragAction(2, -8)).toBe('jump-up')
+    expect(getDesktopPetDragAction(2, 8)).toBe('jump-down')
+    expect(getDesktopPetDragAction(-8, -80, 'run')).toBe('walk-left')
+    expect(getDesktopPetDragAction(8, 80, 'run')).toBe('walk-right')
+    expect(getDesktopPetDragAction(-80, -8, 'jump')).toBe('jump-up')
+    expect(getDesktopPetDragAction(80, 8, 'jump')).toBe('jump-down')
+    expect(getDesktopPetRunFacing(-1)).toBe(-1)
+    expect(getDesktopPetRunFacing(1)).toBe(1)
+    expect(getDesktopPetRunFacing(0)).toBeNull()
+    expect(getDesktopPetDragAction(0, 0)).toBeNull()
   })
 })

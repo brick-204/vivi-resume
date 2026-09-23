@@ -1,16 +1,40 @@
 /**
  * 桌宠配置
- * 新增桌宠：往 DESKTOP_PETS 加一项 + 在 src/assets/lottie/ 放对应 JSON 即可。
+ * 新增桌宠：往 DESKTOP_PETS 加一项 + 在 src/assets/lottie/<pet>/ 放对应 JSON 即可。
  * 自定义桌宠：用户上传 lottie.json，经 storageAdapter 持久化，由 setCustomPetsCache 注入内存缓存。
  */
-import idleData from '@/assets/lottie/pet-idle.json'
+export type LottieAnimationLoader = () => Promise<unknown>
+
+const toActionLoaders = (
+  files: Record<string, LottieAnimationLoader>,
+  filenamePrefix: string,
+): Record<string, LottieAnimationLoader> => Object.fromEntries(
+  Object.entries(files).map(([path, loader]) => [
+    path.slice(path.lastIndexOf(filenamePrefix) + filenamePrefix.length, -'.json'.length),
+    loader,
+  ]),
+)
+
+// 内置资源按动作分包：首次展示只取 idle，交互时再请求对应 JSON。
+const vzaiAnimationLoaders = toActionLoaders(
+  import.meta.glob('../assets/lottie/vzai/pet-vzai-*.json', { import: 'default' }),
+  'pet-vzai-',
+)
+const xiaoyinAnimationLoaders = toActionLoaders(
+  import.meta.glob('../assets/lottie/xiaoyin/pet-xiaoyin-*.json', { import: 'default' }),
+  'pet-xiaoyin-',
+)
 
 export interface DesktopPetConfig {
   id: string
   name: string
+  /** 用于补偿资源画布留白的视觉倍率，不影响全局桌宠大小设置。 */
+  visualScale?: number
   lottie?: unknown
   /** dotLottie action map; absent means legacy single-animation playback. */
   lottieAnimations?: Record<string, unknown>
+  /** 内置资源的按需加载器；自定义桌宠直接使用 lottieAnimations。 */
+  lottieAnimationLoaders?: Record<string, LottieAnimationLoader>
   /** Initial action declared by the dotLottie manifest. */
   initialAnimation?: string
   /** 桌宠类型：lottie（JSON / .lottie 解析后）/ img（GIF/APNG/WebP/PNG/SVG）。缺省按 lottie 处理 */
@@ -26,10 +50,43 @@ export interface CustomDesktopPet extends DesktopPetConfig {
 }
 
 export const DESKTOP_PETS: DesktopPetConfig[] = [
-  { id: 'v-za', name: 'v仔', lottie: idleData },
+  {
+    id: 'v-za',
+    name: 'v仔',
+    initialAnimation: 'idle',
+    lottieAnimationLoaders: vzaiAnimationLoaders,
+  },
+  {
+    id: 'xiao-yin',
+    name: '小音',
+    visualScale: 1.6,
+    initialAnimation: 'idle',
+    lottieAnimationLoaders: xiaoyinAnimationLoaders,
+  },
 ]
 
 export const DEFAULT_PET_ID = DESKTOP_PETS[0].id
+
+export type DesktopPetDragAction = 'walk-left' | 'walk-right' | 'jump-up' | 'jump-down' | null
+export type DesktopPetDragMode = 'run' | 'jump'
+export type DesktopPetRunFacing = -1 | 1
+
+export const getDesktopPetRunFacing = (dx: number): DesktopPetRunFacing | null => (
+  dx === 0 ? null : dx < 0 ? -1 : 1
+)
+
+export const getDesktopPetDragAction = (
+  dx: number,
+  dy: number,
+  lockedMode?: DesktopPetDragMode,
+): DesktopPetDragAction => {
+  if (lockedMode === 'run') return dx === 0 ? null : dx < 0 ? 'walk-left' : 'walk-right'
+  if (lockedMode === 'jump') return dy === 0 ? null : dy < 0 ? 'jump-up' : 'jump-down'
+  if (dx === 0 && dy === 0) return null
+  // 斜向拖动优先表现左右跑；仅接近纯竖直时使用上下跳，避免鼠标轻微抖动误判。
+  if (Math.abs(dx) * 2 >= Math.abs(dy)) return dx < 0 ? 'walk-left' : 'walk-right'
+  return dy < 0 ? 'jump-up' : 'jump-down'
+}
 
 // 自定义桌宠内存缓存：由 store 启动时从存储加载并 setCustomPetsCache 注入
 let _customPetsCache: CustomDesktopPet[] = []
@@ -52,11 +109,48 @@ export const getDesktopPetById = (id: string): DesktopPetConfig => {
   return typeof pet.name === 'string' && pet.name.trim() ? pet : { ...pet, name: '自定义桌宠' }
 }
 
+export const getDesktopPetAnimationKeys = (pet: DesktopPetConfig): string[] => [
+  ...new Set([
+    ...Object.keys(pet.lottieAnimations ?? {}),
+    ...Object.keys(pet.lottieAnimationLoaders ?? {}),
+  ]),
+]
+
+/** 加载单个内置动作并缓存；自定义桌宠直接复用其已持久化的动画数据。 */
+export async function loadDesktopPetAnimation(
+  pet: DesktopPetConfig,
+  action: string,
+): Promise<Record<string, unknown> | null> {
+  const cached = pet.lottieAnimations?.[action]
+  if (isLikelyLottie(cached)) return cached
+  const loader = pet.lottieAnimationLoaders?.[action]
+  if (!loader) {
+    const isFallbackAction = action === pet.initialAnimation || action === 'idle'
+      || (!pet.lottieAnimations && !pet.lottieAnimationLoaders)
+    return isFallbackAction && isLikelyLottie(pet.lottie) ? pet.lottie : null
+  }
+  try {
+    const data = await loader()
+    if (!isLikelyLottie(data)) return null
+    pet.lottieAnimations ??= {}
+    pet.lottieAnimations[action] = data
+    if (action === pet.initialAnimation || action === 'idle' || !isLikelyLottie(pet.lottie)) {
+      pet.lottie = data
+    }
+    return data
+  } catch (error) {
+    console.error(`[desktopPets] 动作加载失败：${pet.id}/${action}`, error)
+    return null
+  }
+}
+
 /** 空闲时可安全轮播的循环动作；走路和悬停必须由真实交互触发。 */
-export const getIdleLoopActions = (animations?: Record<string, unknown>) => {
-  const actions = ['sleep', 'thinking', 'idle'] as const
-  if (!animations) return ['idle'] as const
-  const available = actions.filter(action => isLikelyLottie(animations[action]))
+export const getIdleLoopActions = (
+  animations?: Record<string, unknown>,
+  loaders?: Record<string, LottieAnimationLoader>,
+) => {
+  const actions = ['idle', 'look-around', 'wave', 'thinking', 'read', 'yawn', 'stretch', 'sleep'] as const
+  const available = actions.filter(action => isLikelyLottie(animations?.[action]) || !!loaders?.[action])
   return available.length ? available : (['idle'] as const)
 }
 /**

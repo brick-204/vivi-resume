@@ -46,8 +46,23 @@
       @mouseenter="onHover"
       @mouseleave="onLeave"
     >
-      <img v-if="isImg" :src="imgSrc" class="desktop-pet__img" alt="" draggable="false" />
-      <div v-else ref="containerRef" class="desktop-pet__anim" />
+      <img
+        v-if="isImg"
+        :src="imgSrc"
+        class="desktop-pet__img"
+        :class="{ 'is-flipped': petRunFacing === -1 }"
+        alt=""
+        draggable="false"
+      />
+      <div
+        v-else
+        ref="containerRef"
+        class="desktop-pet__anim"
+        :class="{
+          'is-flipped': petRunFacing === -1,
+          'has-open-canvas': petData.id === 'v-za',
+        }"
+      />
     </button>
   </div>
 </template>
@@ -56,7 +71,15 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { usePetStore } from '@/stores/petStore'
-import { getDesktopPetById, getIdleLoopActions, DEFAULT_PET_ID } from '@/config/desktopPets'
+import {
+  getDesktopPetById,
+  getDesktopPetDragAction,
+  getDesktopPetRunFacing,
+  getIdleLoopActions,
+  DEFAULT_PET_ID,
+  type DesktopPetDragAction,
+  type DesktopPetDragMode,
+} from '@/config/desktopPets'
 import { usePetRenderer } from '@/composables/usePetRenderer'
 import { triggerRandomEasterEgg } from '@/services/easterEggRegistry'
 import { isAIThinking } from '@/services/aiActivity'
@@ -79,12 +102,13 @@ const settingsStore = useSettingsStore()
 const petStore = usePetStore()
 const hovering = ref(false)
 const sleeping = ref(false)
-const SLEEP_AFTER_MS = 60_000
-const IDLE_ACTION_ROTATE_MS = 12_000
+// 短暂无交互后开始轮播安全空闲动作；idle 先播，避免一挂载就进入睡眠态。
+const SLEEP_AFTER_MS = 2_000
+const IDLE_ACTION_ROTATE_MS = 10_000
 let sleepTimer: ReturnType<typeof setTimeout> | null = null
 let idleActionTimer: ReturnType<typeof setInterval> | null = null
 let idleActionIndex = -1
-const idleAction = ref<'idle' | 'thinking' | 'sleep'>('idle')
+const idleAction = ref<string>('idle')
 
 // ========== 桌宠 action 列（单击弹出，留扩展位） ==========
 const actionsOpen = ref(false)
@@ -155,6 +179,8 @@ const {
   destroyLottie,
   setBaseAction,
   playTemporaryAction,
+  cancelTemporaryAction,
+  completedBaseAction,
 } = usePetRenderer()
 
 // ponytail: petName 由 petData 派生同步——无论正常切换还是畸形回退，petData 变即同步名字，
@@ -163,7 +189,9 @@ watch(petData, (d) => {
   petStore.petName = d?.name
 }, { immediate: true })
 
+let loadToken = 0
 const loadAnim = (petId: string) => {
+  const token = ++loadToken
   destroyLottie()
   petData.value = getDesktopPetById(petId)
   // ponytail: 同步赋 petName——sayTimeGreet 在 watch(petId) 同一轮 flush 里更早执行，
@@ -172,11 +200,13 @@ const loadAnim = (petId: string) => {
   // img 类型直接渲染 <img>，无需挂载 lottie
   if (isImg.value) return
   // lottie 类型：容器 ready 后挂载；数据畸形回退默认桌宠，保证 action 列始终可用
-  requestAnimationFrame(() => {
-    if (!containerRef.value) return
-    if (!mountLottie(containerRef.value)) {
+  requestAnimationFrame(async () => {
+    if (!containerRef.value || token !== loadToken) return
+    const result = await mountLottie(containerRef.value)
+    if (result === 'invalid') {
+      if (token !== loadToken || !containerRef.value) return
       petData.value = getDesktopPetById(DEFAULT_PET_ID)
-      mountLottie(containerRef.value)
+      await mountLottie(containerRef.value)
     }
   })
 }
@@ -220,7 +250,10 @@ const onLeave = () => {
 }
 // 短按打开抽屉；长按 300ms 进入拖拽（fixed 跟手），松手按 x 吸附左/右下角并切换抽屉方向
 const dragging = ref(false)
-const draggingAction = ref<'walk-left' | 'walk-right' | null>(null)
+const draggingAction = ref<DesktopPetDragAction>(null)
+let draggingMode: DesktopPetDragMode | null = null
+let reverseDragDistance = 0
+const petRunFacing = ref<1 | -1>(1)
 const pos = ref<{ left: number; top: number } | null>(null)
 let pressTimer: ReturnType<typeof setTimeout> | null = null
 let pointerX = 0
@@ -230,7 +263,9 @@ let downY = 0
 let moveRaf: number | null = null
 const DRAG_DELAY = 300
 const DRAG_THRESHOLD = 5
+const JUMP_DIRECTION_SWITCH_DISTANCE = 8
 const halfPetSize = computed(() => 32 * settingsStore.petScale)
+const petVisualScale = computed(() => petData.value.visualScale ?? 1)
 
 const syncBaseAction = () => {
   if (props.drawerOpen) return
@@ -266,7 +301,10 @@ const stopIdleActionCycle = () => {
 }
 
 const rotateIdleAction = () => {
-  const actions = getIdleLoopActions(petData.value.lottieAnimations)
+  const actions = getIdleLoopActions(
+    petData.value.lottieAnimations,
+    petData.value.lottieAnimationLoaders,
+  )
   idleActionIndex = (idleActionIndex + 1) % actions.length
   idleAction.value = actions[idleActionIndex]
   syncBaseAction()
@@ -275,10 +313,21 @@ const rotateIdleAction = () => {
 const startIdleActionCycle = () => {
   stopIdleActionCycle()
   rotateIdleAction()
-  if (getIdleLoopActions(petData.value.lottieAnimations).length > 1) {
+  if (getIdleLoopActions(petData.value.lottieAnimations, petData.value.lottieAnimationLoaders).length > 1) {
     idleActionTimer = setInterval(rotateIdleAction, IDLE_ACTION_ROTATE_MS)
   }
 }
+
+watch(completedBaseAction, (action) => {
+  if (!action) return
+  completedBaseAction.value = null
+  if (!sleeping.value || idleAction.value !== action) return
+  rotateIdleAction()
+  if (idleActionTimer !== null) {
+    clearInterval(idleActionTimer)
+    idleActionTimer = setInterval(rotateIdleAction, IDLE_ACTION_ROTATE_MS)
+  }
+})
 
 const scheduleSleep = () => {
   cancelSleepTimer()
@@ -305,10 +354,43 @@ const wakePet = () => {
 watch([isAIThinking, dragging, draggingAction, hovering, sleeping], syncBaseAction, { immediate: true })
 const dragStyle = computed(() =>
   ({ '--pet-size': `${halfPetSize.value * 2}px`,
+    '--pet-visual-scale': String(petVisualScale.value),
     ...(pos.value
     ? { left: pos.value.left + 'px', top: pos.value.top + 'px', right: 'auto', bottom: 'auto' }
     : {}),
   }))
+
+const updateDraggingAction = (dx: number, dy: number, stepX = 0, stepY = 0) => {
+  if (!draggingMode) {
+    const action = getDesktopPetDragAction(dx, dy)
+    if (!action) return
+    draggingMode = action.startsWith('walk-') ? 'run' : 'jump'
+    if (draggingMode === 'run') {
+      draggingAction.value = 'walk-right'
+      petRunFacing.value = action === 'walk-left' ? -1 : 1
+    } else {
+      draggingAction.value = action
+      petRunFacing.value = 1
+    }
+    reverseDragDistance = 0
+    return
+  }
+
+  if (draggingMode === 'run') {
+    petRunFacing.value = getDesktopPetRunFacing(stepX) ?? petRunFacing.value
+    return
+  }
+
+  const nextAction = getDesktopPetDragAction(stepX, stepY, draggingMode)
+  if (!nextAction || nextAction === draggingAction.value) {
+    if (nextAction === draggingAction.value) reverseDragDistance = 0
+    return
+  }
+  reverseDragDistance += Math.abs(stepY)
+  if (reverseDragDistance < JUMP_DIRECTION_SWITCH_DISTANCE) return
+  draggingAction.value = nextAction
+  reverseDragDistance = 0
+}
 
 const enterDragging = () => {
   if (pressTimer) {
@@ -316,8 +398,9 @@ const enterDragging = () => {
     pressTimer = null
   }
   actionsOpen.value = false // 拖拽中收起 action 列
+  cancelTemporaryAction()
+  updateDraggingAction(pointerX - downX, pointerY - downY)
   dragging.value = true
-  draggingAction.value = pointerX === downX ? null : pointerX < downX ? 'walk-left' : 'walk-right'
   pos.value = { left: pointerX - halfPetSize.value, top: pointerY - halfPetSize.value }
   // ponytail: 进入拖拽说一句（开关开则 AI 现编，否则静态）
   petStore.sayCategory('dragStart')
@@ -326,7 +409,8 @@ const enterDragging = () => {
 const pointerMove = (e: MouseEvent | TouchEvent) => {
   const x = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX
   const y = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY
-  const previousX = pointerX
+  const stepX = x - pointerX
+  const stepY = y - pointerY
   pointerX = x
   pointerY = y
   if (!dragging.value && pressTimer) {
@@ -336,7 +420,7 @@ const pointerMove = (e: MouseEvent | TouchEvent) => {
     return
   }
   if (dragging.value) {
-    if (x !== previousX) draggingAction.value = x < previousX ? 'walk-left' : 'walk-right'
+    updateDraggingAction(x - downX, y - downY, stepX, stepY)
     e.preventDefault()
     if (moveRaf === null) {
       moveRaf = requestAnimationFrame(() => {
@@ -371,6 +455,9 @@ const pointerUp = () => {
     // 松手按 x 吸附：左半屏→左下，右半屏→右下；吸附即切换抽屉方向
     emit('update:placement', pointerX < window.innerWidth / 2 ? 'left' : 'right')
     draggingAction.value = null
+    draggingMode = null
+    reverseDragDistance = 0
+    petRunFacing.value = 1
     dragging.value = false
     pos.value = null
     // ponytail: 拖拽松手吸附后说一句（开关开则 AI 现编，否则静态）
@@ -393,12 +480,16 @@ const onDown = (e: MouseEvent | TouchEvent) => {
   pointerY = y
   downX = x
   downY = y
+  draggingMode = null
+  reverseDragDistance = 0
+  petRunFacing.value = 1
   document.body.style.userSelect = 'none'
   document.addEventListener('mousemove', pointerMove)
   document.addEventListener('mouseup', pointerUp)
   document.addEventListener('touchmove', pointerMove, { passive: false })
   document.addEventListener('touchend', pointerUp)
   pressTimer = setTimeout(() => {
+    pressTimer = null
     enterDragging()
   }, DRAG_DELAY)
 }
@@ -442,6 +533,7 @@ onBeforeUnmount(() => {
   position: relative;
   width: var(--pet-size, 64px);
   height: var(--pet-size, 64px);
+  overflow: visible;
   border: none;
   cursor: pointer;
   display: flex;
@@ -463,7 +555,22 @@ onBeforeUnmount(() => {
 .desktop-pet__anim {
   width: 100%;
   height: 100%;
+  overflow: visible;
   pointer-events: none; /* 不挡按钮点击/拖拽 */
+  transform: scale(var(--pet-visual-scale, 1));
+  transform-origin: center;
+}
+.desktop-pet__anim :deep(svg) {
+  /* Lottie 默认把超出合成画布的星星/动作残影裁掉。 */
+  overflow: visible !important;
+}
+.desktop-pet__anim.has-open-canvas :deep([clip-path]) {
+  /* V仔没有业务蒙版；解除两个 256×256 预合成裁切框，让动作元素完整越界显示。 */
+  clip-path: none !important;
+}
+.desktop-pet__anim.is-flipped,
+.desktop-pet__img.is-flipped {
+  transform: scaleX(-1) scale(var(--pet-visual-scale, 1));
 }
 .desktop-pet__img {
   width: 100%;
@@ -471,12 +578,18 @@ onBeforeUnmount(() => {
   object-fit: contain;
   pointer-events: none;
   user-select: none;
+  transform: scale(var(--pet-visual-scale, 1));
+  transform-origin: center;
 }
 
 /* 气泡 */
 .desktop-pet__bubble {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 8px);
+  transform: translateY(-50%);
+  width: max-content;
   max-width: 180px;
-  margin-right: 8px;
   padding: 8px 12px;
   border-radius: 12px;
   background: #fff;
@@ -486,12 +599,11 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   user-select: none;
-  /* 小尾巴朝向桌宠（默认气泡在左，尾巴在右） */
-  position: relative;
+  /* 脱离 flex，避免气泡宽度把拖拽中的桌宠推离鼠标。 */
 }
 .desktop-pet__bubble.is-left {
-  margin-right: 0;
-  margin-left: 8px;
+  right: auto;
+  left: calc(100% + 8px);
 }
 /* 深色（默认 :root）下气泡深底浅字 */
 :root .desktop-pet__bubble {
@@ -552,6 +664,6 @@ onBeforeUnmount(() => {
 .pet-bubble-enter-from,
 .pet-bubble-leave-to {
   opacity: 0;
-  transform: translateY(4px) scale(0.95);
+  transform: translateY(calc(-50% + 4px)) scale(0.95);
 }
 </style>
