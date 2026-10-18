@@ -13,6 +13,7 @@
       @interview-prep="showInterviewModal = true"
       @full-optimize="showFullOptimizeModal = true"
       @change-template="goToTemplates"
+      @sync-extension="showExtensionSyncModal = true"
       @save-title="saveTitle"
     />
 
@@ -122,6 +123,7 @@
       :config="aiConfigStore.activeConfig ?? null"
       @close="showInterviewModal = false"
     />
+    <ExtensionSyncModal v-if="showExtensionSyncModal" @close="showExtensionSyncModal = false" />
   </div>
 </template>
 
@@ -154,6 +156,7 @@ const ResumeEvaluationModal = defineAsyncComponent(() => import('@/components/ai
 const JDScanModal = defineAsyncComponent(() => import('@/components/ai/JDScanModal.vue'))
 const FullResumeOptimizeModal = defineAsyncComponent(() => import('@/components/ai/FullResumeOptimizeModal.vue'))
 const InterviewPrepModal = defineAsyncComponent(() => import('@/components/ai/InterviewPrepModal.vue'))
+const ExtensionSyncModal = defineAsyncComponent(() => import('@/components/editor/ExtensionSyncModal.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -168,6 +171,7 @@ const showEvalModal = ref(false)
 const showJDScanModal = ref(false)
 const showFullOptimizeModal = ref(false)
 const showInterviewModal = ref(false)
+const showExtensionSyncModal = ref(false)
 const isReady = ref(false)
 // ponytail: 预览区延迟一帧渲染，让导航+编辑区先绘制（降低 INP）
 const previewReady = ref(false)

@@ -2,6 +2,8 @@ import type { ChatMessage } from '@/services/aiService'
 
 /** 咨询消息类型，扩展自 ChatMessage 以支持 UI 区分与简历注入追踪 */
 export interface ConsultMessage extends ChatMessage {
+  /** 原始模型回复与自动续写消息；展示仍使用合并后的 content。 */
+  apiMessages?: ChatMessage[]
   /**
    * 消息种类，用于 UI 区分：
    * - 'resume-context'：用户注入的简历上下文消息（与提问一起发送）

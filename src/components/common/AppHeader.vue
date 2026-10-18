@@ -63,6 +63,10 @@
           <Icon icon="mdi:view-grid-outline" :width="16" />
           <span class="header-btn__text">更换模板</span>
         </button>
+        <button v-if="!isElectron" class="header-btn header-btn--extension" aria-label="同步到插件" @click="emit('sync-extension')">
+          <Icon icon="mdi:puzzle-outline" :width="16" />
+          <span class="header-btn__text">同步到插件</span>
+        </button>
         <n-dropdown :options="exportOptions" placement="bottom-end" @select="onExportSelect" @update:show="v => exportOpen = v">
           <button class="header-btn header-btn--export" aria-haspopup="true" :aria-expanded="exportOpen" aria-label="导出简历">
             <Icon icon="mdi:download" :width="16" />
@@ -105,6 +109,7 @@ import { getTemplate } from '@/config/templates'
 import { useTheme } from '@/composables/useTheme'
 import type { ThemeMode } from '@/composables/useTheme'
 import { useEasterEggSound } from '@/composables/useEasterEggSound'
+import { isElectron } from '@/utils/runtime'
 
 defineProps<{
   /** 是否显示编辑模式中间区域（简历名称输入框 + 模板标签） */
@@ -123,6 +128,7 @@ const emit = defineEmits<{
   'full-optimize': []
   'interview-prep': []
   'change-template': []
+  'sync-extension': []
   'save-title': []
 }>()
 
@@ -500,7 +506,8 @@ const onExportSelect = (key: string) => {
   }
 
   &--scan,
-  &--template {
+  &--template,
+  &--extension {
     background: transparent;
     color: $primary-color;
     border: 1px solid $primary-color;

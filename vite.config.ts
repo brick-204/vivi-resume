@@ -85,7 +85,7 @@ export default defineConfig({
       '/api/ai/openai': sseProxy('https://api.openai.com', '/api/ai/openai'),
       '/api/ai/zhipu': sseProxy('https://open.bigmodel.cn', '/api/ai/zhipu'),
       '/api/ai/qwen': sseProxy('https://dashscope.aliyuncs.com', '/api/ai/qwen'),
-      '/api/ai/minimax': sseProxy('https://api.minimax.chat', '/api/ai/minimax'),
+      '/api/ai/minimax': sseProxy('https://api.minimax.cn', '/api/ai/minimax'),
       '/api/ai/baichuan': sseProxy('https://api.baichuan-ai.com', '/api/ai/baichuan'),
       '/api/ai/yi': sseProxy('https://api.lingyiwanwu.com', '/api/ai/yi'),
       // 自定义服务代理 — 用于 dev 下调用不开放 CORS 的服务（如 ai2.e-xy.com）

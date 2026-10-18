@@ -1,4 +1,4 @@
-import { _getRequestUrl, htmlToPlainText, plainTextToHtml, _findOverlapLength, _cleanSplicePoint } from '@/services/aiService'
+import { _getRequestUrl, streamChat, htmlToPlainText, plainTextToHtml, _findOverlapLength, _cleanSplicePoint } from '@/services/aiService'
 import type { AIServiceConfig } from '@/types/aiConfig'
 
 function makeConfig(endpoint: string): AIServiceConfig {
@@ -15,6 +15,86 @@ function makeConfig(endpoint: string): AIServiceConfig {
 }
 
 describe('aiService', () => {
+  it.each([
+    ['openai', 'gpt-6.1-sol', 'max_completion_tokens'],
+    ['openrouter', 'openai/gpt-6.1-sol', 'max_completion_tokens'],
+    ['moonshot', 'kimi-k3', 'max_completion_tokens'],
+    ['custom', 'gpt-6.1-sol', 'max_completion_tokens'],
+    ['openrouter', 'moonshotai/kimi-k3', 'max_completion_tokens'],
+    ['deepseek', 'deepseek-flash', 'max_tokens'],
+  ])('uses compatible request parameters for %s', async (provider, modelId, tokenField) => {
+    const config = makeConfig('https://api.example.com/v1')
+    config.provider = provider as AIServiceConfig['provider']
+    config.modelId = modelId
+    const fetchMock = vi.fn().mockResolvedValue(new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\n'))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await streamChat(config, [{ role: 'user', content: 'test' }], () => {}, { maxTokens: 100 })
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+      expect(body[tokenField]).toBe(100)
+      expect(body.temperature).toBe(tokenField === 'max_tokens' ? 0.7 : undefined)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('Kimi 续写与下一轮对话保留原始正文和推理分段，尾帧没有换行也不丢失', async () => {
+    const config = { ...makeConfig('https://api.example.com/v1'), modelId: 'kimi-k3' }
+    const frame = (delta: object, finish_reason: string | null = null) => `data: ${JSON.stringify({ choices: [{ delta, finish_reason }] })}`
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(`${frame({ reasoning_content: '思考一' })}\n${frame({ content: '第一段' }, 'length')}\n\n`))
+      .mockResolvedValueOnce(new Response(`${frame({ content: '第二段' })}\n${frame({ reasoning_content: '思考二' }, 'stop')}`))
+      .mockResolvedValueOnce(new Response(`${frame({ reasoning_content: '思考三', content: '回答' }, 'stop')}\n\n`))
+    vi.stubGlobal('fetch', fetchMock)
+    const onChunk = vi.fn()
+    try {
+      const initial = [{ role: 'user' as const, content: '介绍项目' }]
+      const result = await streamChat(config, initial, onChunk, { continuationPrompt: '继续' })
+      const expected = [
+        { role: 'assistant', content: '第一段', reasoning_content: '思考一' },
+        { role: 'user', content: '继续' },
+        { role: 'assistant', content: '第二段', reasoning_content: '思考二' },
+      ]
+      expect(result.finalText).toBe('第一段第二段')
+      expect(result.responseMessages).toEqual(expected)
+      expect(onChunk.mock.calls.flat()).toEqual(['第一段', '第二段'])
+      expect(JSON.parse(fetchMock.mock.calls[1][1].body).messages).toEqual([...initial, ...expected.slice(0, 2)])
+      const followup = [...initial, ...result.responseMessages!, { role: 'user' as const, content: '再解释' }]
+      await streamChat(config, followup, () => {})
+      expect(JSON.parse(fetchMock.mock.calls[2][1].body).messages).toEqual(followup)
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('更换到其他模型时不发送 Kimi 的推理字段', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\n'))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const result = await streamChat(makeConfig('https://api.example.com/v1'), [
+        { role: 'assistant', content: '正文', reasoning_content: '不适用于此模型的推理' },
+        { role: 'user', content: '继续' },
+      ], () => {})
+      expect(JSON.parse(fetchMock.mock.calls[0][1].body).messages[0]).toEqual({ role: 'assistant', content: '正文' })
+      expect(result.responseMessages).toBeUndefined()
+    } finally { vi.unstubAllGlobals() }
+  })
+
+  it('Kimi 流中途取消时返回已收到的正文和推理，以便下一轮继续', async () => {
+    const reader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({ done: false, value: new TextEncoder().encode('data: {"choices":[{"delta":{"reasoning_content":"部分推理","content":"部分正文"}}]}\n\n') })
+        .mockRejectedValueOnce(new DOMException('Aborted', 'AbortError')),
+      releaseLock: vi.fn(),
+    }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, body: { getReader: () => reader } }))
+    try {
+      const result = await streamChat({ ...makeConfig('https://api.example.com/v1'), modelId: 'kimi-k3' }, [{ role: 'user', content: '介绍项目' }], () => {})
+      expect(result.wasTruncated).toBe(true)
+      expect(result.finalText).toBe('部分正文')
+      expect(result.responseMessages).toEqual([{ role: 'assistant', content: '部分正文', reasoning_content: '部分推理' }])
+      expect(reader.releaseLock).toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals() }
+  })
+
   describe('_getRequestUrl', () => {
     it('endpoint without /v1 — auto appends /v1', () => {
       const url = _getRequestUrl(makeConfig('https://api.example.com'))

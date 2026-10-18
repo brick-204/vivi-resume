@@ -149,6 +149,7 @@ export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   /** 纯文本用 string；多模态（图片）用 ContentPart[] 数组 */
   content: string | ContentPart[]
+  reasoning_content?: string
 }
 
 /** streamChat 返回结果 */
@@ -157,6 +158,8 @@ export interface StreamChatResult {
   wasTruncated: boolean
   /** 清洗后的完整文本（包含拼接验证修正），调用方应优先使用此文本而非 onChunk 累积的原始文本 */
   finalText: string
+  /** Kimi K3 的原始回复及续写消息，供下一轮原样回传；不用于界面渲染。 */
+  responseMessages?: ChatMessage[]
 }
 
 // ========== 续写拼接验证 ==========
@@ -310,7 +313,13 @@ async function streamChatImpl(
 ): Promise<StreamChatResult> {
   const { signal, onConnected, onUsage, maxTokens, continuationPrompt, validateSplice } = options
   const MAX_CONTINUATIONS = 3          // 最大续写次数，防止无限循环
-  const conversationMessages: ChatMessage[] = [...messages]
+  const preservesReasoning = /(?:^|\/)kimi-k3$/.test(config.modelId)
+  const usesCompletionTokens = preservesReasoning || /(?:^|\/)gpt-6\.1-sol$/.test(config.modelId)
+  const responseMessages: ChatMessage[] = []
+  const conversationMessages: ChatMessage[] = messages.map(({ role, content, reasoning_content }) => ({
+    role, content,
+    ...(preservesReasoning && reasoning_content !== undefined ? { reasoning_content } : {}),
+  }))
   let accumulatedText = ''              // 跨续写累积的完整文本
   let preContinuationLength = 0        // 续写前的 accumulatedText 长度（供拼接验证使用）
   let hasConnected = false              // onConnected 仅首次触发
@@ -337,15 +346,18 @@ async function streamChatImpl(
           messages: conversationMessages,
           stream: true,
           stream_options: { include_usage: true },  // 请求流式 usage（OpenAI 及多数兼容服务商支持）
-          temperature: 0.7,
-          ...(maxTokens ? { max_tokens: maxTokens } : {}),
+          ...(usesCompletionTokens ? {} : { temperature: 0.7 }),
+          ...(maxTokens ? { [usesCompletionTokens ? 'max_completion_tokens' : 'max_tokens']: maxTokens } : {}),
           // ponytail: dev 模式提醒 extraBody 覆盖核心字段，避免未来调用方误传 messages/model/stream 难以排查
           ...(__extraBodySafe(options.extraBody)),
         }),
         signal,
       })
     } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') return { wasTruncated: false, finalText: accumulatedText }
+      if (err instanceof DOMException && err.name === 'AbortError') return {
+        wasTruncated: false, finalText: accumulatedText,
+        ...(preservesReasoning ? { responseMessages } : {}),
+      }
       if (err instanceof TypeError) {
         announceAIError('cors')
         throw new AIServiceError('网络请求被阻止，可能是 CORS 限制或网络不可达', 'cors')
@@ -388,6 +400,8 @@ async function streamChatImpl(
     const decoder = new TextDecoder()
     let buffer = ''
     let finishReason: string | null = null
+    let responseText = ''
+    let responseReasoning = ''
     const MAX_BUFFER_SIZE = 1024 * 1024
     let totalBufferedSize = 0
 
@@ -416,7 +430,11 @@ async function streamChatImpl(
               const parsed = JSON.parse(jsonStr)
               const choice = parsed?.choices?.[0]
               const content = choice?.delta?.content
+              if (preservesReasoning && typeof choice?.delta?.reasoning_content === 'string') {
+                responseReasoning += choice.delta.reasoning_content
+              }
               if (content) {
+                responseText += content
                 accumulatedText += content
                 onChunk(content)
                 if (!hasConnected) {
@@ -449,7 +467,11 @@ async function streamChatImpl(
           try {
             const parsed = JSON.parse(jsonStr)
             const choice = parsed?.choices?.[0]
+            if (preservesReasoning && typeof choice?.delta?.reasoning_content === 'string') {
+              responseReasoning += choice.delta.reasoning_content
+            }
             if (choice?.delta?.content) {
+              responseText += choice.delta.content
               accumulatedText += choice.delta.content
               onChunk(choice.delta.content)
             }
@@ -459,9 +481,23 @@ async function streamChatImpl(
           } catch { /* skip */ }
         }
       }
+    } catch (err) {
+      // Kimi 中途取消后仍需保存已收到的原始消息，供下一轮回传。
+      if (!preservesReasoning || !(err instanceof DOMException) || err.name !== 'AbortError') throw err
+      wasTruncated = true
     } finally {
       reader.releaseLock()
     }
+
+    const assistantMessage: ChatMessage = {
+      role: 'assistant', content: responseText,
+      ...(preservesReasoning ? { reasoning_content: responseReasoning } : {}),
+    }
+    if (preservesReasoning) {
+      if (attempt > 0) responseMessages.push(conversationMessages[conversationMessages.length - 1])
+      responseMessages.push(assistantMessage)
+    }
+    if (wasTruncated) break
 
     // ---- 续写判定 ----
     if (finishReason !== 'length') break    // 正常结束（stop）或未知，直接退出
@@ -487,7 +523,7 @@ async function streamChatImpl(
     // 追加已生成的 assistant 回复 + 续写提示，对调用方透明
     const defaultContinuationPrompt = '请继续，从你中断的地方接着说，不要重复已经说过的内容。'
     conversationMessages.push(
-      { role: 'assistant', content: accumulatedText },
+      preservesReasoning ? assistantMessage : { role: 'assistant', content: accumulatedText },
       { role: 'user', content: continuationPrompt ?? defaultContinuationPrompt },
     )
 
@@ -516,7 +552,7 @@ async function streamChatImpl(
     }
   }
 
-  return { wasTruncated, finalText: accumulatedText }
+  return { wasTruncated, finalText: accumulatedText, ...(preservesReasoning ? { responseMessages } : {}) }
 }
 
 // ========== 便捷方法 ==========

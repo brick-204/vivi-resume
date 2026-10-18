@@ -434,7 +434,7 @@ export const useConsultStore = defineStore('consult', () => {
     const currentTurnSet = new Set(currentTurnMsgs)
     const historyMessages: ChatMessage[] = session.messages
       .filter(m => !currentTurnSet.has(m) && m.kind !== 'compress-notice')
-      .map(m => ({ role: m.role, content: m.content }))
+      .flatMap(m => m.apiMessages ?? [{ role: m.role, content: m.content }])
 
     const fullMessages = [...historyMessages, ...outgoing]
 
@@ -481,6 +481,7 @@ export const useConsultStore = defineStore('consult', () => {
           role: 'assistant',
           kind: 'assistant-answer',
           content: result.finalText,
+          ...(result.responseMessages ? { apiMessages: result.responseMessages } : {}),
           timestamp: Date.now(),
         })
         session.updatedAt = Date.now()

@@ -102,7 +102,7 @@ export function buildInterviewReviewMessages(input: InterviewReviewInput): ChatM
 
 /**
  * 把纯文本 user 文案 + 可选 JD 截图拼成 user content。
- * 无图：返回原 string（存量行为零变化，与 OCR 一致）。
+ * 无图：返回原 string（保持存量行为）。
  * 有图：返回 ContentPart[]——文本 part 追加图文引导句 + 每个 data URL 一个 image_url part。
  */
 function withJdImages(text: string, images: string[] | undefined, hint: string): string | ContentPart[] {
